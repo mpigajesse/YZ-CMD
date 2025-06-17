@@ -49,8 +49,61 @@ class SyncLog(models.Model):
     sheet_config = models.ForeignKey(GoogleSheetConfig, on_delete=models.CASCADE, related_name='sync_logs')
     triggered_by = models.CharField(max_length=100, verbose_name="Déclenché par")
     
+    # Nouveaux champs pour les détails d'exécution
+    start_time = models.DateTimeField(null=True, blank=True, verbose_name="Heure de début")
+    end_time = models.DateTimeField(null=True, blank=True, verbose_name="Heure de fin")
+    total_rows = models.IntegerField(null=True, blank=True, verbose_name="Total lignes dans la feuille")
+    processed_rows = models.IntegerField(null=True, blank=True, verbose_name="Lignes traitées")
+    skipped_rows = models.IntegerField(null=True, blank=True, verbose_name="Lignes ignorées")
+    sheet_title = models.CharField(max_length=200, null=True, blank=True, verbose_name="Titre de la feuille")
+    execution_details = models.JSONField(null=True, blank=True, verbose_name="Détails d'exécution")
+    
     def __str__(self):
         return f"Synchronisation du {self.sync_date.strftime('%d/%m/%Y %H:%M')} - {self.get_status_display()}"
+    
+    @property
+    def duration(self):
+        """Calcule la durée de la synchronisation"""
+        if self.start_time and self.end_time:
+            delta = self.end_time - self.start_time
+            return delta.total_seconds()
+        return None
+    
+    @property
+    def duration_formatted(self):
+        """Retourne la durée formatée"""
+        duration = self.duration
+        if duration is None:
+            return "Non calculée"
+        
+        if duration < 60:
+            return f"{duration:.1f}s"
+        elif duration < 3600:
+            minutes = duration // 60
+            seconds = duration % 60
+            return f"{int(minutes)}m {seconds:.0f}s"
+        else:
+            hours = duration // 3600
+            minutes = (duration % 3600) // 60
+            return f"{int(hours)}h {int(minutes)}m"
+    
+    @property
+    def processing_speed(self):
+        """Calcule la vitesse de traitement en lignes par seconde"""
+        if self.duration and self.duration > 0 and self.processed_rows:
+            return self.processed_rows / self.duration
+        return 0
+    
+    @property
+    def processing_speed_formatted(self):
+        """Retourne la vitesse de traitement formatée"""
+        speed = self.processing_speed
+        if speed == 0:
+            return "Non calculée"
+        elif speed < 1:
+            return f"{speed:.2f} lignes/s"
+        else:
+            return f"{speed:.1f} lignes/s"
     
     class Meta:
         verbose_name = "Log de synchronisation"

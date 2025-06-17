@@ -22,6 +22,15 @@ class GoogleSheetSync:
         self.records_imported = 0
         self.errors = []
         
+        # Nouveaux attributs pour les détails d'exécution
+        self.start_time = None
+        self.end_time = None
+        self.total_rows = 0
+        self.processed_rows = 0
+        self.skipped_rows = 0
+        self.sheet_title = ""
+        self.execution_details = {}
+        
     def authenticate(self):
         """Authentification avec l'API Google Sheets"""
         try:
@@ -511,27 +520,45 @@ class GoogleSheetSync:
     
     def sync(self):
         """Synchronise les données depuis Google Sheets"""
+        # Marquer le début de la synchronisation
+        self.start_time = timezone.now()
+        self.execution_details['started_at'] = self.start_time.isoformat()
+        
         client = self.authenticate()
         if not client:
+            self.end_time = timezone.now()
             self._log_sync('error')
             return False
             
         worksheet = self.get_sheet(client)
         if not worksheet:
+            self.end_time = timezone.now()
             self._log_sync('error')
             return False
             
         try:
+            # Enregistrer les informations de la feuille
+            self.sheet_title = worksheet.spreadsheet.title
+            self.execution_details['spreadsheet_title'] = worksheet.spreadsheet.title
+            self.execution_details['worksheet_name'] = worksheet.title
+            
             # Récupérer toutes les données
             all_data = worksheet.get_all_values()
             if not all_data:
                 self.errors.append("Aucune donnée trouvée dans la feuille")
+                self.end_time = timezone.now()
                 self._log_sync('error')
                 return False
                 
             # Extraire les en-têtes et les données
             headers = all_data[0]
             rows = all_data[1:]
+            
+            # Enregistrer les statistiques
+            self.total_rows = len(all_data)
+            self.execution_details['headers'] = headers
+            self.execution_details['total_rows'] = len(all_data)
+            self.execution_details['data_rows'] = len(rows)
             
             print(f"📊 Synchronisation démarrée - Total lignes à traiter : {len(rows)}")
             print(f"🔤 En-têtes détectés : {headers}")
@@ -541,6 +568,7 @@ class GoogleSheetSync:
                 # Vérifier si la ligne est vide
                 if not any(cell.strip() for cell in row if cell):
                     print(f"⚠️  Ligne {i} ignorée : ligne complètement vide")
+                    self.skipped_rows += 1
                     continue
                     
                 if len(row) == len(headers):  # Vérifier que la ligne a le bon nombre de colonnes
@@ -548,12 +576,30 @@ class GoogleSheetSync:
                     success = self.process_row(row, headers)
                     if success:
                         print(f"✅ Ligne {i} traitée avec succès")
+                        self.processed_rows += 1
                     else:
                         print(f"❌ Échec traitement ligne {i}")
+                        self.skipped_rows += 1
                 else:
                     error_msg = f"Ligne {i} ignorée: nombre de colonnes incorrect ({len(row)} vs {len(headers)})"
                     print(f"⚠️  {error_msg}")
                     self.errors.append(error_msg)
+                    self.skipped_rows += 1
+            
+            # Marquer la fin de la synchronisation
+            self.end_time = timezone.now()
+            
+            # Calculer les statistiques finales
+            duration = (self.end_time - self.start_time).total_seconds()
+            self.execution_details.update({
+                'finished_at': self.end_time.isoformat(),
+                'duration_seconds': duration,
+                'processed_rows': self.processed_rows,
+                'skipped_rows': self.skipped_rows,
+                'records_imported': self.records_imported,
+                'success_rate': (self.processed_rows / len(rows) * 100) if rows else 0,
+                'errors_count': len(self.errors)
+            })
             
             # Déterminer le statut final
             if self.errors:
@@ -565,6 +611,7 @@ class GoogleSheetSync:
             return status == 'success' or status == 'partial'
             
         except Exception as e:
+            self.end_time = timezone.now()
             self.errors.append(f"Erreur de synchronisation: {str(e)}")
             self._log_sync('error')
             return False
@@ -576,7 +623,16 @@ class GoogleSheetSync:
             records_imported=self.records_imported,
             errors='\n'.join(self.errors) if self.errors else None,
             sheet_config=self.sheet_config,
-            triggered_by=self.triggered_by
+            triggered_by=self.triggered_by,
+            
+            # Nouveaux champs détaillés
+            start_time=self.start_time,
+            end_time=self.end_time,
+            total_rows=self.total_rows,
+            processed_rows=self.processed_rows,
+            skipped_rows=self.skipped_rows,
+            sheet_title=self.sheet_title,
+            execution_details=self.execution_details
         )
 
 # --- Configuration for Google Sheets API ---
