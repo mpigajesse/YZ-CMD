@@ -1,0 +1,227 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Modifier Commande - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-edit mr-3" style="color: var(--admin-accent-color);"></i>
+                Modifier Commande: {{ commande.id_yz }}
+            </h1>
+            <p style="color: var(--admin-accent-color);">Mettez à jour les informations de cette commande.</p>
+        </div>
+        <a href="{% url 'commande:detail' commande.pk %}" class="mt-4 md:mt-0 inline-flex items-center text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+            <i class="fas fa-arrow-left mr-2"></i>Retour aux détails
+        </a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-8" style="border-color: var(--admin-accent-color);">
+        <form method="post" id="commandeForm">
+            {% csrf_token %}
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- ID YZ (lecture seule) -->
+                <div>
+                    <label for="id_yz" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">ID YZ:</label>
+                    <input type="text" name="id_yz" id="id_yz" value="{{ commande.id_yz }}" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" readonly>
+                </div>
+                <!-- Numéro de commande externe (lecture seule) -->
+                <div>
+                    <label for="num_cmd" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">N° Externe:</label>
+                    <input type="text" name="num_cmd" id="num_cmd" value="{{ commande.num_cmd }}" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" readonly>
+                </div>
+                <!-- Date de commande -->
+                <div>
+                    <label for="date_cmd" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Date de commande:</label>
+                    <input type="date" name="date_cmd" id="date_cmd" value="{{ commande.date_cmd|date:"Y-m-d" }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200" required>
+                </div>
+                <!-- Client -->
+                <div>
+                    <label for="client" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Client:</label>
+                    <select name="client" id="client" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200" required>
+                        <option value="">Sélectionner un client</option>
+                        {% for client in clients %}
+                            <option value="{{ client.pk }}" {% if client.pk == commande.client.pk %}selected{% endif %}>{{ client.get_full_name }} ({{ client.telephone }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Ville -->
+                <div>
+                    <label for="ville" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Ville de livraison:</label>
+                    <select name="ville" id="ville" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200" required>
+                        <option value="">Sélectionner une ville</option>
+                        {% for ville in villes %}
+                            <option value="{{ ville.pk }}" {% if commande.ville and ville.pk == commande.ville.pk %}selected{% endif %}>{{ ville.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- État de la commande -->
+                <div>
+                    <label for="etat" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">État de la commande:</label>
+                    <select name="etat" id="etat" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200">
+                        <option value="">Garder l'état actuel</option>
+                        {% for etat in etats_disponibles %}
+                            <option value="{{ etat.pk }}" style="color: {{ etat.couleur }};">{{ etat.libelle }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-sm text-gray-600 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        État actuel: 
+                        {% if commande.etat_actuel %}
+                            <span class="font-medium" style="color: {{ commande.etat_actuel.enum_etat.couleur }};">{{ commande.etat_actuel.enum_etat.libelle }}</span>
+                        {% else %}
+                            <span class="text-gray-500">Aucun état</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Adresse -->
+            <div class="mb-6">
+                <label for="adresse" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Adresse de livraison:</label>
+                <textarea name="adresse" id="adresse" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200" required>{{ commande.adresse }}</textarea>
+            </div>
+
+            <!-- Articles du Panier -->
+            <h3 class="text-xl font-bold mb-4 border-b pb-2" style="color: var(--admin-color); border-color: var(--admin-accent-color);">Articles du Panier</h3>
+            <div id="cartItemsContainer" class="space-y-4 mb-6">
+                <!-- Les articles seront ajoutés ici par JavaScript -->
+            </div>
+            <button type="button" id="addArticleBtn" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors shadow-md">
+                <i class="fas fa-plus mr-2"></i> Ajouter un article
+            </button>
+
+            <!-- Total et autres options -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 mb-6 pt-4 border-t" style="border-color: var(--admin-accent-color);">
+                <div class="flex items-center">
+                    <input type="checkbox" name="is_upsell" id="is_upsell" class="h-5 w-5 text-[var(--admin-color)] rounded focus:ring-2 focus:ring-[var(--admin-accent-color)]" {% if commande.is_upsell %}checked{% endif %}>
+                    <label for="is_upsell" class="ml-2 text-sm font-semibold" style="color: var(--admin-color);">Commande Upsell</label>
+                </div>
+                <div class="md:col-span-2">
+                    <label for="total_cmd" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Total Commande (DH):</label>
+                    <input type="number" name="total_cmd" id="total_cmd" step="0.01" min="0" value="{{ commande.total_cmd|floatformat:2 }}" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" readonly required>
+                </div>
+            </div>
+
+            <button type="submit" class="px-6 py-3 text-white rounded-lg font-semibold transition-colors shadow-md" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+                <i class="fas fa-save mr-2"></i> Enregistrer les modifications
+            </button>
+        </form>
+    </div>
+</div>
+
+<script type="application/json" id="articles_data">
+    {{ articles_json|safe }}
+</script>
+<script type="application/json" id="paniers_data">
+    {{ paniers_json|safe }}
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addArticleBtn = document.getElementById('addArticleBtn');
+        const cartItemsContainer = document.getElementById('cartItemsContainer');
+        const articles = JSON.parse(document.getElementById('articles_data').textContent);
+        const totalCmdInput = document.getElementById('total_cmd');
+
+        let articleCounter = 0;
+
+        function calculateTotal() {
+            let total = 0;
+            document.querySelectorAll('.sous-total-article').forEach(input => {
+                total += parseFloat(input.value) || 0;
+            });
+            totalCmdInput.value = total.toFixed(2);
+        }
+
+        function addArticleRow(articleData = null) {
+            const div = document.createElement('div');
+            div.classList.add('flex', 'flex-col', 'md:flex-row', 'gap-4', 'bg-gray-50', 'p-4', 'rounded-lg', 'border', 'border-gray-200');
+            div.innerHTML = `
+                <div class="flex-grow">
+                    <label for="article_${articleCounter}" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Article:</label>
+                    <select name="article_${articleCounter}" id="article_${articleCounter}" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200 article-select" required>
+                        <option value="">Sélectionner un article</option>
+                        ${articles.map(article => `<option value="${article.pk}" data-prix="${article.fields.prix_unitaire}">${article.fields.nom} (${article.fields.reference}) - ${article.fields.prix_unitaire} DH</option>`).join('')}
+                    </select>
+                </div>
+                <div class="w-full md:w-auto">
+                    <label for="quantite_${articleCounter}" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Quantité:</label>
+                    <input type="number" name="quantite_${articleCounter}" id="quantite_${articleCounter}" min="1" value="${articleData ? articleData.quantite : 1}" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200 quantite-input" required>
+                </div>
+                <div class="w-full md:w-auto">
+                    <label for="sous_total_${articleCounter}" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Sous-total (DH):</label>
+                    <input type="number" name="sous_total_${articleCounter}" id="sous_total_${articleCounter}" step="0.01" min="0" class="w-full p-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed sous-total-article" readonly required value="${articleData ? articleData.sous_total : ''}">
+                </div>
+                <div class="flex items-end">
+                    <button type="button" class="remove-article-btn px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-md">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+
+            cartItemsContainer.appendChild(div);
+
+            const currentArticleSelect = document.getElementById(`article_${articleCounter}`);
+            const currentQuantiteInput = document.getElementById(`quantite_${articleCounter}`);
+            const currentSousTotalInput = document.getElementById(`sous_total_${articleCounter}`);
+            const removeBtn = div.querySelector('.remove-article-btn');
+
+            if (articleData && articleData.article_pk) {
+                currentArticleSelect.value = articleData.article_pk;
+            }
+
+            const updateSousTotal = () => {
+                const selectedArticleId = currentArticleSelect.value;
+                const quantite = parseFloat(currentQuantiteInput.value);
+                const selectedArticle = articles.find(art => art.pk == selectedArticleId);
+
+                if (selectedArticle && !isNaN(quantite) && quantite > 0) {
+                    const prixUnitaire = parseFloat(selectedArticle.fields.prix_unitaire);
+                    currentSousTotalInput.value = (prixUnitaire * quantite).toFixed(2);
+                } else {
+                    currentSousTotalInput.value = '0.00';
+                }
+                calculateTotal();
+            };
+
+            currentArticleSelect.addEventListener('change', updateSousTotal);
+            currentQuantiteInput.addEventListener('input', updateSousTotal);
+
+            removeBtn.addEventListener('click', () => {
+                div.remove();
+                calculateTotal();
+            });
+
+            // Initial calculation if data is provided (for modification scenario)
+            if (articleData) {
+                updateSousTotal();
+            }
+            
+            articleCounter++;
+        }
+
+        addArticleBtn.addEventListener('click', () => addArticleRow());
+
+        // Handle initial articles if any (for modification view)
+        const initialArticlesDataElement = document.getElementById('paniers_data');
+        if (initialArticlesDataElement) {
+            const initialArticles = JSON.parse(initialArticlesDataElement.textContent);
+            initialArticles.forEach(item => {
+                addArticleRow({
+                    article_pk: item.fields.article, // Access fields directly
+                    quantite: item.fields.quantite,
+                    sous_total: item.fields.sous_total
+                });
+            });
+        }
+        // No else block needed here as for modification, we only add rows if data exists.
+
+        // Initial total calculation
+        calculateTotal();
+    });
+</script>
+{% endblock content %} 

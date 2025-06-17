@@ -1,0 +1,61 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Changer Mot de Passe Administrateur - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-key mr-3" style="color: var(--admin-accent-color);"></i>
+                Changer Mon Mot de Passe
+            </h1>
+            <p style="color: var(--admin-accent-color);">Mettez à jour votre mot de passe pour plus de sécurité.</p>
+        </div>
+        <a href="{% url 'app_admin:profile' %}" class="mt-4 md:mt-0 inline-flex items-center text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+            <i class="fas fa-arrow-left mr-2"></i>Retour au profil
+        </a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-8" style="border-color: var(--admin-accent-color);">
+        <form method="post">
+            {% csrf_token %}
+            
+            {% if form.errors %}
+                <div class="mb-4 p-3 bg-red-100 text-red-800 rounded-md flex items-center">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    <ul class="list-none p-0 m-0">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            <div class="mb-4">
+                <label for="id_old_password" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Ancien mot de passe:</label>
+                <input type="password" name="old_password" id="id_old_password" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200" required>
+            </div>
+            <div class="mb-4">
+                <label for="id_new_password1" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Nouveau mot de passe:</label>
+                <input type="password" name="new_password1" id="id_new_password1" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200" required>
+                <p class="text-xs text-gray-500 mt-1">Votre mot de passe ne peut pas être trop similaire à vos autres informations personnelles.<br>Votre mot de passe doit contenir au moins 8 caractères.<br>Votre mot de passe ne peut pas être un mot de passe couramment utilisé.<br>Votre mot de passe ne peut pas être entièrement numérique.</p>
+            </div>
+            <div class="mb-4">
+                <label for="id_new_password2" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Confirmer le nouveau mot de passe:</label>
+                <input type="password" name="new_password2" id="id_new_password2" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200" required>
+            </div>
+
+            <button type="submit" class="px-6 py-3 text-white rounded-lg font-semibold transition-colors shadow-md" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+                <i class="fas fa-save mr-2"></i> Changer le mot de passe
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock content %} 

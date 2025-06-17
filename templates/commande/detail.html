@@ -1,0 +1,226 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Détail Commande: {{ commande.id_yz }} - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-shopping-cart mr-3" style="color: var(--admin-accent-color);"></i>
+                Détail de la Commande: {{ commande.id_yz }}
+            </h1>
+            <p style="color: var(--admin-accent-color);">Consultez les informations détaillées de cette commande.</p>
+        </div>
+        <a href="{% url 'commande:liste' %}" class="mt-4 md:mt-0 inline-flex items-center text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+            <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
+        </a>
+    </div>
+
+    <!-- Informations de la commande -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-8" style="border-color: var(--admin-accent-color);">
+        <h3 class="text-xl font-bold mb-4 border-b pb-2" style="color: var(--admin-color); border-color: var(--admin-accent-color);">Informations Générales</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mb-6">
+            <div class="flex items-center text-lg">
+                <i class="fas fa-hashtag w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">ID YZ:</strong>
+                <span class="ml-2 text-gray-700">{{ commande.id_yz }}</span>
+            </div>
+            {% if commande.num_cmd != commande.id_yz %}
+            <div class="flex items-center text-lg">
+                <i class="fas fa-barcode w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">N° Externe:</strong>
+                <span class="ml-2 text-gray-700">{{ commande.num_cmd }}</span>
+            </div>
+            {% endif %}
+            <div class="flex items-center text-lg">
+                <i class="fas fa-calendar-alt w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">Date de commande:</strong>
+                <span class="ml-2 text-gray-700">{{ commande.date_cmd|date:"d/m/Y" }}</span>
+            </div>
+            <div class="flex items-center text-lg">
+                <i class="fas fa-money-bill-wave w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">Total Commande:</strong>
+                <span class="ml-2 text-gray-700">{{ commande.total_cmd|floatformat:2 }} DH</span>
+            </div>
+            <div class="flex items-center text-lg">
+                <i class="fas fa-info-circle w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">État Actuel:</strong>
+                <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                {% if commande.etat_actuel %}
+                    {% if commande.etat_actuel.enum_etat.libelle == 'Confirmée' %} bg-green-100 text-green-800
+                    {% elif commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %} bg-yellow-100 text-yellow-800
+                    {% else %} bg-gray-100 text-gray-800
+                    {% endif %}
+                {% else %} bg-red-100 text-red-800
+                {% endif %}">
+                {% if commande.etat_actuel %}
+                    {{ commande.etat_actuel.enum_etat.libelle }}
+                {% else %}
+                    Aucun état
+                {% endif %}
+                </span>
+            </div>
+            <div class="flex items-center text-lg">
+                <i class="fas fa-hand-holding-usd w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">Commande Upsell:</strong>
+                <span class="ml-2 text-gray-700">{% if commande.is_upsell %}Oui{% else %}Non{% endif %}</span>
+            </div>
+        </div>
+
+        <h3 class="text-xl font-bold mb-4 border-b pb-2 mt-8" style="color: var(--admin-color); border-color: var(--admin-accent-color);">Détails du Client</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mb-6">
+            <div class="flex items-center text-lg">
+                <i class="fas fa-user w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">Nom Complet:</strong>
+                <span class="ml-2 text-gray-700">{{ commande.client.get_full_name }}</span>
+            </div>
+            <div class="flex items-center text-lg">
+                <i class="fas fa-phone w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">Téléphone:</strong>
+                <span class="ml-2 text-gray-700">{{ commande.client.telephone|default:"N/A" }}</span>
+            </div>
+            <div class="flex items-center text-lg">
+                <i class="fas fa-envelope w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">Email:</strong>
+                <span class="ml-2 text-gray-700">{{ commande.client.mail|default:"N/A" }}</span>
+            </div>
+        </div>
+
+        <h3 class="text-xl font-bold mb-4 border-b pb-2 mt-8" style="color: var(--admin-color); border-color: var(--admin-accent-color);">Adresse de Livraison</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mb-6">
+            <div class="flex items-center text-lg">
+                <i class="fas fa-city w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">Ville:</strong>
+                <span class="ml-2 text-gray-700">{{ commande.ville.nom }}</span>
+            </div>
+            <div class="flex items-center text-lg md:col-span-2">
+                <i class="fas fa-map-marker-alt w-6 text-center mr-3" style="color: var(--admin-gradient-end);"></i>
+                <strong style="color: var(--admin-color);">Adresse Complète:</strong>
+                <span class="ml-2 text-gray-700">{{ commande.adresse }}</span>
+            </div>
+        </div>
+
+        <h3 id="panier" class="text-xl font-bold mb-4 border-b pb-2 mt-8" style="color: var(--admin-color); border-color: var(--admin-accent-color);">Articles Commandés (Panier)</h3>
+        {% if paniers %}
+            <div class="overflow-x-auto mb-6">
+                <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-3 text-left text-sm font-semibold border-b border-r" style="color: var(--admin-color); border-color: var(--admin-light-accent);">Article</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold border-b border-r" style="color: var(--admin-color); border-color: var(--admin-light-accent);">Quantité</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold border-b" style="color: var(--admin-color); border-color: var(--admin-light-accent);">Sous-total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for panier in paniers %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: var(--admin-light-accent);">
+                                <div class="flex items-center">
+                                    {% if panier.article.image %}
+                                        <img src="{{ panier.article.image.url }}" alt="{{ panier.article.nom }}" class="h-10 w-10 rounded-full object-cover mr-2">
+                                    {% else %}
+                                        <div class="h-10 w-10 rounded-full flex items-center justify-center mr-2" style="background-color: var(--admin-light-accent);">
+                                            <i class="fas fa-box-open text-[var(--admin-accent-color)] text-xl opacity-70"></i>
+                                        </div>
+                                    {% endif %}
+                                    <a href="{% url 'article:detail' panier.article.id %}" class="hover:text-[var(--admin-gradient-end)] transition-colors" style="color: var(--admin-color);">{{ panier.article.nom }} ({{ panier.article.reference }})</a>
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">{{ panier.quantite }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500" style="color: var(--admin-color); border-color: var(--admin-light-accent);">{{ panier.sous_total|floatformat:2 }} DH</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-gray-600 mb-6">Aucun article dans cette commande.</p>
+        {% endif %}
+
+        <h3 class="text-xl font-bold mb-4 border-b pb-2 mt-8" style="color: var(--admin-color); border-color: var(--admin-accent-color);">Historique des États</h3>
+        {% if historique_etats %}
+            <div class="overflow-x-auto mb-6">
+                <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-3 text-left text-sm font-semibold border-b border-r" style="color: var(--admin-color); border-color: var(--admin-light-accent);">État</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold border-b border-r" style="color: var(--admin-color); border-color: var(--admin-light-accent);">Début</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold border-b border-r" style="color: var(--admin-color); border-color: var(--admin-light-accent);">Fin</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold border-b border-r" style="color: var(--admin-color); border-color: var(--admin-light-accent);">Durée</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold border-b border-r" style="color: var(--admin-color); border-color: var(--admin-light-accent);">Opérateur</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold border-b" style="color: var(--admin-color); border-color: var(--admin-light-accent);">Commentaire</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for etat in historique_etats %}
+                        <tr>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: var(--admin-light-accent);">{{ etat.enum_etat.libelle }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">{{ etat.date_debut|date:"d/m/Y H:i" }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">{% if etat.date_fin %}{{ etat.date_fin|date:"d/m/Y H:i" }}{% else %}-{% endif %}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">{{ etat.duree }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">{% if etat.operateur %}{{ etat.operateur.get_full_name }}{% else %}-{% endif %}</td>
+                            <td class="px-4 py-4 text-sm text-gray-500" style="border-color: var(--admin-light-accent);">{{ etat.commentaire|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-gray-600 mb-6">Aucun historique d'état pour cette commande.</p>
+        {% endif %}
+
+        <div class="flex gap-4 mt-6 border-t pt-4" style="border-color: var(--admin-accent-color);">
+            <a href="{% url 'commande:modifier' commande.pk %}" class="inline-flex items-center px-6 py-3 text-white rounded-lg font-medium shadow-md transition-colors duration-300" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+                <i class="fas fa-edit mr-2"></i> Modifier la commande
+            </a>
+            <button type="button" onclick="confirmDeleteCommande('{% url 'commande:supprimer_commande' commande.pk %}', '{{ commande.id_yz|escapejs }}')" class="inline-flex items-center px-6 py-3 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors shadow-md">
+                <i class="fas fa-trash-alt mr-2"></i> Supprimer la commande
+            </button>
+        </div>
+    </div>
+</div>
+
+{% include 'composant_generale/modal_confirmation_suppression.html' with modal_id='deleteConfirmationModal' %}
+
+<script>
+    function confirmDeleteCommande(deleteUrl, commandeNum) {
+        document.getElementById('modalItemName').innerText = commandeNum;
+        document.getElementById('confirmDeleteBtn').onclick = function() {
+            fetch(deleteUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = "{% url 'commande:liste' %}"; // Redirect to the list after deletion
+                } else {
+                    alert("Une erreur est survenue lors de la suppression.");
+                }
+            }).catch(error => {
+                console.error('Erreur:', error);
+                alert("Une erreur réseau est survenue.");
+            });
+        };
+        document.getElementById('deleteConfirmationModal').classList.remove('hidden');
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock content %} 

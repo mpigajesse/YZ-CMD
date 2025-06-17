@@ -1,0 +1,84 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Modifier Article - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #023535, #034a4a);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-edit mr-3" style="color: #66cccc;"></i>
+                Modifier l'Article: {{ article.nom }}
+            </h1>
+            <p style="color: #99dddd;">Mettez à jour les informations de l'article</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'article:detail' article.id %}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-eye mr-2"></i>Voir Détails
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: #66cccc;">
+        <h2 class="text-2xl font-bold mb-6" style="color: #023535;">Formulaire de Modification</h2>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label for="id_nom" class="block text-sm font-semibold mb-2" style="color: #023535;">Nom de l'article:</label>
+                    <input type="text" name="nom" id="id_nom" value="{{ article.nom|default_if_none:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_reference" class="block text-sm font-semibold mb-2" style="color: #023535;">Référence:</label>
+                    <input type="text" name="reference" id="id_reference" value="{{ article.reference|default_if_none:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_prix_unitaire" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix Unitaire (DH):</label>
+                    <input type="text" name="prix_unitaire" id="id_prix_unitaire" value="{{ article.prix_unitaire|stringformat:".2f" }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_categorie" class="block text-sm font-semibold mb-2" style="color: #023535;">Catégorie:</label>
+                    <input type="text" name="categorie" id="id_categorie" value="{{ article.categorie|default_if_none:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_couleur" class="block text-sm font-semibold mb-2" style="color: #023535;">Couleur:</label>
+                    <input type="text" name="couleur" id="id_couleur" value="{{ article.couleur|default_if_none:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_pointure" class="block text-sm font-semibold mb-2" style="color: #023535;">Pointure:</label>
+                    <input type="number" name="pointure" id="id_pointure" value="{{ article.pointure|default_if_none:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
+                </div>
+                <div>
+                    <label for="id_qte_disponible" class="block text-sm font-semibold mb-2" style="color: #023535;">Quantité Disponible:</label>
+                    <input type="number" name="qte_disponible" id="id_qte_disponible" value="{{ article.qte_disponible|default_if_none:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_image" class="block text-sm font-semibold mb-2" style="color: #023535;">Image actuelle:</label>
+                    {% if article.image %}
+                        <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-32 h-32 object-cover rounded-lg shadow-sm mb-2"/>
+                    {% else %}
+                        <p class="text-gray-500 text-sm mb-2">Aucune image actuelle.</p>
+                    {% endif %}
+                    <label for="id_image" class="block text-sm font-semibold mb-2" style="color: #023535;">Changer l'image:</label>
+                    <input type="file" name="image" id="id_image" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
+                </div>
+            </div>
+            <div class="mb-6">
+                <label for="id_description" class="block text-sm font-semibold mb-2" style="color: #023535;">Description:</label>
+                <textarea name="description" id="id_description" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">{{ article.description|default_if_none:'' }}</textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-8">
+                <button type="submit" class="inline-flex items-center text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: #023535; hover:background-color: #034a4a;">
+                    <i class="fas fa-save mr-2"></i>Sauvegarder
+                </button>
+                <a href="{% url 'article:liste' %}" class="inline-flex items-center bg-gray-400 hover:bg-gray-500 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fas fa-times mr-2"></i>Annuler
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

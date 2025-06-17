@@ -1,0 +1,540 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Liste des Articles - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-box mr-3" style="color: var(--admin-accent-color);"></i>
+                Liste des Articles
+            </h1>
+            <p style="color: var(--admin-accent-color);">Gérez les articles du système</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'article:creer' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-plus mr-2"></i>Nouvel Article
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-box text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Articles</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.total_articles }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Disponibles</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ stats.articles_disponibles }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et filtres -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8" style="border-color: #e6fffe;">
+        <form method="get" class="flex flex-col md:flex-row gap-4">
+            <div class="flex-grow">
+                <div class="relative">
+                    <input type="text" name="search" value="{{ search|default:'' }}" 
+                           class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                           style="border-color: #99dddd; focus:ring-color: #023535;"
+                           placeholder="Rechercher par nom, référence, couleur, pointure ou prix...">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
+                        </div>
+            <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                    style="background-color: #023535;">
+                Rechercher
+            </button>
+            {% if search %}
+            <a href="{% url 'article:liste' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                Réinitialiser
+            </a>
+            {% endif %}
+        </form>
+                    </div>
+                    
+    <!-- Boutons de vue -->
+    <div class="flex justify-end gap-4 mb-6">
+        <button onclick="switchView('grid')" class="px-4 py-2 rounded-lg font-medium transition-all" id="gridViewBtn" style="background-color: #023535; color: white;">
+            <i class="fas fa-th-large mr-2"></i>Grille
+        </button>
+        <button onclick="switchView('list')" class="px-4 py-2 rounded-lg font-medium transition-all" id="listViewBtn" style="background-color: white; color: #023535; border: 2px solid #023535;">
+            <i class="fas fa-list mr-2"></i>Liste
+        </button>
+        <button onclick="switchView('table')" class="px-4 py-2 rounded-lg font-medium transition-all" id="tableViewBtn" style="background-color: white; color: #023535; border: 2px solid #023535;">
+            <i class="fas fa-table mr-2"></i>Tableau
+        </button>
+                    </div>
+                    
+    <!-- Bouton de suppression en masse pour la vue tableau -->
+    <div class="flex justify-end mb-4" id="bulkDeleteArticleBtnContainer" style="display: none;">
+        <button id="bulkDeleteArticleBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm opacity-50 cursor-not-allowed" disabled>
+            <i class="fas fa-trash-alt mr-2"></i> Supprimer la sélection
+                        </button>
+    </div>
+
+    <!-- Message si aucun résultat -->
+    {% if not page_obj %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    Aucun article trouvé{% if search %} pour la recherche "{{ search }}"{% endif %}.
+                </p>
+        </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Vues des articles -->
+    <div id="articleViews">
+        <!-- Vue grille/mosaïque -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8" id="gridView">
+        {% for article in page_obj %}
+            <div class="bg-white rounded-xl shadow-lg border overflow-hidden transform hover:-translate-y-2 transition-transform duration-300" style="border-color: #e6fffe;">
+                <a href="{% url 'article:detail' article.id %}" class="block">
+                {% if article.image %}
+                        <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-full h-56 object-cover">
+                    {% else %}
+                        <div class="w-full h-56 flex items-center justify-center" style="background-color: var(--admin-light-accent);">
+                            <i class="fas fa-box-open text-[var(--admin-accent-color)] text-7xl opacity-70"></i>
+                        </div>
+                    {% endif %}
+                </a>
+            <div class="p-4">
+                    <h3 class="text-lg font-bold truncate" style="color: #023535;">
+                        <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a]">{{ article.nom }}</a>
+                    </h3>
+                    <p class="text-sm font-mono text-gray-500 mb-2">{{ article.reference|default:'N/A' }}</p>
+                
+                    <div class="flex items-center justify-between text-sm mb-3">
+                        <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium border border-blue-200">
+                            {{ article.couleur }}
+                    </span>
+                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium border" style="background-color: #f0fffe; color: #023535; border-color: #99dddd;">
+                            Taille: {{ article.pointure }}
+                    </span>
+                </div>
+                
+                <div class="flex justify-between items-center pt-3 border-t" style="border-color: #99dddd;">
+                        <div class="text-xl font-bold" style="color: #023535;">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+                        <a href="{% url 'article:detail' article.id %}" class="inline-flex items-center text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: #023535;">
+                        <i class="fas fa-eye mr-1"></i>Détails
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+        <!-- Vue liste -->
+    <div class="space-y-3 mb-8 hidden" id="listView">
+        {% for article in page_obj %}
+            <div class="bg-white rounded-xl shadow-md border p-4 flex items-center gap-6" style="border-color: #e6fffe;">
+                <a href="{% url 'article:detail' article.id %}">
+                    {% if article.image %}
+                        <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-24 h-24 object-cover rounded-lg">
+                    {% else %}
+                        <div class="w-24 h-24 rounded-lg flex items-center justify-center" style="background-color: var(--admin-light-accent);">
+                            <i class="fas fa-box-open text-[var(--admin-accent-color)] text-3xl opacity-70"></i>
+                        </div>
+                    {% endif %}
+                </a>
+                <div class="flex-grow">
+                    <h3 class="text-xl font-bold" style="color: #023535;">
+                        <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a]">{{ article.nom }}</a>
+                    </h3>
+                    <p class="text-sm font-mono text-gray-500">{{ article.reference|default:'N/A' }}</p>
+                    <div class="flex items-center gap-4 mt-1 text-sm">
+                        <span><i class="fas fa-sitemap mr-1" style="color: #034a4a;"></i> {{ article.categorie }}</span>
+                        <span><i class="fas fa-palette mr-1" style="color: #034a4a;"></i> {{ article.couleur }}</span>
+                        <span><i class="fas fa-ruler-horizontal mr-1" style="color: #034a4a;"></i> {{ article.pointure }}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-xl font-bold" style="color: #023535;">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+                    <div class="flex items-center gap-2">
+                        <a href="{% url 'article:detail' article.id %}" class="text-blue-500 hover:text-blue-700" title="Voir Détails">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'article:modifier' article.id %}" class="text-yellow-500 hover:text-yellow-700" title="Modifier">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <!-- Bouton pour ouvrir la modale de suppression -->
+                        <button type="button" onclick="confirmDeleteArticle('{% url 'article:supprimer_article' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700" title="Supprimer">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+        <!-- Vue tableau -->
+        <div class="overflow-x-auto mb-8 hidden" id="tableView">
+            <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+                <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">
+                            <input type="checkbox" id="selectAllArticles" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" />
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Article</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Catégorie</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Couleur</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Pointure</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Prix</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Stock</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for article in page_obj %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r border-gray-200">
+                            <input type="checkbox" class="article-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-article-id="{{ article.id }}" />
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">
+                            <div class="flex items-center">
+                                    {% if article.image %}
+                                    <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="h-10 w-10 rounded-full object-cover mr-2">
+                                    {% else %}
+                                    <div class="h-10 w-10 rounded-full flex items-center justify-center mr-2" style="background-color: var(--admin-light-accent);">
+                                        <i class="fas fa-box-open text-[var(--admin-accent-color)] text-xl opacity-70"></i>
+                                </div>
+                                {% endif %}
+                                <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a] transition-colors" style="color: #023535;">{{ article.nom }}</a>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.categorie }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.couleur }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.pointure }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.prix_unitaire|floatformat:2 }} DH</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.qte_disponible }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{% url 'article:detail' article.id %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            <a href="{% url 'article:modifier' article.id %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            <a href="#" onclick="confirmDeleteArticle('{% url 'article:supprimer_article' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex justify-center mt-8">
+        <nav aria-label="Navigation des articles">
+            <ul class="flex items-center -space-x-px">
+            {% if page_obj.has_previous %}
+                    <li>
+                        <a href="?page=1{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                        <li>
+                            <span class="px-3 py-2 leading-tight text-white bg-[#023535] border border-[#023535]">{{ num }}</span>
+                        </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li>
+                            <a href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">{{ num }}</a>
+                        </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                    <li>
+                        <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+            {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Modale de confirmation de suppression -->
+<div id="delete-modal" class="fixed inset-0 z-50 items-center justify-center bg-black bg-opacity-60 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full transform transition-all duration-300 scale-95 opacity-0" id="modal-content">
+        <div class="text-center">
+            <div class="mb-4">
+                <i class="fas fa-exclamation-triangle text-6xl text-red-400"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Êtes-vous sûr ?</h2>
+            <p class="text-gray-600 mb-6" id="modal-text">
+                Cette action est irréversible et supprimera définitivement un article.
+            </p>
+        </div>
+        <div class="flex justify-center gap-4">
+            <form id="delete-form" method="POST" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="px-8 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-lg">
+                    Confirmer la suppression
+                </button>
+            </form>
+            <button type="button" onclick="closeDeleteModal()" class="px-8 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition-colors shadow-lg">
+                Annuler
+            </button>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    function switchView(viewType) {
+        document.getElementById('gridView').classList.add('hidden');
+        document.getElementById('listView').classList.add('hidden');
+        document.getElementById('tableView').classList.add('hidden');
+
+        document.getElementById(viewType + 'View').classList.remove('hidden');
+
+        // Mettre à jour les styles des boutons
+        document.getElementById('gridViewBtn').style.backgroundColor = 'white';
+        document.getElementById('gridViewBtn').style.color = '#023535';
+        document.getElementById('gridViewBtn').style.border = '2px solid #023535';
+
+        document.getElementById('listViewBtn').style.backgroundColor = 'white';
+        document.getElementById('listViewBtn').style.color = '#023535';
+        document.getElementById('listViewBtn').style.border = '2px solid #023535';
+
+        document.getElementById('tableViewBtn').style.backgroundColor = 'white';
+        document.getElementById('tableViewBtn').style.color = '#023535';
+        document.getElementById('tableViewBtn').style.border = '2px solid #023535';
+
+        document.getElementById(viewType + 'ViewBtn').style.backgroundColor = '#023535';
+        document.getElementById(viewType + 'ViewBtn').style.color = 'white';
+        document.getElementById(viewType + 'ViewBtn').style.border = 'none';
+
+        localStorage.setItem('articleView', viewType);
+    }
+
+    // Charger la vue sauvegardée ou par défaut au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedView = localStorage.getItem('articleView');
+        switchView(savedView || 'grid'); // Défaut à la vue grille
+    });
+
+    // Utiliser la modale de confirmation personnalisée pour la suppression d'article
+    function confirmDeleteArticle(deleteUrl, articleNom) {
+        showCustomConfirmModal(deleteUrl, `l\'article ${articleNom}`);
+    }
+
+    // --- Gestion de la modale de suppression ---
+    const deleteModal = document.getElementById('delete-modal');
+    const modalContent = document.getElementById('modal-content');
+    const deleteForm = document.getElementById('delete-form');
+    const modalText = document.getElementById('modal-text');
+
+    function openDeleteModal(deleteUrl, articleName) {
+        // Mettre à jour l'action du formulaire et le texte de la modale
+        deleteForm.action = deleteUrl;
+        modalText.textContent = `Cette action est irréversible. L'article "${articleName}" sera définitivement supprimé.`;
+        
+        // Afficher la modale avec animation
+        deleteModal.classList.remove('hidden');
+        deleteModal.classList.add('flex');
+        setTimeout(() => {
+            modalContent.classList.remove('scale-95', 'opacity-0');
+        }, 10);
+    }
+
+    function closeDeleteModal() {
+        modalContent.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            deleteModal.classList.add('hidden');
+            deleteModal.classList.remove('flex');
+        }, 300);
+    }
+    
+    window.addEventListener('click', (event) => {
+        if (event.target === deleteModal) {
+            closeDeleteModal();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeDeleteModal();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllArticlesCheckbox = document.getElementById('selectAllArticles');
+        const articleCheckboxes = document.querySelectorAll('.article-checkbox');
+        const bulkDeleteArticleBtn = document.getElementById('bulkDeleteArticleBtn');
+        const bulkDeleteArticleBtnContainer = document.getElementById('bulkDeleteArticleBtnContainer');
+        const tableViewBtn = document.getElementById('tableViewBtn');
+
+        function updateBulkDeleteArticleButton() {
+            const checkedCount = document.querySelectorAll('.article-checkbox:checked').length;
+            if (checkedCount > 0) {
+                bulkDeleteArticleBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                bulkDeleteArticleBtn.disabled = false;
+            } else {
+                bulkDeleteArticleBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                bulkDeleteArticleBtn.disabled = true;
+            }
+        }
+
+        // Gérer la visibilité du bouton de suppression en masse en fonction de la vue
+        function updateBulkDeleteButtonVisibility() {
+            if (document.getElementById('tableView').classList.contains('hidden')) {
+                bulkDeleteArticleBtnContainer.style.display = 'none';
+            } else {
+                bulkDeleteArticleBtnContainer.style.display = 'flex';
+            }
+        }
+
+        // Écouteur pour le bouton de bascule de la vue tableau
+        tableViewBtn.addEventListener('click', function() {
+            setTimeout(updateBulkDeleteButtonVisibility, 0); // S'assurer que la classe 'hidden' est mise à jour
+        });
+
+        // Écouteurs pour les autres boutons de vue si nécessaire pour masquer/afficher
+        document.getElementById('gridViewBtn').addEventListener('click', function() {
+            setTimeout(updateBulkDeleteButtonVisibility, 0);
+        });
+        document.getElementById('listViewBtn').addEventListener('click', function() {
+            setTimeout(updateBulkDeleteButtonVisibility, 0);
+        });
+
+
+        selectAllArticlesCheckbox.addEventListener('change', function() {
+            articleCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateBulkDeleteArticleButton();
+        });
+
+        articleCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                if (!this.checked) {
+                    selectAllArticlesCheckbox.checked = false;
+                }
+                updateBulkDeleteArticleButton();
+            });
+        });
+
+        bulkDeleteArticleBtn.addEventListener('click', function() {
+            const selectedIds = [];
+            document.querySelectorAll('.article-checkbox:checked').forEach(checkbox => {
+                selectedIds.push(checkbox.dataset.articleId);
+            });
+
+            if (selectedIds.length > 0) {
+                // Utiliser la même modale de confirmation, mais pour la suppression en masse des articles
+                const deleteUrl = "{% url 'article:supprimer_articles_masse' %}"; 
+                showCustomConfirmModal(deleteUrl, `les ${selectedIds.length} articles sélectionnés`, selectedIds);
+            } else {
+                alert("Veuillez sélectionner au moins un article à supprimer.");
+            }
+        });
+
+        // Surcharge de la fonction showCustomConfirmModal pour inclure les IDs lors de la suppression en masse
+        const originalShowCustomConfirmModal = window.showCustomConfirmModal;
+        window.showCustomConfirmModal = function(deleteUrl, itemDescription, selectedIds = null) {
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            const modalText = document.getElementById('confirmModalText');
+
+            modalText.innerHTML = `Êtes-vous sûr de vouloir supprimer <strong>${itemDescription}</strong> ? Cette action est irréversible.`;
+            confirmBtn.onclick = function() {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = deleteUrl;
+
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = '{{ csrf_token }}';
+                form.appendChild(csrfInput);
+
+                if (selectedIds) {
+                    selectedIds.forEach(id => {
+                        const idInput = document.createElement('input');
+                        idInput.type = 'hidden';
+                        idInput.name = 'ids[]';
+                        idInput.value = id;
+                        form.appendChild(idInput);
+                    });
+                }
+                document.body.appendChild(form);
+                form.submit();
+            };
+            document.getElementById('customConfirmModal').classList.remove('hidden');
+        };
+
+
+        updateBulkDeleteArticleButton(); // Initialiser l'état du bouton
+        updateBulkDeleteButtonVisibility(); // Initialiser la visibilité du bouton au chargement de la page
+
+    });
+</script>
+{% endblock %}
+{% endblock %} 

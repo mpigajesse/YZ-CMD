@@ -1,0 +1,89 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Créer Opérateur - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #023535, #034a4a);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-user-plus mr-3" style="color: #66cccc;"></i>
+                Ajouter un Nouvel Opérateur
+            </h1>
+            <p style="color: #99dddd;">Remplissez les informations pour créer un nouvel opérateur.</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'app_admin:liste_operateurs' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: #034a4a; color: white; hover:background-color: #023535;">
+                <i class="fas fa-arrow-left mr-2"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: #e6fffe;">
+        <h2 class="text-2xl font-bold mb-6" style="color: #023535;">Formulaire de Création</h2>
+        
+        {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                    <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-700 border-green-400{% elif message.tags == 'error' %}bg-red-100 text-red-700 border-red-400{% endif %} border" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label for="id_username" class="block text-sm font-semibold mb-2" style="color: #023535;">Nom d'utilisateur:</label>
+                    <input type="text" name="username" id="id_username" value="{{ form_data.username|default:'' }}" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;" required>
+                </div>
+                <div>
+                    <label for="id_password" class="block text-sm font-semibold mb-2" style="color: #023535;">Mot de passe:</label>
+                    <input type="password" name="password" id="id_password" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;" required>
+                </div>
+                <div>
+                    <label for="id_nom" class="block text-sm font-semibold mb-2" style="color: #023535;">Nom:</label>
+                    <input type="text" name="nom" id="id_nom" value="{{ form_data.nom|default:'' }}" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;" required>
+                </div>
+                <div>
+                    <label for="id_prenom" class="block text-sm font-semibold mb-2" style="color: #023535;">Prénom:</label>
+                    <input type="text" name="prenom" id="id_prenom" value="{{ form_data.prenom|default:'' }}" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;" required>
+                </div>
+                <div>
+                    <label for="id_mail" class="block text-sm font-semibold mb-2" style="color: #023535;">Email:</label>
+                    <input type="email" name="mail" id="id_mail" value="{{ form_data.mail|default:'' }}" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;" required>
+                </div>
+                <div>
+                    <label for="id_telephone" class="block text-sm font-semibold mb-2" style="color: #023535;">Téléphone:</label>
+                    <input type="text" name="telephone" id="id_telephone" value="{{ form_data.telephone|default:'' }}" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="id_adresse" class="block text-sm font-semibold mb-2" style="color: #023535;">Adresse:</label>
+                    <textarea name="adresse" id="id_adresse" rows="3" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;">{{ form_data.adresse|default:'' }}</textarea>
+                </div>
+                <div>
+                    <label for="id_type_operateur" class="block text-sm font-semibold mb-2" style="color: #023535;">Type d'opérateur: <span class="text-red-500">*</span></label>
+                    <select name="type_operateur" id="id_type_operateur" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;" required>
+                        <option value="">Sélectionner un type</option>
+                        {% for type_code, type_label in types_operateur %}
+                            <option value="{{ type_code }}" {% if form_data.type_operateur == type_code %}selected{% endif %}>{{ type_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-8">
+                <button type="submit" class="inline-flex items-center text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: #023535; hover:background-color: #034a4a;">
+                    <i class="fas fa-user-plus mr-2"></i>Créer l'Opérateur
+                </button>
+                <a href="{% url 'app_admin:liste_operateurs' %}" class="inline-flex items-center bg-gray-400 hover:bg-gray-500 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fas fa-times mr-2"></i>Annuler
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,278 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Liste des Villes - Admin{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-md p-6">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #023535, #034a4a);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-city mr-3" style="color: #66cccc;"></i>
+                Gestion des Villes
+            </h1>
+            <p style="color: #99dddd;">Gérez vos villes et leurs informations de livraison</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'app_admin:liste_regions' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: #034a4a; color: white; hover:background-color: #023535;">
+                <i class="fas fa-map-marked-alt mr-2"></i> Voir toutes les régions
+            </a>
+            <a href="{% url 'app_admin:creer_ville' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-plus mr-2"></i> Nouvelle Ville
+            </a>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et filtres -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8" style="border-color: #e6fffe;">
+        <form method="GET" class="flex flex-col md:flex-row gap-4">
+            <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fas fa-search text-gray-400"></i>
+                </div>
+                <input type="text" 
+                       name="search" 
+                       class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                       style="border-color: #99dddd; focus:ring-color: #023535;"
+                       placeholder="Rechercher une ville..." 
+                       value="{{ search|default:'' }}">
+            </div>
+            <div>
+                <label for="region_filter" class="sr-only">Filtrer par région</label>
+                <select name="region" id="region_filter" 
+                        class="w-full pl-3 pr-10 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                        style="border-color: #99dddd; focus:ring-color: #023535;">
+                    <option value="">Toutes les régions</option>
+                    {% for r in regions %}
+                        <option value="{{ r.pk }}" {% if region_filter == r.pk|stringformat:"s" %}selected{% endif %}>{{ r.nom_region }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="tarif_min" class="sr-only">Tarif min</label>
+                <input type="number" step="0.01" name="tarif_min" id="tarif_min" placeholder="Tarif min" value="{{ tarif_min|default:'' }}"
+                       class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                       style="border-color: #99dddd; focus:ring-color: #023535;">
+            </div>
+            <div>
+                <label for="tarif_max" class="sr-only">Tarif max</label>
+                <input type="number" step="0.01" name="tarif_max" id="tarif_max" placeholder="Tarif max" value="{{ tarif_max|default:'' }}"
+                       class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                       style="border-color: #99dddd; focus:ring-color: #023535;">
+            </div>
+            <div class="flex space-x-3">
+                <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                        style="background-color: #023535;">
+                    <i class="fas fa-filter mr-2"></i> Filtrer
+                </button>
+                {% if search or region_filter or tarif_min or tarif_max %}
+                <a href="{% url 'app_admin:liste_villes' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    Réinitialiser
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Bouton de suppression en masse pour la vue tableau -->
+    <div class="flex justify-end mb-4">
+        <button id="bulkDeleteVilleBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm opacity-50 cursor-not-allowed" disabled>
+            <i class="fas fa-trash-alt mr-2"></i> Supprimer la sélection
+        </button>
+    </div>
+
+    <!-- Tableau des villes -->
+    {% if page_obj %}
+    <div class="overflow-x-auto mb-8">
+        <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+            <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                <tr>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">
+                        <input type="checkbox" id="selectAllVilles" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" />
+                    </th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Nom</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Région</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Frais Livraison</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Fréquence Livraison</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for ville in page_obj %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-4 whitespace-nowrap text-sm border-r border-gray-200">
+                        <input type="checkbox" class="ville-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-ville-id="{{ ville.pk }}" />
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">{{ ville.nom }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ ville.region.nom_region }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ ville.frais_livraison|floatformat:0 }} DH</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ ville.frequence_livraison }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{% url 'app_admin:modifier_ville' ville.pk %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{% url 'app_admin:detail_ville' ville.pk %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="#" onclick="confirmDeleteVille('{% url 'app_admin:supprimer_ville' ville.pk %}', '{{ ville.nom }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="flex justify-center mt-8">
+        <nav aria-label="Navigation des villes">
+            <ul class="flex items-center -space-x-px">
+                {% if page_obj.has_previous %}
+                    <li>
+                        <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if tarif_min %}&tarif_min={{ tarif_min }}{% endif %}{% if tarif_max %}&tarif_max={{ tarif_max }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if tarif_min %}&tarif_min={{ tarif_min }}{% endif %}{% if tarif_max %}&tarif_max={{ tarif_max }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li>
+                            <span class="px-3 py-2 leading-tight text-white bg-[#023535] border border-[#023535]">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li>
+                            <a href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if tarif_min %}&tarif_min={{ tarif_min }}{% endif %}{% if tarif_max %}&tarif_max={{ tarif_max }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li>
+                        <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if tarif_min %}&tarif_min={{ tarif_min }}{% endif %}{% if tarif_max %}&tarif_max={{ tarif_max }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if tarif_min %}&tarif_min={{ tarif_min }}{% endif %}{% if tarif_max %}&tarif_max={{ tarif_max }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-10">
+        <i class="fas fa-city text-6xl text-gray-300 mb-4"></i>
+        <h5 class="text-gray-500 text-lg mb-2">Aucune ville trouvée</h5>
+        {% if search or region_filter or tarif_min or tarif_max %}
+        <p class="text-gray-500 mb-4">Aucun résultat pour votre recherche/filtre.</p>
+        <a href="{% url 'app_admin:liste_villes' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: #023535; color: white;">
+            <i class="fas fa-list mr-2"></i> Voir toutes les villes
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% block extra_js %}
+<script>
+function confirmDeleteVille(deleteUrl, villeNom) {
+    showCustomConfirmModal(deleteUrl, `la ville ${villeNom}`);
+}
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllVillesCheckbox = document.getElementById('selectAllVilles');
+        const villeCheckboxes = document.querySelectorAll('.ville-checkbox');
+        const bulkDeleteVilleBtn = document.getElementById('bulkDeleteVilleBtn');
+
+        function updateBulkDeleteButton() {
+            const checkedCount = document.querySelectorAll('.ville-checkbox:checked').length;
+            if (checkedCount > 0) {
+                bulkDeleteVilleBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                bulkDeleteVilleBtn.disabled = false;
+            } else {
+                bulkDeleteVilleBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                bulkDeleteVilleBtn.disabled = true;
+            }
+        }
+
+        selectAllVillesCheckbox.addEventListener('change', function() {
+            villeCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateBulkDeleteButton();
+        });
+
+        villeCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                if (!this.checked) {
+                    selectAllVillesCheckbox.checked = false;
+                }
+                updateBulkDeleteButton();
+            });
+        });
+
+        bulkDeleteVilleBtn.addEventListener('click', function() {
+            const selectedIds = [];
+            document.querySelectorAll('.ville-checkbox:checked').forEach(checkbox => {
+                selectedIds.push(checkbox.dataset.villeId);
+            });
+
+            if (selectedIds.length > 0) {
+                const deleteUrl = "{% url 'app_admin:supprimer_villes_masse' %}"; 
+                showCustomConfirmModal(deleteUrl, `les ${selectedIds.length} villes sélectionnées`, selectedIds);
+            } else {
+                alert("Veuillez sélectionner au moins une ville à supprimer.");
+            }
+        });
+
+        // Surcharge de la fonction showCustomConfirmModal pour inclure les IDs lors de la suppression en masse
+        const originalShowCustomConfirmModal = window.showCustomConfirmModal;
+        window.showCustomConfirmModal = function(deleteUrl, itemDescription, selectedIds = null) {
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            const modalText = document.getElementById('confirmModalText');
+
+            modalText.innerHTML = `Êtes-vous sûr de vouloir supprimer <strong>${itemDescription}</strong> ? Cette action est irréversible.`;
+            confirmBtn.onclick = function() {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = deleteUrl;
+
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = '{{ csrf_token }}';
+                form.appendChild(csrfInput);
+
+                if (selectedIds) {
+                    selectedIds.forEach(id => {
+                        const idInput = document.createElement('input');
+                        idInput.type = 'hidden';
+                        idInput.name = 'ids[]';
+                        idInput.value = id;
+                        form.appendChild(idInput);
+                    });
+                }
+                document.body.appendChild(form);
+                form.submit();
+            };
+            document.getElementById('customConfirmModal').classList.remove('hidden');
+        };
+
+        updateBulkDeleteButton(); // Initialiser l'état du bouton
+    });
+</script>
+{% endblock %}
+{% endblock %} 

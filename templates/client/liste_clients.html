@@ -1,0 +1,318 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Liste des Clients - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-users mr-3" style="color: var(--admin-accent-color);"></i>
+                Liste des Clients
+            </h1>
+            <p style="color: var(--admin-accent-color);">Gérez les clients du système</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'client:creer' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-plus mr-2"></i>Nouveau Client
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-users text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Clients</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ total_clients }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Affichage des messages -->
+    {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+                <div class="p-3 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% endif %} flex items-center">
+                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% endif %} mr-2"></i>
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Barre de recherche -->
+    <div class="bg-white p-4 rounded-lg mb-6 shadow-md border" style="border-color: var(--admin-accent-color);">
+        <form method="GET" class="flex flex-col md:flex-row gap-4">
+            <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fas fa-search text-gray-400"></i>
+                </div>
+                <input type="text" 
+                       name="search" 
+                       class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                       style="border-color: #99dddd; focus:ring-color: var(--admin-color);"
+                       placeholder="Rechercher un client..." 
+                       value="{{ search_query|default:'' }}">
+            </div>
+            <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                    style="background-color: var(--admin-color);">
+                <i class="fas fa-search mr-2"></i> Rechercher
+            </button>
+            {% if search_query %}
+            <a href="{% url 'client:liste' %}" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+               style="background-color: #EF4444;">
+                <i class="fas fa-times mr-2"></i> Effacer
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Boutons de vue et suppression en masse -->
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex gap-4">
+            <!-- Boutons de vue peuvent être ajoutés ici si nécessaire -->
+        </div>
+        <!-- Bouton de suppression en masse -->
+        <div id="bulkDeleteClientBtnContainer" style="display: none;">
+            <button id="bulkDeleteClientBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm opacity-50 cursor-not-allowed" disabled>
+                <i class="fas fa-trash-alt mr-2"></i> Supprimer la sélection
+            </button>
+        </div>
+    </div>
+
+    <!-- Tableau des clients -->
+    <div class="bg-white rounded-xl shadow-lg border overflow-hidden mb-8" style="border-color: var(--admin-accent-color);">
+        {% if page_obj %}
+        <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+            <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">
+                        <input type="checkbox" id="selectAllClients" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" />
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">ID</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Nom Complet</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Téléphone</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Email</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for client in page_obj %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm border-r border-gray-200">
+                        <input type="checkbox" class="client-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-client-id="{{ client.id }}" />
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">{{ client.id }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ client.prenom }} {{ client.nom }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ client.numero_tel }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ client.email|default:"N/A" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{% url 'client:detail' client.id %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'client:modifier' client.id %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="#" onclick="confirmDeleteClient('{% url 'client:supprimer' client.id %}', '{{ client.get_full_name|escapejs }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="p-4 flex justify-center">
+            <nav aria-label="Page navigation">
+                <ul class="inline-flex items-center -space-x-px">
+                    {% if page_obj.has_previous %}
+                        <li>
+                            <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--99dddd); hover:text-gray-700;">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--99dddd); hover:text-gray-700;">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% for i in page_obj.paginator.page_range %}
+                        {% if page_obj.number == i %}
+                            <li>
+                                <a href="#" aria-current="page" class="px-3 py-2 leading-tight border text-white" style="background-color: var(--admin-color); border-color: var(--admin-color);">{{ i }}</a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <a href="?page={{ i }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--99dddd); hover:text-gray-700;">{{ i }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li>
+                            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--99dddd); hover:text-gray-700;">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--99dddd); hover:text-gray-700;">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-10">
+            <i class="fas fa-users text-6xl text-gray-300 mb-4" style="color: var(--admin-accent-color);"></i>
+            <h5 class="text-gray-500 text-lg mb-2" style="color: var(--admin-color);">Aucun client trouvé{% if search_query %} pour la recherche "{{ search_query }}"{% endif %}.</h5>
+            {% if search_query %}
+            <a href="{% url 'client:liste' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+               style="background-color: var(--admin-color); color: white;">
+                <i class="fas fa-list mr-2"></i> Effacer la recherche
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    function confirmDeleteClient(deleteUrl, clientNom) {
+        showCustomConfirmModal(deleteUrl, `le client "${clientNom}"`);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllClientsCheckbox = document.getElementById('selectAllClients');
+        const clientCheckboxes = document.querySelectorAll('.client-checkbox');
+        const bulkDeleteClientBtn = document.getElementById('bulkDeleteClientBtn');
+        const bulkDeleteClientBtnContainer = document.getElementById('bulkDeleteClientBtnContainer');
+
+        // Afficher le bouton de suppression en masse
+        if (bulkDeleteClientBtnContainer) {
+            bulkDeleteClientBtnContainer.style.display = 'flex';
+        }
+
+        function updateBulkDeleteClientButton() {
+            const checkedCount = document.querySelectorAll('.client-checkbox:checked').length;
+            if (checkedCount > 0) {
+                bulkDeleteClientBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                bulkDeleteClientBtn.disabled = false;
+            } else {
+                bulkDeleteClientBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                bulkDeleteClientBtn.disabled = true;
+            }
+        }
+
+        if (selectAllClientsCheckbox) {
+            selectAllClientsCheckbox.addEventListener('change', function() {
+                clientCheckboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+                updateBulkDeleteClientButton();
+            });
+        }
+
+        clientCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                if (!this.checked && selectAllClientsCheckbox) {
+                    selectAllClientsCheckbox.checked = false;
+                }
+                updateBulkDeleteClientButton();
+            });
+        });
+
+        if (bulkDeleteClientBtn) {
+            bulkDeleteClientBtn.addEventListener('click', function() {
+                const selectedIds = [];
+                document.querySelectorAll('.client-checkbox:checked').forEach(checkbox => {
+                    selectedIds.push(checkbox.dataset.clientId);
+                });
+
+                if (selectedIds.length > 0) {
+                    // Créer le formulaire pour la suppression en masse
+                    const confirmBtn = document.getElementById('confirmDeleteBtn');
+                    const modalText = document.getElementById('confirmModalText');
+                    
+                    if (modalText) {
+                        modalText.innerHTML = `Êtes-vous sûr de vouloir supprimer <strong>les ${selectedIds.length} clients sélectionnés</strong> ? Cette action est irréversible.`;
+                    }
+                    
+                    if (confirmBtn) {
+                        confirmBtn.onclick = function() {
+                            const form = document.createElement('form');
+                            form.method = 'POST';
+                            form.action = '{% url "client:supprimer_clients_masse" %}';
+
+                            const csrfInput = document.createElement('input');
+                            csrfInput.type = 'hidden';
+                            csrfInput.name = 'csrfmiddlewaretoken';
+                            csrfInput.value = '{{ csrf_token }}';
+                            form.appendChild(csrfInput);
+
+                            selectedIds.forEach(id => {
+                                const idInput = document.createElement('input');
+                                idInput.type = 'hidden';
+                                idInput.name = 'ids[]';
+                                idInput.value = id;
+                                form.appendChild(idInput);
+                            });
+                            
+                            document.body.appendChild(form);
+                            form.submit();
+                        };
+                    }
+                    
+                    const modal = document.getElementById('customConfirmModal');
+                    if (modal) {
+                        modal.classList.remove('hidden');
+                    }
+                } else {
+                    alert("Veuillez sélectionner au moins un client à supprimer.");
+                }
+            });
+        }
+
+        updateBulkDeleteClientButton();
+    });
+</script>
+{% endblock extra_js %}
+{% endblock content %} 

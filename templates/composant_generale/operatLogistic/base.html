@@ -1,0 +1,125 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}YZ-CMD - Opérateur Logistique{% endblock %}</title>
+    
+    {% tailwind_css %}
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    {% block extra_css %}
+    <style>
+        :root {
+            --logistic-primary: #0B1D51;
+            --logistic-dark: #07153a;
+            --logistic-light: #1a3366;
+            --logistic-text-light: #cdd4e3;
+            --logistic-border-accent: #2e60b1;
+            --logistic-hover-bg: #152A5A; /* Une nuance légèrement plus claire pour les hovers */
+        }
+
+        /* --- Sidebar --- */
+        #sidebar { width: 256px; }
+
+        /* Comportement sur grand écran */
+        @media (min-width: 1024px) {
+            body.sidebar-collapsed #sidebar { width: 0; }
+        }
+
+        /* Comportement sur petit écran (overlay) */
+        @media (max-width: 1023.98px) {
+            #sidebar { position: absolute; height: 100%; z-index: 100; }
+            body.sidebar-collapsed #sidebar { transform: translateX(-100%); }
+            body.sidebar-open #sidebar { transform: translateX(0); }
+            
+            #content-overlay { display: none; position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 99; }
+            body.sidebar-open #content-overlay { display: block; }
+        }
+    </style>
+    {% endblock %}
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="relative flex h-screen overflow-x-hidden">
+        <!-- Sidebar -->
+        {% include 'composant_generale/operatLogistic/sidebar.html' %}
+        
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <!-- Header -->
+            {% include 'composant_generale/operatLogistic/header.html' %}
+            
+            <!-- Page Content -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+        
+        <!-- Overlay for mobile -->
+        <div id="content-overlay"></div>
+    </div>
+    
+    {% block extra_js %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const body = document.body;
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarToggle = document.getElementById('sidebar-toggle'); // Maintenant dans le sidebar.html
+        const contentOverlay = document.getElementById('content-overlay');
+        
+        function toggleSidebar() {
+            body.classList.toggle('sidebar-open');
+            body.classList.toggle('sidebar-collapsed');
+            }
+
+        function closeSidebarMobile() {
+            if (window.innerWidth <= 1023) {
+                body.classList.add('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
+            }
+        }
+
+        // Définir l'état initial en fonction de la taille de l'écran
+        if (window.innerWidth <= 1023) {
+            body.classList.add('sidebar-collapsed');
+        } else {
+            body.classList.add('sidebar-open');
+        }
+
+        if (menuToggle) menuToggle.addEventListener('click', toggleSidebar);
+        if (sidebarToggle) sidebarToggle.addEventListener('click', closeSidebarMobile);
+        if (contentOverlay) contentOverlay.addEventListener('click', closeSidebarMobile);
+
+        // Logique pour les dropdowns
+        document.querySelectorAll('.toggle-dropdown').forEach(dropdownToggle => {
+            dropdownToggle.addEventListener('click', () => {
+                const targetId = dropdownToggle.dataset.target;
+                const targetMenu = document.querySelector(targetId);
+                const chevronIcon = dropdownToggle.querySelector('.fa-chevron-down');
+
+                if (targetMenu && chevronIcon) {
+                    targetMenu.classList.toggle('hidden');
+                    chevronIcon.classList.toggle('rotate-180');
+                }
+            });
+        });
+
+        // Adapter au redimensionnement
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1023) {
+                body.classList.add('sidebar-open');
+                body.classList.remove('sidebar-collapsed');
+            } else {
+                body.classList.add('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
+            }
+        });
+    });
+    </script>
+    {% endblock %}
+</body>
+</html>
