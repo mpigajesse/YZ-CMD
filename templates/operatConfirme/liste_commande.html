@@ -1,24 +1,588 @@
 {% extends 'composant_generale/operatConfirme/base.html' %}
+{% load static %}
 
 {% block title %}Mes Commandes - YZ-CMD{% endblock %}
 
-{% block page_title %}Mes Commandes{% endblock %}
-{% block page_subtitle %}Commandes à confirmer{% endblock %}
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-lg shadow-md p-6">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-semibold text-gray-800">Commandes en attente de confirmation</h2>
-        <button class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md">
-            <i class="fas fa-check mr-2"></i>Confirmer sélectionnées
-        </button>
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--confirmation-primary), var(--confirmation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-clipboard-check mr-3 text-amber-200"></i>
+                Mes Commandes à Confirmer
+            </h1>
+            <p class="text-amber-200">Commandes affectées à votre validation</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <div class="text-right">
+                <div class="text-2xl font-bold text-amber-200">{{ total_commandes|default:0 }}</div>
+                <div class="text-sm opacity-80">Total affectées</div>
+            </div>
+        </div>
     </div>
-    
-    <!-- Contenu à développer -->
-    <div class="text-center py-8 text-gray-500">
-        <i class="fas fa-clipboard-check text-4xl mb-4"></i>
-        <p>Aucune commande à confirmer</p>
-        <p class="text-sm">Les commandes en attente apparaîtront ici</p>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- En attente de confirmation -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-orange-300 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 transition-all duration-300 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-clock text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">En attente</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600">{{ commandes_en_attente|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- En cours de confirmation -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-spinner text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">En cours</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ commandes_en_cours|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmées -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Confirmées</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ commandes_confirmees|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Erronées -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-red-300 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Erronées</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600">{{ commandes_erronnees|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et actions -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <form method="get" class="flex-grow flex gap-4">
+                <div class="flex-grow">
+                    <div class="relative">
+                        <input type="text" name="search" value="{{ search_query|default:'' }}" 
+                               class="w-full pl-10 pr-4 py-2 rounded-lg border border-amber-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all" 
+                               placeholder="Rechercher par N° commande, client, ville...">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                        style="background-color: var(--confirmation-primary);">
+                    Rechercher
+                </button>
+                {% if search_query %}
+                <a href="{% url 'operatConfirme:liste_commande' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    Réinitialiser
+                </a>
+                {% endif %}
+            </form>
+
+            <!-- Actions rapides -->
+            <div class="flex gap-2">
+                <button id="bulkConfirmBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm opacity-50 cursor-not-allowed" disabled>
+                    <i class="fas fa-check mr-2"></i> Confirmer sélection
+                </button>
+                <button id="bulkRejectBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm opacity-50 cursor-not-allowed" disabled>
+                    <i class="fas fa-times mr-2"></i> Marquer erronées
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message si aucun résultat -->
+    {% if not page_obj %}
+    <div class="bg-amber-50 border-l-4 border-amber-400 p-4 mb-8 rounded-lg">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-amber-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-amber-700">
+                    {% if search_query %}
+                        Aucune commande trouvée pour la recherche "{{ search_query }}".
+                    {% else %}
+                        Aucune commande ne vous est actuellement affectée.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tableau des commandes -->
+    {% if page_obj %}
+    <div class="overflow-x-auto mb-8 bg-white rounded-xl shadow-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead style="background-color: var(--confirmation-primary);">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        <input type="checkbox" id="selectAllCommandes" class="form-checkbox h-4 w-4 text-amber-600 rounded focus:ring-amber-500" />
+                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for commande in page_obj %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <input type="checkbox" class="commande-checkbox h-4 w-4 text-amber-600 rounded focus:ring-amber-500" data-commande-id="{{ commande.pk }}" />
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium" style="color: var(--confirmation-primary);">
+                            {{ commande.id_yz }}
+                        </div>
+                        {% if commande.num_cmd != commande.id_yz|stringformat:"s" %}
+                        <div class="text-xs text-gray-500">{{ commande.num_cmd }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">
+                            {% if commande.client.nom and commande.client.prenom %}
+                                {{ commande.client.prenom }} {{ commande.client.nom }}
+                            {% else %}
+                                Client {{ commande.client.numero_tel }}
+                            {% endif %}
+                        </div>
+                        {% if commande.client.email %}
+                        <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <a href="tel:{{ commande.client.numero_tel }}" class="flex items-center text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-phone mr-1"></i>
+                            {{ commande.client.numero_tel }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {% if commande.ville %}
+                            {{ commande.ville.nom }}
+                            <div class="text-xs text-gray-400">{{ commande.ville.frais_livraison|floatformat:2 }} DH</div>
+                        {% else %}
+                            {{ commande.ville_init|default:"Non spécifiée" }}
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ commande.date_cmd|date:"d/m/Y" }}
+                        <div class="text-xs text-gray-400">{{ commande.date_creation|date:"H:i" }}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium" style="color: var(--confirmation-primary);">
+                        {{ commande.total_cmd|floatformat:2 }} DH
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        {% if commande.etat_actuel %}
+                        <span class="status-badge
+                            {% if commande.etat_actuel.enum_etat.libelle == 'Confirmée' %} bg-green-100 text-green-800
+                            {% elif commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %} bg-blue-100 text-blue-800
+                            {% elif commande.etat_actuel.enum_etat.libelle == 'Affectée' %} bg-yellow-100 text-yellow-800
+                            {% elif commande.etat_actuel.enum_etat.libelle == 'Erronée' %} bg-red-100 text-red-800
+                            {% else %} bg-gray-100 text-gray-800
+                            {% endif %}">
+                            {{ commande.etat_actuel.enum_etat.libelle }}
+                        </span>
+                        {% else %}
+                        <span class="status-badge bg-red-100 text-red-800">Aucun état</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-center">
+                        <button type="button" onclick="viewCart({{ commande.pk }})" class="text-amber-600 hover:text-amber-800 transition-colors" title="Voir le panier">
+                            <i class="fas fa-shopping-basket text-lg"></i>
+                            {% if commande.panier.articles.count > 0 %}
+                                <span class="ml-1 bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5">{{ commande.panier.articles.count }}</span>
+                            {% endif %}
+                        </button>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-center">
+                        <div class="flex items-center justify-center space-x-2">
+                            <button type="button" onclick="viewDetails({{ commande.pk }})" class="text-blue-600 hover:text-blue-800 transition-colors" title="Voir détails">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            
+                            {% if commande.etat_actuel.enum_etat.libelle == 'Affectée' or commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %}
+                            <button type="button" onclick="confirmCommande({{ commande.pk }})" class="text-green-600 hover:text-green-800 transition-colors" title="Confirmer">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button type="button" onclick="markAsErrorModal({{ commande.pk }}, '{{ commande.id_yz|escapejs }}')" class="text-red-600 hover:text-red-800 transition-colors" title="Marquer comme erronée">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="flex justify-center mt-8">
+        <nav aria-label="Navigation des commandes">
+            <ul class="flex items-center -space-x-px">
+            {% if page_obj.has_previous %}
+                <li>
+                    <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100 text-amber-700 border-amber-200 hover:text-gray-700">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                <li>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 text-amber-700 border-amber-200 hover:text-gray-700">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li>
+                        <span class="px-3 py-2 leading-tight text-white border border-amber-600" style="background-color: var(--confirmation-primary);">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li>
+                        <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 text-amber-700 border-amber-200 hover:text-gray-700">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li>
+                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 text-amber-700 border-amber-200 hover:text-gray-700">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                <li>
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100 text-amber-700 border-amber-200 hover:text-gray-700">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+            </ul>
+        </nav>
+    </div>
+
+    <!-- Informations de pagination -->
+    <div class="flex justify-center mt-4">
+        <div class="text-sm text-gray-600">
+            Affichage de {{ page_obj.start_index }} à {{ page_obj.end_index }} sur {{ page_obj.paginator.count }} commandes.
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<!-- Modal de confirmation d'erreur -->
+<div id="errorModal" class="fixed inset-0 flex items-center justify-center z-50 hidden" style="background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px);">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+        <div class="text-center mb-6">
+            <i class="fas fa-exclamation-triangle text-red-500 text-6xl mb-4"></i>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Marquer comme erronée</h3>
+            <p class="text-gray-600">Êtes-vous sûr de vouloir marquer la commande "<span id="errorCommandeId" class="font-semibold"></span>" comme erronée ?</p>
+        </div>
+        <div class="mb-4">
+            <label for="errorReason" class="block text-sm font-medium text-gray-700 mb-2">Motif (obligatoire)</label>
+            <textarea id="errorReason" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Expliquez pourquoi cette commande est erronée..."></textarea>
+        </div>
+        <div class="flex justify-center gap-4">
+            <button id="confirmErrorBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105">
+                Confirmer
+            </button>
+            <button id="cancelErrorBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105">
+                Annuler
+            </button>
+        </div>
     </div>
 </div>
-{% endblock %} 
+
+<!-- Modal de détail du panier -->
+<div id="cartModal" class="fixed inset-0 flex items-center justify-center z-50 hidden" style="background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px);">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b">
+            <div class="flex justify-between items-center">
+                <h3 class="text-2xl font-bold text-gray-800">Détails du panier</h3>
+                <button id="closeCartModal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+        </div>
+        <div id="cartContent" class="p-6">
+            <!-- Contenu du panier sera chargé ici -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+let currentCommandeId = null;
+
+// Gestion de la sélection multiple
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAllCommandes');
+    const commandeCheckboxes = document.querySelectorAll('.commande-checkbox');
+    const bulkConfirmBtn = document.getElementById('bulkConfirmBtn');
+    const bulkRejectBtn = document.getElementById('bulkRejectBtn');
+
+    function updateBulkButtons() {
+        const checkedCount = document.querySelectorAll('.commande-checkbox:checked').length;
+        if (checkedCount > 0) {
+            bulkConfirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            bulkConfirmBtn.disabled = false;
+            bulkRejectBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            bulkRejectBtn.disabled = false;
+        } else {
+            bulkConfirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            bulkConfirmBtn.disabled = true;
+            bulkRejectBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            bulkRejectBtn.disabled = true;
+        }
+    }
+
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            commandeCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateBulkButtons();
+        });
+    }
+
+    commandeCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateBulkButtons);
+    });
+
+    // Actions en masse
+    if (bulkConfirmBtn) {
+        bulkConfirmBtn.addEventListener('click', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.commande-checkbox:checked'))
+                .map(cb => cb.dataset.commandeId);
+            if (selectedIds.length > 0) {
+                bulkConfirmCommandes(selectedIds);
+            }
+        });
+    }
+
+    if (bulkRejectBtn) {
+        bulkRejectBtn.addEventListener('click', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.commande-checkbox:checked'))
+                .map(cb => cb.dataset.commandeId);
+            if (selectedIds.length > 0) {
+                bulkRejectCommandes(selectedIds);
+            }
+        });
+    }
+});
+
+// Fonctions pour les actions
+function viewDetails(commandeId) {
+    window.open(`/commande/detail/${commandeId}/`, '_blank');
+}
+
+function viewCart(commandeId) {
+    fetch(`/api/commande/${commandeId}/panier/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('cartContent').innerHTML = data.html;
+            document.getElementById('cartModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors du chargement du panier');
+        });
+}
+
+function confirmCommande(commandeId) {
+    if (confirm('Êtes-vous sûr de vouloir confirmer cette commande ?')) {
+        fetch(`/operatConfirme/confirmer/${commandeId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la confirmation');
+        });
+    }
+}
+
+function markAsErrorModal(commandeId, commandeIdYz) {
+    currentCommandeId = commandeId;
+    document.getElementById('errorCommandeId').textContent = commandeIdYz;
+    document.getElementById('errorReason').value = '';
+    document.getElementById('errorModal').classList.remove('hidden');
+}
+
+function bulkConfirmCommandes(commandeIds) {
+    if (confirm(`Êtes-vous sûr de vouloir confirmer ${commandeIds.length} commande(s) ?`)) {
+        fetch('/operatConfirme/bulk-confirm/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ commande_ids: commandeIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.message);
+            }
+        });
+    }
+}
+
+function bulkRejectCommandes(commandeIds) {
+    const motif = prompt(`Motif pour marquer ${commandeIds.length} commande(s) comme erronées:`);
+    if (motif && motif.trim()) {
+        fetch('/operatConfirme/bulk-reject/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                commande_ids: commandeIds,
+                motif: motif.trim()
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.message);
+            }
+        });
+    }
+}
+
+// Gestion des modals
+document.getElementById('closeCartModal').addEventListener('click', function() {
+    document.getElementById('cartModal').classList.add('hidden');
+});
+
+document.getElementById('confirmErrorBtn').addEventListener('click', function() {
+    const motif = document.getElementById('errorReason').value.trim();
+    if (!motif) {
+        alert('Veuillez saisir un motif');
+        return;
+    }
+
+    fetch(`/operatConfirme/marquer-erronnee/${currentCommandeId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ motif: motif })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('errorModal').classList.add('hidden');
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.message);
+        }
+    });
+});
+
+document.getElementById('cancelErrorBtn').addEventListener('click', function() {
+    document.getElementById('errorModal').classList.add('hidden');
+});
+
+// Fermer les modals en cliquant à l'extérieur
+window.addEventListener('click', function(event) {
+    const cartModal = document.getElementById('cartModal');
+    const errorModal = document.getElementById('errorModal');
+    
+    if (event.target === cartModal) {
+        cartModal.classList.add('hidden');
+    }
+    if (event.target === errorModal) {
+        errorModal.classList.add('hidden');
+    }
+});
+</script>
+{% endblock %}

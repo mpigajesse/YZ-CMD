@@ -12,6 +12,24 @@ class GoogleSheetConfig(models.Model):
     def __str__(self):
         return f"{self.sheet_name} ({self.sheet_url})"
     
+    @property
+    def last_sync(self):
+        """Retourne la date de la dernière synchronisation réussie"""
+        latest_log = self.sync_logs.filter(status__in=['success', 'partial']).first()
+        return latest_log.sync_date if latest_log else None
+    
+    @property
+    def last_sync_status(self):
+        """Retourne le statut de la dernière synchronisation"""
+        latest_log = self.sync_logs.first()
+        return latest_log.status if latest_log else None
+    
+    @property
+    def last_sync_records(self):
+        """Retourne le nombre d'enregistrements de la dernière synchronisation"""
+        latest_log = self.sync_logs.filter(status__in=['success', 'partial']).first()
+        return latest_log.records_imported if latest_log else 0
+    
     class Meta:
         verbose_name = "Configuration Google Sheet"
         verbose_name_plural = "Configurations Google Sheet"

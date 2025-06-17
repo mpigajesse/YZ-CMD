@@ -25,7 +25,10 @@ class GoogleSheetSync:
     def authenticate(self):
         """Authentification avec l'API Google Sheets"""
         try:
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+            scope = [
+                'https://www.googleapis.com/auth/spreadsheets.readonly',
+                'https://www.googleapis.com/auth/drive.readonly'
+            ]
             credentials = Credentials.from_service_account_file(
                 settings.GOOGLE_CREDENTIALS_FILE, 
                 scopes=scope
@@ -115,14 +118,27 @@ class GoogleSheetSync:
             
             # Vérifier si la commande existe déjà - essayer différentes variantes de clés
             order_number = data.get('N° Commande') or data.get('Numéro') or data.get('N°Commande') or data.get('Numero')
-            if not order_number:
+            if not order_number or not order_number.strip():
+                print(f"❌ Ligne rejetée : numéro de commande manquant ou vide")
                 self.errors.append(f"Ligne sans numéro de commande: {data}")
                 return False
             
-            # Vérifier si la commande existe déjà
-            if Commande.objects.filter(num_cmd=order_number).exists():
-                # La commande existe déjà, on l'ignore
-                return True
+            print(f"🔍 Traitement commande {order_number}")
+            
+            # Vérifier si la commande existe déjà et décider de l'action
+            existing_commande = Commande.objects.filter(num_cmd=order_number).first()
+            if existing_commande:
+                # La commande existe déjà, on la met à jour au lieu de l'ignorer
+                print(f"📝 Commande {order_number} existe déjà (ID YZ: {existing_commande.id_yz})")
+                should_update = self._should_update_command(existing_commande, data)
+                if should_update:
+                    print(f"🔄 Mise à jour nécessaire pour {order_number}")
+                    return self._update_existing_command(existing_commande, data, headers)
+                else:
+                    # Pas de changement nécessaire, on compte quand même comme traité
+                    print(f"✅ Aucun changement nécessaire pour {order_number}")
+                    self.records_imported += 1  # Compter comme traité même si pas modifié
+                    return True
             
             # Récupérer ou créer le client
             client_phone = data.get('Téléphone', '')
@@ -168,6 +184,7 @@ class GoogleSheetSync:
                 total_cmd_price = 0.0
 
             # Créer une nouvelle commande en utilisant le même numéro vérifié
+            print(f"➕ Création nouvelle commande {order_number}")
             commande = Commande.objects.create(
                 num_cmd=order_number,  # Numéro externe du fichier Google Sheets
                 date_cmd=self._parse_date(data.get('Date', '')),
@@ -178,7 +195,7 @@ class GoogleSheetSync:
                 produit_init=data.get('Produit', ''),
                 # L'ID YZ sera généré automatiquement par la méthode save() du modèle (1, 2, 3, ...)
             )
-            print(f"Commande créée avec ID YZ: {commande.id_yz} et numéro externe: {commande.num_cmd}")
+            print(f"✅ Nouvelle commande créée avec ID YZ: {commande.id_yz} et numéro externe: {commande.num_cmd}")
             # Parser le produit et créer l'article de commande et le panier
             product_str = data.get('Produit', '')
             product_info = self.parse_product(product_str)
@@ -264,6 +281,134 @@ class GoogleSheetSync:
             
         except Exception as e:
             self.errors.append(f"Erreur lors du traitement de la ligne: {str(e)}")
+            return False
+    
+    def _should_update_command(self, existing_commande, data):
+        """Détermine si une commande existante doit être mise à jour"""
+        # Vérifier si le statut a changé
+        current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'En attente'
+        new_status = self._map_status(data.get('Statut', '')) if data.get('Statut') else 'En attente'
+        
+        if current_status != new_status:
+            return True
+        
+        # Vérifier si le prix a changé
+        try:
+            new_price = float(data.get('Prix', 0)) or float(data.get('Total', 0))
+            if abs(float(existing_commande.total_cmd) - new_price) > 0.01:  # Différence de plus de 1 centime
+                return True
+        except (ValueError, TypeError):
+            pass
+        
+        # Vérifier si l'adresse a changé
+        new_address = data.get('Adresse', '')
+        if new_address and existing_commande.adresse != new_address:
+            return True
+        
+        # Vérifier si la ville a changé
+        new_ville = data.get('Ville', '')
+        current_ville = existing_commande.ville.nom if existing_commande.ville else ''
+        if new_ville and current_ville != new_ville:
+            return True
+        
+        # Vérifier si l'opérateur a changé
+        new_operator = data.get('Opérateur', '')
+        current_operator = existing_commande.etat_actuel.operateur.nom_complet if (existing_commande.etat_actuel and existing_commande.etat_actuel.operateur) else ''
+        if new_operator and current_operator != new_operator:
+            return True
+        
+        return False
+    
+    def _update_existing_command(self, existing_commande, data, headers):
+        """Met à jour une commande existante avec les nouvelles données"""
+        try:
+            updated = False
+            
+            # Mettre à jour le prix si nécessaire
+            try:
+                new_price = float(data.get('Prix', 0)) or float(data.get('Total', 0))
+                if abs(float(existing_commande.total_cmd) - new_price) > 0.01:
+                    existing_commande.total_cmd = new_price
+                    updated = True
+            except (ValueError, TypeError):
+                pass
+            
+            # Mettre à jour l'adresse si nécessaire
+            new_address = data.get('Adresse', '')
+            if new_address and existing_commande.adresse != new_address:
+                existing_commande.adresse = new_address
+                updated = True
+            
+            # Mettre à jour la ville si nécessaire
+            new_ville_nom = data.get('Ville', '')
+            if new_ville_nom:
+                current_ville_nom = existing_commande.ville.nom if existing_commande.ville else ''
+                if current_ville_nom != new_ville_nom:
+                    # Récupérer ou créer la nouvelle ville
+                    from parametre.models import Region
+                    default_region, _ = Region.objects.get_or_create(nom_region='Non spécifiée')
+                    ville_obj, _ = Ville.objects.get_or_create(
+                        nom=new_ville_nom,
+                        defaults={
+                            'frais_livraison': 0.0,
+                            'frequence_livraison': 'Quotidienne',
+                            'region': default_region
+                        }
+                    )
+                    existing_commande.ville = ville_obj
+                    updated = True
+            
+            # Sauvegarder les changements de la commande
+            if updated:
+                existing_commande.save()
+                print(f"Commande mise à jour: ID YZ {existing_commande.id_yz} (Ext: {existing_commande.num_cmd})")
+            
+            # Mettre à jour le statut si nécessaire
+            new_status = self._map_status(data.get('Statut', '')) if data.get('Statut') else None
+            if new_status:
+                current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'En attente'
+                if current_status != new_status:
+                    # Récupérer l'opérateur si spécifié
+                    operateur_obj = None
+                    operator_name = data.get('Opérateur', '')
+                    if operator_name:
+                        try:
+                            operateur_obj = Operateur.objects.get(nom_complet__iexact=operator_name)
+                        except Operateur.DoesNotExist:
+                            self.errors.append(f"Opérateur non trouvé: {operator_name}")
+                    
+                    # Créer le nouvel état
+                    self._create_etat_commande(existing_commande, new_status, operateur_obj)
+                    print(f"État mis à jour pour la commande ID YZ {existing_commande.id_yz}: {current_status} -> {new_status}")
+            
+            # Mettre à jour les informations du client si nécessaire
+            client_phone = data.get('Téléphone', '')
+            if client_phone and existing_commande.client:
+                client_obj = existing_commande.client
+                client_nom_prenom = data.get('Client', '').split(' ', 1)
+                client_nom = client_nom_prenom[0] if client_nom_prenom else ''
+                client_prenom = client_nom_prenom[1] if len(client_nom_prenom) > 1 else ''
+                
+                client_updated = False
+                if client_nom and client_obj.nom != client_nom:
+                    client_obj.nom = client_nom
+                    client_updated = True
+                if client_prenom and client_obj.prenom != client_prenom:
+                    client_obj.prenom = client_prenom
+                    client_updated = True
+                if new_address and client_obj.adresse != new_address:
+                    client_obj.adresse = new_address
+                    client_updated = True
+                
+                if client_updated:
+                    client_obj.save()
+                    print(f"Informations client mises à jour pour {client_obj.get_full_name()}")
+            
+            self.records_imported += 1
+            return True
+            
+        except Exception as e:
+            self.errors.append(f"Erreur lors de la mise à jour de la commande {existing_commande.num_cmd}: {str(e)}")
             return False
     
     def _map_status(self, status):
@@ -388,12 +533,27 @@ class GoogleSheetSync:
             headers = all_data[0]
             rows = all_data[1:]
             
+            print(f"📊 Synchronisation démarrée - Total lignes à traiter : {len(rows)}")
+            print(f"🔤 En-têtes détectés : {headers}")
+            
             # Traiter chaque ligne
             for i, row in enumerate(rows, 2):  # Commencer à 2 car la ligne 1 contient les en-têtes
+                # Vérifier si la ligne est vide
+                if not any(cell.strip() for cell in row if cell):
+                    print(f"⚠️  Ligne {i} ignorée : ligne complètement vide")
+                    continue
+                    
                 if len(row) == len(headers):  # Vérifier que la ligne a le bon nombre de colonnes
+                    print(f"🔄 Traitement ligne {i} : {dict(zip(headers[:3], row[:3]))}...")  # Afficher les 3 premiers champs
                     success = self.process_row(row, headers)
+                    if success:
+                        print(f"✅ Ligne {i} traitée avec succès")
+                    else:
+                        print(f"❌ Échec traitement ligne {i}")
                 else:
-                    self.errors.append(f"Ligne {i} ignorée: nombre de colonnes incorrect ({len(row)} vs {len(headers)})")
+                    error_msg = f"Ligne {i} ignorée: nombre de colonnes incorrect ({len(row)} vs {len(headers)})"
+                    print(f"⚠️  {error_msg}")
+                    self.errors.append(error_msg)
             
             # Déterminer le statut final
             if self.errors:

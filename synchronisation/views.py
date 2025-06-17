@@ -166,7 +166,7 @@ def sync_logs(request):
         logs = logs.filter(
             models.Q(sheet_config__sheet_name__icontains=search_query) |
             models.Q(triggered_by__icontains=search_query) |
-            models.Q(error_message__icontains=search_query)
+            models.Q(errors__icontains=search_query)
         )
     
     if status_filter:
@@ -260,3 +260,84 @@ def log_delete(request, log_id):
         return redirect('synchronisation:logs')
     
     return redirect('synchronisation:logs')
+
+@login_required
+@user_passes_test(is_admin)
+def test_connection(request, config_id):
+    """Test de connexion à Google Sheets"""
+    config = get_object_or_404(GoogleSheetConfig, pk=config_id)
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        try:
+            # Si c'est une requête POST avec des données JSON (depuis le formulaire), les utiliser
+            if request.method == 'POST' and request.content_type == 'application/json':
+                import json
+                data = json.loads(request.body)
+                test_url = data.get('sheet_url', config.sheet_url)
+                test_sheet_name = data.get('sheet_name', config.sheet_name)
+            else:
+                # Utiliser les données de la configuration existante
+                test_url = config.sheet_url
+                test_sheet_name = config.sheet_name
+            
+            # Créer une configuration temporaire pour le test
+            temp_config = GoogleSheetConfig(
+                sheet_url=test_url,
+                sheet_name=test_sheet_name
+            )
+            
+            # Créer une instance de synchronisation pour tester
+            syncer = GoogleSheetSync(temp_config, triggered_by=request.user.username)
+            
+            # Tester l'authentification
+            client = syncer.authenticate()
+            if not client:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Erreur d\'authentification avec l\'API Google Sheets.',
+                    'details': syncer.errors
+                })
+            
+            # Tester l'ouverture de la feuille
+            try:
+                spreadsheet = client.open_by_url(test_url)
+                worksheet = spreadsheet.worksheet(test_sheet_name)
+                
+                # Récupérer quelques informations sur la feuille
+                all_values = worksheet.get_all_values()
+                total_rows = len(all_values)
+                headers = all_values[0] if all_values else []
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Connexion réussie !',
+                    'details': {
+                        'spreadsheet_title': spreadsheet.title,
+                        'worksheet_name': worksheet.title,
+                        'total_rows': total_rows,
+                        'total_columns': len(headers),
+                        'headers': headers[:5] if headers else [],  # Premiers 5 en-têtes
+                        'has_data': total_rows > 1
+                    }
+                })
+                
+            except Exception as sheet_error:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Erreur d\'accès à la feuille "{test_sheet_name}"',
+                    'details': [
+                        str(sheet_error),
+                        'Vérifiez que le nom de la feuille est correct',
+                        'Vérifiez que la feuille Google Sheets est partagée publiquement'
+                    ]
+                })
+                
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': 'Erreur lors du test de connexion',
+                'details': [str(e)]
+            })
+    
+    # Si ce n'est pas une requête AJAX, rediriger
+    return redirect('synchronisation:config_edit', pk=config_id)

@@ -1,0 +1,176 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-white rounded-xl shadow-md p-6" style="border-left: 4px solid var(--admin-color);">
+        <div>
+            <h1 class="text-3xl font-bold mb-2" style="color: var(--admin-color);">{{ page_title }}</h1>
+            <p style="color: var(--admin-accent-color);">Analyse des motifs d'annulation pour optimiser le processus</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'commande:annulees' %}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-ban mr-2"></i>Commandes Annulées
+            </a>
+            <a href="{% url 'commande:non_affectees' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-tasks mr-2"></i>Commandes à Traiter
+            </a>
+        </div>
+    </div>
+
+    <!-- Résumé global -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-red-100 text-red-600 mr-4">
+                    <i class="fas fa-ban text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Annulées</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ total_annulees }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+                    <i class="fas fa-list text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Motifs Différents</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ motifs_stats|length }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                    <i class="fas fa-chart-pie text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Analyse</p>
+                    <p class="text-sm font-bold text-gray-900">Amélioration Continue</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique des motifs -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: var(--admin-accent-color);">
+        <h2 class="text-2xl font-bold mb-6" style="color: var(--admin-color);">
+            <i class="fas fa-chart-bar mr-2"></i>Répartition des Motifs d'Annulation
+        </h2>
+        
+        {% if total_annulees > 0 %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for motif, count in motifs_stats.items %}
+            {% if count > 0 %}
+            <div class="bg-gray-50 rounded-lg p-4 border-l-4 hover:shadow-md transition-shadow
+                {% if motif == 'Doublon confirmé' %}border-orange-500
+                {% elif motif == 'Numéro tel incorrect' %}border-red-500
+                {% elif motif == 'Numéro de téléphone injoignable' %}border-yellow-500
+                {% elif motif == 'Client non intéressé' %}border-purple-500
+                {% elif motif == 'Adresse erronée' %}border-pink-500
+                {% elif motif == 'Erreur de saisie' %}border-indigo-500
+                {% elif motif == 'Autres' %}border-gray-500
+                {% else %}border-gray-400{% endif %}">
+                
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-semibold text-gray-800">{{ motif }}</h3>
+                    <span class="text-lg font-bold
+                        {% if motif == 'Doublon confirmé' %}text-orange-600
+                        {% elif motif == 'Numéro tel incorrect' %}text-red-600
+                        {% elif motif == 'Numéro de téléphone injoignable' %}text-yellow-600
+                        {% elif motif == 'Client non intéressé' %}text-purple-600
+                        {% elif motif == 'Adresse erronée' %}text-pink-600
+                        {% elif motif == 'Erreur de saisie' %}text-indigo-600
+                        {% elif motif == 'Autres' %}text-gray-600
+                        {% else %}text-gray-500{% endif %}">
+                        {{ count }}
+                    </span>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 bg-gray-200 rounded-full h-2 mr-3">
+                        <div class="h-2 rounded-full
+                            {% if motif == 'Doublon confirmé' %}bg-orange-500
+                            {% elif motif == 'Numéro tel incorrect' %}bg-red-500
+                            {% elif motif == 'Numéro de téléphone injoignable' %}bg-yellow-500
+                            {% elif motif == 'Client non intéressé' %}bg-purple-500
+                            {% elif motif == 'Adresse erronée' %}bg-pink-500
+                            {% elif motif == 'Erreur de saisie' %}bg-indigo-500
+                            {% elif motif == 'Autres' %}bg-gray-500
+                            {% else %}bg-gray-400{% endif %}" 
+                            style="width: {{ motifs_pourcentages|dict_get:motif }}%"></div>
+                    </div>
+                    <span class="text-sm font-medium text-gray-600">{{ motifs_pourcentages|dict_get:motif }}%</span>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i class="fas fa-chart-bar text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-medium text-gray-900 mb-2">Aucune donnée disponible</h3>
+            <p class="text-gray-500">Il n'y a actuellement aucune commande annulée avec des motifs à analyser.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Recommandations -->
+    {% if total_annulees > 0 %}
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+        <h3 class="text-lg font-bold text-blue-800 mb-4">
+            <i class="fas fa-lightbulb mr-2"></i>Recommandations d'Amélioration
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% if motifs_stats.Doublon_confirmé > 0 %}
+            <div class="bg-white rounded-lg p-4 border-l-4 border-orange-400">
+                <h4 class="font-semibold text-orange-800 mb-2">Doublons Confirmés</h4>
+                <p class="text-sm text-orange-700">Mettre en place un système de détection automatique des doublons lors de la saisie.</p>
+            </div>
+            {% endif %}
+            
+            {% if motifs_stats.Numéro_tel_incorrect > 0 %}
+            <div class="bg-white rounded-lg p-4 border-l-4 border-red-400">
+                <h4 class="font-semibold text-red-800 mb-2">Numéros Incorrects</h4>
+                <p class="text-sm text-red-700">Améliorer la validation des numéros de téléphone lors de la saisie des commandes.</p>
+            </div>
+            {% endif %}
+            
+            {% if motifs_stats.Numéro_de_téléphone_injoignable > 0 %}
+            <div class="bg-white rounded-lg p-4 border-l-4 border-yellow-400">
+                <h4 class="font-semibold text-yellow-800 mb-2">Numéros Injoignables</h4>
+                <p class="text-sm text-yellow-700">Considérer plusieurs tentatives d'appel avant l'annulation définitive.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Filtre personnalisé pour accéder aux clés de dictionnaire -->
+{% load custom_filters %}
+
+<script>
+// Animation des barres de progression au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    const progressBars = document.querySelectorAll('.h-2.rounded-full:not(.bg-gray-200)');
+    progressBars.forEach(bar => {
+        const width = bar.style.width;
+        bar.style.width = '0%';
+        setTimeout(() => {
+            bar.style.transition = 'width 1s ease-in-out';
+            bar.style.width = width;
+        }, 100);
+    });
+});
+</script>
+{% endblock %} 
