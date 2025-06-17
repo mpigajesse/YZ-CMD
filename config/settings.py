@@ -191,14 +191,7 @@ CSRF_COOKIE_HTTPONLY = True
 CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']
 CSRF_USE_SESSIONS = True # Ajout pour stocker le jeton CSRF dans la session
 
-# Configuration de l'authentification pour l'application
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'app_admin:home'
-LOGOUT_REDIRECT_URL = 'login'
-
-
-# Configuration pour Google Sheets
-GOOGLE_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'credentials.json')
+# Configuration de l'authentification pour  = os.path.join(BASE_DIR, 'credentials.json')
 GOOGLE_SHEET_URL = config('GOOGLE_SHEET_URL', default='')
 
 # Délai d'inactivité avant déconnexion (en secondes) - 2 heures
