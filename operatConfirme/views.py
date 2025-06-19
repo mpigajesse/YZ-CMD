@@ -362,15 +362,8 @@ def commandes_confirmees(request):
         # Si l'utilisateur n'est pas un opérateur, liste vide
         mes_commandes_confirmees = Commande.objects.none()
     
-    # Breadcrumb
-    breadcrumb_items = [
-        {'label': 'Gestion de Commandes', 'url': None, 'icon': 'clipboard-check'},
-        {'label': 'Mes Confirmées', 'url': None, 'icon': 'check-circle'}
-    ]
-    
     context = {
         'mes_commandes_confirmees': mes_commandes_confirmees,
-        'breadcrumb_items': breadcrumb_items,
     }
     
     return render(request, 'operatConfirme/commandes_confirmees.html', context)
@@ -1170,85 +1163,9 @@ def annuler_lancement_confirmation(request, commande_id):
     })
 
 @login_required
-def relancer_confirmation(request, commande_id):
-    """Vue pour relancer la confirmation d'une commande (Confirmée -> En cours de confirmation)"""
-    if request.method == 'POST':
-        try:
-            # Récupérer l'opérateur de confirmation
-            try:
-                operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
-            except Operateur.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Profil d\'opérateur de confirmation non trouvé'
-                })
-            
-            # Récupérer la commande
-            try:
-                commande = Commande.objects.get(id=commande_id)
-            except Commande.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Commande non trouvée'
-                })
-            
-            # Vérifier que la commande est dans l'état "Confirmée"
-            etat_actuel = commande.etat_actuel
-            
-            if not etat_actuel:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Aucun état trouvé pour cette commande'
-                })
-            
-            if etat_actuel.enum_etat.libelle != 'Confirmée':
-                return JsonResponse({
-                    'success': False,
-                    'message': f'Cette commande est en état "{etat_actuel.enum_etat.libelle}" et ne peut pas être relancée'
-                })
-            
-            # État "En cours de confirmation"
-            try:
-                etat_en_cours = EnumEtatCmd.objects.get(libelle='En cours de confirmation')
-            except EnumEtatCmd.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'État "En cours de confirmation" non trouvé dans le système'
-                })
-            
-            # Terminer l'état actuel
-            etat_actuel.date_fin = timezone.now()
-            etat_actuel.save()
-            
-            # Créer le nouvel état "En cours de confirmation"
-            EtatCommande.objects.create(
-                commande=commande,
-                enum_etat=etat_en_cours,
-                operateur=operateur,
-                date_debut=timezone.now(),
-                commentaire="Confirmation relancée par l'opérateur"
-            )
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Confirmation relancée avec succès pour la commande {commande.id_yz}.'
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': f'Erreur lors du relancement: {str(e)}'
-            })
-    
-    return JsonResponse({
-        'success': False,
-        'message': 'Méthode non autorisée'
-    })
-
-@login_required
 def modifier_commande(request, commande_id):
     """Page de modification complète d'une commande pour les opérateurs de confirmation"""
-    from commande.models import Commande
+    from commande.models import Commande, Operation
     from parametre.models import Ville
     
     try:
@@ -1295,9 +1212,41 @@ def modifier_commande(request, commande_id):
             if adresse:
                 commande.adresse = adresse
             
+            # Mise à jour du champ upsell
+            is_upsell = request.POST.get('is_upsell', 'false')
+            commande.is_upsell = (is_upsell == 'true')
+            
             commande.save()
             
-            messages.success(request, 'Commande modifiée avec succès.')
+            # Gestion des opérations individuelles avec commentaires spécifiques
+            operations_selectionnees = request.POST.getlist('operations[]')
+            operations_creees = []
+            
+            for type_operation in operations_selectionnees:
+                if type_operation:  # Vérifier que le type n'est pas vide
+                    # Récupérer le commentaire spécifique à cette opération
+                    commentaire_specifique = request.POST.get(f'comment_{type_operation}', '').strip()
+                    
+                    # L'opérateur DOIT saisir un commentaire - pas de commentaire automatique
+                    if commentaire_specifique:
+                        # Créer l'opération avec le commentaire saisi par l'opérateur
+                        operation = Operation.objects.create(
+                            type_operation=type_operation,
+                            conclusion=commentaire_specifique,
+                            commande=commande,
+                            operateur=operateur
+                        )
+                        operations_creees.append(operation)
+                    else:
+                        # Ignorer l'opération si aucun commentaire n'est fourni
+                        messages.warning(request, f"Opération {type_operation} ignorée : aucun commentaire fourni par l'opérateur.")
+            
+            if operations_creees:
+                operations_names = [op.get_type_operation_display() for op in operations_creees]
+                messages.success(request, f'Commande modifiée avec succès. Opérations ajoutées : {", ".join(operations_names)}')
+            else:
+                messages.success(request, 'Commande modifiée avec succès.')
+                
             return redirect('operatConfirme:modifier_commande', commande_id=commande_id)
             
         except Exception as e:
