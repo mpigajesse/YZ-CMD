@@ -1406,3 +1406,165 @@ def statistiques_motifs_annulation(request):
     }
     
     return render(request, 'commande/statistiques_motifs.html', context)
+
+@login_required
+def commandes_confirmees(request):
+    """Vue pour afficher les commandes confirmées"""
+    from django.utils import timezone
+    from datetime import datetime, timedelta
+    
+    # Récupérer toutes les commandes confirmées
+    commandes_confirmees = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
+    
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_confirmees = commandes_confirmees.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query) |
+            Q(etats__operateur__nom__icontains=search_query) |
+            Q(etats__operateur__prenom__icontains=search_query)
+        ).distinct()
+    
+    # Tri par date de confirmation (plus récentes en premier)
+    commandes_confirmees = commandes_confirmees.order_by('-etats__date_debut')
+    
+    # Pagination
+    paginator = Paginator(commandes_confirmees, 25)  # 25 commandes par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques
+    today = timezone.now().date()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+    
+    # Confirmées aujourd'hui
+    confirmees_aujourd_hui = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date=today
+    ).distinct().count()
+    
+    # Confirmées cette semaine
+    confirmees_semaine = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date__gte=week_start
+    ).distinct().count()
+    
+    # Confirmées ce mois
+    confirmees_mois = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date__gte=month_start
+    ).distinct().count()
+    
+    # Total des commandes confirmées
+    total_confirmees = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    # Montant total des commandes confirmées
+    montant_total = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True
+    ).aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'total_confirmees': total_confirmees,
+        'confirmees_aujourd_hui': confirmees_aujourd_hui,
+        'confirmees_semaine': confirmees_semaine,
+        'confirmees_mois': confirmees_mois,
+        'montant_total': montant_total,
+    }
+    
+    return render(request, 'commande/confirmees.html', context)
+
+@login_required
+def suivi_confirmations(request):
+    """Vue pour le suivi en temps réel des activités de confirmation des opérateurs"""
+    from django.utils import timezone
+    from datetime import datetime, timedelta
+    
+    # Récupérer toutes les commandes confirmées par les opérateurs
+    commandes_confirmees = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
+    
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_confirmees = commandes_confirmees.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query) |
+            Q(etats__operateur__nom__icontains=search_query) |
+            Q(etats__operateur__prenom__icontains=search_query)
+        ).distinct()
+    
+    # Tri par date de confirmation (plus récentes en premier)
+    commandes_confirmees = commandes_confirmees.order_by('-etats__date_debut')
+    
+    # Pagination
+    paginator = Paginator(commandes_confirmees, 25)  # 25 commandes par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques
+    today = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+    this_week = today - timedelta(days=7)
+    
+    # Compter par période
+    confirmees_aujourd_hui = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date=today
+    ).distinct().count()
+    
+    confirmees_hier = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date=yesterday
+    ).distinct().count()
+    
+    confirmees_semaine = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date__gte=this_week
+    ).distinct().count()
+    
+    # Compter les commandes en attente (pour information)
+    en_attente_count = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Affectée', 'En cours de confirmation'],
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    # Montant total des commandes confirmées
+    montant_total = commandes_confirmees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    context = {
+        'commandes_confirmees': commandes_confirmees,
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'confirmees_aujourd_hui': confirmees_aujourd_hui,
+        'confirmees_hier': confirmees_hier,
+        'confirmees_semaine': confirmees_semaine,
+        'en_attente_count': en_attente_count,
+        'montant_total': montant_total,
+    }
+    
+    return render(request, 'commande/suivi_confirmations.html', context)

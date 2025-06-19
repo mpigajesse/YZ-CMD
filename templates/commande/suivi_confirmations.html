@@ -1,0 +1,488 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Suivi des Confirmations - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+
+    .btn-confirm {
+        background: linear-gradient(135deg, #059669, #10b981);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-confirm:hover {
+        background: linear-gradient(135deg, #047857, #059669);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .confirmation-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .confirmation-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .live-indicator {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #1f2937, #374151);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-eye mr-3 live-indicator" style="color: #10b981;"></i>
+                Suivi des Confirmations
+            </h1>
+            <p style="color: #d1d5db;">Tableau de bord en temps réel des activités de confirmation</p>
+            <div class="flex items-center mt-2 text-sm" style="color: #9ca3af;">
+                <i class="fas fa-circle mr-2 text-green-400 live-indicator" style="font-size: 8px;"></i>
+                Suivi en direct • Avant, pendant et après confirmation
+            </div>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <div class="text-right">
+                <div class="text-2xl font-bold" style="color: #10b981;">{{ commandes_confirmees.count|default:0 }}</div>
+                <div class="text-sm opacity-80">Commandes confirmées</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques de suivi -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- Confirmées aujourd'hui -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Confirmées Aujourd'hui</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ confirmees_aujourd_hui|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- En cours de confirmation -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-600 transition-all duration-300 group-hover:from-yellow-500 group-hover:to-yellow-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-sync-alt text-2xl live-indicator"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">En Cours</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-yellow-600">{{ en_attente_count|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmées cette semaine -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-purple-100 to-purple-200 text-purple-600 transition-all duration-300 group-hover:from-purple-500 group-hover:to-purple-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-calendar-week text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Cette Semaine</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-purple-600">{{ confirmees_semaine|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Montant total suivi -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 transition-all duration-300 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-chart-line text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur Suivie</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600">{{ montant_total|default:0|floatformat:0 }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et actions de suivi -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <form method="get" class="flex-grow flex gap-4">
+                <div class="flex-grow">
+                    <div class="relative">
+                        <input type="text" name="search" value="{{ search_query|default:'' }}" 
+                               class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" 
+                               placeholder="Rechercher par N° commande, client, opérateur...">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium bg-blue-600 hover:bg-blue-700 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fas fa-search mr-2"></i>
+                    Rechercher
+                </button>
+                {% if search_query %}
+                <a href="{% url 'commande:suivi_confirmations' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fas fa-times mr-2"></i>
+                    Réinitialiser
+                </a>
+                {% endif %}
+            </form>
+            <div class="flex gap-2">
+                <button onclick="location.reload()" class="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-all">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    Actualiser
+                </button>
+                <span class="px-6 py-2 rounded-lg bg-yellow-600 text-white font-medium">
+                    <i class="fas fa-hourglass-half mr-2"></i>
+                    En attente: {{ en_attente_count|default:0 }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message si aucun résultat -->
+    {% if not commandes_confirmees %}
+    <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+        <div class="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center bg-gradient-to-r from-blue-100 to-blue-200">
+            <i class="fas fa-eye text-4xl text-blue-600"></i>
+        </div>
+        <h3 class="text-2xl font-bold mb-3 text-gray-900">
+            {% if search_query %}
+                Aucune activité trouvée
+            {% else %}
+                Surveillance en cours
+            {% endif %}
+        </h3>
+        <p class="text-gray-600 mb-6">
+            {% if search_query %}
+                Aucune activité de confirmation trouvée pour "{{ search_query }}".
+            {% else %}
+                Le système surveille les activités des opérateurs de confirmation en temps réel.
+            {% endif %}
+        </p>
+        {% if en_attente_count > 0 %}
+        <p class="text-yellow-600 mb-6">
+            <i class="fas fa-info-circle mr-2"></i>
+            {{ en_attente_count }} commande(s) sont actuellement en cours de traitement par les opérateurs.
+        </p>
+        {% endif %}
+        <a href="{% url 'commande:liste' %}" class="btn-confirm">
+            <i class="fas fa-list mr-2"></i>
+            Voir toutes les commandes
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Tableau de suivi des confirmations -->
+    {% if commandes_confirmees %}
+    <div class="overflow-x-auto mb-8 bg-white rounded-xl shadow-lg">
+        <div class="p-4 bg-gray-50 border-b">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-monitor-heart-rate mr-2 text-green-600"></i>
+                Activités de Confirmation Surveillées
+            </h3>
+            <p class="text-sm text-gray-600 mt-1">Suivi en temps réel des actions des opérateurs de confirmation</p>
+        </div>
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-800">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Contact</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Livraison</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Montant</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Cmd</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État Suivi</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opération</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions Suivi</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for commande in commandes_confirmees %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ commande.id_yz }}</div>
+                        {% if commande.num_cmd != commande.id_yz|stringformat:"s" %}
+                        <div class="text-xs text-gray-500">{{ commande.num_cmd }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">
+                            {% if commande.client.nom and commande.client.prenom %}
+                                {{ commande.client.prenom }} {{ commande.client.nom }}
+                            {% else %}
+                                Client {{ commande.client.numero_tel }}
+                            {% endif %}
+                        </div>
+                        {% if commande.ville_init %}
+                        <div class="text-xs text-gray-500">Ville client: {{ commande.ville_init }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <a href="tel:{{ commande.client.numero_tel }}" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                            <i class="fas fa-phone mr-1"></i>
+                            {{ commande.client.numero_tel }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                        <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ commande.date_cmd|date:"d/m/Y" }}</div>
+                        <div class="text-xs text-gray-500">{{ commande.date_creation|date:"H:i" }}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        {% for etat in commande.etats.all %}
+                            {% if not etat.date_fin %}
+                                <div>
+                                    <span class="status-badge bg-green-100 text-green-800">
+                                        <i class="fas fa-check-circle mr-1"></i>
+                                        Confirmée ✓
+                                    </span>
+                                    <div class="text-xs text-gray-500 mt-1">{{ etat.date_debut|date:"d/m/Y H:i" }}</div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        {% if commande.operations.exists %}
+                            {% with operation_actuelle=commande.operations.first %}
+                                {% if operation_actuelle.type_operation == 'AUCUNE_ACTION' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        <i class="fas fa-minus mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'APPEL_1' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        <i class="fas fa-phone mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'APPEL_2' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                        <i class="fas fa-phone mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'APPEL_3' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        <i class="fas fa-phone mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'APPEL_4' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+                                        <i class="fas fa-phone mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'APPEL_5' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        <i class="fas fa-phone mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'APPEL_6' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                        <i class="fas fa-phone mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'APPEL_7' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        <i class="fas fa-phone mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'APPEL_8' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        <i class="fas fa-phone-slash mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'ENVOI_SMS' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="fas fa-sms mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% elif operation_actuelle.type_operation == 'PROPOSITION_ABONNEMENT' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                                        <i class="fas fa-gift mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        <i class="fas fa-cogs mr-1"></i>
+                                        {{ operation_actuelle.get_type_operation_display }}
+                                    </span>
+                                {% endif %}
+                                {% if operation_actuelle.date_operation %}
+                                    <div class="text-xs text-gray-500 mt-1">{{ operation_actuelle.date_operation|date:"d/m H:i" }}</div>
+                                {% endif %}
+                                {% if operation_actuelle.commentaire %}
+                                    <div class="text-xs text-gray-400 mt-1" title="{{ operation_actuelle.commentaire }}">
+                                        {{ operation_actuelle.commentaire|truncatechars:20 }}
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                                <i class="fas fa-question mr-1"></i>
+                                Aucune opération
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        {% for etat in commande.etats.all %}
+                            {% if not etat.date_fin and etat.operateur %}
+                                <div class="text-sm text-gray-900">{{ etat.operateur.nom_complet }}</div>
+                                <div class="text-xs text-gray-500">{{ etat.operateur.type_operateur }}</div>
+                                <div class="text-xs text-green-600 mt-1">
+                                    <i class="fas fa-eye mr-1"></i>
+                                    Surveillé
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-center">
+                        <div class="flex justify-center space-x-2">
+                            <a href="{% url 'commande:detail' commande.pk %}" 
+                               class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors">
+                                <i class="fas fa-eye mr-1"></i>
+                                Détails
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="flex justify-center items-center space-x-4 py-4">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-chevron-left mr-2"></i>Précédent
+            </a>
+        {% endif %}
+        
+        <span class="text-gray-700">
+            Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                Suivant<i class="fas fa-chevron-right ml-2"></i>
+            </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Légende du suivi -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mt-8">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-info-circle mr-2 text-blue-600"></i>
+            Guide du Suivi en Temps Réel
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <h4 class="font-semibold text-yellow-800 mb-2">
+                    <i class="fas fa-clock mr-2"></i>
+                    Avant Confirmation
+                </h4>
+                <p class="text-sm text-yellow-700">Commandes affectées aux opérateurs, en attente de traitement</p>
+            </div>
+            <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 class="font-semibold text-blue-800 mb-2">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    Pendant Confirmation
+                </h4>
+                <p class="text-sm text-blue-700">Opérations en cours, appels effectués, SMS envoyés</p>
+            </div>
+            <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                <h4 class="font-semibold text-green-800 mb-2">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    Après Confirmation
+                </h4>
+                <p class="text-sm text-green-700">Commandes confirmées et prêtes pour la livraison</p>
+            </div>
+        </div>
+        
+
+    </div>
+</div>
+
+<script>
+// Fonction pour actualiser automatiquement la page
+function autoRefresh() {
+    setInterval(function() {
+        if (!document.hidden) {
+            location.reload();
+        }
+    }, 30000); // Actualisation toutes les 30 secondes
+}
+
+// Démarrer l'actualisation automatique
+document.addEventListener('DOMContentLoaded', function() {
+    autoRefresh();
+    
+    // Ajouter un indicateur de dernière mise à jour
+    const indicator = document.createElement('div');
+    indicator.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-3 py-1 rounded-lg text-xs';
+    indicator.innerHTML = '<i class="fas fa-sync-alt mr-1"></i>Mise à jour: ' + new Date().toLocaleTimeString();
+    document.body.appendChild(indicator);
+});
+</script>
+{% endblock %} 
