@@ -12,6 +12,8 @@ from django.http import JsonResponse
 import json
 from django.utils import timezone
 from commande.models import Commande, EtatCommande, EnumEtatCmd
+from datetime import datetime, timedelta
+from django.db.models import Sum
 
 # Create your views here.
 
@@ -19,6 +21,9 @@ from commande.models import Commande, EtatCommande, EnumEtatCmd
 def dashboard(request):
     """Page d'accueil de l'interface opérateur de confirmation"""
     from commande.models import Commande, EtatCommande
+    from django.utils import timezone
+    from datetime import datetime, timedelta
+    from django.db.models import Sum
     
     try:
         # Récupérer le profil opérateur de l'utilisateur connecté
@@ -26,6 +31,10 @@ def dashboard(request):
     except Operateur.DoesNotExist:
         messages.error(request, "Profil d'opérateur de confirmation non trouvé.")
         return redirect('login')
+    
+    # Dates pour les calculs de périodes
+    today = timezone.now().date()
+    week_start = today - timedelta(days=today.weekday())
     
     # Récupérer les commandes affectées à cet opérateur
     commandes_affectees = Commande.objects.filter(
@@ -38,29 +47,53 @@ def dashboard(request):
     
     # Commandes en attente de confirmation (affectées mais pas encore en cours de confirmation)
     stats['commandes_en_attente'] = commandes_affectees.filter(
-        etats__enum_etat__libelle='affectee',
+        etats__enum_etat__libelle='Affectée',
         etats__date_fin__isnull=True
     ).count()
     
     # Commandes en cours de confirmation
     stats['commandes_en_cours'] = commandes_affectees.filter(
-        etats__enum_etat__libelle='en_cours_confirmation',
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True
     ).count()
     
-    # Commandes confirmées par cet opérateur
-    stats['commandes_confirmees'] = Commande.objects.filter(
+    # Commandes confirmées par cet opérateur (toutes)
+    commandes_confirmees_all = Commande.objects.filter(
         etats__operateur=operateur,
-        etats__enum_etat__libelle='confirmee'
+        etats__enum_etat__libelle='Confirmée'
+    ).distinct()
+    
+    stats['commandes_confirmees'] = commandes_confirmees_all.count()
+    
+    # Commandes confirmées aujourd'hui
+    stats['commandes_confirmees_aujourd_hui'] = commandes_confirmees_all.filter(
+        etats__date_debut__date=today
     ).count()
+    
+    # Commandes confirmées cette semaine
+    stats['commandes_confirmees_semaine'] = commandes_confirmees_all.filter(
+        etats__date_debut__date__gte=week_start
+    ).count()
+    
+    # Valeur totale des commandes confirmées
+    valeur_totale = commandes_confirmees_all.aggregate(
+        total=Sum('total_cmd')
+    )['total'] or 0
+    stats['valeur_totale_confirmees'] = valeur_totale
     
     # Commandes marquées erronées par cet opérateur
     stats['commandes_erronnees'] = Commande.objects.filter(
         etats__operateur=operateur,
-        etats__enum_etat__libelle='erronnee'
-    ).count()
+        etats__enum_etat__libelle='Erronée'
+    ).distinct().count()
     
     stats['total_commandes'] = commandes_affectees.count()
+    
+    # Taux de performance
+    if stats['total_commandes'] > 0:
+        stats['taux_confirmation'] = round((stats['commandes_confirmees'] / stats['total_commandes']) * 100, 1)
+    else:
+        stats['taux_confirmation'] = 0
     
     context = {
         'operateur': operateur,
@@ -111,26 +144,26 @@ def liste_commandes(request):
     
     # Commandes en attente de confirmation (affectées mais pas encore en cours de confirmation)
     stats['commandes_en_attente'] = commandes_affectees.filter(
-        etats__enum_etat__libelle='affectee',
+        etats__enum_etat__libelle='Affectée',
         etats__date_fin__isnull=True
     ).count()
     
     # Commandes en cours de confirmation
     stats['commandes_en_cours'] = commandes_affectees.filter(
-        etats__enum_etat__libelle='en_cours_confirmation',
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True
     ).count()
     
     # Commandes confirmées par cet opérateur
     stats['commandes_confirmees'] = Commande.objects.filter(
         etats__operateur=operateur,
-        etats__enum_etat__libelle='confirmee'
+        etats__enum_etat__libelle='Confirmée'
     ).count()
     
     # Commandes marquées erronées par cet opérateur
     stats['commandes_erronnees'] = Commande.objects.filter(
         etats__operateur=operateur,
-        etats__enum_etat__libelle='erronnee'
+        etats__enum_etat__libelle='Erronée'
     ).count()
     
     stats['total_commandes'] = commandes_affectees.count()
@@ -329,8 +362,15 @@ def commandes_confirmees(request):
         # Si l'utilisateur n'est pas un opérateur, liste vide
         mes_commandes_confirmees = Commande.objects.none()
     
+    # Breadcrumb
+    breadcrumb_items = [
+        {'label': 'Gestion de Commandes', 'url': None, 'icon': 'clipboard-check'},
+        {'label': 'Mes Confirmées', 'url': None, 'icon': 'check-circle'}
+    ]
+    
     context = {
         'mes_commandes_confirmees': mes_commandes_confirmees,
+        'breadcrumb_items': breadcrumb_items,
     }
     
     return render(request, 'operatConfirme/commandes_confirmees.html', context)
@@ -1122,6 +1162,82 @@ def annuler_lancement_confirmation(request, commande_id):
             return JsonResponse({
                 'success': False,
                 'message': f'Erreur lors de l\'annulation: {str(e)}'
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'message': 'Méthode non autorisée'
+    })
+
+@login_required
+def relancer_confirmation(request, commande_id):
+    """Vue pour relancer la confirmation d'une commande (Confirmée -> En cours de confirmation)"""
+    if request.method == 'POST':
+        try:
+            # Récupérer l'opérateur de confirmation
+            try:
+                operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
+            except Operateur.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Profil d\'opérateur de confirmation non trouvé'
+                })
+            
+            # Récupérer la commande
+            try:
+                commande = Commande.objects.get(id=commande_id)
+            except Commande.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Commande non trouvée'
+                })
+            
+            # Vérifier que la commande est dans l'état "Confirmée"
+            etat_actuel = commande.etat_actuel
+            
+            if not etat_actuel:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Aucun état trouvé pour cette commande'
+                })
+            
+            if etat_actuel.enum_etat.libelle != 'Confirmée':
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Cette commande est en état "{etat_actuel.enum_etat.libelle}" et ne peut pas être relancée'
+                })
+            
+            # État "En cours de confirmation"
+            try:
+                etat_en_cours = EnumEtatCmd.objects.get(libelle='En cours de confirmation')
+            except EnumEtatCmd.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'État "En cours de confirmation" non trouvé dans le système'
+                })
+            
+            # Terminer l'état actuel
+            etat_actuel.date_fin = timezone.now()
+            etat_actuel.save()
+            
+            # Créer le nouvel état "En cours de confirmation"
+            EtatCommande.objects.create(
+                commande=commande,
+                enum_etat=etat_en_cours,
+                operateur=operateur,
+                date_debut=timezone.now(),
+                commentaire="Confirmation relancée par l'opérateur"
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Confirmation relancée avec succès pour la commande {commande.id_yz}.'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Erreur lors du relancement: {str(e)}'
             })
     
     return JsonResponse({

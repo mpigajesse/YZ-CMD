@@ -22,6 +22,7 @@ urlpatterns = [
     path('profile/changer-mot-de-passe/', views.changer_mot_de_passe_confirme, name='changer_mot_de_passe'),
     path('commandes/<int:commande_id>/lancer-confirmation/', views.lancer_confirmation, name='lancer_confirmation'),
     path('commandes/<int:commande_id>/annuler-lancement/', views.annuler_lancement_confirmation, name='annuler_lancement_confirmation'),
+    path('commandes/<int:commande_id>/relancer-confirmation/', views.relancer_confirmation, name='relancer_confirmation'),
     path('lancer-confirmations-masse/', views.lancer_confirmations_masse, name='lancer_confirmations_masse'),
     path('selectionner-operation/', views.selectionner_operation, name='selectionner_operation'),
     path('commandes/<int:commande_id>/modifier/', views.modifier_commande, name='modifier_commande'),

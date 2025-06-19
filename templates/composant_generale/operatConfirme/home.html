@@ -37,7 +37,7 @@
                 </div>
             </div>
             <div class="text-green-500 text-sm font-semibold bg-green-50 px-2 py-1 rounded-full">
-                +0%
+                {{ taux_confirmation|default:0 }}%
             </div>
         </div>
     </div>
@@ -46,7 +46,7 @@
         <div class="flex items-center justify-between">
         <div class="flex items-center">
                 <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
-                    <i class="fas fa-times-circle text-2xl"></i>
+                    <i class="fas fa-exclamation-triangle text-2xl"></i>
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Rejetées</p>
@@ -124,10 +124,26 @@
     
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-blue-600">{{ commandes_confirmees|default:0 }}</div>
-            <div class="text-sm text-gray-600">Confirmées</div>
+            <div class="text-2xl font-bold text-green-600">{{ valeur_totale_confirmees|floatformat:0 }}</div>
+            <div class="text-sm text-gray-600">Valeur totale (DH)</div>
+            <div class="mt-2 bg-green-100 rounded-full h-2">
+                <div class="bg-green-500 h-2 rounded-full transition-all duration-1000" style="width: 100%"></div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ commandes_confirmees_aujourd_hui|default:0 }}</div>
+            <div class="text-sm text-gray-600">Aujourd'hui</div>
             <div class="mt-2 bg-blue-100 rounded-full h-2">
-                <div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: {% widthratio commandes_confirmees 10 100 %}%"></div>
+                <div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: {% widthratio commandes_confirmees_aujourd_hui 10 100 %}%"></div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-purple-600">{{ commandes_confirmees_semaine|default:0 }}</div>
+            <div class="text-sm text-gray-600">Cette semaine</div>
+            <div class="mt-2 bg-purple-100 rounded-full h-2">
+                <div class="bg-purple-500 h-2 rounded-full transition-all duration-1000" style="width: {% widthratio commandes_confirmees_semaine 20 100 %}%"></div>
             </div>
         </div>
         
@@ -136,22 +152,6 @@
             <div class="text-sm text-gray-600">En cours</div>
             <div class="mt-2 bg-yellow-100 rounded-full h-2">
                 <div class="bg-yellow-500 h-2 rounded-full transition-all duration-1000" style="width: {% widthratio commandes_en_cours 10 100 %}%"></div>
-            </div>
-        </div>
-        
-        <div class="bg-white rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-green-600">{{ commandes_en_attente|default:0 }}</div>
-            <div class="text-sm text-gray-600">En attente</div>
-            <div class="mt-2 bg-green-100 rounded-full h-2">
-                <div class="bg-green-500 h-2 rounded-full transition-all duration-1000" style="width: {% widthratio commandes_en_attente 10 100 %}%"></div>
-            </div>
-        </div>
-        
-        <div class="bg-white rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-red-600">{{ commandes_erronnees|default:0 }}</div>
-            <div class="text-sm text-gray-600">Erronées</div>
-            <div class="mt-2 bg-red-100 rounded-full h-2">
-                <div class="bg-red-500 h-2 rounded-full transition-all duration-1000" style="width: {% widthratio commandes_erronnees 10 100 %}%"></div>
             </div>
         </div>
     </div>
