@@ -162,9 +162,23 @@ class Operation(models.Model):
         ('RETOUR', 'Retour'),
         ('MODIFICATION', 'Modification'),
         ('COMMENTAIRE', 'Commentaire'),
+        # Opérations spécifiques de confirmation
+        ('AUCUNE_ACTION', 'Aucune action'),
+        ('APPEL_1', 'Appel 1'),
+        ('APPEL_2', 'Appel 2'),
+        ('APPEL_3', 'Appel 3'),
+        ('APPEL_4', 'Appel 4'),
+        ('APPEL_5', 'Appel 5'),
+        ('APPEL_6', 'Appel 6'),
+        ('APPEL_7', 'Appel 7'),
+        ('APPEL_8', 'Appel 8'),
+        ('ENVOI_SMS', 'Envoi de SMS'),
+        ('ENVOI_MSG', 'Envoi de MSG'),
+        ('PROPOSITION_ABONNEMENT', 'Proposition d\'un abonnement'),
+        ('PROPOSITION_REDUCTION', 'Proposition d\'une offre de réduction'),
     ]
     
-    type_operation = models.CharField(max_length=20, choices=TYPE_OPERATION_CHOICES)
+    type_operation = models.CharField(max_length=30, choices=TYPE_OPERATION_CHOICES)
     date_operation = models.DateTimeField(default=timezone.now)
     conclusion = models.TextField()
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='operations')

@@ -22,6 +22,8 @@ urlpatterns = [
     path('affectees/', views.commandes_affectees, name='affectees'),
     path('a-traiter/', views.commandes_a_traiter, name='a_traiter'),
     path('annulees/', views.commandes_annulees, name='annulees'),
+    path('confirmees/', views.commandes_confirmees, name='confirmees'),
+    path('suivi-confirmations/', views.suivi_confirmations, name='suivi_confirmations'),
     # URLs pour l'affectation et changement de statut
     path('affecter/', views.affecter_commandes, name='affecter_commandes'),
     path('desaffecter/', views.desaffecter_commandes, name='desaffecter_commandes'),

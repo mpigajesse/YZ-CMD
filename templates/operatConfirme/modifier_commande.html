@@ -1,0 +1,664 @@
+{% extends 'composant_generale/operatConfirme/base.html' %}
+{% load static %}
+
+{% block title %}Modifier Commande {{ commande.id_yz }} - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .verification-item {
+        transition: all 0.3s ease;
+    }
+    
+    .verification-item.verified {
+        background-color: #dcfce7 !important;
+        border-color: #16a34a !important;
+    }
+    
+    .check-icon {
+        display: none;
+        color: #16a34a;
+    }
+    
+    .verification-item.verified .check-icon {
+        display: inline;
+    }
+    
+    .btn-verification {
+        background: linear-gradient(to right, #16a34a, #15803d);
+        color: white;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-verification:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .btn-operation {
+        background-color: #8B5A2B !important;
+        color: white !important;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-operation:hover {
+        background-color: #6d4b3b !important;
+        transform: scale(1.05);
+    }
+    
+    .btn-confirm {
+        background: linear-gradient(to right, #4B352A, #6d4b3b);
+        color: white;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-confirm:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #4B352A, #6d4b3b);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-edit mr-3" style="color: #f7d9c4;"></i>
+                Modifier Commande {{ commande.id_yz }}
+            </h1>
+            <p style="color: #f7d9c4;">Modification complète des détails de la commande</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <div class="text-right">
+                <div class="text-2xl font-bold" style="color: #f7d9c4;">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                <div class="text-sm opacity-80">Total commande</div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Formulaire de modification -->
+    <form method="post" id="modification-form">
+        {% csrf_token %}
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Informations de commande (non modifiables) -->
+            <div class="space-y-4">
+                <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.3s;">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
+                        <span><i class="fas fa-receipt mr-3" style="color: #6d4b3b;"></i>Informations Commande</span>
+                        <button type="button" onclick="verifierSection('commande')" class="btn-verification px-3 py-1 text-xs rounded">
+                            <i class="fas fa-check mr-1"></i> Vérifier
+                        </button>
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ID YZ (Non modifiable)</label>
+                            <input type="text" value="{{ commande.id_yz }}" readonly
+                                   class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Numéro Commande (Non modifiable)</label>
+                            <input type="text" value="{{ commande.num_cmd }}" readonly
+                                   class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Date Commande (Non modifiable)</label>
+                            <input type="text" value="{{ commande.date_cmd|date:'d/m/Y' }}" readonly
+                                   class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Total (Non modifiable)</label>
+                            <input type="text" value="{{ commande.total_cmd|floatformat:2 }} DH" readonly
+                                   class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                    </div>
+                    <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
+                </div>
+
+                <!-- Informations client -->
+                <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.4s;">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
+                        <span><i class="fas fa-user mr-3" style="color: #6d4b3b;"></i>Informations Client</span>
+                        <button type="button" onclick="verifierSection('client')" class="btn-verification px-3 py-1 text-xs rounded">
+                            <i class="fas fa-check mr-1"></i> Vérifier
+                        </button>
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                            <input type="text" name="client_nom" value="{{ commande.client.nom }}"
+                                   class="w-full p-3 border rounded-lg focus:ring-2 transition-all" 
+                                   style="border-color: #f7d9c4; focus:ring-color: #6d4b3b;">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                            <input type="text" name="client_prenom" value="{{ commande.client.prenom }}"
+                                   class="w-full p-3 border rounded-lg focus:ring-2 transition-all" 
+                                   style="border-color: #f7d9c4; focus:ring-color: #6d4b3b;">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Numéro de téléphone</label>
+                            <input type="tel" name="client_telephone" value="{{ commande.client.numero_tel }}"
+                                   class="w-full p-3 border rounded-lg focus:ring-2 transition-all" 
+                                   style="border-color: #f7d9c4; focus:ring-color: #6d4b3b;">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ville Client (Non modifiable)</label>
+                            <input type="text" value="{% if commande.ville %}{{ commande.ville.nom }}{% else %}{{ commande.ville_init|default:'Non spécifiée' }}{% endif %}" readonly
+                                   class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                    </div>
+                    <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
+                </div>
+
+                <!-- État de la commande -->
+                <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.55s;">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
+                        <span><i class="fas fa-flag mr-3" style="color: #6d4b3b;"></i>État de la Commande</span>
+                        <button type="button" onclick="verifierSection('etat')" class="btn-verification px-3 py-1 text-xs rounded">
+                            <i class="fas fa-check mr-1"></i> Vérifier
+                        </button>
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">État Actuel</label>
+                                <div class="p-3 bg-gray-50 rounded-lg border">
+                                    {% if commande.etat_actuel %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium" 
+                                              style="background-color: {{ commande.etat_actuel.enum_etat.couleur }}20; color: {{ commande.etat_actuel.enum_etat.couleur }};">
+                                            <i class="fas fa-circle mr-2" style="font-size: 8px;"></i>
+                                            {{ commande.etat_actuel.enum_etat.libelle }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-gray-500">Aucun état défini</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Date de l'État</label>
+                                <div class="p-3 bg-gray-50 rounded-lg border">
+                                    {% if commande.etat_actuel %}
+                                        <span class="text-sm text-gray-600">
+                                            <i class="fas fa-clock mr-1"></i>
+                                            {{ commande.etat_actuel.date_debut|date:"d/m/Y à H:i" }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-gray-500">-</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% if commande.etat_actuel.operateur %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Opérateur responsable</label>
+                            <div class="p-3 bg-gray-50 rounded-lg border">
+                                <span class="text-sm text-gray-600">
+                                    <i class="fas fa-user mr-1"></i>
+                                    {{ commande.etat_actuel.operateur.user.get_full_name|default:commande.etat_actuel.operateur.user.username }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
+                </div>
+            </div>
+
+            <!-- Informations livraison et opérations -->
+            <div class="space-y-4">
+                <!-- Informations de livraison -->
+                <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.5s;">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
+                        <span><i class="fas fa-truck mr-3" style="color: #6d4b3b;"></i>Informations Livraison</span>
+                        <button type="button" onclick="verifierSection('livraison')" class="btn-verification px-3 py-1 text-xs rounded">
+                            <i class="fas fa-check mr-1"></i> Vérifier
+                        </button>
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ville de livraison</label>
+                            <select name="ville_livraison" id="ville-select" onchange="chargerRegionEtFrais()"
+                                    class="w-full p-3 border rounded-lg focus:ring-2 transition-all" 
+                                    style="border-color: #f7d9c4; focus:ring-color: #6d4b3b;">
+                                <option value="">-- Sélectionner une ville --</option>
+                                {% for ville in villes %}
+                                    <option value="{{ ville.id }}" 
+                                            data-region="{{ ville.region.nom_region }}" 
+                                            data-frais="{{ ville.frais_livraison|default:0 }}"
+                                            {% if commande.ville.id == ville.id %}selected{% endif %}>
+                                        {{ ville.nom }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Région (Automatique)</label>
+                            <input type="text" id="region-display" value="{{ commande.ville.region.nom_region }}" readonly
+                                   class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Frais de livraison (Automatique)</label>
+                            <input type="text" id="frais-display" value="{{ commande.ville.frais_livraison|default:0 }} DH" readonly
+                                   class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Adresse de livraison</label>
+                            <textarea name="adresse_livraison" rows="3"
+                                      class="w-full p-3 border rounded-lg focus:ring-2 transition-all" 
+                                      style="border-color: #f7d9c4; focus:ring-color: #6d4b3b;"
+                                      placeholder="Adresse complète de livraison">{{ commande.adresse }}</textarea>
+                        </div>
+                    </div>
+                    <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
+                </div>
+
+                <!-- Opération de confirmation -->
+                <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.6s;">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
+                        <span><i class="fas fa-cogs mr-3" style="color: #6d4b3b;"></i>Opération de Confirmation</span>
+                        <button type="button" onclick="verifierSection('operation')" class="btn-verification px-3 py-1 text-xs rounded">
+                            <i class="fas fa-check mr-1"></i> Vérifier
+                        </button>
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Type d'opération</label>
+                            <select name="type_operation" id="operation-select" onchange="changerOperation()" 
+                                    class="w-full p-3 border rounded-lg focus:ring-2 transition-all" 
+                                    style="border-color: #f7d9c4; focus:ring-color: #6d4b3b;">
+                                <option value="">Sélectionnez une opération...</option>
+                                <option value="AUCUNE_ACTION" {% if commande.operations.last.type_operation == 'AUCUNE_ACTION' %}selected{% endif %}>Aucune action</option>
+                                <option value="APPEL_1" {% if commande.operations.last.type_operation == 'APPEL_1' %}selected{% endif %}>Appel 1</option>
+                                <option value="APPEL_2" {% if commande.operations.last.type_operation == 'APPEL_2' %}selected{% endif %}>Appel 2</option>
+                                <option value="APPEL_3" {% if commande.operations.last.type_operation == 'APPEL_3' %}selected{% endif %}>Appel 3</option>
+                                <option value="APPEL_4" {% if commande.operations.last.type_operation == 'APPEL_4' %}selected{% endif %}>Appel 4</option>
+                                <option value="APPEL_5" {% if commande.operations.last.type_operation == 'APPEL_5' %}selected{% endif %}>Appel 5</option>
+                                <option value="APPEL_6" {% if commande.operations.last.type_operation == 'APPEL_6' %}selected{% endif %}>Appel 6</option>
+                                <option value="APPEL_7" {% if commande.operations.last.type_operation == 'APPEL_7' %}selected{% endif %}>Appel 7</option>
+                                <option value="APPEL_8" {% if commande.operations.last.type_operation == 'APPEL_8' %}selected{% endif %}>Appel 8</option>
+                                <option value="ENVOI_SMS" {% if commande.operations.last.type_operation == 'ENVOI_SMS' %}selected{% endif %}>Envoi de SMS/MSG</option>
+                                <option value="PROPOSITION_ABONNEMENT" {% if commande.operations.last.type_operation == 'PROPOSITION_ABONNEMENT' %}selected{% endif %}>Proposition d'abonnement/réduction</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Commentaire de l'opération</label>
+                            <textarea name="commentaire_operation" id="commentaire-operation" rows="3"
+                                      class="w-full p-3 border rounded-lg focus:ring-2 transition-all" 
+                                      style="border-color: #f7d9c4; focus:ring-color: #6d4b3b;"
+                                      placeholder="Détails de l'opération effectuée...">{% if commande.operations.last %}{{ commande.operations.last.commentaire }}{% endif %}</textarea>
+                        </div>
+                        
+                        {% if commande.operations.last %}
+                        <div class="p-3 bg-green-50 rounded-lg border border-green-200">
+                            <div class="flex items-center text-green-700">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                <span class="text-sm">Opération actuelle : <strong>{{ commande.operations.last.get_type_operation_display }}</strong></span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
+                </div>
+
+                <!-- Articles de la commande -->
+                <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.8s;">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
+                        <span><i class="fas fa-box mr-3" style="color: #6d4b3b;"></i>Articles ({{ commande.paniers.count }})</span>
+                        <button type="button" onclick="verifierSection('articles')" class="btn-verification px-3 py-1 text-xs rounded">
+                            <i class="fas fa-check mr-1"></i> Vérifier
+                        </button>
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        {% for panier in commande.paniers.all %}
+                        <div class="p-3 bg-gray-50 rounded-lg border">
+                            <div class="flex justify-between items-center">
+                                <div class="flex-1">
+                                    <div class="font-medium" style="color: #4B352A;">{{ panier.article.nom }}</div>
+                                    <div class="text-xs text-gray-500">Réf: {{ panier.article.reference }}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-medium">{{ panier.quantite }}x {{ panier.article.prix_unitaire }} DH</div>
+                                    <div class="text-sm" style="color: #6d4b3b;">{{ panier.sous_total }} DH</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons d'action -->
+        <div class="flex justify-between items-center mt-6 p-4 bg-white rounded-xl shadow-lg">
+            <div class="flex gap-4">
+                <a href="{% url 'operatConfirme:confirmation' %}" 
+                   class="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-all">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Retour à la confirmation
+                </a>
+                
+                <button type="button" onclick="verifierTout()" 
+                        class="btn-verification px-6 py-3 rounded-lg font-medium">
+                    <i class="fas fa-check-double mr-2"></i>
+                    Tout Vérifier
+                </button>
+            </div>
+            
+            <div class="flex gap-4">
+                <button type="submit" 
+                        class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all">
+                    <i class="fas fa-save mr-2"></i>
+                    Sauvegarder
+                </button>
+                
+                {% if commande.etat_actuel.enum_etat.libelle == 'Affectée' %}
+                <button type="button" onclick="lancerConfirmation()" 
+                        class="px-6 py-3 rounded-lg font-medium text-white transition-all" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">
+                    <i class="fas fa-play mr-2"></i>
+                    Lancer Confirmation
+                </button>
+                {% elif commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %}
+                <button type="button" onclick="annulerLancement()" 
+                        class="px-6 py-3 rounded-lg font-medium text-white transition-all" style="background: linear-gradient(135deg, #dc2626, #ef4444);">
+                    <i class="fas fa-undo mr-2"></i>
+                    Annuler le Lancement
+                </button>
+                {% endif %}
+                
+                <button type="button" onclick="confirmerCommande()" 
+                        class="btn-confirm px-6 py-3 rounded-lg font-medium">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    Confirmer la Commande
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- JavaScript -->
+<script>
+// Fonction pour charger automatiquement la région et les frais
+function chargerRegionEtFrais() {
+    const villeSelect = document.getElementById('ville-select');
+    const selectedOption = villeSelect.options[villeSelect.selectedIndex];
+    
+    if (selectedOption.value) {
+        const region = selectedOption.getAttribute('data-region');
+        const frais = selectedOption.getAttribute('data-frais');
+        
+        document.getElementById('region-display').value = region;
+        document.getElementById('frais-display').value = frais + ' DH';
+    } else {
+        document.getElementById('region-display').value = '';
+        document.getElementById('frais-display').value = '';
+    }
+}
+
+// Fonction pour vérifier une section
+function verifierSection(section) {
+    const sectionElement = document.querySelector(`[onclick="verifierSection('${section}')"]`).closest('.verification-item');
+    sectionElement.classList.add('verified');
+}
+
+// Fonction pour vérifier toutes les sections
+function verifierTout() {
+    const sections = document.querySelectorAll('.verification-item');
+    sections.forEach(section => {
+        section.classList.add('verified');
+    });
+}
+
+// Fonction pour changer l'opération
+function changerOperation() {
+    const operationSelect = document.getElementById('operation-select');
+    const commentaireField = document.getElementById('commentaire-operation');
+    
+    if (operationSelect.value) {
+        // Afficher immédiatement le changement dans l'interface
+        const operationNames = {
+            'AUCUNE_ACTION': 'Aucune action',
+            'APPEL_1': 'Appel 1',
+            'APPEL_2': 'Appel 2',
+            'APPEL_3': 'Appel 3',
+            'APPEL_4': 'Appel 4',
+            'APPEL_5': 'Appel 5',
+            'APPEL_6': 'Appel 6',
+            'APPEL_7': 'Appel 7',
+            'APPEL_8': 'Appel 8',
+            'ENVOI_SMS': 'Envoi de SMS/MSG',
+            'PROPOSITION_ABONNEMENT': 'Proposition d\'abonnement/réduction'
+        };
+        
+        // Mettre à jour l'affichage de l'opération actuelle
+        const operationInfo = document.querySelector('.bg-green-50');
+        if (operationInfo) {
+            operationInfo.innerHTML = `
+                <div class="flex items-center text-green-700">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <span class="text-sm">Opération sélectionnée : <strong>${operationNames[operationSelect.value]}</strong></span>
+                </div>
+            `;
+        }
+        
+        // Sauvegarder automatiquement l'opération sélectionnée
+        fetch('{% url "operatConfirme:selectionner_operation" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                'commande_id': {{ commande.id }},
+                'type_operation': operationSelect.value,
+                'commentaire': commentaireField.value
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Opération mise à jour avec succès');
+                // Vérifier automatiquement la section opération
+                verifierSection('operation');
+                // Afficher un message de succès discret
+                showNotification('Opération mise à jour avec succès', 'success');
+            } else {
+                alert('Erreur lors de la mise à jour de l\'opération : ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue lors de la mise à jour de l\'opération.');
+        });
+    }
+}
+
+// Fonction pour afficher des notifications discrètes
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white text-sm z-50 transition-all duration-300 ${
+        type === 'success' ? 'bg-green-500' : 'bg-red-500'
+    }`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Supprimer après 3 secondes
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
+
+
+
+// Fonction pour lancer la confirmation (change l'état de Affectée à En cours)
+function lancerConfirmation() {
+        fetch(`{% url 'operatConfirme:lancer_confirmation' commande.id %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Confirmation lancée avec succès !', 'success');
+                // Recharger la page pour voir les changements
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                alert('Erreur lors du lancement : ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue lors du lancement de la confirmation.');
+        });
+}
+
+// Fonction pour annuler le lancement de confirmation (En cours -> Affectée)
+function annulerLancement() {
+    fetch(`{% url 'operatConfirme:annuler_lancement_confirmation' commande.id %}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Lancement annulé avec succès !', 'success');
+            // Recharger la page pour voir les changements
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            alert('Erreur lors de l\'annulation : ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Une erreur est survenue lors de l\'annulation du lancement.');
+    });
+}
+
+// Fonction pour confirmer la commande
+function confirmerCommande() {
+    // Vérifier que toutes les sections sont vérifiées
+    const sectionsVerifiees = document.querySelectorAll('.verification-item.verified');
+    if (sectionsVerifiees.length < 6) {
+        alert('Veuillez vérifier toutes les sections (y compris l\'état et l\'opération) avant de confirmer la commande.');
+        return;
+    }
+    
+
+        // Processus en plusieurs étapes :
+        // 1. Lancer la confirmation si nécessaire
+        // 2. Sélectionner "Aucune action" comme opération par défaut
+        // 3. Confirmer la commande
+        
+        // Étape 1: Lancer la confirmation
+        fetch(`{% url 'operatConfirme:lancer_confirmation' commande.id %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success || data.message.includes('déjà')) { // Si succès ou déjà lancée
+                // Étape 2: Sélectionner l'opération choisie par l'utilisateur avec son commentaire
+                const operationSelect = document.getElementById('operation-select');
+                const commentaireField = document.getElementById('commentaire-operation');
+                
+                // Vérifier que les éléments existent et ont des valeurs
+                if (!operationSelect) {
+                    throw new Error('Élément de sélection d\'opération non trouvé');
+                }
+                if (!commentaireField) {
+                    throw new Error('Champ de commentaire non trouvé');
+                }
+                
+                const typeOperation = operationSelect.value || 'AUCUNE_ACTION';
+                const commentaire = commentaireField.value || '';
+                
+                return fetch('{% url "operatConfirme:selectionner_operation" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        'commande_id': {{ commande.id }},
+                        'type_operation': typeOperation,
+                        'commentaire': commentaire
+                    })
+                });
+            } else {
+                throw new Error(data.message);
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Étape 3: Confirmer la commande
+            return fetch(`/operateur-confirme/commandes/{{ commande.id }}/confirmer-ajax/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    'commentaire': 'Commande confirmée après vérification complète'
+                })
+            });
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Commande confirmée avec succès ! Elle a été envoyée vers l\'admin.');
+                window.location.href = '{% url "operatConfirme:commandes_confirmees" %}';
+            } else {
+                alert('Erreur lors de la confirmation : ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue : ' + error.message);
+        });
+}
+</script>
+{% endblock %} 

@@ -1,74 +1,94 @@
 <!-- Sidebar avec animation - Thème Opérateur Confirmation Brun -->
-<div id="sidebar" class="flex-shrink-0 relative h-full transition-all duration-300 ease-in-out shadow-2xl border-r overflow-hidden" style="width: 256px; background: linear-gradient(to bottom, var(--confirmation-primary), var(--confirmation-dark)); border-color: var(--confirmation-border-accent); color: var(--confirmation-text-light);">
-    <!-- Header sans bouton toggle (déplacé dans header.html) -->
-    <div class="p-4 border-b flex items-center justify-between" style="border-color: var(--confirmation-border-accent);">
-        <div id="logo-text" class="transition-all duration-300 opacity-100">
-            <h1 class="text-xl font-bold whitespace-nowrap" style="color: var(--confirmation-text-light);">YZ-CMD</h1>
-            <p class="text-sm whitespace-nowrap" style="color: var(--confirmation-text-light); opacity: 0.8;">Opérateur Confirmation</p>
+<div id="sidebar" class="text-white flex-shrink-0 relative h-full transition-all duration-300 ease-in-out shadow-2xl border-r overflow-hidden z-50" style="background: linear-gradient(to bottom, #4B352A, #6d4b3b); border-color: #6d4b3b;">
+    <!-- En-tête -->
+    <div class="p-4 flex items-center justify-between" style="border-bottom: 1px solid #6d4b3b;">
+        <div>
+            <h1 class="text-xl font-bold text-white whitespace-nowrap">YZ-CMD</h1>
+            <p class="text-sm text-white whitespace-nowrap opacity-80">Opérateur Confirmation</p>
         </div>
-        <button id="sidebar-toggle" class="p-2 rounded-lg transition-colors duration-200 lg:hidden" style="hover:background-color: var(--confirmation-hover-bg);">
-            <i class="fas fa-times text-lg" style="color: var(--confirmation-text-light);"></i>
+        <button id="sidebar-toggle" class="p-2 rounded-lg transition-colors duration-200 lg:hidden" style="hover:background-color: #8B5A2B;">
+            <i class="fas fa-times text-lg text-white"></i>
         </button>
     </div>
     
-    <!-- Navigation Menu -->
-    <nav class="mt-4 flex-1 overflow-y-auto">
-        <!-- Gestion de Commandes Dropdown -->
-        <div class="mb-2">
-            <div class="flex items-center justify-between px-4 py-2 cursor-pointer toggle-dropdown" data-target="#commandes-menu" style="color: var(--confirmation-text-light); opacity: 0.8; border-color: var(--confirmation-border-accent);">
-                <div class="flex items-center">
-                    <i class="fas fa-box-open mr-2 flex-shrink-0"></i>
-                    <span class="transition-all duration-300 opacity-100 whitespace-nowrap">GESTION DE COMMANDES</span>
-                </div>
-                <i class="fas fa-chevron-down text-sm transition-transform duration-300"></i>
-            </div>
-            <ul id="commandes-menu" class="ml-2 hidden">
-                <li>
-                    <a href="{% url 'operatConfirme:home' %}" class="flex items-center px-4 py-3 transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:shadow-lg" style="color: var(--confirmation-text-light); hover:background-color: var(--confirmation-hover-bg); hover:border-color: var(--confirmation-border-accent);">
-                        <i class="fas fa-home text-lg mr-3 transition-transform duration-200 flex-shrink-0" style="color: var(--confirmation-text-light); opacity: 0.8;"></i>
-                        <span class="transition-all duration-300 opacity-100 whitespace-nowrap">Tableau de bord</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="{% url 'operatConfirme:liste_commande' %}" class="flex items-center px-4 py-3 transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:shadow-lg" style="color: var(--confirmation-text-light); hover:background-color: var(--confirmation-hover-bg); hover:border-color: var(--confirmation-border-accent);">
-                        <i class="fas fa-clipboard-check text-lg mr-3 transition-transform duration-200 flex-shrink-0" style="color: var(--confirmation-text-light); opacity: 0.8;"></i>
-                        <span class="transition-all duration-300 opacity-100 whitespace-nowrap">Mes commandes</span>
-                    </a>
-                </li>
-            </ul>
+    <!-- Navigation -->
+    <nav class="flex-1 overflow-y-auto py-4">
+        <!-- Accueil -->
+        <div class="mb-6">
+            <a href="{% url 'operatConfirme:home' %}" class="flex items-center px-4 py-3 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-yellow-400 hover:shadow-lg" style="hover:background-color: #8B5A2B;">
+                <i class="fas fa-home text-lg mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                <span class="whitespace-nowrap">Tableau de bord</span>
+            </a>
         </div>
-
-        <!-- Parametres Dropdown -->
-        <div class="mb-2">
-            <div class="flex items-center justify-between px-4 py-2 cursor-pointer toggle-dropdown" data-target="#parametres-menu" style="color: var(--confirmation-text-light); opacity: 0.8; border-color: var(--confirmation-border-accent);">
+        
+        <!-- Section Gestion de Commandes -->
+        <div class="mb-6">
+            <button class="flex items-center justify-between w-full px-4 py-3 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-orange-400 hover:shadow-lg" style="hover:background-color: #8B5A2B;" onclick="toggleDropdown('commandes-dropdown')">
                 <div class="flex items-center">
-                    <i class="fas fa-cog mr-2 flex-shrink-0"></i>
-                    <span class="transition-all duration-300 opacity-100 whitespace-nowrap">PARAMÈTRES</span>
+                    <i class="fas fa-clipboard-check text-lg mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Gestion de Commandes</span>
                 </div>
-                <i class="fas fa-chevron-down text-sm transition-transform duration-300"></i>
+                <i class="fas fa-angle-down transition-transform duration-300" id="commandes-dropdown-icon"></i>
+            </button>
+            <div class="mt-2 space-y-1 pl-8 hidden" id="commandes-dropdown">
+                <a href="{% url 'operatConfirme:confirmation' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-orange-400 hover:shadow-lg" style="hover:background-color: #8B5A2B;">
+                    <i class="fas fa-play mr-3 text-orange-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Confirmation</span>
+                </a>
+                <a href="{% url 'operatConfirme:liste_commandes' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-blue-400 hover:shadow-lg" style="hover:background-color: #8B5A2B;">
+                    <i class="fas fa-eye mr-3 text-blue-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Mes commandes</span>
+                </a>
+                <a href="{% url 'operatConfirme:commandes_confirmees' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-green-400 hover:shadow-lg" style="hover:background-color: #8B5A2B;">
+                    <i class="fas fa-check-circle mr-3 text-green-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Mes confirmées</span>
+                </a>
             </div>
-            <ul id="parametres-menu" class="ml-2 hidden">
-                <li>
-                    <a href="{% url 'operatConfirme:profile' %}" class="flex items-center px-4 py-2 transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:shadow-lg" style="color: var(--confirmation-text-light); hover:background-color: var(--confirmation-hover-bg); hover:border-color: var(--confirmation-border-accent);">
-                        <i class="fas fa-user-cog mr-3 transition-transform duration-200 flex-shrink-0" style="color: var(--confirmation-text-light); opacity: 0.8;"></i>
-                        <span class="transition-all duration-300 opacity-100 whitespace-nowrap">Mon profil</span>
-                    </a>
-                </li>
-            </ul>
+        </div>
+        
+        <!-- Section Mon Profil -->
+        <div class="mb-6">
+            <button class="flex items-center justify-between w-full px-4 py-3 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-purple-400 hover:shadow-lg" style="hover:background-color: #8B5A2B;" onclick="toggleDropdown('profile-dropdown')">
+                <div class="flex items-center">
+                    <i class="fas fa-user-circle text-lg mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Mon Profil</span>
+                </div>
+                <i class="fas fa-angle-down transition-transform duration-300" id="profile-dropdown-icon"></i>
+            </button>
+            <div class="mt-2 space-y-1 pl-8 hidden" id="profile-dropdown">
+                <a href="{% url 'operatConfirme:profile' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-purple-400 hover:shadow-lg" style="hover:background-color: #8B5A2B;">
+                    <i class="fas fa-address-card mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Voir Profil</span>
+                </a>
+                <a href="{% url 'operatConfirme:modifier_profile' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-purple-400 hover:shadow-lg" style="hover:background-color: #8B5A2B;">
+                    <i class="fas fa-user-edit mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Modifier Profil</span>
+                </a>
+                <a href="{% url 'operatConfirme:changer_mot_de_passe' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-purple-400 hover:shadow-lg" style="hover:background-color: #8B5A2B;">
+                    <i class="fas fa-key mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Changer Mot de Passe</span>
+                </a>
+            </div>
         </div>
     </nav>
     
-    <!-- Bouton de déconnexion avec animation -->
-    <div class="absolute bottom-4 left-4 right-4" id="logout-section">
+    <!-- Bouton de déconnexion -->
+    <div class="absolute bottom-4 left-4 right-4">
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit" class="flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
                 <i class="fas fa-sign-out-alt mr-2 transition-transform duration-200 flex-shrink-0"></i>
-                <span id="nav-text-logout" class="transition-all duration-300 opacity-100 whitespace-nowrap">Déconnexion</span>
+                <span class="whitespace-nowrap">Déconnexion</span>
             </button>
         </form>
     </div>
 </div>
 
-<!-- JavaScript pour la sidebar responsive (déplacé dans base.html) -->
-<!-- Les scripts ici ne sont plus nécessaires, ils sont dans base.html -->
+<script>
+    function toggleDropdown(id) {
+        const dropdown = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+        dropdown.classList.toggle('hidden');
+        icon.classList.toggle('rotate-180');
+    }
+</script>

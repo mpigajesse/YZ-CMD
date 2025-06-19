@@ -198,6 +198,11 @@ GOOGLE_SHEET_URL = config('GOOGLE_SHEET_URL', default='')
 # Délai d'inactivité avant déconnexion (en secondes) - 2 heures
 SESSION_IDLE_TIMEOUT = 7200
 
+# Configuration de redirection après connexion
+LOGIN_REDIRECT_URL = '/home/'
+LOGIN_URL = '/login/'
+LOGOUT_REDIRECT_URL = '/login/'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
