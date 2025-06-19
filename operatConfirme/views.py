@@ -12,6 +12,8 @@ from django.http import JsonResponse
 import json
 from django.utils import timezone
 from commande.models import Commande, EtatCommande, EnumEtatCmd
+from datetime import datetime, timedelta
+from django.db.models import Sum
 
 # Create your views here.
 
@@ -19,6 +21,9 @@ from commande.models import Commande, EtatCommande, EnumEtatCmd
 def dashboard(request):
     """Page d'accueil de l'interface opérateur de confirmation"""
     from commande.models import Commande, EtatCommande
+    from django.utils import timezone
+    from datetime import datetime, timedelta
+    from django.db.models import Sum
     
     try:
         # Récupérer le profil opérateur de l'utilisateur connecté
@@ -26,6 +31,10 @@ def dashboard(request):
     except Operateur.DoesNotExist:
         messages.error(request, "Profil d'opérateur de confirmation non trouvé.")
         return redirect('login')
+    
+    # Dates pour les calculs de périodes
+    today = timezone.now().date()
+    week_start = today - timedelta(days=today.weekday())
     
     # Récupérer les commandes affectées à cet opérateur
     commandes_affectees = Commande.objects.filter(
@@ -38,29 +47,53 @@ def dashboard(request):
     
     # Commandes en attente de confirmation (affectées mais pas encore en cours de confirmation)
     stats['commandes_en_attente'] = commandes_affectees.filter(
-        etats__enum_etat__libelle='affectee',
+        etats__enum_etat__libelle='Affectée',
         etats__date_fin__isnull=True
     ).count()
     
     # Commandes en cours de confirmation
     stats['commandes_en_cours'] = commandes_affectees.filter(
-        etats__enum_etat__libelle='en_cours_confirmation',
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True
     ).count()
     
-    # Commandes confirmées par cet opérateur
-    stats['commandes_confirmees'] = Commande.objects.filter(
+    # Commandes confirmées par cet opérateur (toutes)
+    commandes_confirmees_all = Commande.objects.filter(
         etats__operateur=operateur,
-        etats__enum_etat__libelle='confirmee'
+        etats__enum_etat__libelle='Confirmée'
+    ).distinct()
+    
+    stats['commandes_confirmees'] = commandes_confirmees_all.count()
+    
+    # Commandes confirmées aujourd'hui
+    stats['commandes_confirmees_aujourd_hui'] = commandes_confirmees_all.filter(
+        etats__date_debut__date=today
     ).count()
+    
+    # Commandes confirmées cette semaine
+    stats['commandes_confirmees_semaine'] = commandes_confirmees_all.filter(
+        etats__date_debut__date__gte=week_start
+    ).count()
+    
+    # Valeur totale des commandes confirmées
+    valeur_totale = commandes_confirmees_all.aggregate(
+        total=Sum('total_cmd')
+    )['total'] or 0
+    stats['valeur_totale_confirmees'] = valeur_totale
     
     # Commandes marquées erronées par cet opérateur
     stats['commandes_erronnees'] = Commande.objects.filter(
         etats__operateur=operateur,
-        etats__enum_etat__libelle='erronnee'
-    ).count()
+        etats__enum_etat__libelle='Erronée'
+    ).distinct().count()
     
     stats['total_commandes'] = commandes_affectees.count()
+    
+    # Taux de performance
+    if stats['total_commandes'] > 0:
+        stats['taux_confirmation'] = round((stats['commandes_confirmees'] / stats['total_commandes']) * 100, 1)
+    else:
+        stats['taux_confirmation'] = 0
     
     context = {
         'operateur': operateur,
@@ -111,26 +144,26 @@ def liste_commandes(request):
     
     # Commandes en attente de confirmation (affectées mais pas encore en cours de confirmation)
     stats['commandes_en_attente'] = commandes_affectees.filter(
-        etats__enum_etat__libelle='affectee',
+        etats__enum_etat__libelle='Affectée',
         etats__date_fin__isnull=True
     ).count()
     
     # Commandes en cours de confirmation
     stats['commandes_en_cours'] = commandes_affectees.filter(
-        etats__enum_etat__libelle='en_cours_confirmation',
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True
     ).count()
     
     # Commandes confirmées par cet opérateur
     stats['commandes_confirmees'] = Commande.objects.filter(
         etats__operateur=operateur,
-        etats__enum_etat__libelle='confirmee'
+        etats__enum_etat__libelle='Confirmée'
     ).count()
     
     # Commandes marquées erronées par cet opérateur
     stats['commandes_erronnees'] = Commande.objects.filter(
         etats__operateur=operateur,
-        etats__enum_etat__libelle='erronnee'
+        etats__enum_etat__libelle='Erronée'
     ).count()
     
     stats['total_commandes'] = commandes_affectees.count()
@@ -1132,7 +1165,7 @@ def annuler_lancement_confirmation(request, commande_id):
 @login_required
 def modifier_commande(request, commande_id):
     """Page de modification complète d'une commande pour les opérateurs de confirmation"""
-    from commande.models import Commande
+    from commande.models import Commande, Operation
     from parametre.models import Ville
     
     try:
@@ -1179,9 +1212,41 @@ def modifier_commande(request, commande_id):
             if adresse:
                 commande.adresse = adresse
             
+            # Mise à jour du champ upsell
+            is_upsell = request.POST.get('is_upsell', 'false')
+            commande.is_upsell = (is_upsell == 'true')
+            
             commande.save()
             
-            messages.success(request, 'Commande modifiée avec succès.')
+            # Gestion des opérations individuelles avec commentaires spécifiques
+            operations_selectionnees = request.POST.getlist('operations[]')
+            operations_creees = []
+            
+            for type_operation in operations_selectionnees:
+                if type_operation:  # Vérifier que le type n'est pas vide
+                    # Récupérer le commentaire spécifique à cette opération
+                    commentaire_specifique = request.POST.get(f'comment_{type_operation}', '').strip()
+                    
+                    # L'opérateur DOIT saisir un commentaire - pas de commentaire automatique
+                    if commentaire_specifique:
+                        # Créer l'opération avec le commentaire saisi par l'opérateur
+                        operation = Operation.objects.create(
+                            type_operation=type_operation,
+                            conclusion=commentaire_specifique,
+                            commande=commande,
+                            operateur=operateur
+                        )
+                        operations_creees.append(operation)
+                    else:
+                        # Ignorer l'opération si aucun commentaire n'est fourni
+                        messages.warning(request, f"Opération {type_operation} ignorée : aucun commentaire fourni par l'opérateur.")
+            
+            if operations_creees:
+                operations_names = [op.get_type_operation_display() for op in operations_creees]
+                messages.success(request, f'Commande modifiée avec succès. Opérations ajoutées : {", ".join(operations_names)}')
+            else:
+                messages.success(request, 'Commande modifiée avec succès.')
+                
             return redirect('operatConfirme:modifier_commande', commande_id=commande_id)
             
         except Exception as e:

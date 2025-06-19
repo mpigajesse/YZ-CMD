@@ -259,11 +259,30 @@
                             </td>
 
                             <td class="px-4 py-3">
-                                <a href="{% url 'operatConfirme:modifier_commande' commande.id %}" 
-                                   class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors">
-                                    <i class="fas fa-edit mr-1"></i>
-                                    Modifier
-                                </a>
+                                <div class="flex space-x-2">
+                                    {% for etat in commande.etats.all %}
+                                        {% if not etat.date_fin and etat.enum_etat.libelle == 'Affectée' %}
+                                            <button onclick="lancerCommande({{ commande.id }})" 
+                                                    class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded transition-colors" 
+                                                    title="Lancer la confirmation">
+                                                <i class="fas fa-play mr-1"></i>
+                                                Lancer
+                                            </button>
+                                        {% elif not etat.date_fin and etat.enum_etat.libelle == 'En cours de confirmation' %}
+                                            <button onclick="confirmerCommande({{ commande.id }})" 
+                                                    class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
+                                                    title="Confirmer la commande">
+                                                <i class="fas fa-check mr-1"></i>
+                                                Confirmer
+                                            </button>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <a href="{% url 'operatConfirme:modifier_commande' commande.id %}" 
+                                       class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors">
+                                        <i class="fas fa-edit mr-1"></i>
+                                        Modifier
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
