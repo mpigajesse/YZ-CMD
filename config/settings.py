@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'operatConfirme',
     'operatLogistic',
     'synchronisation',
+    'Prepacommande',
     
 ]
 
@@ -202,6 +203,9 @@ SESSION_IDLE_TIMEOUT = 7200
 LOGIN_REDIRECT_URL = '/home/'
 LOGIN_URL = '/login/'
 LOGOUT_REDIRECT_URL = '/login/'
+# Redirection après connexion
+LOGIN_REDIRECT_URL = 'Prepacommande:profile'
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

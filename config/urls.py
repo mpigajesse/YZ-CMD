@@ -29,6 +29,7 @@ urlpatterns = [
     path('client/', include('client.urls')),
     path('operateur-confirme/', include('operatConfirme.urls')),
     path('operateur-logistique/', include('operatLogistic.urls')),
+    path('operateur-preparation/', include('Prepacommande.urls')),
     path('livraison/', include('livraison.urls')),
     path('parametre/', include('parametre.urls')),
     path('synchronisation/', include('synchronisation.urls')),

@@ -14,6 +14,7 @@ from django.utils import timezone
 from commande.models import Commande, EtatCommande, EnumEtatCmd
 from datetime import datetime, timedelta
 from django.db.models import Sum
+from django.db import models
 
 # Create your views here.
 
@@ -1216,7 +1217,70 @@ def modifier_commande(request, commande_id):
             is_upsell = request.POST.get('is_upsell', 'false')
             commande.is_upsell = (is_upsell == 'true')
             
+            # ================ GESTION DES ARTICLES/PANIERS ================
+            
+            # 1. Gestion des articles supprimés
+            articles_supprimes = request.POST.getlist('deleted_articles[]')
+            if articles_supprimes:
+                from commande.models import Panier
+                for panier_id in articles_supprimes:
+                    try:
+                        panier = Panier.objects.get(id=panier_id, commande=commande)
+                        panier.delete()
+                    except Panier.DoesNotExist:
+                        pass
+            
+            # 2. Gestion des articles modifiés
+            articles_modifies = request.POST.getlist('modified_articles[]')
+            nouvelles_quantites = request.POST.getlist('modified_quantities[]')
+            
+            if articles_modifies and nouvelles_quantites:
+                from commande.models import Panier
+                for i, panier_id in enumerate(articles_modifies):
+                    if i < len(nouvelles_quantites):
+                        try:
+                            panier = Panier.objects.get(id=panier_id, commande=commande)
+                            nouvelle_quantite = int(nouvelles_quantites[i])
+                            if nouvelle_quantite > 0:
+                                panier.quantite = nouvelle_quantite
+                                # Recalculer le sous-total
+                                panier.sous_total = panier.article.prix_unitaire * nouvelle_quantite
+                                panier.save()
+                        except (Panier.DoesNotExist, ValueError):
+                            continue
+            
+            # 3. Gestion des nouveaux articles
+            nouveaux_articles = request.POST.getlist('new_articles[]')
+            quantites_nouveaux = request.POST.getlist('new_quantities[]')
+            
+            if nouveaux_articles and quantites_nouveaux:
+                from article.models import Article
+                from commande.models import Panier
+                
+                for i, article_id in enumerate(nouveaux_articles):
+                    if i < len(quantites_nouveaux):
+                        try:
+                            article = Article.objects.get(id=article_id)
+                            quantite = int(quantites_nouveaux[i])
+                            if quantite > 0:
+                                sous_total = article.prix_unitaire * quantite
+                                Panier.objects.create(
+                                    commande=commande,
+                                    article=article,
+                                    quantite=quantite,
+                                    sous_total=sous_total
+                                )
+                        except (Article.DoesNotExist, ValueError):
+                            continue
+            
+            # 4. Recalculer le total de la commande
+            total_commande = commande.paniers.aggregate(
+                total=models.Sum('sous_total')
+            )['total'] or 0
+            commande.total_cmd = total_commande
             commande.save()
+            
+            # ================ GESTION DES OPÉRATIONS ================
             
             # Gestion des opérations individuelles avec commentaires spécifiques
             operations_selectionnees = request.POST.getlist('operations[]')
@@ -1241,13 +1305,43 @@ def modifier_commande(request, commande_id):
                         # Ignorer l'opération si aucun commentaire n'est fourni
                         messages.warning(request, f"Opération {type_operation} ignorée : aucun commentaire fourni par l'opérateur.")
             
+            # Messages de succès
+            messages_success = []
             if operations_creees:
                 operations_names = [op.get_type_operation_display() for op in operations_creees]
-                messages.success(request, f'Commande modifiée avec succès. Opérations ajoutées : {", ".join(operations_names)}')
-            else:
-                messages.success(request, 'Commande modifiée avec succès.')
+                messages_success.append(f'Opérations ajoutées : {", ".join(operations_names)}')
+            
+            # Compter les modifications d'articles
+            nb_articles_modifies = len(articles_supprimes) + len(articles_modifies) + len(nouveaux_articles)
+            if nb_articles_modifies > 0:
+                messages_success.append(f'{nb_articles_modifies} modification(s) d\'articles appliquée(s)')
+            
+            # Vérifier si c'est une requête AJAX pour la sauvegarde automatique
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+                # Réponse JSON pour les requêtes AJAX
+                response_data = {
+                    'success': True,
+                    'message': 'Modifications sauvegardées avec succès',
+                    'total_commande': float(commande.total_cmd),
+                    'nb_articles': commande.paniers.count(),
+                }
                 
-            return redirect('operatConfirme:modifier_commande', commande_id=commande_id)
+                if operations_creees:
+                    operations_names = [op.get_type_operation_display() for op in operations_creees]
+                    response_data['operations_ajoutees'] = operations_names
+                
+                if nb_articles_modifies > 0:
+                    response_data['articles_modifies'] = nb_articles_modifies
+                
+                return JsonResponse(response_data)
+            else:
+                # Réponse normale avec redirect pour les soumissions manuelles
+                if messages_success:
+                    messages.success(request, f'Commande modifiée avec succès. {" | ".join(messages_success)}')
+                else:
+                    messages.success(request, 'Commande modifiée avec succès.')
+                    
+                return redirect('operatConfirme:modifier_commande', commande_id=commande_id)
             
         except Exception as e:
             messages.error(request, f'Erreur lors de la modification : {str(e)}')
@@ -1262,5 +1356,132 @@ def modifier_commande(request, commande_id):
     }
     
     return render(request, 'operatConfirme/modifier_commande.html', context)
+
+@login_required
+def api_articles_disponibles(request):
+    """API pour récupérer la liste des articles disponibles pour la sélection"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur de confirmation
+        operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
+        print(f"✅ Opérateur trouvé: {operateur.nom} {operateur.prenom} (Type: {operateur.type_operateur})")
+    except Operateur.DoesNotExist:
+        error_msg = f'Utilisateur {request.user.username} n\'est pas un opérateur de confirmation'
+        print(f"❌ {error_msg}")
+        
+        # Debug: afficher les informations de l'utilisateur
+        try:
+            user_operateur = Operateur.objects.get(user=request.user)
+            print(f"🔍 Utilisateur trouvé comme opérateur: {user_operateur.type_operateur}")
+        except Operateur.DoesNotExist:
+            print(f"🔍 Aucun profil opérateur trouvé pour: {request.user.username}")
+        
+        return JsonResponse({
+            'success': False,
+            'error': error_msg,
+            'debug_info': {
+                'user': str(request.user),
+                'is_authenticated': request.user.is_authenticated,
+                'user_id': request.user.id if request.user.is_authenticated else None
+            }
+        }, status=403)
+    
+    if request.method == 'GET':
+        try:
+            from article.models import Article
+            
+            print("🔍 Recherche d'articles disponibles...")
+            
+            # Récupérer tous les articles actifs avec stock disponible
+            articles = Article.objects.filter(
+                qte_disponible__gt=0,
+                actif=True
+            ).order_by('nom', 'couleur', 'pointure')
+            
+            print(f"📦 {articles.count()} articles trouvés dans la base")
+            
+            articles_data = []
+            for article in articles:
+                try:
+                    article_data = {
+                        'id': article.id,
+                        'nom': article.nom or 'Article sans nom',
+                        'reference': article.reference or f'REF-{article.id}',
+                        'prix_unitaire': float(article.prix_unitaire) if article.prix_unitaire else 0.0,
+                        'description': article.description or '',
+                        'qte_disponible': article.qte_disponible,
+                        'categorie': article.categorie or 'Non spécifiée',
+                        'couleur': article.couleur or 'Non spécifiée',
+                        'pointure': article.pointure or 'Non spécifiée',
+                    }
+                    articles_data.append(article_data)
+                    
+                    print(f"   ✅ Article {article.id}: {article.nom} - {article.prix_unitaire} DH")
+                    
+                except Exception as e:
+                    print(f"   ❌ Erreur lors du traitement de l'article {article.id}: {e}")
+                    continue
+            
+            print(f"✅ {len(articles_data)} articles formatés pour l'API")
+            
+            return JsonResponse({
+                'success': True,
+                'articles': articles_data,
+                'count': len(articles_data)
+            })
+            
+        except Exception as e:
+            error_msg = f'Erreur lors de la récupération des articles: {str(e)}'
+            print(f"❌ {error_msg}")
+            return JsonResponse({
+                'success': False,
+                'error': error_msg
+            }, status=500)
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'Méthode non autorisée'
+    }, status=405)
+
+@login_required
+def api_commentaires_disponibles(request):
+    """API pour récupérer la liste des commentaires prédéfinis depuis le modèle"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur de confirmation
+        operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    if request.method == 'GET':
+        from commande.models import Operation
+        
+        # Récupérer les choix de commentaires depuis le modèle
+        commentaires_choices = Operation.Type_Commentaire_CHOICES
+        
+        # Convertir en format utilisable par le frontend
+        commentaires_data = {
+            'APPEL': [],
+            'ENVOI_SMS': [],
+            'Appel Whatsapp': [],
+            'Message Whatsapp': [],
+            'Vocal Whatsapp': []
+        }
+        
+        # Tous les commentaires sont utilisables pour tous les types d'opérations
+        for choice_value, choice_label in commentaires_choices:
+            commentaire_item = {
+                'value': choice_value,
+                'label': choice_label
+            }
+            
+            # Ajouter le commentaire à tous les types d'opérations
+            for type_operation in commentaires_data.keys():
+                commentaires_data[type_operation].append(commentaire_item)
+        
+        return JsonResponse({
+            'success': True,
+            'commentaires': commentaires_data
+        })
+    
+    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
 
 

@@ -19,6 +19,10 @@ def generate_operators():
     if created_logistique:
         print(f"Groupe 'operateur_logistique' créé.")
 
+    group_preparation, created_preparation = Group.objects.get_or_create(name='operateur_preparation')
+    if created_preparation:
+        print(f"Groupe 'operateur_preparation' créé.")
+
     # Génération des opérateurs de Confirmation
     for i in range(1, 6):
         username = f"YZ-OPCO{i:02d}"
@@ -106,6 +110,50 @@ def generate_operators():
 
         except Exception as e:
             print(f"Erreur lors de la création de l'opérateur '{username}' (Logistique): {e}")
+
+    # Génération des opérateurs de Préparation
+    for i in range(1, 6):
+        username = f"YZ-OPR0{i}"
+        email = f"{username.lower()}@gmail.com"
+        password = "123"
+        prenom = f"PrenomPO{i}"
+        nom = f"NomPO{i}"
+        
+        try:
+            user, created = User.objects.get_or_create(username=username, defaults={
+                'email': email,
+                'first_name': prenom,
+                'last_name': nom,
+                'is_active': True,
+            })
+            if created:
+                user.set_password(password)
+                user.save()
+                print(f"Utilisateur Django '{username}' créé.")
+            else:
+                print(f"Utilisateur Django '{username}' existe déjà.")
+
+            operateur, created_op = Operateur.objects.get_or_create(user=user, defaults={
+                'nom': nom,
+                'prenom': prenom,
+                'mail': email,
+                'type_operateur': 'PRÉPARATION',
+                'telephone': f'+2128{i:08d}',
+                'adresse': f'Adresse PO {i}',
+                'actif': True,
+            })
+            if created_op:
+                print(f"Opérateur '{username}' (Préparation) créé et lié à l'utilisateur.")
+                user.groups.add(group_preparation)
+                print(f"Utilisateur '{username}' ajouté au groupe '{group_preparation.name}'.")
+            else:
+                print(f"Opérateur '{username}' (Préparation) existe déjà.")
+                if group_preparation not in user.groups.all():
+                    user.groups.add(group_preparation)
+                    print(f"Utilisateur '{username}' ajouté au groupe '{group_preparation.name}'.")
+
+        except Exception as e:
+            print(f"Erreur lors de la création de l'opérateur '{username}' (Préparation): {e}")
     
     print("Génération des opérateurs terminée.")
 

@@ -1,0 +1,309 @@
+{% extends 'composant_generale/operatPrepa/base.html' %}
+
+{% block title %}Accueil - Opérateur Préparation{% endblock %}
+
+{% block page_title %}Tableau de Bord{% endblock %}
+{% block page_subtitle %}Interface Opérateur de Préparation{% endblock %}
+
+{% block content %}
+<!-- Statistiques rapides avec animations - Thème Préparation -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.1s; border-color: var(--preparation-border-accent);">
+        <div class="flex items-center justify-between">
+        <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-teal-100 to-teal-200 text-teal-600 transition-all duration-300 group-hover:from-teal-500 group-hover:to-teal-600 group-hover:text-white group-hover:scale-110">
+                    <i class="fas fa-box-open text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">À Préparer</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-teal-600" id="attente-count">{{ stats.commandes_a_preparer }}</p>
+                </div>
+            </div>
+            <div class="text-orange-500 text-sm font-semibold bg-orange-50 px-2 py-1 rounded-full">
+                {{ stats.commandes_urgentes }} Urgent{{ stats.commandes_urgentes|pluralize }}
+            </div>
+        </div>
+    </div>
+    
+    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.2s; border-color: var(--preparation-border-accent);">
+        <div class="flex items-center justify-between">
+        <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                    <i class="fas fa-check-double text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Préparées</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600" id="confirmees-count">{{ stats.commandes_preparees_today }}</p>
+                </div>
+            </div>
+            <div class="text-green-500 text-sm font-semibold bg-green-50 px-2 py-1 rounded-full">
+                Aujourd'hui
+            </div>
+        </div>
+    </div>
+    
+    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s; border-color: var(--preparation-border-accent);">
+        <div class="flex items-center justify-between">
+        <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
+                    <i class="fas fa-times-circle text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">En Cours</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600" id="rejetees-count">{{ stats.commandes_en_preparation }}</p>
+                </div>
+            </div>
+            <div class="text-blue-500 text-sm font-semibold bg-blue-50 px-2 py-1 rounded-full">
+                Préparation
+            </div>
+        </div>
+    </div>
+    
+    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.4s; border-color: var(--preparation-border-accent);">
+        <div class="flex items-center justify-between">
+        <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-purple-100 to-purple-200 text-purple-600 transition-all duration-300 group-hover:from-purple-500 group-hover:to-purple-600 group-hover:text-white group-hover:scale-110">
+                    <i class="fas fa-user-check text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Ma Performance</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-purple-600" id="ma-performance-count">{{ stats.ma_performance_today }}</p>
+                </div>
+            </div>
+            <div class="text-purple-500 text-sm font-semibold bg-purple-50 px-2 py-1 rounded-full">
+                Aujourd'hui
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions rapides avec animations -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div class="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl border border-gray-100 animate-slideInLeft" style="border-color: var(--preparation-border-accent);">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-boxes text-teal-500 mr-3 animate-spin-slow"></i>
+                Commandes à Préparer
+            </h3>
+            <div class="bg-gradient-to-r from-teal-500 to-teal-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                {{ stats.commandes_urgentes }} urgente{{ stats.commandes_urgentes|pluralize }}
+            </div>
+        </div>
+        <div class="text-center py-12">
+            <div class="mb-6">
+                <i class="fas fa-box-open text-6xl text-gray-300 animate-bounce"></i>
+            </div>
+            <h4 class="text-lg font-semibold text-gray-600 mb-2">{{ stats.commandes_a_preparer }} commande(s) à préparer</h4>
+            <p class="text-gray-500 text-sm mb-4">Commandes en attente de préparation</p>
+            <a href="{% url 'Prepacommande:liste_prepa' %}" class="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white px-6 py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                <i class="fas fa-boxes mr-2"></i>
+                Voir Commandes à Préparer
+            </a>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl border border-gray-100 animate-slideInRight" style="border-color: var(--preparation-border-accent);">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-history mr-3" style="color: var(--preparation-primary);"></i>
+                Activité récente
+            </h3>
+            <button class="transition-colors duration-200 text-sm font-semibold" style="color: var(--preparation-primary); hover:color: var(--preparation-hover-bg);">
+                Tout voir
+            </button>
+        </div>
+        <div class="text-center py-12">
+            <div class="mb-6">
+                <i class="fas fa-history text-6xl text-gray-300 animate-pulse"></i>
+            </div>
+            <h4 class="text-lg font-semibold text-gray-600 mb-2">{{ stats.ma_performance_today }} commande(s) préparée(s)</h4>
+            <p class="text-gray-500 text-sm mb-4">Vos préparations récentes</p>
+            
+            <a href="#" class="bg-gradient-to-r text-white px-6 py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl" style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-light));">
+                <i class="fas fa-list mr-2"></i>
+                Voir mes Préparations
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Performance de la journée -->
+<div class="mt-8 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl p-6 border border-teal-100">
+    <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold text-gray-800 flex items-center">
+            <i class="fas fa-chart-bar text-teal-500 mr-3"></i>
+            Performance du jour
+        </h3>
+        <div class="text-sm text-gray-500">
+            Aujourd'hui - {{ "now"|date:"d/m/Y" }}
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-green-600">{{ stats.valeur_preparees_today|floatformat:0 }} DH</div>
+            <div class="text-sm text-gray-600">Valeur totale (DH)</div>
+            <div class="mt-2 bg-green-100 rounded-full h-2">
+                <div class="bg-green-500 h-2 rounded-full transition-all duration-1000" style="width: {% if stats.valeur_preparees_today > 0 %}100{% else %}0{% endif %}%"></div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-teal-600">{{ stats.commandes_preparees_today }}</div>
+            <div class="text-sm text-gray-600">Aujourd'hui</div>
+            <div class="mt-2 bg-teal-100 rounded-full h-2">
+                <div class="bg-teal-500 h-2 rounded-full transition-all duration-1000" style="width: {% if stats.commandes_preparees_today > 0 %}{% widthratio stats.commandes_preparees_today 10 100 %}{% else %}0{% endif %}%"></div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ stats.commandes_preparees_week }}</div>
+            <div class="text-sm text-gray-600">Cette semaine</div>
+            <div class="mt-2 bg-blue-100 rounded-full h-2">
+                <div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: {% if stats.commandes_preparees_week > 0 %}{% widthratio stats.commandes_preparees_week 20 100 %}{% else %}0{% endif %}%"></div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-orange-600">{{ stats.commandes_en_preparation }}</div>
+            <div class="text-sm text-gray-600">En cours</div>
+            <div class="mt-2 bg-orange-100 rounded-full h-2">
+                <div class="bg-orange-500 h-2 rounded-full transition-all duration-1000" style="width: {% if stats.commandes_en_preparation > 0 %}{% widthratio stats.commandes_en_preparation 5 100 %}{% else %}0{% endif %}%"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Nouvelle section : Activité récente et Articles populaires -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+    <!-- Activité récente -->
+    <div class="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl border border-gray-100" style="border-color: var(--preparation-border-accent);">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-clock text-purple-500 mr-3"></i>
+                Mon Activité Récente
+            </h3>
+            <div class="text-sm text-gray-500">
+                {{ stats.activite_recente|length }} action{{ stats.activite_recente|length|pluralize }}
+            </div>
+        </div>
+        <div class="space-y-3">
+            {% for activite in stats.activite_recente %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div class="flex items-center">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-800">Commande #{{ activite.commande.id_yz }}</p>
+                        <p class="text-xs text-gray-500">{{ activite.commande.client.nom }} {{ activite.commande.client.prenom }}</p>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-500">
+                    {{ activite.date_fin|date:"H:i" }}
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-8">
+                <i class="fas fa-clock text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500">Aucune activité récente</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Articles populaires -->
+    <div class="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl border border-gray-100" style="border-color: var(--preparation-border-accent);">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-chart-bar text-teal-500 mr-3"></i>
+                Articles Populaires
+            </h3>
+            <div class="text-sm text-gray-500">
+                Cette semaine
+            </div>
+        </div>
+        <div class="space-y-3">
+            {% for article in stats.articles_populaires %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center mr-3">
+                        <i class="fas fa-box text-teal-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-800">{{ article.article__nom|truncatechars:25 }}</p>
+                        <p class="text-xs text-gray-500">Réf: {{ article.article__reference }}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm font-bold text-teal-600">{{ article.total_quantite }}</p>
+                    <p class="text-xs text-gray-500">{{ article.total_commandes }} cmd</p>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-8">
+                <i class="fas fa-chart-bar text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500">Aucune donnée cette semaine</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Style et animations CSS -->
+<style>
+@keyframes slideInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(30px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes spin-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.animate-slideInUp {
+    animation: slideInUp 0.6s ease-out forwards;
+    opacity: 0;
+}
+
+.animate-slideInLeft {
+    animation: slideInLeft 0.8s ease-out 0.5s forwards;
+    opacity: 0;
+}
+
+.animate-slideInRight {
+    animation: slideInRight 0.8s ease-out 0.7s forwards;
+    opacity: 0;
+}
+
+.animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+}
+</style>
+
+<!-- JavaScript pour les animations simples -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Interaction hover pour les cartes statistiques
+    const statCards = document.querySelectorAll('.bg-white');
+    statCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
+{% endblock %} 

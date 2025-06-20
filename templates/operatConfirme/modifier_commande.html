@@ -71,6 +71,54 @@
         transform: scale(1.05);
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
+
+    /* Styles pour la modale d'articles - amélioration de l'affichage */
+    #articleModal {
+        z-index: 9999;
+    }
+    
+    #articleModal .bg-white.rounded-xl {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    /* Animation pour la modale */
+    #articleModal.flex {
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    /* Amélioration de l'affichage des badges */
+    .article-card .gap-2 span {
+        white-space: nowrap;
+    }
+    
+    /* Style pour les informations d'article dans la modale */
+    #article-info {
+        transition: all 0.3s ease;
+    }
+    
+    /* Amélioration du responsiveness */
+    @media (max-width: 768px) {
+        #articleModal .max-w-2xl {
+            margin: 1rem;
+            max-width: calc(100% - 2rem);
+        }
+        
+        #article-info .grid-cols-2 {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -105,11 +153,8 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Informations de commande -->
                 <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.3s;">
-                    <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
-                        <span><i class="fas fa-receipt mr-3" style="color: #6d4b3b;"></i>Informations Commande</span>
-                        <button type="button" onclick="verifierSection('commande')" class="btn-verification px-3 py-1 text-xs rounded">
-                            <i class="fas fa-check mr-1"></i> Vérifier
-                        </button>
+                    <h3 class="text-lg font-semibold mb-4" style="color: #4B352A;">
+                        <i class="fas fa-receipt mr-3" style="color: #6d4b3b;"></i>Informations Commande
                     </h3>
                     
                     <div class="grid grid-cols-2 gap-4">
@@ -139,11 +184,8 @@
 
                 <!-- Informations client -->
                 <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.4s;">
-                    <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
-                        <span><i class="fas fa-user mr-3" style="color: #6d4b3b;"></i>Informations Client</span>
-                        <button type="button" onclick="verifierSection('client')" class="btn-verification px-3 py-1 text-xs rounded">
-                            <i class="fas fa-check mr-1"></i> Vérifier
-                        </button>
+                    <h3 class="text-lg font-semibold mb-4" style="color: #4B352A;">
+                        <i class="fas fa-user mr-3" style="color: #6d4b3b;"></i>Informations Client
                     </h3>
                     
                     <div class="grid grid-cols-2 gap-4">
@@ -177,11 +219,8 @@
 
             <!-- Section 2: Informations de livraison (largeur complète) -->
                 <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.5s;">
-                    <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
-                        <span><i class="fas fa-truck mr-3" style="color: #6d4b3b;"></i>Informations Livraison</span>
-                        <button type="button" onclick="verifierSection('livraison')" class="btn-verification px-3 py-1 text-xs rounded">
-                            <i class="fas fa-check mr-1"></i> Vérifier
-                        </button>
+                    <h3 class="text-lg font-semibold mb-4" style="color: #4B352A;">
+                        <i class="fas fa-truck mr-3" style="color: #6d4b3b;"></i>Informations Livraison
                     </h3>
                     
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -224,369 +263,123 @@
 
             <!-- Section 3: Gestion des Opérations (largeur complète) -->
             <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.6s;">
-                <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
-                    <span><i class="fas fa-cogs mr-3" style="color: #6d4b3b;"></i>Gestion des Opérations de Confirmation</span>
-                    <button type="button" onclick="verifierSection('operation')" class="btn-verification px-3 py-1 text-xs rounded">
-                        <i class="fas fa-check mr-1"></i> Vérifier
-                    </button>
-                </h3>
+                                    <h3 class="text-lg font-semibold mb-4" style="color: #4B352A;">
+                    <i class="fas fa-cogs mr-3" style="color: #6d4b3b;"></i>Gestion des Opérations de Confirmation
+                    </h3>
                     
                     <div class="space-y-6">
-                        <!-- Section Upsell -->
-                        <div class="p-4 bg-teal-50 rounded-lg border border-teal-200">
-                            <div class="flex items-center mb-3">
-                                <i class="fas fa-chart-line mr-2 text-teal-600"></i>
-                                <label class="text-sm font-medium text-teal-800">Upsell (Vente Additionnelle)</label>
-                            </div>
-                            <div class="flex items-center space-x-4">
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="radio" name="is_upsell" value="true" {% if commande.is_upsell %}checked{% endif %} 
-                                           class="mr-2 text-teal-600 focus:ring-teal-500">
-                                    <span class="text-sm text-teal-700">Oui - Commande avec upsell</span>
-                                </label>
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="radio" name="is_upsell" value="false" {% if not commande.is_upsell %}checked{% endif %} 
-                                           class="mr-2 text-gray-600 focus:ring-gray-500">
-                                    <span class="text-sm text-gray-700">Non - Commande normale</span>
-                                </label>
-                            </div>
-                        </div>
 
-                        <!-- Opérations existantes -->
-                        {% if commande.operations.exists %}
-                        <div class="mb-4">
-                            <h4 class="text-md font-medium text-gray-700 mb-3">
-                                <i class="fas fa-history mr-2"></i>Historique des opérations
-                            </h4>
-                            <div class="space-y-2 max-h-40 overflow-y-auto">
-                                {% for operation in commande.operations.all %}
-                                <div class="p-3 bg-gray-50 rounded-lg border">
-                                    <div class="flex justify-between items-start">
-                                        <div class="flex-1">
-                                            <div class="flex items-center space-x-2 mb-2">
-                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                                                    {% if operation.type_operation == 'APPEL_1' %}bg-blue-100 text-blue-800
-                                                    {% elif operation.type_operation == 'APPEL_2' %}bg-indigo-100 text-indigo-800
-                                                    {% elif operation.type_operation == 'APPEL_3' %}bg-purple-100 text-purple-800
-                                                    {% elif operation.type_operation == 'APPEL_4' %}bg-pink-100 text-pink-800
-                                                    {% elif operation.type_operation == 'APPEL_5' %}bg-red-100 text-red-800
-                                                    {% elif operation.type_operation == 'APPEL_6' %}bg-orange-100 text-orange-800
-                                                    {% elif operation.type_operation == 'APPEL_7' %}bg-yellow-100 text-yellow-800
-                                                    {% elif operation.type_operation == 'APPEL_8' %}bg-red-200 text-red-900
-                                                    {% elif operation.type_operation == 'ENVOI_SMS' or operation.type_operation == 'ENVOI_MSG' %}bg-green-100 text-green-800
-                                                    {% elif operation.type_operation == 'PROPOSITION_ABONNEMENT' or operation.type_operation == 'PROPOSITION_REDUCTION' %}bg-teal-100 text-teal-800
-                                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                                    <i class="fas fa-hashtag mr-1" style="font-size: 8px;"></i>{{ operation.id }}
-                                        </span>
-                                                <span class="text-sm font-medium text-gray-800">{{ operation.get_type_operation_display }}</span>
-                                </div>
-                                            
-                                            <div class="grid grid-cols-2 gap-4 text-xs">
-                                                <div>
-                                                    <span class="text-gray-500">Date/Heure:</span>
-                                                    <div class="font-medium text-gray-700">{{ operation.date_operation|date:"d/m/Y H:i" }}</div>
-                            </div>
-                            <div>
-                                                    <span class="text-gray-500">Opérateur:</span>
-                                                    <div class="font-medium text-gray-700">
-                                                        <i class="fas fa-user mr-1"></i>{{ operation.operateur.user.get_full_name|default:operation.operateur.user.username }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            {% if operation.conclusion %}
-                                            <div class="mt-2 p-2 bg-white rounded border-l-4 border-blue-400">
-                                                <span class="text-xs text-gray-500">Commentaire:</span>
-                                                <div class="text-sm text-gray-700 mt-1">{{ operation.conclusion }}</div>
-                                            </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        <!-- Nouvelles opérations -->
+                        
+                        <!-- Gestion des opérations -->
                         <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
                             <h4 class="text-md font-medium text-blue-800 mb-3">
-                                <i class="fas fa-plus mr-2"></i>Ajouter de nouvelles opérations
+                                <i class="fas fa-cogs mr-2"></i>Gestion des Opérations de Confirmation
                             </h4>
                             
                             <div id="operations-container" class="space-y-4">
-                                <!-- Liste des opérations disponibles -->
-                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                    <!-- Aucune Action -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_AUCUNE_ACTION" name="operations[]" value="AUCUNE_ACTION" 
-                                                       class="mr-3 operation-checkbox">
-                                                <label for="op_AUCUNE_ACTION" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                        Aucune action
-                                                    </span>
-                                                </label>
-                    </div>
-                                            <button type="button" onclick="openCommentModal('AUCUNE_ACTION', 'Aucune action')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_AUCUNE_ACTION" id="comment_AUCUNE_ACTION" value="">
-                                        <div id="preview_AUCUNE_ACTION" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                </div>
-
-                                    <!-- Appel 1 -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_APPEL_1" name="operations[]" value="APPEL_1" class="mr-3 operation-checkbox">
-                                                <label for="op_APPEL_1" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        <i class="fas fa-phone mr-1"></i>Appel 1
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('APPEL_1', 'Appel 1')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                        </button>
-                                        </div>
-                                        <input type="hidden" name="comment_APPEL_1" id="comment_APPEL_1" value="">
-                                        <div id="preview_APPEL_1" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
-
-                                    <!-- Appel 2 -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_APPEL_2" name="operations[]" value="APPEL_2" class="mr-3 operation-checkbox">
-                                                <label for="op_APPEL_2" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                                        <i class="fas fa-phone mr-1"></i>Appel 2
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('APPEL_2', 'Appel 2')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_APPEL_2" id="comment_APPEL_2" value="">
-                                        <div id="preview_APPEL_2" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                        </div>
-                        
-                                    <!-- Appel 3 -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_APPEL_3" name="operations[]" value="APPEL_3" class="mr-3 operation-checkbox">
-                                                <label for="op_APPEL_3" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                        <i class="fas fa-phone mr-1"></i>Appel 3
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('APPEL_3', 'Appel 3')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_APPEL_3" id="comment_APPEL_3" value="">
-                                        <div id="preview_APPEL_3" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                        </div>
-                        
-                                    <!-- Appel 4 -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_APPEL_4" name="operations[]" value="APPEL_4" class="mr-3 operation-checkbox">
-                                                <label for="op_APPEL_4" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
-                                                        <i class="fas fa-phone mr-1"></i>Appel 4
-                                                    </span>
-                                                </label>
-                            </div>
-                                            <button type="button" onclick="openCommentModal('APPEL_4', 'Appel 4')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                        </div>
-                                        <input type="hidden" name="comment_APPEL_4" id="comment_APPEL_4" value="">
-                                        <div id="preview_APPEL_4" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
-
-                                    <!-- Appel 5 -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_APPEL_5" name="operations[]" value="APPEL_5" class="mr-3 operation-checkbox">
-                                                <label for="op_APPEL_5" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                        <i class="fas fa-phone mr-1"></i>Appel 5
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('APPEL_5', 'Appel 5')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_APPEL_5" id="comment_APPEL_5" value="">
-                                        <div id="preview_APPEL_5" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
-
-                                    <!-- Appel 6 -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_APPEL_6" name="operations[]" value="APPEL_6" class="mr-3 operation-checkbox">
-                                                <label for="op_APPEL_6" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                                        <i class="fas fa-phone mr-1"></i>Appel 6
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('APPEL_6', 'Appel 6')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_APPEL_6" id="comment_APPEL_6" value="">
-                                        <div id="preview_APPEL_6" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
-
-                                    <!-- Appel 7 -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_APPEL_7" name="operations[]" value="APPEL_7" class="mr-3 operation-checkbox">
-                                                <label for="op_APPEL_7" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                        <i class="fas fa-phone mr-1"></i>Appel 7
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('APPEL_7', 'Appel 7')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_APPEL_7" id="comment_APPEL_7" value="">
-                                        <div id="preview_APPEL_7" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
-
-                                    <!-- Appel 8 -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_APPEL_8" name="operations[]" value="APPEL_8" class="mr-3 operation-checkbox">
-                                                <label for="op_APPEL_8" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-200 text-red-900">
-                                                        <i class="fas fa-phone-slash mr-1"></i>Appel 8
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('APPEL_8', 'Appel 8')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_APPEL_8" id="comment_APPEL_8" value="">
-                                        <div id="preview_APPEL_8" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
-
-                                    <!-- SMS -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_ENVOI_SMS" name="operations[]" value="ENVOI_SMS" class="mr-3 operation-checkbox">
-                                                <label for="op_ENVOI_SMS" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                        <i class="fas fa-sms mr-1"></i>Envoi SMS
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('ENVOI_SMS', 'Envoi SMS')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_ENVOI_SMS" id="comment_ENVOI_SMS" value="">
-                                        <div id="preview_ENVOI_SMS" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
-
-                                    <!-- MSG -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_ENVOI_MSG" name="operations[]" value="ENVOI_MSG" class="mr-3 operation-checkbox">
-                                                <label for="op_ENVOI_MSG" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                        <i class="fas fa-comment mr-1"></i>Envoi MSG
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('ENVOI_MSG', 'Envoi MSG')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_ENVOI_MSG" id="comment_ENVOI_MSG" value="">
-                                        <div id="preview_ENVOI_MSG" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
-
-                                    <!-- Proposition Abonnement -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_PROPOSITION_ABONNEMENT" name="operations[]" value="PROPOSITION_ABONNEMENT" class="mr-3 operation-checkbox">
-                                                <label for="op_PROPOSITION_ABONNEMENT" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                                                        <i class="fas fa-gift mr-1"></i>Abonnement
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('PROPOSITION_ABONNEMENT', 'Proposition Abonnement')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_PROPOSITION_ABONNEMENT" id="comment_PROPOSITION_ABONNEMENT" value="">
-                                        <div id="preview_PROPOSITION_ABONNEMENT" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
-
-                                    <!-- Proposition Réduction -->
-                                    <div class="operation-item p-3 border rounded-lg bg-white">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <input type="checkbox" id="op_PROPOSITION_REDUCTION" name="operations[]" value="PROPOSITION_REDUCTION" class="mr-3 operation-checkbox">
-                                                <label for="op_PROPOSITION_REDUCTION" class="font-medium text-gray-700 cursor-pointer">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                                                        <i class="fas fa-percent mr-1"></i>Réduction
-                                                    </span>
-                                                </label>
-                                            </div>
-                                            <button type="button" onclick="openCommentModal('PROPOSITION_REDUCTION', 'Proposition Réduction')" 
-                                                    class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors">
-                                                <i class="fas fa-comment mr-1"></i>Commentaire
-                                            </button>
-                                        </div>
-                                        <input type="hidden" name="comment_PROPOSITION_REDUCTION" id="comment_PROPOSITION_REDUCTION" value="">
-                                        <div id="preview_PROPOSITION_REDUCTION" class="mt-2 text-xs text-gray-600 italic hidden"></div>
-                                    </div>
+                                <!-- Tableau des opérations -->
+                                <div class="overflow-x-auto">
+                                    <table class="w-full bg-white rounded-lg shadow-sm border border-gray-200">
+                                        <thead>
+                                            <tr class="bg-gray-50 border-b border-gray-200">
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    <i class="fas fa-hashtag mr-1"></i>ID
+                                                </th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    <i class="fas fa-cogs mr-1"></i>Type d'opération
+                                                </th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    <i class="fas fa-calendar mr-1"></i>Date d'opération
+                                                </th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    <i class="fas fa-comment mr-1"></i>Commentaire
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="operations-table-body" class="bg-white divide-y divide-gray-200">
+                                            <!-- Les lignes seront ajoutées dynamiquement par JavaScript -->
+                                        </tbody>
+                                    </table>
                                 </div>
                                 
+                                <!-- Bouton pour ajouter une nouvelle opération -->
+                                <div class="text-center mt-4">
+                                    <button type="button" onclick="ajouterNouvelleOperation()" 
+                                            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all">
+                                        <i class="fas fa-plus mr-2"></i>Ajouter une opération
+                                    </button>
+                            </div>
+                                
+                                <!-- Étape 1: Sélection du type principal d'opération -->
+                                <div id="type-principal-selector" class="hidden mt-4 p-4 bg-white rounded-lg border border-gray-300">
+                                    <h5 class="text-sm font-medium text-gray-700 mb-3">
+                                        <i class="fas fa-step-forward mr-2"></i>Choisissez le type d'opération :
+                                    </h5>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <button type="button" onclick="choisirTypePrincipal('APPEL')" 
+                                                class="p-4 border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all group">
+                                            <div class="text-center">
+                                                <i class="fas fa-phone text-2xl text-blue-600 mb-2 group-hover:scale-110 transition-transform"></i>
+                                                <div class="font-medium text-blue-800">Appel Téléphonique</div>
+                                                <div class="text-xs text-blue-600 mt-1">Appels de confirmation client</div>
+                                </div>
+                                        </button>
+                                        
+                                        <button type="button" onclick="choisirTypePrincipal('SMS')" 
+                                                class="p-4 border-2 border-green-200 bg-green-50 hover:bg-green-100 rounded-lg transition-all group">
+                                            <div class="text-center">
+                                                <i class="fas fa-sms text-2xl text-green-600 mb-2 group-hover:scale-110 transition-transform"></i>
+                                                <div class="font-medium text-green-800">SMS</div>
+                                                <div class="text-xs text-green-600 mt-1">Messages texte courts</div>
+                            </div>
+                                        </button>
+                                        
+                                        <button type="button" onclick="choisirTypePrincipal('WHATSAPP')" 
+                                                class="p-4 border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all group">
+                                            <div class="text-center">
+                                                <i class="fab fa-whatsapp text-2xl text-emerald-600 mb-2 group-hover:scale-110 transition-transform"></i>
+                                                <div class="font-medium text-emerald-800">WhatsApp</div>
+                                                <div class="text-xs text-emerald-600 mt-1">Messages WhatsApp</div>
+                        </div>
+                                        </button>
+                            </div>
+                                    
+                                    <div class="mt-4 text-center">
+                                        <button type="button" onclick="annulerSelectionOperation()" 
+                                                class="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-xs rounded transition-colors">
+                                            <i class="fas fa-times mr-1"></i>Annuler
+                                        </button>
+                        </div>
+                    </div>
+                                
+                                <!-- Étape 2: Sélection de l'opération spécifique -->
+                                <div id="operation-selector" class="hidden mt-4 p-4 bg-white rounded-lg border border-gray-300">
+                                    <h5 class="text-sm font-medium text-gray-700 mb-3">
+                                        <i class="fab fa-whatsapp mr-2 text-emerald-600"></i>Sélectionnez le type de communication WhatsApp :
+                                    </h5>
+                                    <div id="operations-list" class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                        <!-- Les opérations seront ajoutées dynamiquement par JavaScript -->
+                </div>
+
+                                    <div class="mt-4 flex justify-between">
+                                        <button type="button" onclick="retourTypePrincipal()" 
+                                                class="px-3 py-1 bg-gray-400 hover:bg-gray-500 text-white text-xs rounded transition-colors">
+                                            <i class="fas fa-arrow-left mr-1"></i>Retour
+                        </button>
+                                        <button type="button" onclick="annulerSelectionOperation()" 
+                                                class="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-xs rounded transition-colors">
+                                            <i class="fas fa-times mr-1"></i>Annuler
+                                        </button>
+                        </div>
+                        </div>
+                        
                                 <div class="text-center mt-4">
                                     <div class="text-sm text-red-600 mb-2 font-medium">
                                         <i class="fas fa-exclamation-triangle mr-1"></i>
                                         IMPORTANT : Chaque opération sélectionnée DOIT avoir un commentaire rédigé par l'opérateur
-                                    </div>
-                                    <div class="text-xs text-gray-500">
-                                        Les opérations sans commentaire seront automatiquement ignorées lors de la sauvegarde
-                                    </div>
+                            </div>
+
+
                                 </div>
                             </div>
                         </div>
@@ -594,65 +387,124 @@
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
                 </div>
 
-            <!-- Section 4: Articles de la commande (largeur complète) -->
-            <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.8s;">
-                <h3 class="text-lg font-semibold mb-4 flex items-center justify-between" style="color: #4B352A;">
-                    <span><i class="fas fa-box mr-3" style="color: #6d4b3b;"></i>Articles de la Commande ({{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }})</span>
-                    <button type="button" onclick="verifierSection('articles')" class="btn-verification px-3 py-1 text-xs rounded">
-                        <i class="fas fa-check mr-1"></i> Vérifier
-                    </button>
-                </h3>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {% for panier in commande.paniers.all %}
-                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition-all">
-                        <div class="flex flex-col h-full">
-                            <div class="flex-1 mb-3">
-                                <div class="font-semibold text-lg mb-1" style="color: #4B352A;">{{ panier.article.nom }}</div>
-                                <div class="text-sm text-gray-500 mb-2">
-                                    <i class="fas fa-hashtag mr-1"></i>Réf: {{ panier.article.reference }}
+                        <!-- Section 4: Articles de la commande (largeur complète) -->
+                <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.8s;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold" style="color: #4B352A;">
+                            <i class="fas fa-box mr-3" style="color: #6d4b3b;"></i>Articles de la Commande (<span id="articles-count">{{ commande.paniers.count }}</span> article<span id="articles-plural">{{ commande.paniers.count|pluralize }}</span>)
+                        </h3>
+                        <button type="button" onclick="ajouterNouvelArticle()" 
+                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all">
+                            <i class="fas fa-plus mr-2"></i>Ajouter un article
+                        </button>
+                    </div>
+                    
+                    <!-- Liste des articles existants -->
+                    <div id="articles-container" class="space-y-3 mb-6">
+                        {% for panier in commande.paniers.all %}
+                        <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" data-article-id="{{ panier.id }}">
+                            <div class="flex items-center justify-between">
+                                <!-- Informations de l'article -->
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-4">
+                                        <!-- Nom et référence -->
+                                        <div class="min-w-0 flex-1">
+                                            <div class="font-semibold text-lg" style="color: #4B352A;">{{ panier.article.nom }}</div>
+                                            <div class="text-sm text-gray-500">
+                                                <i class="fas fa-hashtag mr-1"></i>Réf: {{ panier.article.reference }}
+                                            </div>
+                                            <!-- Informations détaillées -->
+                                            <div class="mt-2 flex flex-wrap gap-2">
+                                                {% if panier.article.pointure %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                                                    <i class="fas fa-ruler-vertical mr-1"></i>{{ panier.article.pointure }}
+                                                </span>
+                                                {% else %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                                    <i class="fas fa-ruler-vertical mr-1"></i>Taille N/A
+                                                </span>
+                                                {% endif %}
+                                                
+                                                {% if panier.article.couleur %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                                    <i class="fas fa-palette mr-1"></i>{{ panier.article.couleur }}
+                                                </span>
+                                                {% else %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                                    <i class="fas fa-palette mr-1"></i>Couleur N/A
+                                                </span>
+                                                {% endif %}
+                                                
+                                                {% if panier.article.categorie %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
+                                                    <i class="fas fa-tag mr-1"></i>{{ panier.article.categorie }}
+                                                </span>
+                                                {% else %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                                    <i class="fas fa-tag mr-1"></i>Catégorie N/A
+                                                </span>
+                                                {% endif %}
+                                                
+                                                {% if panier.article.stock_disponible %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                                    <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.stock_disponible }}
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Quantité -->
+                                        <div class="text-center min-w-0">
+                                            <div class="text-sm text-gray-500">Quantité</div>
+                                            <div class="font-medium text-blue-600">{{ panier.quantite }} unité{{ panier.quantite|pluralize }}</div>
+                                        </div>
+                                        
+                                        <!-- Prix unitaire -->
+                                        <div class="text-center min-w-0">
+                                            <div class="text-sm text-gray-500">Prix unitaire</div>
+                                            <div class="font-medium text-green-600">{{ panier.article.prix_unitaire }} DH</div>
+                                        </div>
+                                        
+                                        <!-- Sous-total -->
+                                        <div class="text-center min-w-0">
+                                            <div class="text-sm text-gray-500">Sous-total</div>
+                                            <div class="text-lg font-bold" style="color: #6d4b3b;">{{ panier.sous_total }} DH</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                {% if panier.article.description %}
-                                <div class="text-xs text-gray-600 mb-2">{{ panier.article.description|truncatechars:80 }}</div>
-                                {% endif %}
+                                
+                                <!-- Boutons d'action -->
+                                <div class="flex space-x-2 ml-4">
+                                    <button type="button" onclick="modifierArticle({{ panier.id }})" 
+                                            class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" 
+                                            title="Modifier">
+                                        <i class="fas fa-edit mr-1"></i>Modifier
+                                    </button>
+                                    <button type="button" onclick="supprimerArticle({{ panier.id }})" 
+                                            class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" 
+                                            title="Supprimer">
+                                        <i class="fas fa-trash mr-1"></i>Supprimer
+                                    </button>
+                                </div>
                             </div>
-                            <div class="border-t pt-3">
-                                <div class="grid grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                        <span class="text-gray-500">Quantité:</span>
-                                        <div class="font-medium text-blue-600">{{ panier.quantite }} unité{{ panier.quantite|pluralize }}</div>
-                                    </div>
-                                    <div>
-                                        <span class="text-gray-500">Prix unitaire:</span>
-                                        <div class="font-medium text-green-600">{{ panier.article.prix_unitaire }} DH</div>
-                                    </div>
-                                </div>
-                                <div class="mt-2 pt-2 border-t">
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-sm font-medium text-gray-700">Sous-total:</span>
-                                        <span class="text-lg font-bold" style="color: #6d4b3b;">{{ panier.sous_total }} DH</span>
-                                    </div>
-                                </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Résumé total -->
+                    <div class="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border">
+                        <div class="flex justify-between items-center">
+                            <div class="text-lg font-semibold text-gray-700">
+                                <i class="fas fa-calculator mr-2"></i>Total de la commande:
+                            </div>
+                            <div class="text-2xl font-bold" style="color: #4B352A;" id="total-commande">
+                                {{ commande.total_cmd|floatformat:2 }} DH
                             </div>
                         </div>
                     </div>
-                    {% endfor %}
-                </div>
                 
-                <!-- Résumé total -->
-                <div class="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border">
-                    <div class="flex justify-between items-center">
-                        <div class="text-lg font-semibold text-gray-700">
-                            <i class="fas fa-calculator mr-2"></i>Total de la commande:
-                        </div>
-                        <div class="text-2xl font-bold" style="color: #4B352A;">
-                            {{ commande.total_cmd|floatformat:2 }} DH
-                        </div>
-                    </div>
+                    <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
                 </div>
-                
-                <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
-            </div>
         </div>
 
         <!-- Boutons d'action -->
@@ -664,11 +516,7 @@
                     Retour à la confirmation
                 </a>
                 
-                <button type="button" onclick="verifierTout()" 
-                        class="btn-verification px-6 py-3 rounded-lg font-medium">
-                    <i class="fas fa-check-double mr-2"></i>
-                    Tout Vérifier
-                </button>
+
             </div>
             
             <div class="flex gap-4">
@@ -712,14 +560,16 @@
         
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">
-                Petite conclusion de l'opérateur
+                Conclusion de l'opérateur
             </label>
-            <textarea id="commentTextarea" rows="4" 
-                      class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                      placeholder="⚠️ OBLIGATOIRE : Rédigez votre conclusion personnelle (ex: 'Client contacté, confirme sa commande', 'Produit vérifié en stock', etc.)"></textarea>
+            <select id="commentSelect" 
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">-- Sélectionnez une conclusion --</option>
+                <!-- Les options seront remplies dynamiquement selon le type d'opération -->
+            </select>
             <div class="mt-1 text-xs text-red-600 font-medium">
                 <i class="fas fa-exclamation-triangle mr-1"></i>
-                Commentaire obligatoire - l'opération sera ignorée sans votre conclusion
+                Sélection obligatoire - l'opération sera ignorée sans conclusion
             </div>
         </div>
         
@@ -733,6 +583,126 @@
                 <i class="fas fa-save mr-1"></i>Enregistrer
             </button>
         </div>
+    </div>
+</div>
+
+<!-- Modale pour ajouter/modifier un article -->
+<div id="articleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50" style="backdrop-filter: blur(8px); display: none;">
+    <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 shadow-2xl">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-box text-blue-500 mr-3"></i>
+            <span id="articleModalTitle">Ajouter un article</span>
+        </h3>
+        
+        <form id="articleForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Sélection d'article (pour nouveaux articles) -->
+                <div id="article-selection-field">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Article</label>
+                    <select id="articleSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Sélectionner un article --</option>
+                        <!-- Les articles seront chargés dynamiquement -->
+                    </select>
+                </div>
+                
+                <!-- Affichage du nom d'article (pour modifications) -->
+                <div id="article-display-field" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Article</label>
+                    <input type="text" id="articleDisplay" readonly class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-600">
+                </div>
+                
+                <!-- Quantité -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Quantité</label>
+                    <input type="number" id="quantiteInput" min="1" step="1" value="1" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            
+            <!-- Informations de l'article sélectionné -->
+            <div id="article-info" class="hidden mt-4">
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4">
+                    <h4 class="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+                        <i class="fas fa-info-circle mr-2"></i>Détails de l'article
+                    </h4>
+                    
+                    <!-- Informations principales organisées en cartes -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <!-- Carte Informations produit -->
+                        <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                            <h5 class="font-medium text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-tag mr-2 text-blue-600"></i>Informations produit
+                            </h5>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Référence :</span>
+                                    <span id="info-reference" class="font-medium text-gray-800"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Prix unitaire :</span>
+                                    <span id="info-prix" class="font-bold text-green-600"></span>
+                                </div>
+                                <div class="flex justify-between border-t pt-2">
+                                    <span class="text-gray-700 font-medium">Sous-total :</span>
+                                    <span id="info-sous-total" class="font-bold text-blue-600 text-lg"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Carte Caractéristiques -->
+                        <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                            <h5 class="font-medium text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-palette mr-2 text-purple-600"></i>Caractéristiques du produit
+                            </h5>
+                            
+                            <!-- Affichage en badges comme dans la liste -->
+                            <div id="caracteristiques-badges" class="flex flex-wrap gap-2 mb-3">
+                                <!-- Les badges seront ajoutés dynamiquement -->
+                            </div>
+                            
+                            <!-- Affichage classique formaté -->
+                            <div class="space-y-2 text-sm">
+                                <div>
+                                    <span class="text-gray-700 font-medium">Taille : </span>
+                                    <span id="info-pointure" class="text-purple-600 font-medium"></span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-700 font-medium">Couleur : </span>
+                                    <span id="info-couleur" class="text-orange-600 font-medium"></span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-700 font-medium">Catégorie : </span>
+                                    <span id="info-categorie" class="text-indigo-600 font-medium"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Stock et description -->
+                    <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between mb-2">
+                            <h5 class="font-medium text-gray-800 flex items-center">
+                                <i class="fas fa-boxes mr-2 text-teal-600"></i>Stock disponible
+                            </h5>
+                            <span id="info-stock" class="px-3 py-1 bg-teal-100 text-teal-700 rounded-full font-medium"></span>
+                        </div>
+                        <div id="info-description" class="text-sm text-gray-600 italic"></div>
+                    </div>
+                </div>
+                
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-6">
+                <button type="button" onclick="closeArticleModal()" 
+                        class="px-4 py-2 rounded-lg font-medium transition-all bg-gray-100 hover:bg-gray-200 text-gray-700">
+                    <i class="fas fa-times mr-1"></i>Annuler
+                </button>
+                <button type="button" onclick="saveArticle()" 
+                        class="px-4 py-2 rounded-lg font-medium transition-all bg-blue-600 hover:bg-blue-700 text-white">
+                    <i class="fas fa-save mr-1"></i>Enregistrer
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -795,12 +765,15 @@ function openCommentModal(operationType, operationName) {
             operationNameElement.textContent = operationName;
         }
         
+        // Remplir la liste déroulante selon le type d'opération
+        remplirListeCommentaires(operationType);
+        
         // Charger le commentaire existant s'il y en a un
         const commentField = document.getElementById('comment_' + operationType);
-        const textarea = document.getElementById('commentTextarea');
+        const select = document.getElementById('commentSelect');
         
-        if (commentField && textarea) {
-            textarea.value = commentField.value || '';
+        if (commentField && select) {
+            select.value = commentField.value || '';
         }
         
         // Afficher la modale avec animation
@@ -813,10 +786,10 @@ function openCommentModal(operationType, operationName) {
         
         console.log('Modale affichée avec succès');
         
-        // Focus sur le textarea après un délai court
+        // Focus sur le select après un délai court
         setTimeout(() => {
-            if (textarea) {
-                textarea.focus();
+            if (select) {
+                select.focus();
             }
         }, 150);
         
@@ -867,29 +840,617 @@ function saveComment() {
     closeCommentModal();
 }
 
-// Fonction pour vérifier qu'au moins une opération est sélectionnée avant la soumission
-function verifierOperationsSelectionnees() {
-    const checkboxes = document.querySelectorAll('input[name="operations[]"]:checked');
-    if (checkboxes.length === 0) {
-        alert('⚠️ Veuillez sélectionner au moins une opération avant de sauvegarder.');
-        return false;
+// Variables globales pour le système de tableau
+let operationCounter = 1;
+let operationsTable = [];
+
+// Variables globales pour le système en deux étapes
+let typePrincipalSelectionne = '';
+
+// Fonction pour ajouter une nouvelle opération dans le tableau
+function ajouterNouvelleOperation() {
+    // Afficher le sélecteur de type principal (Étape 1)
+    document.getElementById('type-principal-selector').classList.remove('hidden');
+}
+
+// Fonction pour choisir le type principal d'opération (Étape 1)
+function choisirTypePrincipal(typePrincipal) {
+    typePrincipalSelectionne = typePrincipal;
+    
+    // Cacher le sélecteur de type principal
+    document.getElementById('type-principal-selector').classList.add('hidden');
+    
+    // Pour WhatsApp, afficher les sous-options
+    if (typePrincipal === 'WHATSAPP') {
+        // Afficher les opérations spécifiques selon le type choisi
+        afficherOperationsSpecifiques(typePrincipal);
+        
+        // Afficher le sélecteur d'opération (Étape 2)
+        document.getElementById('operation-selector').classList.remove('hidden');
+    } else {
+        // Pour APPEL et SMS, aller directement à la sélection
+        console.log(`⚡ Sélection directe pour ${typePrincipal} (pas de sous-menu)`);
+        
+        if (typePrincipal === 'APPEL') {
+            selectionnerTypeOperation('APPEL', 'Appel', 'bg-blue-100 text-blue-800');
+        } else if (typePrincipal === 'SMS') {
+            selectionnerTypeOperation('ENVOI_SMS', 'Envoi de SMS', 'bg-green-100 text-green-800');
+        }
+    }
+}
+
+// Fonction pour afficher les opérations spécifiques selon le type (uniquement pour WhatsApp)
+function afficherOperationsSpecifiques(typePrincipal) {
+    const operationsList = document.getElementById('operations-list');
+    let operationsHTML = '';
+    
+    // Cette fonction ne gère maintenant que WhatsApp
+    if (typePrincipal === 'WHATSAPP') {
+        operationsHTML = `
+            <button type="button" onclick="selectionnerTypeOperation('Appel Whatsapp', 'Appel WhatsApp', 'bg-emerald-100 text-emerald-800')" 
+                    class="p-2 text-xs rounded-lg border hover:bg-gray-50 transition-colors">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                    <i class="fab fa-whatsapp mr-1"></i>Appel WhatsApp
+                </span>
+            </button>
+            <button type="button" onclick="selectionnerTypeOperation('Message Whatsapp', 'Message WhatsApp', 'bg-emerald-200 text-emerald-900')" 
+                    class="p-2 text-xs rounded-lg border hover:bg-gray-50 transition-colors">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-200 text-emerald-900">
+                    <i class="fas fa-message mr-1"></i>Message WhatsApp
+                </span>
+            </button>
+            <button type="button" onclick="selectionnerTypeOperation('Vocal Whatsapp', 'Vocal WhatsApp', 'bg-teal-100 text-teal-800')" 
+                    class="p-2 text-xs rounded-lg border hover:bg-gray-50 transition-colors">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                    <i class="fas fa-microphone mr-1"></i>Vocal WhatsApp
+                </span>
+            </button>
+        `;
+    } else {
+        console.warn(`⚠️ afficherOperationsSpecifiques() appelée pour un type non-WhatsApp: ${typePrincipal}`);
     }
     
-    // Vérifier que chaque opération sélectionnée a un commentaire obligatoire
-    let operationsSansCommentaire = [];
-    checkboxes.forEach(checkbox => {
-        const operationType = checkbox.value;
-        const commentValue = document.getElementById('comment_' + operationType).value.trim();
-        if (!commentValue) {
-            const operationItem = checkbox.closest('.operation-item');
-            const label = operationItem.querySelector('label span').textContent;
-            operationsSansCommentaire.push(label);
+    operationsList.innerHTML = operationsHTML;
+}
+
+// Fonction pour retourner au choix du type principal
+function retourTypePrincipal() {
+    // Cacher le sélecteur d'opération
+    document.getElementById('operation-selector').classList.add('hidden');
+    
+    // Afficher à nouveau le sélecteur de type principal
+    document.getElementById('type-principal-selector').classList.remove('hidden');
+    
+    // Réinitialiser la sélection
+    typePrincipalSelectionne = '';
+}
+
+// Fonction pour annuler la sélection d'opération
+function annulerSelectionOperation() {
+    // Cacher tous les sélecteurs
+    document.getElementById('type-principal-selector').classList.add('hidden');
+    document.getElementById('operation-selector').classList.add('hidden');
+    
+    // Réinitialiser la sélection
+    typePrincipalSelectionne = '';
+}
+
+// Fonction pour sélectionner un type d'opération
+function selectionnerTypeOperation(typeOperation, nomOperation, classeCouleur) {
+    // Cacher tous les sélecteurs
+    document.getElementById('type-principal-selector').classList.add('hidden');
+    document.getElementById('operation-selector').classList.add('hidden');
+    
+    // Générer un ID unique pour les nouvelles opérations
+    const operationId = 'NEW-' + operationCounter.toString().padStart(3, '0');
+    operationCounter++;
+    
+    // Date/heure actuelle
+    const maintenant = new Date();
+    const dateOperation = maintenant.toLocaleDateString('fr-FR') + ' ' + 
+                         maintenant.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+    
+    // Ajouter le type principal au nom pour plus de clarté
+    const nomComplet = `${typePrincipalSelectionne} - ${nomOperation}`;
+    
+    // Créer l'objet opération
+    const nouvelleOperation = {
+        id: operationId,
+        type: typeOperation,
+        nom: nomComplet,
+        classe: classeCouleur,
+        date: dateOperation,
+        commentaire: '',
+        typePrincipal: typePrincipalSelectionne
+    };
+    
+    // Ajouter à la liste
+    operationsTable.push(nouvelleOperation);
+    
+    // Mettre à jour l'affichage du tableau
+    mettreAJourTableauOperations();
+    
+    // Réinitialiser la sélection
+    typePrincipalSelectionne = '';
+    
+    console.log(`✅ Opération ajoutée: ${typeOperation} (${nomComplet})`);
+    console.log('🗃️ Types d\'opérations valides en base:', ['APPEL', 'Appel Whatsapp', 'Message Whatsapp', 'Vocal Whatsapp', 'ENVOI_SMS']);
+    
+    // Ouvrir immédiatement la modale de commentaire
+    setTimeout(() => {
+        ouvrirModaleCommentaireTableau(operationId, nomComplet);
+    }, 100);
+}
+
+// Fonction pour mettre à jour l'affichage du tableau
+function mettreAJourTableauOperations() {
+    const tbody = document.getElementById('operations-table-body');
+    
+    if (operationsTable.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                    <i class="fas fa-inbox text-2xl mb-2"></i>
+                    <div>Aucune opération ajoutée</div>
+                    <div class="text-xs">Cliquez sur "Ajouter une opération" pour commencer</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = operationsTable.map(operation => {
+        // Déterminer l'icône selon le type principal
+        let iconeType = 'fas fa-cogs';
+        let couleurType = 'text-gray-600';
+        
+        if (operation.typePrincipal === 'APPEL') {
+            iconeType = 'fas fa-phone';
+            couleurType = 'text-blue-600';
+        } else if (operation.typePrincipal === 'SMS') {
+            iconeType = 'fas fa-sms';
+            couleurType = 'text-green-600';
+        } else if (operation.typePrincipal === 'WHATSAPP') {
+            iconeType = 'fab fa-whatsapp';
+            couleurType = 'text-emerald-600';
+        }
+        
+        return `
+        <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <i class="fas fa-hashtag mr-1" style="font-size: 8px;"></i>${operation.id}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-sm">
+                <div class="flex items-center space-x-2">
+                    <i class="${iconeType} ${couleurType}" title="${operation.typePrincipal || 'Type non défini'}"></i>
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${operation.classe}">
+                        ${operation.nom}
+                    </span>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-600">
+                <i class="fas fa-clock mr-1"></i>${operation.date}
+            </td>
+            <td class="px-4 py-3 text-sm">
+                                <div class="flex items-center justify-center">
+                    ${operation.fromDatabase ? `
+                        <span class="px-3 py-2 bg-green-100 text-green-700 text-sm rounded-lg flex items-center">
+                            <i class="fas fa-database mr-1"></i>Sauvegardé
+                        </span>
+                    ` : `
+                        <button type="button" onclick="ouvrirModaleCommentaireTableau('${operation.id}', '${operation.nom}')" 
+                                class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center">
+                            <i class="fas fa-comment mr-1"></i>
+                            ${operation.commentaire ? 'Modifier' : 'Ajouter'}
+                        </button>
+                    `}
+                </div>
+                ${operation.commentaire ? `
+                    <div class="mt-1 text-xs text-gray-600 italic flex items-center">
+                        <i class="fas fa-check-circle text-green-500 mr-1"></i>
+                        "${operation.commentaire.length > 50 ? operation.commentaire.substring(0, 50) + '...' : operation.commentaire}"
+                    </div>
+                ` : '<div class="mt-1 text-xs text-red-500 flex items-center"><i class="fas fa-exclamation-circle mr-1"></i>Commentaire requis</div>'}
+            </td>
+        </tr>
+        `;
+    }).join('');
+}
+
+// Fonction pour ouvrir la modale de commentaire spécifique au tableau
+function ouvrirModaleCommentaireTableau(operationId, nomOperation) {
+    currentOperationType = operationId; // Réutiliser la variable globale
+    currentOperationName = nomOperation;
+    
+    // Trouver l'opération dans le tableau
+    const operation = operationsTable.find(op => op.id === operationId);
+    
+    // Mettre à jour le titre de la modale
+    document.getElementById('operationName').textContent = nomOperation + ' (' + operationId + ')';
+    
+    // Remplir la liste déroulante selon le type d'opération
+    if (operation) {
+        remplirListeCommentaires(operation.type);
+    }
+    
+    // Charger le commentaire existant
+    const select = document.getElementById('commentSelect');
+    select.value = operation ? operation.commentaire : '';
+    
+    // Afficher la modale
+    const modal = document.getElementById('commentModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    } else {
+        console.error('❌ Modale commentModal introuvable lors de l\'affichage');
+    }
+    
+    // Focus sur le select
+    setTimeout(() => {
+        select.focus();
+    }, 150);
+}
+
+// Fonction pour sauvegarder le commentaire (modifiée pour le tableau)
+function saveComment() {
+    const commentText = document.getElementById('commentSelect').value.trim();
+    
+    if (!commentText) {
+        alert('Vous devez sélectionner une conclusion pour enregistrer l\'opération !');
+        return;
+    }
+    
+    console.log(`💾 Sauvegarde du commentaire: "${commentText}" pour ${currentOperationType}`);
+    
+    // Trouver et mettre à jour l'opération dans le tableau
+    const operation = operationsTable.find(op => op.id === currentOperationType);
+    if (operation) {
+        operation.commentaire = commentText;
+        
+        // Mettre à jour l'affichage
+        mettreAJourTableauOperations();
+        
+        // Créer les champs cachés pour l'envoi du formulaire
+        creerChampsFormulaire();
+        
+        console.log(`✅ Commentaire sauvegardé pour ${operation.nom}: "${commentText}"`);
+        
+        // Afficher une notification de succès
+        showNotification(`✅ Opération "${operation.nom}" sauvegardée dans le tableau`, 'success');
+        
+        // Sauvegarder automatiquement en base de données
+        sauvegarderOperationEnBase(operation);
+    }
+    
+    closeCommentModal();
+}
+
+// Fonction pour sauvegarder une opération en base de données immédiatement
+function sauvegarderOperationEnBase(operation) {
+    console.log('💾 Sauvegarde immédiate de l\'opération en base de données...');
+    
+    const form = document.getElementById('modification-form');
+    if (!form) {
+        console.error('❌ Formulaire modification-form introuvable');
+        return;
+    }
+    
+    // Créer FormData avec l'opération spécifique
+    const formData = new FormData();
+    
+    // Ajouter le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken.value);
+    }
+    
+    // Ajouter l'opération à sauvegarder
+    formData.append('operations[]', operation.type);
+    formData.append('comment_' + operation.type, operation.commentaire);
+    
+    // Ajouter tous les autres champs du formulaire pour maintenir l'état
+    const formElements = form.elements;
+    for (let i = 0; i < formElements.length; i++) {
+        const element = formElements[i];
+        if (element.name && element.name !== 'operations[]' && !element.name.startsWith('comment_')) {
+            if (element.type === 'checkbox' || element.type === 'radio') {
+                if (element.checked) {
+                    formData.append(element.name, element.value);
+                }
+            } else {
+                formData.append(element.name, element.value);
+            }
+        }
+    }
+    
+    // Envoyer via AJAX
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            console.log('✅ Opération sauvegardée en base de données');
+            showNotification(`💾 Opération "${operation.nom}" sauvegardée en base de données`, 'success');
+        } else {
+            console.warn('⚠️ Erreur lors de la sauvegarde en base de données');
+            showNotification('⚠️ Erreur lors de la sauvegarde en base', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erreur de sauvegarde en base:', error);
+        showNotification('❌ Erreur de connexion à la base de données', 'error');
+    });
+}
+
+
+
+// Types d'opérations valides selon la base de données
+const TYPES_OPERATIONS_VALIDES = ['APPEL', 'Appel Whatsapp', 'Message Whatsapp', 'Vocal Whatsapp', 'ENVOI_SMS'];
+
+// Variable globale pour stocker les commentaires chargés depuis l'API
+let COMMENTAIRES_PREDEFINIES = {};
+
+// Charger les commentaires depuis l'API Django au démarrage
+function chargerCommentairesDisponibles() {
+    console.log('🔄 Chargement des commentaires depuis l\'API Django...');
+    
+    fetch('{% url "operatConfirme:api_commentaires_disponibles" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                COMMENTAIRES_PREDEFINIES = data.commentaires;
+                console.log('✅ Commentaires chargés depuis la base de données:', COMMENTAIRES_PREDEFINIES);
+                
+                // Afficher le nombre de commentaires par type d'opération
+                Object.keys(COMMENTAIRES_PREDEFINIES).forEach(type => {
+                    console.log(`📝 ${type}: ${COMMENTAIRES_PREDEFINIES[type].length} commentaires disponibles`);
+                });
+            } else {
+                console.error('❌ Erreur lors du chargement des commentaires:', data.error);
+                // Utiliser un fallback en cas d'erreur
+                utiliserCommentairesFallback();
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erreur de connexion à l\'API commentaires:', error);
+            // Utiliser un fallback en cas d'erreur
+            utiliserCommentairesFallback();
+        });
+}
+
+// Fonction de fallback en cas d'erreur de chargement des commentaires
+function utiliserCommentairesFallback() {
+    console.warn('⚠️ Utilisation des commentaires de fallback');
+    COMMENTAIRES_PREDEFINIES = {
+        'APPEL': [
+            { value: 'Client contacté avec succès', label: 'Client contacté avec succès' }
+        ],
+        'ENVOI_SMS': [
+            { value: 'SMS envoyé avec succès', label: 'SMS envoyé avec succès' }
+        ],
+        'Appel Whatsapp': [
+            { value: 'Appel WhatsApp réussi', label: 'Appel WhatsApp réussi' }
+        ],
+        'Message Whatsapp': [
+            { value: 'Message WhatsApp envoyé', label: 'Message WhatsApp envoyé' }
+        ],
+        'Vocal Whatsapp': [
+            { value: 'Message vocal envoyé', label: 'Message vocal envoyé' }
+        ]
+    };
+}
+
+// Fonction pour charger les opérations existantes depuis la base de données
+function chargerOperationsExistantes() {
+    console.log('🔄 Chargement des opérations existantes depuis la base de données...');
+    
+    // Récupérer les opérations déjà effectuées depuis les données Django
+    {% if commande.operations.all %}
+    const operationsExistantes = [
+        {% for operation in commande.operations.all %}
+        {
+            id: 'DB-{{ operation.id }}',
+            type: '{{ operation.type_operation }}',
+            nom: '{{ operation.get_type_operation_display }}',
+            classe: '{% if operation.type_operation == "APPEL" %}bg-blue-100 text-blue-800{% elif operation.type_operation == "ENVOI_SMS" %}bg-green-100 text-green-800{% elif operation.type_operation == "Appel Whatsapp" %}bg-emerald-100 text-emerald-800{% elif operation.type_operation == "Message Whatsapp" %}bg-emerald-100 text-emerald-800{% elif operation.type_operation == "Vocal Whatsapp" %}bg-emerald-100 text-emerald-800{% else %}bg-gray-100 text-gray-800{% endif %}',
+            date: '{{ operation.date_operation|date:"d/m/Y H:i" }}',
+            commentaire: '{{ operation.conclusion|escapejs }}',
+            typePrincipal: '{% if operation.type_operation == "APPEL" %}APPEL{% elif operation.type_operation == "ENVOI_SMS" %}SMS{% elif "Whatsapp" in operation.type_operation %}WHATSAPP{% else %}OTHER{% endif %}',
+            fromDatabase: true
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    // Ajouter les opérations existantes au tableau
+    operationsTable = [...operationsExistantes];
+    console.log(`✅ ${operationsExistantes.length} opération(s) existante(s) chargée(s) depuis la base`);
+    
+    // Mettre à jour l'affichage du tableau
+    mettreAJourTableauOperations();
+    
+    // Créer les champs cachés pour ces opérations
+    creerChampsFormulaire();
+    
+    {% else %}
+    console.log('ℹ️ Aucune opération existante trouvée en base de données');
+    {% endif %}
+    
+    // Mettre à jour le compteur global des opérations
+    if (operationCounter <= operationsTable.length) {
+        operationCounter = operationsTable.length + 1;
+    }
+}
+
+// Fonction pour valider un type d'opération
+function validerTypeOperation(typeOperation) {
+    const isValid = TYPES_OPERATIONS_VALIDES.includes(typeOperation);
+    if (!isValid) {
+        console.warn(`⚠️ Type d'opération invalide: "${typeOperation}"`);
+        console.log('✅ Types valides:', TYPES_OPERATIONS_VALIDES);
+    }
+    return isValid;
+}
+
+// Fonction pour remplir la liste déroulante de commentaires selon le type d'opération
+function remplirListeCommentaires(typeOperation) {
+    const select = document.getElementById('commentSelect');
+    
+    // Réinitialiser la liste
+    select.innerHTML = '<option value="">-- Sélectionnez une conclusion --</option>';
+    
+    // Déterminer le type d'opération à utiliser pour chercher les commentaires
+    let typeOperationKey = typeOperation;
+    
+    // Si c'est un ID d'opération du tableau, extraire le vrai type
+    if (typeOperation.startsWith('OP-')) {
+        const operation = operationsTable.find(op => op.id === typeOperation);
+        if (operation) {
+            typeOperationKey = operation.type;
+        }
+    }
+    
+    console.log(`📝 Remplissage commentaires pour: ${typeOperationKey}`);
+    
+    // Remplir avec les commentaires prédéfinis depuis l'API
+    const commentaires = COMMENTAIRES_PREDEFINIES[typeOperationKey];
+    if (commentaires && commentaires.length > 0) {
+        commentaires.forEach(commentaireObj => {
+            const option = document.createElement('option');
+            // Utiliser la structure {value, label} depuis l'API
+            option.value = commentaireObj.value;
+            option.textContent = commentaireObj.label;
+            select.appendChild(option);
+        });
+        
+        console.log(`✅ ${commentaires.length} commentaires ajoutés pour ${typeOperationKey}`);
+    } else {
+        console.warn(`⚠️ Aucun commentaire prédéfini trouvé pour: ${typeOperationKey}`);
+        
+        // Ajouter une option générique si aucun commentaire prédéfini
+        const option = document.createElement('option');
+        option.value = 'Opération effectuée avec succès';
+        option.textContent = 'Opération effectuée avec succès';
+        select.appendChild(option);
+    }
+}
+
+// Fonction pour créer les champs cachés du formulaire
+function creerChampsFormulaire() {
+    console.log('🔧 Création des champs cachés pour le formulaire...');
+    
+    // Supprimer les anciens champs
+    const anciensChampsOperations = document.querySelectorAll('input[name="operations[]"]');
+    const anciensChampsCommentaires = document.querySelectorAll('input[name^="comment_"]');
+    
+    console.log(`🗑️ Suppression de ${anciensChampsOperations.length} anciens champs d'opérations`);
+    console.log(`🗑️ Suppression de ${anciensChampsCommentaires.length} anciens champs de commentaires`);
+    
+    anciensChampsOperations.forEach(input => input.remove());
+    anciensChampsCommentaires.forEach(input => input.remove());
+    
+    // Vérifier que le formulaire existe
+    const form = document.getElementById('modification-form');
+    if (!form) {
+        console.error('❌ Formulaire modification-form introuvable !');
+        return;
+    }
+    
+    let champsCreesOperations = 0;
+    let champsCreesCommentaires = 0;
+    
+    // Créer les nouveaux champs pour chaque opération (sauf celles déjà en base)
+    operationsTable.forEach((operation, index) => {
+        // Ignorer les opérations déjà sauvegardées en base de données
+        if (operation.fromDatabase) {
+            console.log(`⏭️ Opération ${index + 1} ignorée (déjà en base): ${operation.type}`);
+            return;
+        }
+        
+        if (operation.commentaire && operation.commentaire.trim()) {
+            // Valider le type d'opération
+            if (!validerTypeOperation(operation.type)) {
+                console.error(`❌ Opération ${index + 1} ignorée (type invalide): ${operation.type}`);
+                return;
+            }
+            
+            console.log(`➕ Ajout opération ${index + 1}: ${operation.type} = "${operation.commentaire}"`);
+            
+            // Champ pour le type d'opération
+            const inputType = document.createElement('input');
+            inputType.type = 'hidden';
+            inputType.name = 'operations[]';
+            inputType.value = operation.type;
+            form.appendChild(inputType);
+            champsCreesOperations++;
+            
+            // Champ pour le commentaire
+            const inputComment = document.createElement('input');
+            inputComment.type = 'hidden';
+            inputComment.name = 'comment_' + operation.type;
+            inputComment.value = operation.commentaire;
+            form.appendChild(inputComment);
+            champsCreesCommentaires++;
+            
+        } else {
+            console.warn(`⚠️ Opération ${index + 1} ignorée (pas de commentaire): ${operation.type}`);
         }
     });
     
+    console.log(`✅ ${champsCreesOperations} champs d'opérations créés`);
+    console.log(`✅ ${champsCreesCommentaires} champs de commentaires créés`);
+    
+    // Afficher un résumé des données qui seront envoyées
+    if (champsCreesOperations > 0) {
+        console.log('📤 Données d\'opérations qui seront envoyées au serveur:');
+        const operationsValues = Array.from(document.querySelectorAll('input[name="operations[]"]')).map(input => input.value);
+        const commentairesValues = Array.from(document.querySelectorAll('input[name^="comment_"]')).map(input => `${input.name}: "${input.value}"`);
+        
+        console.log('  - Opérations:', operationsValues);
+        console.log('  - Commentaires:', commentairesValues);
+    }
+}
+
+// Fonction pour vérifier qu'au moins une opération est dans le tableau avant la soumission
+function verifierOperationsSelectionnees() {
+    console.log('🔍 Vérification des opérations avant sauvegarde...');
+    console.log('📊 Opérations dans le tableau:', operationsTable);
+    
+    const operationsAvecCommentaire = operationsTable.filter(op => op.commentaire && op.commentaire.trim());
+    
+    // Permettre la sauvegarde sans opérations (pour sauvegarder juste les infos de commande/articles)
+    if (operationsTable.length === 0) {
+        console.log('ℹ️ Aucune opération ajoutée - sauvegarde des informations de commande uniquement');
+        showNotification('💾 Sauvegarde des informations de commande', 'success');
+        return true;
+    }
+    
+    const operationsSansCommentaire = operationsTable.filter(op => !op.commentaire || !op.commentaire.trim());
     if (operationsSansCommentaire.length > 0) {
-        alert(`❌ COMMENTAIRES OBLIGATOIRES MANQUANTS\n\nLes opérations suivantes nécessitent un commentaire de votre part :\n• ${operationsSansCommentaire.join('\n• ')}\n\nVeuillez cliquer sur "Commentaire" pour chaque opération sélectionnée et rédiger votre conclusion.\n\nLes opérations sans commentaire seront ignorées lors de la sauvegarde.`);
+        alert(`❌ COMMENTAIRES OBLIGATOIRES MANQUANTS\n\nLes opérations suivantes nécessitent un commentaire :\n• ${operationsSansCommentaire.map(op => op.nom + ' (' + op.id + ')').join('\n• ')}\n\nVeuillez ajouter des commentaires pour toutes les opérations ou les supprimer du tableau.`);
         return false;
+    }
+    
+    // Créer les champs du formulaire avant la soumission
+    console.log('📋 Création des champs cachés pour les opérations...');
+    creerChampsFormulaire();
+    
+    // Vérifier que les champs ont bien été créés
+    const operationsFields = document.querySelectorAll('input[name="operations[]"]');
+    const commentFields = document.querySelectorAll('input[name^="comment_"]');
+    
+    console.log(`✅ ${operationsFields.length} champs d'opérations créés`);
+    console.log(`✅ ${commentFields.length} champs de commentaires créés`);
+    
+    if (operationsAvecCommentaire.length > 0) {
+        showNotification(`💾 Sauvegarde : ${operationsAvecCommentaire.length} opération(s) avec commentaires`, 'success');
     }
     
     return true;
@@ -904,116 +1465,269 @@ document.addEventListener('keydown', function(event) {
 
 // Vérification et initialisation au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page chargée, vérification des éléments...');
+    console.log('🚀 Page chargée, initialisation du système...');
     
-    // Vérifier que la modale existe
-    const modal = document.getElementById('commentModal');
-    if (!modal) {
-        console.error('❌ Modale commentModal introuvable !');
-        return;
-    } else {
-        console.log('✅ Modale commentModal trouvée');
-    }
-    
-    // Vérifier les éléments de la modale
-    const operationNameElement = document.getElementById('operationName');
-    const textarea = document.getElementById('commentTextarea');
-    
-    if (!operationNameElement) {
-        console.error('❌ Élément operationName introuvable !');
-    } else {
-        console.log('✅ Élément operationName trouvé');
-    }
-    
-    if (!textarea) {
-        console.error('❌ Textarea commentTextarea introuvable !');
-    } else {
-        console.log('✅ Textarea commentTextarea trouvé');
-    }
-    
-    // Fermer la modale en cliquant à l'extérieur
-    modal.addEventListener('click', function(event) {
-        if (event.target === this) {
-            closeCommentModal();
+    try {
+        // Vérifier que la modale existe
+        const modal = document.getElementById('commentModal');
+        if (!modal) {
+            console.error('❌ Modale commentModal introuvable !');
+            } else {
+            console.log('✅ Modale commentModal trouvée');
+            
+            // Fermer la modale en cliquant à l'extérieur
+            modal.addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeCommentModal();
+                }
+            });
         }
-    });
-    
-    console.log('Système de modales initialisé avec succès');
-    
-    // Fonction de test pour vérifier que les modales fonctionnent
-    window.testModal = function() {
-        console.log('Test de la modale...');
-        openCommentModal('TEST', 'Test Opération');
-    };
-    
-    console.log('💡 Pour tester la modale, tapez testModal() dans la console');
+        
+        // Vérifier les éléments de la modale
+        const operationNameElement = document.getElementById('operationName');
+        const textarea = document.getElementById('commentTextarea');
+        
+        if (!operationNameElement) {
+            console.warn('⚠️ Élément operationName introuvable');
+        } else {
+            console.log('✅ Élément operationName trouvé');
+        }
+        
+        if (!textarea) {
+            console.warn('⚠️ Textarea commentTextarea introuvable');
+        } else {
+            console.log('✅ Textarea commentTextarea trouvé');
+        }
+        
+        // Vérifier les éléments du nouveau système
+        const typePrincipalSelector = document.getElementById('type-principal-selector');
+        const operationSelector = document.getElementById('operation-selector');
+        const operationsList = document.getElementById('operations-list');
+        const operationsTableBody = document.getElementById('operations-table-body');
+        
+        if (typePrincipalSelector) {
+            console.log('✅ Sélecteur de type principal trouvé');
+        } else {
+            console.warn('⚠️ Sélecteur de type principal introuvable');
+        }
+        
+        if (operationSelector) {
+            console.log('✅ Sélecteur d\'opération trouvé');
+        } else {
+            console.warn('⚠️ Sélecteur d\'opération introuvable');
+        }
+        
+        if (operationsList) {
+            console.log('✅ Liste des opérations trouvée');w
+        } else {
+            console.warn('⚠️ Liste des opérations introuvable');
+        }
+        
+        if (operationsTableBody) {
+            console.log('✅ Corps du tableau des opérations trouvé');
+        } else {
+            console.warn('⚠️ Corps du tableau des opérations introuvable');
+        }
+        
+        console.log('✅ Système de modales initialisé avec succès');
+        
+        // Initialiser le tableau des opérations avec vérification
+        if (typeof mettreAJourTableauOperations === 'function') {
+            mettreAJourTableauOperations();
+            console.log('✅ Tableau des opérations initialisé');
+        } else {
+            console.error('❌ Fonction mettreAJourTableauOperations introuvable');
+        }
+        
+        // Fonction de test pour vérifier que les modales fonctionnent
+        window.testModal = function() {
+            console.log('🧪 Test de la modale...');
+            if (typeof openCommentModal === 'function') {
+                openCommentModal('TEST', 'Test Opération');
+            } else {
+                console.error('❌ Fonction openCommentModal introuvable');
+            }
+        };
+        
+        // Fonction de test pour le nouveau système d'opérations
+        window.testNouveauSysteme = function() {
+            console.log('🧪 Test du nouveau système d\'opérations...');
+            console.log('Variables globales:');
+            console.log('- operationCounter:', typeof operationCounter !== 'undefined' ? operationCounter : 'Non défini');
+            console.log('- operationsTable:', typeof operationsTable !== 'undefined' ? operationsTable : 'Non défini');
+            console.log('- typePrincipalSelectionne:', typeof typePrincipalSelectionne !== 'undefined' ? typePrincipalSelectionne : 'Non défini');
+            
+            // Tester l'ajout d'une opération de test
+            if (typeof ajouterNouvelleOperation === 'function') {
+                ajouterNouvelleOperation();
+                console.log('✅ Sélecteur de type principal affiché');
+            } else {
+                console.error('❌ Fonction ajouterNouvelleOperation introuvable');
+            }
+        };
+        
+        // Fonction de debug global
+        window.debugSysteme = function() {
+            console.log('🔍 Debug du système:');
+            console.log('- DOMContentLoaded: ✅');
+            console.log('- Modal:', document.getElementById('commentModal') ? '✅' : '❌');
+            console.log('- Type principal selector:', document.getElementById('type-principal-selector') ? '✅' : '❌');
+            console.log('- Operation selector:', document.getElementById('operation-selector') ? '✅' : '❌');
+            console.log('- Operations list:', document.getElementById('operations-list') ? '✅' : '❌');
+            console.log('- Operations table body:', document.getElementById('operations-table-body') ? '✅' : '❌');
+            console.log('- operationCounter:', typeof operationCounter);
+            console.log('- operationsTable:', typeof operationsTable);
+            console.log('- typePrincipalSelectionne:', typeof typePrincipalSelectionne);
+        };
+        
+        // Fonction de debug pour les articles
+        window.debugArticles = function() {
+            console.log('🔍 Debug des articles:');
+            console.log('- articleSelect element:', document.getElementById('articleSelect') ? '✅' : '❌');
+            console.log('- CSRF token:', document.querySelector('[name=csrfmiddlewaretoken]') ? '✅' : '❌');
+            console.log('- API URL: {% url "operatConfirme:api_articles_disponibles" %}');
+            console.log('- articlesDisponibles length:', articlesDisponibles ? articlesDisponibles.length : 'Non défini');
+            
+            // Test direct de l'API
+            console.log('🧪 Test de l\'API en cours...');
+            chargerArticlesDisponibles();
+        };
+        
+        // Fonction pour tester manuellement l'API des articles
+        window.testApiArticles = function() {
+            console.log('🧪 Test manuel de l\'API des articles...');
+            
+            const apiUrl = '{% url "operatConfirme:api_articles_disponibles" %}';
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            
+            console.log('📋 Informations de test:');
+            console.log('- URL:', apiUrl);
+            console.log('- CSRF Token présent:', csrfToken ? 'OUI' : 'NON');
+            console.log('- Utilisateur connecté:', '{{ user.username }}');
+            console.log('- Type d\'utilisateur:', '{{ user.profil_operateur.type_operateur|default:"Non défini" }}');
+            
+            if (!csrfToken) {
+                console.error('❌ Token CSRF manquant');
+                return;
+            }
+            
+            fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': csrfToken.value,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            })
+            .then(response => {
+                console.log('📡 Statut de la réponse:', response.status, response.statusText);
+                console.log('📋 Headers de réponse:', Object.fromEntries(response.headers.entries()));
+                
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        console.error('❌ Réponse d\'erreur:', text);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    });
+                }
+                
+                return response.json();
+            })
+            .then(data => {
+                console.log('✅ Données reçues:', data);
+                
+                if (data.success && data.articles) {
+                    console.log(`📦 ${data.articles.length} article(s) trouvé(s)`);
+                    data.articles.forEach((article, index) => {
+                        console.log(`   Article ${index + 1}:`, {
+                            id: article.id,
+                            nom: article.nom,
+                            reference: article.reference,
+                            prix: article.prix_unitaire,
+                            pointure: article.pointure,
+                            couleur: article.couleur,
+                            stock: article.qte_disponible
+                        });
+                    });
+                } else {
+                    console.error('❌ Pas d\'articles ou erreur:', data.error || 'Erreur inconnue');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur lors du test:', error);
+            });
+        };
+        
+        console.log('💡 Fonctions de test disponibles:');
+        console.log('   - testModal() : Tester la modale');
+        console.log('   - testNouveauSysteme() : Tester le système d\'opérations');
+        console.log('   - debugSysteme() : Debug complet du système');
+        console.log('   - debugArticles() : Debug et test des articles');
+        console.log('   - testApiArticles() : Test manuel de l\'API des articles');
+        
+        // Afficher les informations sur les opérations
+        console.log('🗃️ SYSTÈME D\'OPÉRATIONS:');
+        console.log('   - Types valides en base de données:', TYPES_OPERATIONS_VALIDES);
+        console.log('   - Sauvegarde: Table Operation (commande/models.py)');
+        console.log('   - Validation: Automatique côté JavaScript + Django');
+        console.log('   - Commentaires: Liste déroulante prédéfinie (plus rapide)');
+        
+        // Afficher le nombre de commentaires par type
+        console.log('📝 COMMENTAIRES PRÉDÉFINIS:');
+        Object.keys(COMMENTAIRES_PREDEFINIES).forEach(type => {
+            console.log(`   - ${type}: ${COMMENTAIRES_PREDEFINIES[type].length} options`);
+        });
+        
+        console.log('📋 Système complet initialisé avec succès');
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'initialisation:', error);
+    }
 });
 
 // Fonction pour changer l'opération (ancienne fonction - gardée pour compatibilité)
 function changerOperation() {
     // Cette fonction n'est plus utilisée avec le nouveau système
     console.log('Fonction changerOperation() appelée - système d\'opérations individuelles actif');
-        
-        // Mettre à jour l'affichage de l'opération actuelle
-        const operationInfo = document.querySelector('.bg-green-50');
-        if (operationInfo) {
-            operationInfo.innerHTML = `
-                <div class="flex items-center text-green-700">
-                    <i class="fas fa-info-circle mr-2"></i>
-                    <span class="text-sm">Opération sélectionnée : <strong>${operationNames[operationSelect.value]}</strong></span>
-                </div>
-            `;
-        }
-        
-        // Sauvegarder automatiquement l'opération sélectionnée
-        fetch('{% url "operatConfirme:selectionner_operation" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                'commande_id': {{ commande.id }},
-                'type_operation': operationSelect.value,
-                'commentaire': commentaireField.value
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Opération mise à jour avec succès');
-                // Vérifier automatiquement la section opération
-                verifierSection('operation');
-                // Afficher un message de succès discret
-                showNotification('Opération mise à jour avec succès', 'success');
-            } else {
-                alert('Erreur lors de la mise à jour de l\'opération : ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            alert('Une erreur est survenue lors de la mise à jour de l\'opération.');
-        });
-    }
+    
+    // Cette fonction est désactivée dans le nouveau système de tableau
+    console.log('⚠️ Fonction désactivée - utilisez le système de tableau à la place');
 }
 
 // Fonction pour afficher des notifications discrètes
 function showNotification(message, type) {
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white text-sm z-50 transition-all duration-300 ${
-        type === 'success' ? 'bg-green-500' : 'bg-red-500'
-    }`;
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    // Supprimer après 3 secondes
-    setTimeout(() => {
-        notification.style.opacity = '0';
+    try {
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white text-sm z-50 transition-all duration-300 ${
+            type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        }`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Supprimer après 3 secondes avec vérifications de sécurité
         setTimeout(() => {
-            document.body.removeChild(notification);
-        }, 300);
-    }, 3000);
+            try {
+                if (notification && notification.parentNode) {
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        try {
+                            if (notification && notification.parentNode) {
+                                document.body.removeChild(notification);
+                            }
+                        } catch (error) {
+                            console.warn('⚠️ Erreur lors de la suppression de la notification:', error);
+                        }
+                    }, 300);
+                }
+            } catch (error) {
+                console.warn('⚠️ Erreur lors de la modification de l\'opacité de la notification:', error);
+            }
+        }, 3000);
+    } catch (error) {
+        console.error('❌ Erreur lors de la création de la notification:', error);
+        // Fallback vers une alerte simple
+        alert(message);
+    }
 }
 
 
@@ -1072,6 +1786,53 @@ function annulerLancement() {
     });
 }
 
+// Fonction utilitaire pour sauvegarder les opérations avant une action
+function sauvegarderOperationsAvantAction() {
+    console.log('💾 Sauvegarde préventive des opérations avant action...');
+    
+    // Vérifier s'il y a des opérations à sauvegarder
+    const operationsAvecCommentaire = operationsTable.filter(op => op.commentaire && op.commentaire.trim());
+    
+    if (operationsAvecCommentaire.length > 0) {
+        // S'assurer que les champs sont créés pour la sauvegarde
+        creerChampsFormulaire();
+        
+        // Soumettre silencieusement le formulaire pour sauvegarder les opérations
+        const form = document.getElementById('modification-form');
+        if (form) {
+            console.log(`📤 Sauvegarde de ${operationsAvecCommentaire.length} opération(s) en cours...`);
+            
+            // Créer un FormData pour envoi AJAX
+            const formData = new FormData(form);
+            
+            // Envoyer via AJAX pour éviter de recharger la page
+            return fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    console.log('✅ Opérations sauvegardées avec succès');
+                    showNotification('💾 Opérations sauvegardées', 'success');
+                    return true;
+                } else {
+                    console.warn('⚠️ Erreur lors de la sauvegarde des opérations');
+                    return false;
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur de sauvegarde:', error);
+                return false;
+            });
+        }
+    }
+    
+    return Promise.resolve(true);
+}
+
 // Fonction pour confirmer la commande
 function confirmerCommande() {
     // Vérifier que toutes les sections sont vérifiées
@@ -1081,7 +1842,13 @@ function confirmerCommande() {
         return;
     }
     
-
+    // Sauvegarder les opérations d'abord
+    sauvegarderOperationsAvantAction().then(success => {
+        if (!success) {
+            alert('⚠️ Erreur lors de la sauvegarde des opérations. Veuillez réessayer.');
+            return;
+        }
+        
         // Processus en plusieurs étapes :
         // 1. Lancer la confirmation si nécessaire
         // 2. Sélectionner "Aucune action" comme opération par défaut
@@ -1156,6 +1923,1084 @@ function confirmerCommande() {
             console.error('Erreur:', error);
             alert('Une erreur est survenue : ' + error.message);
         });
+    }); // Fermeture de la promesse sauvegarderOperationsAvantAction
 }
+
+// ================== GESTION DES ARTICLES ==================
+
+// Variables globales pour les articles
+let articlesDisponibles = [];
+let currentArticleId = null;
+let isEditingArticle = false;
+
+// Fonction pour ajouter un nouvel article
+function ajouterNouvelArticle() {
+    isEditingArticle = false;
+    currentArticleId = null;
+    
+    // Mettre à jour le titre
+    document.getElementById('articleModalTitle').textContent = 'Ajouter un article';
+    
+    // Afficher le champ de sélection, cacher l'affichage
+    document.getElementById('article-selection-field').classList.remove('hidden');
+    document.getElementById('article-display-field').classList.add('hidden');
+    
+    // Réinitialiser le formulaire
+    document.getElementById('articleSelect').value = '';
+    document.getElementById('quantiteInput').value = '1';
+    document.getElementById('article-info').classList.add('hidden');
+    
+    // Charger la liste des articles
+    chargerArticlesDisponibles();
+    
+    // Afficher la modale
+    const modal = document.getElementById('articleModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    } else {
+        console.error('❌ Modale articleModal introuvable lors de l\'ajout d\'article');
+    }
+}
+
+// Fonction pour modifier un article existant
+function modifierArticle(panierId) {
+    console.log('🔧 Modification article demandée pour ID:', panierId);
+    
+    isEditingArticle = true;
+    currentArticleId = panierId;
+    
+    // Mettre à jour le titre
+    document.getElementById('articleModalTitle').textContent = 'Modifier l\'article';
+    
+    // Toujours afficher le champ de sélection pour permettre de changer l'article
+    document.getElementById('article-selection-field').classList.remove('hidden');
+    document.getElementById('article-display-field').classList.add('hidden');
+    
+    // Charger la liste des articles
+    chargerArticlesDisponibles();
+    
+    // Récupérer les données de l'article depuis la carte
+    const articleCard = document.querySelector(`[data-article-id="${panierId}"]`);
+    console.log('🔍 Article card trouvé:', articleCard ? 'OUI' : 'NON', articleCard);
+    
+    if (articleCard) {
+        const quantite = articleCard.querySelector('.text-blue-600').textContent.match(/\d+/)[0];
+        document.getElementById('quantiteInput').value = quantite;
+        
+        // Récupérer la référence de l'article pour le pré-sélectionner
+        const referenceText = articleCard.querySelector('.text-gray-500').textContent;
+        const reference = referenceText.replace('Réf: ', '').replace('Référence: ', '').trim();
+        
+        // Attendre que les articles soient chargés puis pré-sélectionner l'article actuel
+        setTimeout(() => {
+            preselectionnerArticle(reference);
+        }, 500);
+        
+        // Afficher les informations de l'article
+        afficherInfosArticleExistant(articleCard);
+    }
+    
+    // Afficher la modale
+    const modal = document.getElementById('articleModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    } else {
+        console.error('❌ Modale articleModal introuvable lors de la modification d\'article');
+    }
+}
+
+// Fonction pour pré-sélectionner un article dans la liste déroulante
+function preselectionnerArticle(reference) {
+    const select = document.getElementById('articleSelect');
+    if (!select) {
+        console.error('❌ Élément articleSelect introuvable');
+        return;
+    }
+    
+    // Chercher l'option correspondant à la référence
+    for (let i = 0; i < select.options.length; i++) {
+        const option = select.options[i];
+        if (option.dataset.article) {
+            try {
+                const article = JSON.parse(option.dataset.article);
+                if (article.reference === reference) {
+                    select.selectedIndex = i;
+                    console.log('✅ Article pré-sélectionné:', reference);
+                    
+                    // Déclencher l'événement de changement pour mettre à jour les informations
+                    onArticleSelectionChange();
+                    return;
+                }
+            } catch (error) {
+                console.warn('⚠️ Erreur lors de l\'analyse des données article:', error);
+            }
+        }
+    }
+    
+    console.warn('⚠️ Article non trouvé dans la liste pour référence:', reference);
+}
+
+// Fonction pour afficher les infos d'un article existant
+function afficherInfosArticleExistant(articleCard) {
+    const reference = articleCard.querySelector('.text-gray-500').textContent.replace('Réf: ', '').replace('Référence: ', '');
+    const prixText = articleCard.querySelector('.text-green-600').textContent;
+    const sousTotal = articleCard.querySelector('.text-lg.font-bold').textContent;
+    
+    // Informations de base (récupérées du DOM)
+    document.getElementById('info-reference').textContent = reference;
+    document.getElementById('info-prix').textContent = prixText;
+    document.getElementById('info-sous-total').textContent = sousTotal;
+    
+    // Récupérer les caractéristiques depuis les badges
+    const caracteristiques = extraireCaracteristiquesDepuisBadges(articleCard);
+    
+    // Mettre à jour les informations dans la modale
+    console.log('📝 Mise à jour des infos modale:', {
+        taille: caracteristiques.taille,
+        couleur: caracteristiques.couleur,
+        categorie: caracteristiques.categorie
+    });
+    
+    document.getElementById('info-pointure').textContent = caracteristiques.taille || 'Non spécifiée';
+    document.getElementById('info-couleur').textContent = caracteristiques.couleur || 'Non spécifiée';
+    document.getElementById('info-categorie').textContent = caracteristiques.categorie || 'Non spécifiée';
+    
+    // Mettre à jour les badges dans la modale
+    mettreAJourBadgesModale(caracteristiques);
+    
+    // Récupérer le stock depuis le badge vert s'il existe
+    if (caracteristiques.stock) {
+        document.getElementById('info-stock').textContent = caracteristiques.stock;
+    } else {
+        // Essayer de récupérer depuis l'API
+        chargerInfosCompletesArticle(reference);
+    }
+    
+    document.getElementById('info-description').textContent = caracteristiques.description || '';
+    
+    console.log('📋 Caractéristiques extraites:', caracteristiques);
+    
+    document.getElementById('article-info').classList.remove('hidden');
+}
+
+// Fonction pour extraire les caractéristiques depuis les badges de l'article
+function extraireCaracteristiquesDepuisBadges(articleCard) {
+    const caracteristiques = {
+        taille: null,
+        couleur: null,
+        categorie: null,
+        stock: null,
+        description: ''
+    };
+    
+    // Chercher la section contenant les badges
+    const badgesContainer = articleCard.querySelector('.flex.flex-wrap.gap-2');
+    
+    if (badgesContainer) {
+        const badges = badgesContainer.querySelectorAll('span');
+        
+        badges.forEach(badge => {
+            const badgeText = badge.textContent.trim();
+            const icon = badge.querySelector('i');
+            
+            if (icon) {
+                const iconClasses = icon.className;
+                
+                // Détecter le type selon l'icône
+                if (iconClasses.includes('fa-ruler-vertical')) {
+                    // Badge de taille - la valeur est directement dans le badge sans préfixe
+                    if (!badgeText.includes('N/A')) {
+                        caracteristiques.taille = badgeText.trim();
+                    }
+                } else if (iconClasses.includes('fa-palette')) {
+                    // Badge de couleur - la valeur est directement dans le badge sans préfixe
+                    if (!badgeText.includes('N/A')) {
+                        caracteristiques.couleur = badgeText.trim();
+                    }
+                } else if (iconClasses.includes('fa-tag')) {
+                    // Badge de catégorie - la valeur est directement dans le badge sans préfixe
+                    if (!badgeText.includes('N/A')) {
+                        caracteristiques.categorie = badgeText.trim();
+                    }
+                } else if (iconClasses.includes('fa-boxes')) {
+                    // Badge de stock - garde le format complet "Stock: X"
+                    caracteristiques.stock = badgeText.trim();
+                }
+            }
+        });
+        
+        console.log('🏷️ Badges trouvés et analysés:', {
+            totalBadges: badges.length,
+            caracteristiques: caracteristiques
+        });
+        
+        // Debug détaillé de chaque badge
+        badges.forEach((badge, index) => {
+            console.log(`Badge ${index + 1}:`, {
+                text: badge.textContent.trim(),
+                classes: badge.className,
+                iconClasses: badge.querySelector('i')?.className || 'Pas d\'icône'
+            });
+        });
+    } else {
+        console.warn('⚠️ Conteneur de badges non trouvé pour cet article');
+        
+        // Fallback : essayer l'ancien format
+        const oldInfoSection = articleCard.querySelector('.text-xs.text-gray-600');
+        if (oldInfoSection) {
+            const infoText = oldInfoSection.textContent;
+            
+            // Extraire avec regex de l'ancien format
+            const tailleMatch = infoText.match(/Taille:\s*([^,\s]+)/i);
+            const couleurMatch = infoText.match(/Couleur:\s*([^,\s]+)/i);
+            const categorieMatch = infoText.match(/Catégorie:\s*([^,\s]+)/i);
+            
+            if (tailleMatch) caracteristiques.taille = tailleMatch[1];
+            if (couleurMatch) caracteristiques.couleur = couleurMatch[1];
+            if (categorieMatch) caracteristiques.categorie = categorieMatch[1];
+            
+            console.log('🔄 Fallback vers ancien format utilisé');
+        }
+    }
+    
+    return caracteristiques;
+}
+
+// Fonction pour mettre à jour les badges de caractéristiques dans la modale
+function mettreAJourBadgesModale(caracteristiques) {
+    const badgesContainer = document.getElementById('caracteristiques-badges');
+    
+    if (!badgesContainer) {
+        console.warn('⚠️ Conteneur de badges de la modale non trouvé');
+        return;
+    }
+    
+    // Vider le conteneur
+    badgesContainer.innerHTML = '';
+    
+    // Badge Taille
+    const tailleBadge = document.createElement('span');
+    if (caracteristiques.taille) {
+        tailleBadge.className = 'inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium';
+        tailleBadge.innerHTML = `<i class="fas fa-ruler-vertical mr-1"></i>${caracteristiques.taille}`;
+    } else {
+        tailleBadge.className = 'inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs';
+        tailleBadge.innerHTML = '<i class="fas fa-ruler-vertical mr-1"></i>Taille N/A';
+    }
+    badgesContainer.appendChild(tailleBadge);
+    
+    // Badge Couleur
+    const couleurBadge = document.createElement('span');
+    if (caracteristiques.couleur) {
+        couleurBadge.className = 'inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium';
+        couleurBadge.innerHTML = `<i class="fas fa-palette mr-1"></i>${caracteristiques.couleur}`;
+    } else {
+        couleurBadge.className = 'inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs';
+        couleurBadge.innerHTML = '<i class="fas fa-palette mr-1"></i>Couleur N/A';
+    }
+    badgesContainer.appendChild(couleurBadge);
+    
+    // Badge Catégorie
+    const categorieBadge = document.createElement('span');
+    if (caracteristiques.categorie) {
+        categorieBadge.className = 'inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium';
+        categorieBadge.innerHTML = `<i class="fas fa-tag mr-1"></i>${caracteristiques.categorie}`;
+    } else {
+        categorieBadge.className = 'inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs';
+        categorieBadge.innerHTML = '<i class="fas fa-tag mr-1"></i>Catégorie N/A';
+    }
+    badgesContainer.appendChild(categorieBadge);
+    
+    // Badge Stock (seulement si disponible)
+    if (caracteristiques.stock) {
+        const stockBadge = document.createElement('span');
+        stockBadge.className = 'inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium';
+        stockBadge.innerHTML = `<i class="fas fa-boxes mr-1"></i>${caracteristiques.stock}`;
+        badgesContainer.appendChild(stockBadge);
+    }
+    
+    console.log('🏷️ Badges de la modale mis à jour:', caracteristiques);
+}
+
+// Fonction pour charger les informations complètes d'un article par sa référence
+function chargerInfosCompletesArticle(reference) {
+    // Chercher l'article dans la liste déjà chargée
+    if (articlesDisponibles && articlesDisponibles.length > 0) {
+        const article = articlesDisponibles.find(a => a.reference === reference);
+        if (article) {
+            // Mettre à jour avec les informations complètes
+            document.getElementById('info-pointure').textContent = article.pointure || '-';
+            document.getElementById('info-couleur').textContent = article.couleur || '-';
+            document.getElementById('info-categorie').textContent = article.categorie || '-';
+            document.getElementById('info-stock').textContent = `${article.qte_disponible || 0} unité(s)`;
+            
+            console.log('📋 Informations complètes trouvées pour:', reference, article);
+            return;
+        }
+    }
+    
+    // Si l'article n'est pas dans la liste, afficher des valeurs par défaut
+    document.getElementById('info-pointure').textContent = '-';
+    document.getElementById('info-couleur').textContent = '-';
+    document.getElementById('info-categorie').textContent = '-';
+    document.getElementById('info-stock').textContent = '-';
+    
+    console.log('⚠️ Informations complètes non trouvées pour:', reference);
+}
+
+// Fonction pour charger les articles disponibles via API
+function chargerArticlesDisponibles() {
+    const select = document.getElementById('articleSelect');
+    if (!select) {
+        console.error('❌ Élément articleSelect introuvable');
+        return;
+    }
+    
+    select.innerHTML = '<option value="">-- Chargement des articles... --</option>';
+    console.log('🔄 Début du chargement des articles...');
+    
+    // Récupérer le token CSRF avec vérification
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('❌ Token CSRF introuvable');
+        select.innerHTML = '<option value="">-- Erreur: Token CSRF manquant --</option>';
+        return;
+    }
+    
+    // URL de l'API
+    const apiUrl = '{% url "operatConfirme:api_articles_disponibles" %}';
+    console.log('🌐 URL API:', apiUrl);
+    
+    // Appel AJAX pour récupérer les articles
+    fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrfToken.value,
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+    })
+    .then(response => {
+        console.log('📡 Réponse reçue, status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        return response.json();
+    })
+    .then(data => {
+        console.log('📊 Données reçues:', data);
+        
+        if (data.success && data.articles) {
+            articlesDisponibles = data.articles;
+            
+            // Remplir le select
+            select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
+            
+            if (articlesDisponibles.length === 0) {
+                select.innerHTML = '<option value="">-- Aucun article disponible --</option>';
+                console.warn('⚠️ Aucun article trouvé dans la base de données');
+                showNotification('⚠️ Aucun article disponible', 'error');
+                return;
+            }
+            
+            articlesDisponibles.forEach((article, index) => {
+                try {
+                    const option = document.createElement('option');
+                    option.value = article.id;
+                    
+                    // Construire un texte plus informatif avec vérifications
+                    let optionText = article.nom || 'Article sans nom';
+                    
+                    if (article.prix_unitaire) {
+                        optionText += ` - ${article.prix_unitaire} DH`;
+                    }
+                    
+                    // Ajouter taille et couleur si disponibles
+                    const details = [];
+                    if (article.pointure && article.pointure.trim()) {
+                        details.push(`T:${article.pointure}`);
+                    }
+                    if (article.couleur && article.couleur.trim()) {
+                        details.push(`C:${article.couleur}`);
+                    }
+                    
+                    if (details.length > 0) {
+                        optionText += ` (${details.join(', ')})`;
+                    }
+                    
+                    option.textContent = optionText;
+                    option.dataset.article = JSON.stringify(article);
+                    select.appendChild(option);
+                    
+                    console.log(`📦 Article ${index + 1} ajouté:`, {
+                        id: article.id,
+                        nom: article.nom,
+                        prix: article.prix_unitaire,
+                        pointure: article.pointure,
+                        couleur: article.couleur
+                    });
+                    
+                } catch (error) {
+                    console.error(`❌ Erreur lors de l'ajout de l'article ${index + 1}:`, error, article);
+                }
+            });
+            
+            console.log(`✅ ${articlesDisponibles.length} articles chargés avec succès`);
+            showNotification(`✅ ${articlesDisponibles.length} article(s) chargé(s)`, 'success');
+            
+        } else {
+            // Gestion d'erreur plus détaillée
+            const errorMsg = data.error || 'Erreur inconnue lors du chargement';
+            select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
+            console.error('❌ Erreur API:', errorMsg);
+            showNotification(`❌ Erreur: ${errorMsg}`, 'error');
+            
+            // Afficher plus de détails pour le debug
+            if (data.error) {
+                console.error('📋 Détails de l\'erreur:', data);
+            }
+        }
+    })
+    .catch(error => {
+        select.innerHTML = '<option value="">-- Erreur de connexion --</option>';
+        console.error('❌ Erreur AJAX complète:', error);
+        
+        // Messages d'erreur plus spécifiques
+        let errorMessage = 'Erreur de connexion';
+        if (error.message.includes('403')) {
+            errorMessage = 'Accès refusé - Vérifiez vos permissions';
+        } else if (error.message.includes('404')) {
+            errorMessage = 'API introuvable - Vérifiez l\'URL';
+        } else if (error.message.includes('500')) {
+            errorMessage = 'Erreur serveur - Vérifiez les logs Django';
+        }
+        
+        showNotification(`❌ ${errorMessage}`, 'error');
+        
+        // Proposer une solution de fallback
+        console.log('💡 Solutions possibles:');
+        console.log('   1. Vérifiez que vous êtes connecté comme opérateur de confirmation');
+        console.log('   2. Vérifiez qu\'il y a des articles dans la base de données');
+        console.log('   3. Vérifiez les logs Django pour plus de détails');
+    });
+}
+
+// Fonction appelée quand un article est sélectionné
+function onArticleSelectionChange() {
+    const select = document.getElementById('articleSelect');
+    const selectedOption = select.options[select.selectedIndex];
+    
+    if (selectedOption.value) {
+        const article = JSON.parse(selectedOption.dataset.article);
+        afficherInfosArticle(article);
+    } else {
+        document.getElementById('article-info').classList.add('hidden');
+    }
+}
+
+// Fonction pour afficher les informations d'un article
+function afficherInfosArticle(article) {
+    const quantite = parseInt(document.getElementById('quantiteInput').value) || 1;
+    const sousTotal = (article.prix_unitaire * quantite).toFixed(2);
+    
+    // Informations de base
+    document.getElementById('info-reference').textContent = article.reference || '-';
+    document.getElementById('info-prix').textContent = `${article.prix_unitaire} DH`;
+    document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
+    
+    // Nouvelles informations détaillées
+    document.getElementById('info-pointure').textContent = article.pointure || 'Non spécifiée';
+    document.getElementById('info-couleur').textContent = article.couleur || 'Non spécifiée';
+    document.getElementById('info-categorie').textContent = article.categorie || 'Non spécifiée';
+    document.getElementById('info-stock').textContent = `${article.qte_disponible || 0} unité(s)`;
+    
+    // Mettre à jour les badges avec les informations de l'article
+    const caracteristiques = {
+        taille: article.pointure || null,
+        couleur: article.couleur || null,
+        categorie: article.categorie || null,
+        stock: article.qte_disponible ? `Stock: ${article.qte_disponible}` : null,
+        description: article.description || ''
+    };
+    mettreAJourBadgesModale(caracteristiques);
+    
+    // Description
+    document.getElementById('info-description').textContent = article.description || '';
+    
+    // Afficher la section des informations
+    document.getElementById('article-info').classList.remove('hidden');
+    
+    console.log('📋 Informations article affichées:', {
+        nom: article.nom,
+        reference: article.reference,
+        pointure: article.pointure,
+        couleur: article.couleur,
+        categorie: article.categorie,
+        stock: article.qte_disponible
+    });
+}
+
+// Fonction pour mettre à jour le sous-total quand la quantité change
+function onQuantiteChange() {
+    if (!isEditingArticle) {
+        const select = document.getElementById('articleSelect');
+        const selectedOption = select.options[select.selectedIndex];
+        
+        if (selectedOption.value) {
+            const article = JSON.parse(selectedOption.dataset.article);
+            afficherInfosArticle(article);
+        }
+    } else {
+        // Pour les modifications, on recalcule avec le prix actuel
+        const prixText = document.getElementById('info-prix').textContent;
+        const prix = parseFloat(prixText.replace(' DH', ''));
+        const quantite = parseInt(document.getElementById('quantiteInput').value) || 1;
+        const sousTotal = (prix * quantite).toFixed(2);
+        
+        document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
+    }
+}
+
+// Fonction pour sauvegarder l'article
+function saveArticle() {
+    const quantite = parseInt(document.getElementById('quantiteInput').value);
+    
+    if (!quantite || quantite < 1) {
+        alert('⚠️ Veuillez saisir une quantité valide (minimum 1)');
+        return;
+    }
+    
+    // Vérifier qu'un article est sélectionné (même en mode modification)
+    const select = document.getElementById('articleSelect');
+    if (!select.value) {
+        alert('⚠️ Veuillez sélectionner un article');
+        return;
+    }
+    
+    const selectedOption = select.options[select.selectedIndex];
+    const article = JSON.parse(selectedOption.dataset.article);
+    
+    if (!isEditingArticle) {
+        // Ajout d'un nouvel article
+        ajouterArticleAuContainer(article, quantite);
+    } else {
+        // Modification d'un article existant - remplacer complètement l'article
+        remplacerArticleExistant(article, quantite);
+    }
+    
+    // Mettre à jour le total
+    mettreAJourTotalCommande();
+    
+    // Fermer la modale
+    closeArticleModal();
+    
+    // Sauvegarder automatiquement l'article dans la base de données
+    if (!isEditingArticle) {
+        // Pour un nouvel article, sauvegarder immédiatement
+        sauvegarderAutomatiquementArticle();
+        showNotification('✅ Article ajouté et sauvegardé automatiquement', 'success');
+    } else {
+        // Pour une modification, sauvegarder aussi
+        sauvegarderAutomatiquementArticle();
+        showNotification('✅ Article modifié et sauvegardé automatiquement', 'success');
+    }
+}
+
+// Fonction pour ajouter un article au container
+function ajouterArticleAuContainer(article, quantite) {
+    const sousTotal = (article.prix_unitaire * quantite).toFixed(2);
+    const articleId = `new-${Date.now()}`; // ID temporaire pour les nouveaux articles
+    
+    const articleHTML = `
+        <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" data-article-id="${articleId}" data-is-new="true">
+            <div class="flex items-center justify-between">
+                <!-- Informations de l'article -->
+                <div class="flex-1">
+                    <div class="flex items-center space-x-4">
+                        <!-- Nom et référence -->
+                        <div class="min-w-0 flex-1">
+                            <div class="font-semibold text-lg" style="color: #4B352A;">${article.nom}</div>
+                            <div class="text-sm text-gray-500">
+                                <i class="fas fa-hashtag mr-1"></i>Réf: ${article.reference}
+                            </div>
+                                                         <!-- Informations détaillées -->
+                             <div class="mt-2 flex flex-wrap gap-2">
+                                 ${article.pointure ? 
+                                     `<span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                                         <i class="fas fa-ruler-vertical mr-1"></i>${article.pointure}
+                                     </span>` : 
+                                     `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                         <i class="fas fa-ruler-vertical mr-1"></i>Taille N/A
+                                     </span>`
+                                 }
+                                 
+                                 ${article.couleur ? 
+                                     `<span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                         <i class="fas fa-palette mr-1"></i>${article.couleur}
+                                     </span>` : 
+                                     `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                         <i class="fas fa-palette mr-1"></i>Couleur N/A
+                                     </span>`
+                                 }
+                                 
+                                 ${article.categorie ? 
+                                     `<span class="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
+                                         <i class="fas fa-tag mr-1"></i>${article.categorie}
+                                     </span>` : 
+                                     `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                         <i class="fas fa-tag mr-1"></i>Catégorie N/A
+                                     </span>`
+                                 }
+                                 
+                                 ${article.stock_disponible ? 
+                                     `<span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                         <i class="fas fa-boxes mr-1"></i>Stock: ${article.stock_disponible}
+                                     </span>` : ''
+                                 }
+                             </div>
+                        </div>
+                        
+                        <!-- Quantité -->
+                        <div class="text-center min-w-0">
+                            <div class="text-sm text-gray-500">Quantité</div>
+                            <div class="font-medium text-blue-600">${quantite} unité${quantite > 1 ? 's' : ''}</div>
+                        </div>
+                        
+                        <!-- Prix unitaire -->
+                        <div class="text-center min-w-0">
+                            <div class="text-sm text-gray-500">Prix unitaire</div>
+                            <div class="font-medium text-green-600">${article.prix_unitaire} DH</div>
+                        </div>
+                        
+                        <!-- Sous-total -->
+                        <div class="text-center min-w-0">
+                            <div class="text-sm text-gray-500">Sous-total</div>
+                            <div class="text-lg font-bold" style="color: #6d4b3b;">${sousTotal} DH</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Boutons d'action -->
+                <div class="flex space-x-2 ml-4">
+                    <button type="button" onclick="modifierArticle('${articleId}')" 
+                            class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" 
+                            title="Modifier">
+                        <i class="fas fa-edit mr-1"></i>Modifier
+                    </button>
+                    <button type="button" onclick="supprimerArticle('${articleId}')" 
+                            class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" 
+                            title="Supprimer">
+                        <i class="fas fa-trash mr-1"></i>Supprimer
+                    </button>
+                </div>
+            </div>
+            <!-- Champs cachés pour le formulaire -->
+            <input type="hidden" name="new_articles[]" value="${article.id}">
+            <input type="hidden" name="new_quantities[]" value="${quantite}">
+        </div>
+    `;
+    
+    document.getElementById('articles-container').insertAdjacentHTML('beforeend', articleHTML);
+    mettreAJourCompteurArticles();
+}
+
+// Fonction pour remplacer complètement un article existant
+function remplacerArticleExistant(nouvelArticle, nouvelleQuantite) {
+    const articleCard = document.querySelector(`[data-article-id="${currentArticleId}"]`);
+    if (articleCard) {
+        const sousTotal = (nouvelArticle.prix_unitaire * nouvelleQuantite).toFixed(2);
+        
+        // Remplacer tout le contenu de la carte d'article
+        const nouveauContenu = `
+            <div class="flex items-center justify-between">
+                <!-- Informations de l'article -->
+                <div class="flex-1">
+                    <div class="flex items-center space-x-4">
+                        <!-- Nom et référence -->
+                        <div class="min-w-0 flex-1">
+                            <div class="font-semibold text-lg" style="color: #4B352A;">${nouvelArticle.nom}</div>
+                            <div class="text-sm text-gray-500">
+                                <i class="fas fa-hashtag mr-1"></i>Réf: ${nouvelArticle.reference}
+                            </div>
+                            <!-- Informations détaillées -->
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                ${nouvelArticle.pointure ? 
+                                    `<span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                                        <i class="fas fa-ruler-vertical mr-1"></i>${nouvelArticle.pointure}
+                                    </span>` : 
+                                    `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                        <i class="fas fa-ruler-vertical mr-1"></i>Taille N/A
+                                    </span>`
+                                }
+                                
+                                ${nouvelArticle.couleur ? 
+                                    `<span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                        <i class="fas fa-palette mr-1"></i>${nouvelArticle.couleur}
+                                    </span>` : 
+                                    `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                        <i class="fas fa-palette mr-1"></i>Couleur N/A
+                                    </span>`
+                                }
+                                
+                                ${nouvelArticle.categorie ? 
+                                    `<span class="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
+                                        <i class="fas fa-tag mr-1"></i>${nouvelArticle.categorie}
+                                    </span>` : 
+                                    `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                        <i class="fas fa-tag mr-1"></i>Catégorie N/A
+                                    </span>`
+                                }
+                                
+                                ${nouvelArticle.qte_disponible ? 
+                                    `<span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                        <i class="fas fa-boxes mr-1"></i>Stock: ${nouvelArticle.qte_disponible}
+                                    </span>` : ''
+                                }
+                            </div>
+                        </div>
+                        
+                        <!-- Quantité -->
+                        <div class="text-center min-w-0">
+                            <div class="text-sm text-gray-500">Quantité</div>
+                            <div class="font-medium text-blue-600">${nouvelleQuantite} unité${nouvelleQuantite > 1 ? 's' : ''}</div>
+                        </div>
+                        
+                        <!-- Prix unitaire -->
+                        <div class="text-center min-w-0">
+                            <div class="text-sm text-gray-500">Prix unitaire</div>
+                            <div class="font-medium text-green-600">${nouvelArticle.prix_unitaire} DH</div>
+                        </div>
+                        
+                        <!-- Sous-total -->
+                        <div class="text-center min-w-0">
+                            <div class="text-sm text-gray-500">Sous-total</div>
+                            <div class="text-lg font-bold" style="color: #6d4b3b;">${sousTotal} DH</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Boutons d'action -->
+                <div class="flex space-x-2 ml-4">
+                    <button type="button" onclick="modifierArticle('${currentArticleId}')" 
+                            class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" 
+                            title="Modifier">
+                        <i class="fas fa-edit mr-1"></i>Modifier
+                    </button>
+                    <button type="button" onclick="supprimerArticle('${currentArticleId}')" 
+                            class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" 
+                            title="Supprimer">
+                        <i class="fas fa-trash mr-1"></i>Supprimer
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Remplacer le contenu HTML
+        articleCard.innerHTML = nouveauContenu;
+        
+        // Mettre à jour ou ajouter les champs cachés pour le formulaire
+        if (articleCard.dataset.isNew) {
+            // Nouvel article - mettre à jour les champs cachés
+            let articleInput = articleCard.querySelector('input[name="new_articles[]"]');
+            let quantityInput = articleCard.querySelector('input[name="new_quantities[]"]');
+            
+            if (!articleInput) {
+                articleInput = document.createElement('input');
+                articleInput.type = 'hidden';
+                articleInput.name = 'new_articles[]';
+                articleCard.appendChild(articleInput);
+            }
+            if (!quantityInput) {
+                quantityInput = document.createElement('input');
+                quantityInput.type = 'hidden';
+                quantityInput.name = 'new_quantities[]';
+                articleCard.appendChild(quantityInput);
+            }
+            
+            articleInput.value = nouvelArticle.id;
+            quantityInput.value = nouvelleQuantite;
+        } else {
+            // Article existant - ajouter des champs de modification
+            let modifInput = articleCard.querySelector('input[name="modified_articles[]"]');
+            let quantityInput = articleCard.querySelector('input[name="modified_quantities[]"]');
+            let newArticleInput = articleCard.querySelector('input[name="new_article_ids[]"]');
+            
+            if (!modifInput) {
+                modifInput = document.createElement('input');
+                modifInput.type = 'hidden';
+                modifInput.name = 'modified_articles[]';
+                modifInput.value = currentArticleId;
+                articleCard.appendChild(modifInput);
+            }
+            
+            if (!quantityInput) {
+                quantityInput = document.createElement('input');
+                quantityInput.type = 'hidden';
+                quantityInput.name = 'modified_quantities[]';
+                articleCard.appendChild(quantityInput);
+            }
+            
+            if (!newArticleInput) {
+                newArticleInput = document.createElement('input');
+                newArticleInput.type = 'hidden';
+                newArticleInput.name = 'new_article_ids[]';
+                articleCard.appendChild(newArticleInput);
+            }
+            
+            quantityInput.value = nouvelleQuantite;
+            newArticleInput.value = nouvelArticle.id;
+        }
+        
+        console.log('✅ Article remplacé avec succès:', {
+            ancien: currentArticleId,
+            nouveau: nouvelArticle.nom,
+            quantite: nouvelleQuantite
+        });
+    }
+}
+
+// Fonction pour modifier un article existant (ancienne version - gardée pour compatibilité)
+function modifierArticleExistant(nouvelleQuantite) {
+    const articleCard = document.querySelector(`[data-article-id="${currentArticleId}"]`);
+    if (articleCard) {
+        // Mettre à jour la quantité
+        const quantiteElement = articleCard.querySelector('.text-blue-600');
+        quantiteElement.textContent = `${nouvelleQuantite} unité${nouvelleQuantite > 1 ? 's' : ''}`;
+        
+        // Recalculer le sous-total
+        const prixElement = articleCard.querySelector('.text-green-600');
+        const prix = parseFloat(prixElement.textContent.replace(' DH', ''));
+        const nouveauSousTotal = (prix * nouvelleQuantite).toFixed(2);
+        
+        const sousTotalElement = articleCard.querySelector('.text-lg.font-bold');
+        sousTotalElement.textContent = `${nouveauSousTotal} DH`;
+        
+        // Mettre à jour les champs cachés si c'est un nouvel article
+        if (articleCard.dataset.isNew) {
+            const quantityInput = articleCard.querySelector('input[name="new_quantities[]"]');
+            if (quantityInput) {
+                quantityInput.value = nouvelleQuantite;
+            }
+        } else {
+            // Pour les articles existants, ajouter des champs de modification
+            let modifInput = articleCard.querySelector('input[name="modified_articles[]"]');
+            if (!modifInput) {
+                modifInput = document.createElement('input');
+                modifInput.type = 'hidden';
+                modifInput.name = 'modified_articles[]';
+                modifInput.value = currentArticleId;
+                articleCard.appendChild(modifInput);
+                
+                const quantityInput = document.createElement('input');
+                quantityInput.type = 'hidden';
+                quantityInput.name = 'modified_quantities[]';
+                quantityInput.value = nouvelleQuantite;
+                articleCard.appendChild(quantityInput);
+            } else {
+                const quantityInput = articleCard.querySelector('input[name="modified_quantities[]"]');
+                quantityInput.value = nouvelleQuantite;
+            }
+        }
+    }
+}
+
+// Fonction pour supprimer un article
+function supprimerArticle(articleId) {
+    if (confirm('⚠️ Êtes-vous sûr de vouloir supprimer cet article de la commande ?')) {
+        const articleCard = document.querySelector(`[data-article-id="${articleId}"]`);
+        if (articleCard) {
+            // Si c'est un article existant, ajouter un champ pour indiquer la suppression
+            if (!articleCard.dataset.isNew) {
+                const deleteInput = document.createElement('input');
+                deleteInput.type = 'hidden';
+                deleteInput.name = 'deleted_articles[]';
+                deleteInput.value = articleId;
+                document.getElementById('modification-form').appendChild(deleteInput);
+            }
+            
+            articleCard.remove();
+            mettreAJourCompteurArticles();
+            mettreAJourTotalCommande();
+            
+            // Sauvegarder automatiquement la suppression
+            sauvegarderAutomatiquementArticle();
+            showNotification('🗑️ Article supprimé et sauvegardé automatiquement', 'success');
+        }
+    }
+}
+
+// Fonction pour fermer la modale d'article
+function closeArticleModal() {
+    const modal = document.getElementById('articleModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    } else {
+        console.error('❌ Modale articleModal introuvable lors de la fermeture');
+    }
+}
+
+// Fonction pour mettre à jour le compteur d'articles
+function mettreAJourCompteurArticles() {
+    const articles = document.querySelectorAll('.article-card');
+    const count = articles.length;
+    
+    document.getElementById('articles-count').textContent = count;
+    document.getElementById('articles-plural').textContent = count > 1 ? 's' : '';
+}
+
+// Fonction pour mettre à jour le total de la commande
+function mettreAJourTotalCommande() {
+    const articles = document.querySelectorAll('.article-card');
+    let total = 0;
+    
+    articles.forEach(article => {
+        const sousTotalText = article.querySelector('.text-lg.font-bold').textContent;
+        const sousTotal = parseFloat(sousTotalText.replace(' DH', ''));
+        total += sousTotal;
+    });
+    
+    document.getElementById('total-commande').textContent = `${total.toFixed(2)} DH`;
+}
+
+// Fonction pour sauvegarder automatiquement les articles dans la base de données
+function sauvegarderAutomatiquementArticle() {
+    console.log('💾 Sauvegarde automatique de l\'article en cours...');
+    
+    try {
+        const form = document.getElementById('modification-form');
+        if (!form) {
+            console.error('❌ Formulaire modification-form introuvable');
+            return;
+        }
+        
+        // Créer FormData avec tous les champs du formulaire
+        const formData = new FormData(form);
+        
+        // Envoyer via AJAX pour éviter de recharger la page
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest', // Indiquer que c'est une requête AJAX
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Article sauvegardé automatiquement en base de données');
+                console.log('📊 Données retournées:', data);
+                
+                // Mettre à jour le compteur d'articles
+                if (data.nb_articles) {
+                    document.getElementById('articles-count').textContent = data.nb_articles;
+                    document.getElementById('articles-plural').textContent = data.nb_articles > 1 ? 's' : '';
+                }
+                
+                // Mettre à jour le total de la commande
+                if (data.total_commande) {
+                    document.getElementById('total-commande').textContent = `${data.total_commande.toFixed(2)} DH`;
+                }
+                
+                // Plus besoin de recharger la page !
+                showNotification('✅ Sauvegardé en base de données', 'success');
+            } else {
+                console.warn('⚠️ Erreur lors de la sauvegarde automatique');
+                showNotification('⚠️ Erreur lors de la sauvegarde automatique', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erreur de sauvegarde automatique:', error);
+            showNotification('❌ Erreur de connexion lors de la sauvegarde', 'error');
+        });
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de la sauvegarde automatique:', error);
+        showNotification('❌ Erreur lors de la sauvegarde automatique', 'error');
+    }
+}
+
+// Ajouter les événements pour la modale d'articles et les raccourcis clavier
+document.addEventListener('DOMContentLoaded', function() {
+    // Événement pour la sélection d'article
+    const articleSelect = document.getElementById('articleSelect');
+    if (articleSelect) {
+        articleSelect.addEventListener('change', onArticleSelectionChange);
+    }
+    
+    // Événement pour le changement de quantité
+    const quantiteInput = document.getElementById('quantiteInput');
+    if (quantiteInput) {
+        quantiteInput.addEventListener('input', onQuantiteChange);
+    }
+    
+    // Fermer la modale en cliquant à l'extérieur
+    const articleModal = document.getElementById('articleModal');
+    if (articleModal) {
+        articleModal.addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeArticleModal();
+            }
+        });
+    }
+    
+    // Raccourcis clavier pour l'interface
+    document.addEventListener('keydown', function(event) {
+        // Ctrl+S pour sauvegarder
+        if (event.ctrlKey && event.key === 's') {
+            event.preventDefault();
+            console.log('⌨️ Raccourci Ctrl+S détecté - Sauvegarde...');
+            
+            // Vérifier et sauvegarder
+            if (verifierOperationsSelectionnees()) {
+                const form = document.getElementById('modification-form');
+                if (form) {
+                    form.submit();
+                    showNotification('💾 Sauvegarde lancée (Ctrl+S)', 'success');
+                }
+            }
+        }
+        
+        // Ctrl+Enter pour confirmer la commande
+        if (event.ctrlKey && event.key === 'Enter') {
+            event.preventDefault();
+            console.log('⌨️ Raccourci Ctrl+Enter détecté - Confirmation...');
+            confirmerCommande();
+        }
+        
+        // Escape pour fermer les modales
+        if (event.key === 'Escape') {
+            const commentModal = document.getElementById('commentModal');
+            const articleModal = document.getElementById('articleModal');
+            
+            if (commentModal && commentModal.style.display === 'flex') {
+                closeCommentModal();
+            }
+            if (articleModal && articleModal.style.display === 'flex') {
+                closeArticleModal();
+            }
+        }
+    });
+    
+    // Charger les commentaires depuis l'API Django
+    chargerCommentairesDisponibles();
+    
+    // Charger les articles disponibles au chargement de la page
+    chargerArticlesDisponibles();
+    
+    // Charger les opérations existantes depuis la base de données
+    chargerOperationsExistantes();
+    
+
+});
+
 </script>
 {% endblock %} 
