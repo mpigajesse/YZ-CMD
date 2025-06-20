@@ -380,7 +380,7 @@
                             </div>
 
 
-                                </div>
+                        </div>
                             </div>
                         </div>
                     </div>
@@ -520,11 +520,6 @@
             </div>
             
             <div class="flex gap-4">
-                <button type="submit" onclick="return verifierOperationsSelectionnees()"
-                        class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all">
-                    <i class="fas fa-save mr-2"></i>
-                    Sauvegarder
-                </button>
                 
                 {% if commande.etat_actuel.enum_etat.libelle == 'Affectée' %}
                 <button type="button" onclick="lancerConfirmation()" 
@@ -655,10 +650,6 @@
                                 <i class="fas fa-palette mr-2 text-purple-600"></i>Caractéristiques du produit
                             </h5>
                             
-                            <!-- Affichage en badges comme dans la liste -->
-                            <div id="caracteristiques-badges" class="flex flex-wrap gap-2 mb-3">
-                                <!-- Les badges seront ajoutés dynamiquement -->
-                            </div>
                             
                             <!-- Affichage classique formaté -->
                             <div class="space-y-2 text-sm">
@@ -1035,17 +1026,11 @@ function mettreAJourTableauOperations() {
             </td>
             <td class="px-4 py-3 text-sm">
                                 <div class="flex items-center justify-center">
-                    ${operation.fromDatabase ? `
-                        <span class="px-3 py-2 bg-green-100 text-green-700 text-sm rounded-lg flex items-center">
-                            <i class="fas fa-database mr-1"></i>Sauvegardé
-                        </span>
-                    ` : `
                         <button type="button" onclick="ouvrirModaleCommentaireTableau('${operation.id}', '${operation.nom}')" 
                                 class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center">
-                            <i class="fas fa-comment mr-1"></i>
-                            ${operation.commentaire ? 'Modifier' : 'Ajouter'}
+                            <i class="fas fa-edit mr-1"></i>
+                            Modifier
                         </button>
-                    `}
                 </div>
                 ${operation.commentaire ? `
                     <div class="mt-1 text-xs text-gray-600 italic flex items-center">
@@ -1104,71 +1089,69 @@ function saveComment() {
         return;
     }
     
-    console.log(`💾 Sauvegarde du commentaire: "${commentText}" pour ${currentOperationType}`);
+    console.log(`💾 DEBUG: Sauvegarde du commentaire: "${commentText}" pour ${currentOperationType}`);
     
     // Trouver et mettre à jour l'opération dans le tableau
     const operation = operationsTable.find(op => op.id === currentOperationType);
     if (operation) {
+        const ancienCommentaire = operation.commentaire;
         operation.commentaire = commentText;
+        
+        console.log(`🔍 DEBUG: Opération trouvée: ${operation.id}, fromDatabase: ${operation.fromDatabase}`);
+        console.log(`📝 DEBUG: Commentaire ancien: "${ancienCommentaire}" → nouveau: "${commentText}"`);
+        
+        // NOUVEAU: Sauvegarder TOUTES les opérations immédiatement en base de données
+        if (operation.fromDatabase) {
+            // Opération existante : utiliser update_operation
+            console.log(`🔄 DEBUG: Sauvegarde d'une opération existante (DB)`);
+            sauvegarderOperationExistante(operation, commentText);
+        } else {
+            // Nouvelle opération : créer en base de données immédiatement
+            console.log(`🆕 DEBUG: Sauvegarde d'une nouvelle opération`);
+            sauvegarderNouvelleOperation(operation, commentText);
+        }
         
         // Mettre à jour l'affichage
         mettreAJourTableauOperations();
-        
-        // Créer les champs cachés pour l'envoi du formulaire
-        creerChampsFormulaire();
-        
-        console.log(`✅ Commentaire sauvegardé pour ${operation.nom}: "${commentText}"`);
-        
-        // Afficher une notification de succès
-        showNotification(`✅ Opération "${operation.nom}" sauvegardée dans le tableau`, 'success');
-        
-        // Sauvegarder automatiquement en base de données
-        sauvegarderOperationEnBase(operation);
     }
     
     closeCommentModal();
 }
 
-// Fonction pour sauvegarder une opération en base de données immédiatement
-function sauvegarderOperationEnBase(operation) {
-    console.log('💾 Sauvegarde immédiate de l\'opération en base de données...');
+// Fonction pour sauvegarder immédiatement une opération existante en base de données
+function sauvegarderOperationExistante(operation, nouveauCommentaire) {
+    console.log(`🔄 DEBUG: Sauvegarde immédiate de l'opération ${operation.id} en base de données...`);
+    console.log(`📝 DEBUG: Nouveau commentaire à sauvegarder: "${nouveauCommentaire}"`);
     
-    const form = document.getElementById('modification-form');
-    if (!form) {
-        console.error('❌ Formulaire modification-form introuvable');
-        return;
-    }
+    // Extraire l'ID numérique de l'opération (ex: "DB-51" -> "51")
+    const operationDbId = operation.id.replace('DB-', '');
+    console.log(`🔢 DEBUG: ID numérique extrait: ${operationDbId}`);
     
-    // Créer FormData avec l'opération spécifique
     const formData = new FormData();
     
     // Ajouter le token CSRF
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
     if (csrfToken) {
         formData.append('csrfmiddlewaretoken', csrfToken.value);
+        console.log(`🔐 DEBUG: Token CSRF ajouté: ${csrfToken.value.substring(0, 10)}...`);
+    } else {
+        console.error('❌ DEBUG: Token CSRF introuvable !');
     }
     
-    // Ajouter l'opération à sauvegarder
-    formData.append('operations[]', operation.type);
-    formData.append('comment_' + operation.type, operation.commentaire);
+    // Ajouter l'action spécifique pour modifier une opération existante
+    formData.append('action', 'update_operation');
+    formData.append('operation_id', operationDbId);
+    formData.append('nouveau_commentaire', nouveauCommentaire);
+    formData.append('commande_id', '{{ commande.id }}');
     
-    // Ajouter tous les autres champs du formulaire pour maintenir l'état
-    const formElements = form.elements;
-    for (let i = 0; i < formElements.length; i++) {
-        const element = formElements[i];
-        if (element.name && element.name !== 'operations[]' && !element.name.startsWith('comment_')) {
-            if (element.type === 'checkbox' || element.type === 'radio') {
-                if (element.checked) {
-                    formData.append(element.name, element.value);
-                }
-            } else {
-                formData.append(element.name, element.value);
-            }
-        }
+    // Debug des données envoyées
+    console.log('📦 DEBUG: Données envoyées au serveur:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`   - ${key}: ${value}`);
     }
     
     // Envoyer via AJAX
-    fetch(form.action, {
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
         method: 'POST',
         body: formData,
         headers: {
@@ -1176,19 +1159,106 @@ function sauvegarderOperationEnBase(operation) {
         }
     })
     .then(response => {
-        if (response.ok) {
-            console.log('✅ Opération sauvegardée en base de données');
-            showNotification(`💾 Opération "${operation.nom}" sauvegardée en base de données`, 'success');
-        } else {
-            console.warn('⚠️ Erreur lors de la sauvegarde en base de données');
-            showNotification('⚠️ Erreur lors de la sauvegarde en base', 'error');
+        console.log(`🌐 DEBUG: Réponse reçue, status: ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📬 DEBUG: Données de réponse:', data);
+        
+        if (data.success) {
+            console.log('✅ DEBUG: Opération mise à jour en base de données avec succès');
+            console.log(`📋 DEBUG: Ancien commentaire: "${data.ancien_commentaire}"`);
+            console.log(`📝 DEBUG: Nouveau commentaire: "${data.nouveau_commentaire}"`);
+            
+            if (data.debug_info) {
+                console.log(`🔍 DEBUG: Vérification en base: "${data.debug_info.verification_conclusion}"`);
+                console.log(`📊 DEBUG: Total opérations: ${data.debug_info.total_operations}`);
+            }
+            
+            showNotification(`✅ Opération "${operation.nom}" mise à jour en base de données`, 'success');
+            
+            // Recharger les opérations depuis la base de données pour refléter les changements
+            rechargerOperationsDepuisBase();
+            } else {
+            console.error('❌ DEBUG: Erreur lors de la mise à jour:', data.error);
+            showNotification('❌ Erreur lors de la sauvegarde: ' + data.error, 'error');
         }
     })
     .catch(error => {
-        console.error('❌ Erreur de sauvegarde en base:', error);
-        showNotification('❌ Erreur de connexion à la base de données', 'error');
+        console.error('❌ DEBUG: Erreur de connexion:', error);
+        showNotification('❌ Erreur de connexion lors de la sauvegarde', 'error');
     });
 }
+
+// Fonction pour sauvegarder immédiatement une nouvelle opération en base de données
+function sauvegarderNouvelleOperation(operation, commentaire) {
+    console.log(`🆕 DEBUG: Création immédiate d'une nouvelle opération en base de données...`);
+    console.log(`📝 DEBUG: Type: ${operation.type}, Commentaire: "${commentaire}"`);
+    
+    const formData = new FormData();
+    
+    // Ajouter le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken.value);
+        console.log(`🔐 DEBUG: Token CSRF ajouté`);
+    } else {
+        console.error('❌ DEBUG: Token CSRF introuvable !');
+    }
+    
+    // Ajouter l'action pour créer une nouvelle opération
+    formData.append('action', 'create_operation');
+    formData.append('type_operation', operation.type);
+    formData.append('commentaire', commentaire);
+    formData.append('commande_id', '{{ commande.id }}');
+    
+    // Debug des données envoyées
+    console.log('📦 DEBUG: Données envoyées pour création opération:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`   - ${key}: ${value}`);
+    }
+    
+    // Envoyer via AJAX
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        console.log(`🌐 DEBUG: Réponse création reçue, status: ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📬 DEBUG: Données de réponse création:', data);
+        
+        if (data.success) {
+            console.log('✅ DEBUG: Nouvelle opération créée en base de données avec succès');
+            console.log(`🔢 DEBUG: Nouvel ID en base: ${data.operation_id}`);
+            
+            // Transformer l'opération locale en opération de base de données
+            operation.id = `DB-${data.operation_id}`;
+            operation.fromDatabase = true;
+            
+            console.log(`🔄 DEBUG: Opération transformée: ${operation.id} (fromDatabase: true)`);
+            
+            showNotification(`✅ Opération "${operation.nom}" créée et sauvegardée en base de données`, 'success');
+            
+            // Recharger les opérations depuis la base de données pour refléter les changements
+            rechargerOperationsDepuisBase();
+        } else {
+            console.error('❌ DEBUG: Erreur lors de la création:', data.error);
+            showNotification('❌ Erreur lors de la création: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ DEBUG: Erreur de connexion lors de la création:', error);
+        showNotification('❌ Erreur de connexion lors de la création', 'error');
+    });
+}
+
+
 
 
 
@@ -1246,6 +1316,77 @@ function utiliserCommentairesFallback() {
             { value: 'Message vocal envoyé', label: 'Message vocal envoyé' }
         ]
     };
+}
+
+// Fonction pour recharger les opérations depuis la base de données via AJAX
+function rechargerOperationsDepuisBase() {
+    console.log('🔄 DEBUG: Rechargement des opérations depuis la base de données...');
+    console.log(`📊 DEBUG: État actuel du tableau: ${operationsTable.length} opération(s)`);
+    
+    // Faire une requête AJAX pour récupérer les opérations mises à jour
+    fetch(`/operateur-confirme/api/commandes/{{ commande.id }}/operations/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        console.log(`🌐 DEBUG: Réponse API reçue, status: ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📬 DEBUG: Données API reçues:', data);
+        
+        if (data.success) {
+            console.log(`🔄 DEBUG: ${data.operations.length} opération(s) rechargée(s) depuis la base`);
+            
+            // Séparer les nouvelles opérations des existantes (celles qui ne sont pas encore en base)
+            const nouvellesOperations = operationsTable.filter(op => !op.fromDatabase);
+            console.log(`📝 DEBUG: ${nouvellesOperations.length} nouvelle(s) opération(s) locale(s) conservée(s)`);
+            
+            // Remplacer les opérations existantes par les données fraîches de la base
+            const operationsFromDatabase = data.operations.map(op => {
+                console.log(`🔍 DEBUG: Opération de la base DB-${op.id}: "${op.conclusion}"`);
+                return {
+                    id: `DB-${op.id}`,
+                    type: op.type_operation,
+                    nom: op.nom_display,
+                    classe: op.classe_css,
+                    date: op.date_operation,
+                    commentaire: op.conclusion,
+                    typePrincipal: op.type_principal,
+                    fromDatabase: true
+                };
+            });
+            
+            // Debug avant recombination
+            console.log('📋 DEBUG: Comparaison avant/après recombination:');
+            console.log('   - Ancien tableau operationsTable:', operationsTable);
+            console.log('   - Nouvelles opérations de la base:', operationsFromDatabase);
+            console.log('   - Nouvelles opérations locales conservées:', nouvellesOperations);
+            
+            // Recombiner : opérations de base + nouvelles opérations
+            operationsTable = [...operationsFromDatabase, ...nouvellesOperations];
+            
+            console.log(`📊 DEBUG: Tableau final: ${operationsTable.length} opération(s) total`);
+            console.log('   - Depuis la base:', operationsFromDatabase.length);
+            console.log('   - Nouvelles locales:', nouvellesOperations.length);
+            console.log('📋 DEBUG: Nouveau tableau operationsTable:', operationsTable);
+            
+            // Mettre à jour l'affichage
+            mettreAJourTableauOperations();
+            
+            console.log('✅ DEBUG: Tableau des opérations mis à jour avec les données fraîches de la base');
+            showNotification('🔄 Tableau rechargé depuis la base de données', 'info');
+        } else {
+            console.error('❌ DEBUG: Erreur lors du rechargement:', data.error);
+            showNotification('❌ Erreur lors du rechargement: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ DEBUG: Erreur de connexion:', error);
+        showNotification('❌ Erreur lors du rechargement des opérations', 'error');
+    });
 }
 
 // Fonction pour charger les opérations existantes depuis la base de données
@@ -1694,17 +1835,33 @@ function changerOperation() {
 }
 
 // Fonction pour afficher des notifications discrètes
-function showNotification(message, type) {
+function showNotification(message, type = 'info') {
     try {
         const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white text-sm z-50 transition-all duration-300 ${
-            type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        }`;
+        
+        // Déterminer les couleurs selon le type
+        let bgColor = 'bg-blue-500'; // info par défaut
+        if (type === 'success') bgColor = 'bg-green-500';
+        else if (type === 'error') bgColor = 'bg-red-500';
+        else if (type === 'warning') bgColor = 'bg-yellow-500';
+        
+        notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white text-sm z-50 transition-all duration-300 ${bgColor} max-w-sm`;
+        
+        // Permettre les retours à la ligne dans les notifications
+        notification.style.whiteSpace = 'pre-line';
         notification.textContent = message;
         
         document.body.appendChild(notification);
         
-        // Supprimer après 3 secondes avec vérifications de sécurité
+        // Durée d'affichage variable selon le type et la longueur du message
+        let duration = 3000; // 3 secondes par défaut
+        if (type === 'success' && message.includes('décrémenté')) {
+            duration = 5000; // 5 secondes pour les messages de stock
+        } else if (type === 'error') {
+            duration = 6000; // 6 secondes pour les erreurs
+        }
+        
+        // Supprimer après la durée déterminée avec vérifications de sécurité
         setTimeout(() => {
             try {
                 if (notification && notification.parentNode) {
@@ -1722,12 +1879,28 @@ function showNotification(message, type) {
             } catch (error) {
                 console.warn('⚠️ Erreur lors de la modification de l\'opacité de la notification:', error);
             }
-        }, 3000);
+        }, duration);
     } catch (error) {
         console.error('❌ Erreur lors de la création de la notification:', error);
         // Fallback vers une alerte simple
         alert(message);
     }
+}
+
+// Fonction pour afficher des notifications de stock avec plus de détails
+function showStockNotification(detailsStock, type = 'success') {
+    if (!detailsStock || detailsStock.length === 0) return;
+    
+    let message = '';
+    if (type === 'success') {
+        message = `📦 Stock mis à jour avec succès :\n\n`;
+        detailsStock.forEach((item, index) => {
+            message += `${index + 1}. ${item.article}\n`;
+            message += `   ${item.ancien_stock} → ${item.nouveau_stock} (-${item.quantite_decrémententée})\n\n`;
+        });
+    }
+    
+    showNotification(message, type);
 }
 
 
@@ -1835,71 +2008,60 @@ function sauvegarderOperationsAvantAction() {
 
 // Fonction pour confirmer la commande
 function confirmerCommande() {
-    // Vérifier que toutes les sections sont vérifiées
-    const sectionsVerifiees = document.querySelectorAll('.verification-item.verified');
-    if (sectionsVerifiees.length < 6) {
-        alert('Veuillez vérifier toutes les sections (y compris l\'état et l\'opération) avant de confirmer la commande.');
+    // Vérifier que les sections essentielles sont remplies
+    const nomClient = document.querySelector('[name="client_nom"]')?.value?.trim();
+    const prenomClient = document.querySelector('[name="client_prenom"]')?.value?.trim();
+    const telephoneClient = document.querySelector('[name="client_telephone"]')?.value?.trim();
+    const villeId = document.querySelector('[name="ville_livraison"]')?.value;
+    const adresse = document.querySelector('[name="adresse_livraison"]')?.value?.trim();
+    
+    // Vérifications essentielles
+    if (!nomClient || !prenomClient) {
+        showNotification('⚠️ Veuillez renseigner le nom et prénom du client', 'error');
         return;
     }
     
-    // Sauvegarder les opérations d'abord
-    sauvegarderOperationsAvantAction().then(success => {
-        if (!success) {
-            alert('⚠️ Erreur lors de la sauvegarde des opérations. Veuillez réessayer.');
+    if (!telephoneClient) {
+        showNotification('⚠️ Veuillez renseigner le numéro de téléphone du client', 'error');
             return;
         }
         
-        // Processus en plusieurs étapes :
-        // 1. Lancer la confirmation si nécessaire
-        // 2. Sélectionner "Aucune action" comme opération par défaut
-        // 3. Confirmer la commande
-        
-        // Étape 1: Lancer la confirmation
-        fetch(`{% url 'operatConfirme:lancer_confirmation' commande.id %}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success || data.message.includes('déjà')) { // Si succès ou déjà lancée
-                // Étape 2: Sélectionner l'opération choisie par l'utilisateur avec son commentaire
-                const operationSelect = document.getElementById('operation-select');
-                const commentaireField = document.getElementById('commentaire-operation');
-                
-                // Vérifier que les éléments existent et ont des valeurs
-                if (!operationSelect) {
-                    throw new Error('Élément de sélection d\'opération non trouvé');
-                }
-                if (!commentaireField) {
-                    throw new Error('Champ de commentaire non trouvé');
+    if (!villeId) {
+        showNotification('⚠️ Veuillez sélectionner une ville de livraison', 'error');
+        return;
+    }
+    
+    // Vérifier que la région est bien remplie (automatiquement quand on sélectionne une ville)
+    const regionDisplay = document.getElementById('region-display')?.value?.trim();
+    if (!regionDisplay || regionDisplay === '') {
+        showNotification('⚠️ La région n\'est pas définie. Veuillez re-sélectionner une ville de livraison', 'error');
+        return;
+    }
+    
+    if (!adresse) {
+        showNotification('⚠️ Veuillez renseigner l\'adresse de livraison', 'error');
+        return;
+    }
+    
+    // Vérifier qu'il y a au moins un article dans la commande
+    const articles = document.querySelectorAll('.article-card');
+    if (articles.length === 0) {
+        showNotification('⚠️ La commande doit contenir au moins un article', 'error');
+        return;
                 }
                 
-                const typeOperation = operationSelect.value || 'AUCUNE_ACTION';
-                const commentaire = commentaireField.value || '';
-                
-                return fetch('{% url "operatConfirme:selectionner_operation" %}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({
-                        'commande_id': {{ commande.id }},
-                        'type_operation': typeOperation,
-                        'commentaire': commentaire
-                    })
-                });
-            } else {
-                throw new Error(data.message);
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Étape 3: Confirmer la commande
-            return fetch(`/operateur-confirme/commandes/{{ commande.id }}/confirmer-ajax/`, {
+    console.log('✅ Toutes les vérifications passées, confirmation en cours...');
+    
+    // Demander confirmation à l'utilisateur
+    if (!confirm('🎯 Êtes-vous sûr de vouloir confirmer cette commande ?\n\n⚠️ ATTENTION: Cette action va décrémenter le stock des articles et ne peut pas être annulée.\n\nLa commande sera envoyée vers l\'administration.')) {
+        return;
+    }
+    
+    // Afficher une notification de traitement en cours
+    showNotification('⏳ Confirmation en cours... (vérification du stock)', 'info');
+    
+    // Confirmer directement la commande
+    fetch(`/operateur-confirme/commandes/{{ commande.id }}/confirmer-ajax/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1908,22 +2070,58 @@ function confirmerCommande() {
                 body: JSON.stringify({
                     'commentaire': 'Commande confirmée après vérification complète'
                 })
-            });
         })
         .then(response => response.json())
         .then(data => {
+            console.log('📬 DEBUG: Réponse de confirmation reçue:', data);
+            
             if (data.success) {
-                alert('Commande confirmée avec succès ! Elle a été envoyée vers l\'admin.');
+                // Message de succès avec détails du stock
+                let successMessage = '✅ Commande confirmée avec succès !';
+                
+                if (data.articles_decrémentes && data.articles_decrémentes > 0) {
+                    successMessage += `\n📦 ${data.articles_decrémentes} article(s) décrémenté(s) du stock.`;
+                    
+                    // Log détaillé des modifications de stock
+                    if (data.details_stock && data.details_stock.length > 0) {
+                        console.log('📊 DEBUG: Détails de la décrémentation du stock:');
+                        data.details_stock.forEach((item, index) => {
+                            console.log(`   Article ${index + 1}: ${item.article}`);
+                            console.log(`      - Stock: ${item.ancien_stock} → ${item.nouveau_stock} (-${item.quantite_decrémententée})`);
+                        });
+                    }
+                }
+                
+                showNotification(successMessage, 'success');
+                
+                // Rediriger après un court délai pour voir la notification
+                setTimeout(() => {
                 window.location.href = '{% url "operatConfirme:commandes_confirmees" %}';
+                }, 3000); // 3 secondes pour lire les détails
+                
             } else {
-                alert('Erreur lors de la confirmation : ' + data.message);
+                // Gestion des erreurs de stock insuffisant
+                console.error('❌ DEBUG: Erreur de confirmation:', data.message);
+                
+                if (data.stock_insuffisant && data.stock_insuffisant.length > 0) {
+                    // Afficher les détails du stock insuffisant
+                    let errorMessage = '❌ Confirmation impossible - Stock insuffisant :\n\n';
+                    data.stock_insuffisant.forEach(item => {
+                        errorMessage += `• ${item.article}: Stock disponible=${item.stock_actuel}, Demandé=${item.quantite_demandee}\n`;
+                    });
+                    errorMessage += '\n💡 Veuillez modifier les quantités ou retirer les articles en rupture.';
+                    
+                    // Utiliser une alert pour plus de visibilité sur les erreurs de stock
+                    alert(errorMessage);
+                } else {
+                    showNotification('❌ Erreur lors de la confirmation : ' + data.message, 'error');
+                }
             }
         })
         .catch(error => {
-            console.error('Erreur:', error);
-            alert('Une erreur est survenue : ' + error.message);
+            console.error('❌ DEBUG: Erreur de connexion:', error);
+            showNotification('❌ Une erreur de connexion est survenue : ' + error.message, 'error');
         });
-    }); // Fermeture de la promesse sauvegarderOperationsAvantAction
 }
 
 // ================== GESTION DES ARTICLES ==================
@@ -2477,15 +2675,15 @@ function saveArticle() {
     }
     
     // Vérifier qu'un article est sélectionné (même en mode modification)
-    const select = document.getElementById('articleSelect');
-    if (!select.value) {
-        alert('⚠️ Veuillez sélectionner un article');
-        return;
-    }
-    
-    const selectedOption = select.options[select.selectedIndex];
-    const article = JSON.parse(selectedOption.dataset.article);
-    
+        const select = document.getElementById('articleSelect');
+        if (!select.value) {
+            alert('⚠️ Veuillez sélectionner un article');
+            return;
+        }
+        
+        const selectedOption = select.options[select.selectedIndex];
+        const article = JSON.parse(selectedOption.dataset.article);
+        
     if (!isEditingArticle) {
         // Ajout d'un nouvel article
         ajouterArticleAuContainer(article, quantite);
@@ -2500,15 +2698,15 @@ function saveArticle() {
     // Fermer la modale
     closeArticleModal();
     
-    // Sauvegarder automatiquement l'article dans la base de données
+    // Sauvegarder immédiatement en base de données
     if (!isEditingArticle) {
-        // Pour un nouvel article, sauvegarder immédiatement
-        sauvegarderAutomatiquementArticle();
-        showNotification('✅ Article ajouté et sauvegardé automatiquement', 'success');
+        // Nouvel article - sauvegarder directement
+        sauvegarderNouvelArticle(article, quantite);
+        showNotification('✅ Article ajouté et sauvegardé', 'success');
     } else {
-        // Pour une modification, sauvegarder aussi
-        sauvegarderAutomatiquementArticle();
-        showNotification('✅ Article modifié et sauvegardé automatiquement', 'success');
+        // Article existant - remplacer en base de données
+        sauvegarderRemplacementArticle(currentArticleId, article, quantite);
+        showNotification('🔄 Article remplacé et sauvegardé', 'success');
     }
 }
 
@@ -2726,35 +2924,48 @@ function remplacerArticleExistant(nouvelArticle, nouvelleQuantite) {
             articleInput.value = nouvelArticle.id;
             quantityInput.value = nouvelleQuantite;
         } else {
-            // Article existant - ajouter des champs de modification
-            let modifInput = articleCard.querySelector('input[name="modified_articles[]"]');
-            let quantityInput = articleCard.querySelector('input[name="modified_quantities[]"]');
-            let newArticleInput = articleCard.querySelector('input[name="new_article_ids[]"]');
+            // Article existant - remplacement complet (supprimer l'ancien, ajouter le nouveau)
             
-            if (!modifInput) {
-                modifInput = document.createElement('input');
-                modifInput.type = 'hidden';
-                modifInput.name = 'modified_articles[]';
-                modifInput.value = currentArticleId;
-                articleCard.appendChild(modifInput);
+            // 1. Marquer l'ancien article pour suppression
+            let deleteInput = articleCard.querySelector('input[name="deleted_articles[]"]');
+            if (!deleteInput) {
+                deleteInput = document.createElement('input');
+                deleteInput.type = 'hidden';
+                deleteInput.name = 'deleted_articles[]';
+                deleteInput.value = currentArticleId;
+                articleCard.appendChild(deleteInput);
             }
             
-            if (!quantityInput) {
-                quantityInput = document.createElement('input');
-                quantityInput.type = 'hidden';
-                quantityInput.name = 'modified_quantities[]';
-                articleCard.appendChild(quantityInput);
-            }
+            // 2. Ajouter le nouvel article
+            let newArticleInput = articleCard.querySelector('input[name="new_articles[]"]');
+            let newQuantityInput = articleCard.querySelector('input[name="new_quantities[]"]');
             
             if (!newArticleInput) {
                 newArticleInput = document.createElement('input');
                 newArticleInput.type = 'hidden';
-                newArticleInput.name = 'new_article_ids[]';
+                newArticleInput.name = 'new_articles[]';
                 articleCard.appendChild(newArticleInput);
             }
             
-            quantityInput.value = nouvelleQuantite;
+            if (!newQuantityInput) {
+                newQuantityInput = document.createElement('input');
+                newQuantityInput.type = 'hidden';
+                newQuantityInput.name = 'new_quantities[]';
+                articleCard.appendChild(newQuantityInput);
+            }
+            
             newArticleInput.value = nouvelArticle.id;
+            newQuantityInput.value = nouvelleQuantite;
+            
+            // 3. Marquer comme article remplacé pour le traitement côté serveur
+            articleCard.dataset.isReplaced = 'true';
+            
+            console.log('🔄 Article existant remplacé:', {
+                ancienId: currentArticleId,
+                nouveauId: nouvelArticle.id,
+                nouveauNom: nouvelArticle.nom,
+                quantite: nouvelleQuantite
+            });
         }
         
         console.log('✅ Article remplacé avec succès:', {
@@ -2762,6 +2973,11 @@ function remplacerArticleExistant(nouvelArticle, nouvelleQuantite) {
             nouveau: nouvelArticle.nom,
             quantite: nouvelleQuantite
         });
+        
+        // Ajouter une notification explicite pour le remplacement d'article
+        if (!articleCard.dataset.isNew) {
+            console.log('🔄 Remplacement d\'article détecté - l\'ancien sera supprimé et le nouveau ajouté lors de la sauvegarde');
+        }
     }
 }
 
@@ -2815,24 +3031,81 @@ function supprimerArticle(articleId) {
     if (confirm('⚠️ Êtes-vous sûr de vouloir supprimer cet article de la commande ?')) {
         const articleCard = document.querySelector(`[data-article-id="${articleId}"]`);
         if (articleCard) {
-            // Si c'est un article existant, ajouter un champ pour indiquer la suppression
-            if (!articleCard.dataset.isNew) {
-                const deleteInput = document.createElement('input');
-                deleteInput.type = 'hidden';
-                deleteInput.name = 'deleted_articles[]';
-                deleteInput.value = articleId;
-                document.getElementById('modification-form').appendChild(deleteInput);
+            // Si c'est un nouvel article non sauvegardé, juste le supprimer du DOM
+            if (articleCard.dataset.isNew) {
+                articleCard.remove();
+                mettreAJourCompteurArticles();
+                mettreAJourTotalCommande();
+                showNotification('🗑️ Article supprimé', 'success');
+            } else {
+                // Si c'est un article existant, le supprimer en base de données
+                sauvegarderSuppressionArticle(articleId);
             }
-            
-            articleCard.remove();
-            mettreAJourCompteurArticles();
-            mettreAJourTotalCommande();
-            
-            // Sauvegarder automatiquement la suppression
-            sauvegarderAutomatiquementArticle();
-            showNotification('🗑️ Article supprimé et sauvegardé automatiquement', 'success');
         }
     }
+}
+
+// Fonction pour sauvegarder la suppression d'un article immédiatement
+function sauvegarderSuppressionArticle(articleId) {
+    console.log('🗑️ Sauvegarde immédiate de la suppression d\'article...');
+    
+    const formData = new FormData();
+    
+    // Ajouter le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken.value);
+    }
+    
+    // Ajouter les données de suppression
+    formData.append('action', 'delete_article');
+    formData.append('article_id', articleId);
+    formData.append('commande_id', '{{ commande.id }}');
+    
+    // Envoyer via AJAX
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Article supprimé de la base de données');
+            
+            // Supprimer du DOM
+            const articleCard = document.querySelector(`[data-article-id="${articleId}"]`);
+            if (articleCard) {
+            articleCard.remove();
+            }
+            
+            // Mettre à jour l'interface
+            mettreAJourCompteurArticles();
+            
+            // Mettre à jour le total si fourni
+            if (data.total_commande) {
+                document.getElementById('total-commande').textContent = `${data.total_commande.toFixed(2)} DH`;
+            }
+            
+            // Mettre à jour le compteur d'articles
+            if (data.nb_articles !== undefined) {
+                document.getElementById('articles-count').textContent = data.nb_articles;
+                document.getElementById('articles-plural').textContent = data.nb_articles > 1 ? 's' : '';
+            }
+            
+            showNotification('🗑️ Article supprimé et sauvegardé', 'success');
+            
+        } else {
+            console.error('❌ Erreur lors de la suppression:', data.error);
+            showNotification('❌ Erreur lors de la suppression: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erreur de connexion:', error);
+        showNotification('❌ Erreur de connexion lors de la suppression', 'error');
+    });
 }
 
 // Fonction pour fermer la modale d'article
@@ -2870,34 +3143,50 @@ function mettreAJourTotalCommande() {
     document.getElementById('total-commande').textContent = `${total.toFixed(2)} DH`;
 }
 
-// Fonction pour sauvegarder automatiquement les articles dans la base de données
-function sauvegarderAutomatiquementArticle() {
-    console.log('💾 Sauvegarde automatique de l\'article en cours...');
+// Fonction pour sauvegarder un nouvel article immédiatement
+function sauvegarderNouvelArticle(article, quantite) {
+    console.log('💾 Sauvegarde immédiate d\'un nouvel article...');
     
-    try {
-        const form = document.getElementById('modification-form');
-        if (!form) {
-            console.error('❌ Formulaire modification-form introuvable');
-            return;
+    const formData = new FormData();
+    
+    // Ajouter le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken.value);
         }
         
-        // Créer FormData avec tous les champs du formulaire
-        const formData = new FormData(form);
+    // Ajouter les données de l'article
+    formData.append('action', 'add_article');
+    formData.append('article_id', article.id);
+    formData.append('quantite', quantite);
+    formData.append('commande_id', '{{ commande.id }}');
         
-        // Envoyer via AJAX pour éviter de recharger la page
-        fetch(form.action, {
+    // Envoyer via AJAX
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
             method: 'POST',
             body: formData,
             headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'X-Requested-With': 'XMLHttpRequest', // Indiquer que c'est une requête AJAX
+            'X-Requested-With': 'XMLHttpRequest',
             }
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('✅ Article sauvegardé automatiquement en base de données');
-                console.log('📊 Données retournées:', data);
+            console.log('✅ Nouvel article sauvegardé en base de données');
+            
+            // Mettre à jour l'ID de l'article dans le DOM avec l'ID réel de la base
+            if (data.article_id) {
+                const articleCard = document.querySelector(`[data-article-id^="new-"]`);
+                if (articleCard) {
+                    articleCard.setAttribute('data-article-id', data.article_id);
+                    articleCard.removeAttribute('data-is-new');
+                }
+            }
+            
+            // Mettre à jour le total si fourni
+            if (data.total_commande) {
+                document.getElementById('total-commande').textContent = `${data.total_commande.toFixed(2)} DH`;
+            }
                 
                 // Mettre à jour le compteur d'articles
                 if (data.nb_articles) {
@@ -2905,28 +3194,87 @@ function sauvegarderAutomatiquementArticle() {
                     document.getElementById('articles-plural').textContent = data.nb_articles > 1 ? 's' : '';
                 }
                 
-                // Mettre à jour le total de la commande
+        } else {
+            console.error('❌ Erreur lors de la sauvegarde:', data.error);
+            showNotification('❌ Erreur lors de la sauvegarde: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erreur de connexion:', error);
+        showNotification('❌ Erreur de connexion lors de la sauvegarde', 'error');
+    });
+}
+
+// Fonction pour sauvegarder le remplacement d'un article immédiatement
+function sauvegarderRemplacementArticle(ancienArticleId, nouvelArticle, nouvelleQuantite) {
+    console.log('🔄 Sauvegarde immédiate du remplacement d\'article...');
+    
+    const formData = new FormData();
+    
+    // Ajouter le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken.value);
+    }
+    
+    // Ajouter les données du remplacement
+    formData.append('action', 'replace_article');
+    formData.append('ancien_article_id', ancienArticleId);
+    formData.append('nouvel_article_id', nouvelArticle.id);
+    formData.append('nouvelle_quantite', nouvelleQuantite);
+    formData.append('commande_id', '{{ commande.id }}');
+    
+    // Envoyer via AJAX
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Remplacement d\'article sauvegardé en base de données');
+            
+            // Mettre à jour l'ID de l'article dans le DOM avec l'ID réel du nouveau panier
+            if (data.nouvel_article_id) {
+                const articleCard = document.querySelector(`[data-article-id="${ancienArticleId}"]`);
+                if (articleCard) {
+                    articleCard.setAttribute('data-article-id', data.nouvel_article_id);
+                    articleCard.removeAttribute('data-is-replaced');
+                }
+            }
+            
+            // Mettre à jour le total si fourni
                 if (data.total_commande) {
                     document.getElementById('total-commande').textContent = `${data.total_commande.toFixed(2)} DH`;
                 }
                 
-                // Plus besoin de recharger la page !
-                showNotification('✅ Sauvegardé en base de données', 'success');
+            // Mettre à jour le compteur d'articles
+            if (data.nb_articles) {
+                document.getElementById('articles-count').textContent = data.nb_articles;
+                document.getElementById('articles-plural').textContent = data.nb_articles > 1 ? 's' : '';
+            }
+            
+            console.log('🔄 Remplacement terminé:', {
+                ancien: ancienArticleId,
+                nouveau: data.nouvel_article_id,
+                article: nouvelArticle.nom
+            });
+            
             } else {
-                console.warn('⚠️ Erreur lors de la sauvegarde automatique');
-                showNotification('⚠️ Erreur lors de la sauvegarde automatique', 'error');
+            console.error('❌ Erreur lors du remplacement:', data.error);
+            showNotification('❌ Erreur lors du remplacement: ' + data.error, 'error');
             }
         })
         .catch(error => {
-            console.error('❌ Erreur de sauvegarde automatique:', error);
-            showNotification('❌ Erreur de connexion lors de la sauvegarde', 'error');
+        console.error('❌ Erreur de connexion:', error);
+        showNotification('❌ Erreur de connexion lors du remplacement', 'error');
         });
-        
-    } catch (error) {
-        console.error('❌ Erreur lors de la sauvegarde automatique:', error);
-        showNotification('❌ Erreur lors de la sauvegarde automatique', 'error');
-    }
 }
+
+
 
 // Ajouter les événements pour la modale d'articles et les raccourcis clavier
 document.addEventListener('DOMContentLoaded', function() {
@@ -2954,19 +3302,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Raccourcis clavier pour l'interface
     document.addEventListener('keydown', function(event) {
-        // Ctrl+S pour sauvegarder
+        // Ctrl+S désactivé - sauvegarde automatique avec les boutons "Enregistrer"
         if (event.ctrlKey && event.key === 's') {
             event.preventDefault();
-            console.log('⌨️ Raccourci Ctrl+S détecté - Sauvegarde...');
-            
-            // Vérifier et sauvegarder
-            if (verifierOperationsSelectionnees()) {
-                const form = document.getElementById('modification-form');
-                if (form) {
-                    form.submit();
-                    showNotification('💾 Sauvegarde lancée (Ctrl+S)', 'success');
-                }
-            }
+            showNotification('ℹ️ Sauvegarde automatique active - utilisez les boutons "Enregistrer"', 'success');
         }
         
         // Ctrl+Enter pour confirmer la commande

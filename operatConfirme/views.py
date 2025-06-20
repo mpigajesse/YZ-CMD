@@ -187,8 +187,11 @@ def liste_commandes(request):
 def confirmer_commande_ajax(request, commande_id):
     """Confirme une commande spécifique via AJAX depuis la page de confirmation"""
     from commande.models import Commande, EtatCommande, EnumEtatCmd
+    from article.models import Article
     from django.http import JsonResponse
     from django.utils import timezone
+    from django.db import transaction
+    
     if request.method == 'POST':
         try:
             import json
@@ -211,30 +214,106 @@ def confirmer_commande_ajax(request, commande_id):
         if not (etat_actuel and etat_actuel.operateur == operateur):
             return JsonResponse({'success': False, 'message': 'Cette commande ne vous est pas affectée.'})
         
-        # Créer le nouvel état "confirmée"
-        enum_confirmee = EnumEtatCmd.objects.get(libelle='Confirmée')
+        # Vérifier que la commande n'est pas déjà confirmée
+        if etat_actuel.enum_etat.libelle == 'Confirmée':
+            return JsonResponse({'success': False, 'message': 'Cette commande est déjà confirmée.'})
         
-        # Fermer l'état actuel
-        etat_actuel.date_fin = timezone.now()
-        etat_actuel.save()
-        
-        # Créer le nouvel état
-        EtatCommande.objects.create(
-            commande=commande,
-            enum_etat=enum_confirmee,
-            operateur=operateur,
-            date_debut=timezone.now(),
-            commentaire=commentaire
-        )
+        # Utiliser une transaction pour la confirmation et la décrémentation du stock
+        with transaction.atomic():
+            print(f"🎯 DEBUG: Début de la confirmation de la commande {commande.id_yz}")
+            
+            # Vérifier le stock et décrémenter les articles
+            articles_decrémentes = []
+            stock_insuffisant = []
+            
+            for panier in commande.paniers.all():
+                article = panier.article
+                quantite_commandee = panier.quantite
+                
+                print(f"📦 DEBUG: Article {article.nom} (ID:{article.id})")
+                print(f"   - Stock actuel: {article.qte_disponible}")
+                print(f"   - Quantité commandée: {quantite_commandee}")
+                
+                # Vérifier si le stock est suffisant
+                if article.qte_disponible < quantite_commandee:
+                    stock_insuffisant.append({
+                        'article': article.nom,
+                        'stock_actuel': article.qte_disponible,
+                        'quantite_demandee': quantite_commandee
+                    })
+                    print(f"❌ DEBUG: Stock insuffisant pour {article.nom}")
+                else:
+                    # Décrémenter le stock
+                    ancien_stock = article.qte_disponible
+                    article.qte_disponible -= quantite_commandee
+                    article.save()
+                    
+                    articles_decrémentes.append({
+                        'article': article.nom,
+                        'ancien_stock': ancien_stock,
+                        'nouveau_stock': article.qte_disponible,
+                        'quantite_decrémententée': quantite_commandee
+                    })
+                    
+                    print(f"✅ DEBUG: Stock mis à jour pour {article.nom}")
+                    print(f"   - Ancien stock: {ancien_stock}")
+                    print(f"   - Nouveau stock: {article.qte_disponible}")
+            
+            # Si il y a des problèmes de stock, annuler la transaction
+            if stock_insuffisant:
+                error_msg = f"Stock insuffisant pour : "
+                for item in stock_insuffisant:
+                    error_msg += f"\n• {item['article']}: Stock={item['stock_actuel']}, Demandé={item['quantite_demandee']}"
+                
+                print(f"❌ DEBUG: Confirmation annulée - problèmes de stock")
+                for item in stock_insuffisant:
+                    print(f"   - {item['article']}: {item['stock_actuel']}/{item['quantite_demandee']}")
+                
+                return JsonResponse({
+                    'success': False, 
+                    'message': error_msg,
+                    'stock_insuffisant': stock_insuffisant
+                })
+            
+            # Créer le nouvel état "confirmée"
+            enum_confirmee = EnumEtatCmd.objects.get(libelle='Confirmée')
+            
+            # Fermer l'état actuel
+            etat_actuel.date_fin = timezone.now()
+            etat_actuel.save()
+            print(f"🔄 DEBUG: État actuel fermé: {etat_actuel.enum_etat.libelle}")
+            
+            # Créer le nouvel état
+            nouvel_etat = EtatCommande.objects.create(
+                commande=commande,
+                enum_etat=enum_confirmee,
+                operateur=operateur,
+                date_debut=timezone.now(),
+                commentaire=commentaire
+            )
+            print(f"✅ DEBUG: Nouvel état créé: Confirmée")
+            
+            # Log des articles décrémernts
+            print(f"📊 DEBUG: Résumé de la décrémentation:")
+            print(f"   - {len(articles_decrémentes)} article(s) décrémenté(s)")
+            for item in articles_decrémentes:
+                print(f"   - {item['article']}: {item['ancien_stock']} → {item['nouveau_stock']} (-{item['quantite_decrémententée']})")
         
         return JsonResponse({
             'success': True, 
-            'message': f'Commande {commande.id_yz} confirmée avec succès.'
+            'message': f'Commande {commande.id_yz} confirmée avec succès.',
+            'articles_decrémentes': len(articles_decrémentes),
+            'details_stock': articles_decrémentes
         })
         
     except Commande.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Commande non trouvée.'})
+    except EnumEtatCmd.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'État "Confirmée" non trouvé dans la configuration.'})
     except Exception as e:
+        print(f"❌ DEBUG: Erreur lors de la confirmation: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
 
 @login_required
@@ -1191,6 +1270,258 @@ def modifier_commande(request, commande_id):
     
     if request.method == 'POST':
         try:
+            # ================ GESTION DES ACTIONS AJAX SPÉCIFIQUES ================
+            action = request.POST.get('action')
+            
+            if action == 'add_article':
+                # Ajouter un nouvel article immédiatement
+                from article.models import Article
+                from commande.models import Panier
+                
+                article_id = request.POST.get('article_id')
+                quantite = int(request.POST.get('quantite', 1))
+                
+                try:
+                    article = Article.objects.get(id=article_id)
+                    sous_total = article.prix_unitaire * quantite
+                    
+                    panier = Panier.objects.create(
+                        commande=commande,
+                        article=article,
+                        quantite=quantite,
+                        sous_total=sous_total
+                    )
+                    
+                    # Recalculer le total de la commande
+                    total_commande = commande.paniers.aggregate(
+                        total=models.Sum('sous_total')
+                    )['total'] or 0
+                    commande.total_cmd = total_commande
+                    commande.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Article ajouté avec succès',
+                        'article_id': panier.id,
+                        'total_commande': float(commande.total_cmd),
+                        'nb_articles': commande.paniers.count(),
+                    })
+                    
+                except Article.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Article non trouvé'
+                    })
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'replace_article':
+                # Remplacer un article existant
+                from article.models import Article
+                from commande.models import Panier
+                
+                ancien_article_id = request.POST.get('ancien_article_id')
+                nouvel_article_id = request.POST.get('nouvel_article_id')
+                nouvelle_quantite = int(request.POST.get('nouvelle_quantite', 1))
+                
+                try:
+                    # Supprimer l'ancien panier
+                    ancien_panier = Panier.objects.get(id=ancien_article_id, commande=commande)
+                    ancien_panier.delete()
+                    
+                    # Créer le nouveau panier
+                    nouvel_article = Article.objects.get(id=nouvel_article_id)
+                    sous_total = nouvel_article.prix_unitaire * nouvelle_quantite
+                    
+                    nouveau_panier = Panier.objects.create(
+                        commande=commande,
+                        article=nouvel_article,
+                        quantite=nouvelle_quantite,
+                        sous_total=sous_total
+                    )
+                    
+                    # Recalculer le total de la commande
+                    total_commande = commande.paniers.aggregate(
+                        total=models.Sum('sous_total')
+                    )['total'] or 0
+                    commande.total_cmd = total_commande
+                    commande.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Article remplacé avec succès',
+                        'nouvel_article_id': nouveau_panier.id,
+                        'total_commande': float(commande.total_cmd),
+                        'nb_articles': commande.paniers.count(),
+                    })
+                    
+                except Panier.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Article original non trouvé'
+                    })
+                except Article.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Nouvel article non trouvé'
+                    })
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'delete_article':
+                # Supprimer un article
+                from commande.models import Panier
+                
+                article_id = request.POST.get('article_id')
+                
+                try:
+                    panier = Panier.objects.get(id=article_id, commande=commande)
+                    panier.delete()
+                    
+                    # Recalculer le total de la commande
+                    total_commande = commande.paniers.aggregate(
+                        total=models.Sum('sous_total')
+                    )['total'] or 0
+                    commande.total_cmd = total_commande
+                    commande.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Article supprimé avec succès',
+                        'total_commande': float(commande.total_cmd),
+                        'nb_articles': commande.paniers.count(),
+                    })
+                    
+                except Panier.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Article non trouvé'
+                    })
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'update_operation':
+                # Mettre à jour une opération existante
+                try:
+                    from commande.models import Operation
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    
+                    operation_id = request.POST.get('operation_id')
+                    nouveau_commentaire = request.POST.get('nouveau_commentaire', '').strip()
+                    
+                    print(f"🔄 DEBUG: Mise à jour opération {operation_id} pour commande {commande.id}")
+                    print(f"📝 DEBUG: Nouveau commentaire: '{nouveau_commentaire}'")
+                    print(f"🔍 DEBUG: Données POST reçues: {dict(request.POST)}")
+                    
+                    if not operation_id or not nouveau_commentaire:
+                        print(f"❌ DEBUG: Données manquantes - operation_id: '{operation_id}', commentaire: '{nouveau_commentaire}'")
+                        return JsonResponse({'success': False, 'error': 'ID opération et commentaire requis'})
+                    
+                    # Récupérer et mettre à jour l'opération
+                    operation = Operation.objects.get(id=operation_id, commande=commande)
+                    ancien_commentaire = operation.conclusion
+                    
+                    print(f"📋 DEBUG: Ancien commentaire: '{ancien_commentaire}'")
+                    
+                    operation.conclusion = nouveau_commentaire
+                    operation.operateur = operateur  # Mettre à jour l'opérateur qui modifie
+                    operation.save()
+                    
+                    print(f"✅ DEBUG: Opération {operation_id} sauvegardée en base de données")
+                    
+                    # Vérification post-sauvegarde
+                    operation_verif = Operation.objects.get(id=operation_id)
+                    print(f"🔍 DEBUG: Vérification en base: conclusion = '{operation_verif.conclusion}'")
+                    
+                    # Vérifier toutes les opérations de cette commande
+                    toutes_operations = Operation.objects.filter(commande=commande)
+                    print(f"📊 DEBUG: {toutes_operations.count()} opération(s) totales pour cette commande:")
+                    for op in toutes_operations:
+                        print(f"   - ID {op.id}: {op.type_operation} - '{op.conclusion}'")
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Opération mise à jour avec succès en base de données',
+                        'operation_id': operation_id,
+                        'nouveau_commentaire': nouveau_commentaire,
+                        'ancien_commentaire': ancien_commentaire,
+                        'debug_info': {
+                            'verification_conclusion': operation_verif.conclusion,
+                            'total_operations': toutes_operations.count()
+                        }
+                    })
+                    
+                except Operation.DoesNotExist:
+                    print(f"❌ DEBUG: Opération {operation_id} introuvable pour commande {commande.id}")
+                    return JsonResponse({'success': False, 'error': 'Opération introuvable'})
+                except Exception as e:
+                    print(f"❌ DEBUG: Erreur mise à jour opération: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    return JsonResponse({'success': False, 'error': str(e)})
+            
+            elif action == 'create_operation':
+                # Créer une nouvelle opération immédiatement
+                try:
+                    from commande.models import Operation
+                    
+                    type_operation = request.POST.get('type_operation')
+                    commentaire = request.POST.get('commentaire', '').strip()
+                    
+                    print(f"🆕 DEBUG: Création nouvelle opération pour commande {commande.id}")
+                    print(f"📝 DEBUG: Type: '{type_operation}', Commentaire: '{commentaire}'")
+                    print(f"🔍 DEBUG: Données POST reçues: {dict(request.POST)}")
+                    
+                    if not type_operation or not commentaire:
+                        print(f"❌ DEBUG: Données manquantes - type: '{type_operation}', commentaire: '{commentaire}'")
+                        return JsonResponse({'success': False, 'error': 'Type d\'opération et commentaire requis'})
+                    
+                    # Créer la nouvelle opération
+                    nouvelle_operation = Operation.objects.create(
+                        type_operation=type_operation,
+                        conclusion=commentaire,
+                        commande=commande,
+                        operateur=operateur
+                    )
+                    
+                    print(f"✅ DEBUG: Nouvelle opération créée avec ID: {nouvelle_operation.id}")
+                    
+                    # Vérifier toutes les opérations de cette commande
+                    toutes_operations = Operation.objects.filter(commande=commande)
+                    print(f"📊 DEBUG: {toutes_operations.count()} opération(s) totales pour cette commande:")
+                    for op in toutes_operations:
+                        print(f"   - ID {op.id}: {op.type_operation} - '{op.conclusion}'")
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Nouvelle opération créée avec succès en base de données',
+                        'operation_id': nouvelle_operation.id,
+                        'type_operation': nouvelle_operation.type_operation,
+                        'commentaire': nouvelle_operation.conclusion,
+                        'debug_info': {
+                            'total_operations': toutes_operations.count(),
+                            'operation_date': nouvelle_operation.date_operation.strftime('%d/%m/%Y %H:%M')
+                        }
+                    })
+                    
+                except Exception as e:
+                    print(f"❌ DEBUG: Erreur création opération: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    return JsonResponse({'success': False, 'error': str(e)})
+            
+            # ================ TRAITEMENT NORMAL DU FORMULAIRE ================
+            
             # Mise à jour des informations client
             commande.client.nom = request.POST.get('client_nom', '').strip()
             commande.client.prenom = request.POST.get('client_prenom', '').strip()
@@ -1356,6 +1687,73 @@ def modifier_commande(request, commande_id):
     }
     
     return render(request, 'operatConfirme/modifier_commande.html', context)
+
+@login_required
+def api_operations_commande(request, commande_id):
+    """API pour récupérer les opérations d'une commande mises à jour"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur de confirmation
+        operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
+        
+        # Récupérer la commande
+        commande = Commande.objects.get(id=commande_id)
+        
+        # Récupérer toutes les opérations de cette commande
+        operations = commande.operations.all().order_by('date_operation')
+        
+        operations_data = []
+        for operation in operations:
+            # Déterminer la classe CSS selon le type d'opération
+            if operation.type_operation == "APPEL":
+                classe_css = 'bg-blue-100 text-blue-800'
+            elif operation.type_operation == "ENVOI_SMS":
+                classe_css = 'bg-green-100 text-green-800'
+            elif "Whatsapp" in operation.type_operation:
+                classe_css = 'bg-emerald-100 text-emerald-800'
+            else:
+                classe_css = 'bg-gray-100 text-gray-800'
+            
+            # Déterminer le type principal
+            if operation.type_operation == "APPEL":
+                type_principal = 'APPEL'
+            elif operation.type_operation == "ENVOI_SMS":
+                type_principal = 'SMS'
+            elif "Whatsapp" in operation.type_operation:
+                type_principal = 'WHATSAPP'
+            else:
+                type_principal = 'OTHER'
+            
+            operations_data.append({
+                'id': operation.id,
+                'type_operation': operation.type_operation,
+                'nom_display': operation.get_type_operation_display(),
+                'classe_css': classe_css,
+                'date_operation': operation.date_operation.strftime('%d/%m/%Y %H:%M'),
+                'conclusion': operation.conclusion or '',
+                'type_principal': type_principal
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'operations': operations_data,
+            'count': len(operations_data)
+        })
+        
+    except Operateur.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Utilisateur non autorisé'
+        })
+    except Commande.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Commande introuvable'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 
 @login_required
 def api_articles_disponibles(request):
