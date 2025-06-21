@@ -1,0 +1,192 @@
+<!-- Toast de notification pour synchronisation - Template réutilisable -->
+<div id="syncToast" class="fixed top-4 right-4 z-50 hidden transform transition-all duration-300 translate-x-full">
+    <div class="bg-white rounded-lg shadow-2xl border border-gray-200 max-w-md w-full overflow-hidden">
+        <!-- En-tête du toast -->
+        <div id="toastHeader" class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center">
+                <div id="toastIcon" class="w-8 h-8 rounded-full flex items-center justify-center mr-3">
+                    <i id="toastIconClass" class="text-sm"></i>
+                </div>
+                <h4 id="toastTitle" class="font-semibold text-gray-800"></h4>
+            </div>
+            <button onclick="hideSyncToast()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Corps du toast -->
+        <div class="px-4 py-3">
+            <p id="toastMessage" class="text-sm text-gray-700 mb-3"></p>
+            
+            <!-- Statistiques détaillées -->
+            <div id="toastStats" class="grid grid-cols-2 gap-2 mb-3 hidden">
+                <div id="toastNewOrders" class="flex items-center justify-between p-2 bg-green-50 rounded text-xs hidden">
+                    <span class="text-green-700 flex items-center">
+                        <i class="fas fa-plus-circle mr-1"></i>
+                        Nouvelles
+                    </span>
+                    <span id="toastNewOrdersCount" class="font-bold text-green-800">0</span>
+                </div>
+                <div id="toastUpdates" class="flex items-center justify-between p-2 bg-orange-50 rounded text-xs hidden">
+                    <span class="text-orange-700 flex items-center">
+                        <i class="fas fa-edit mr-1"></i>
+                        Mises à jour
+                    </span>
+                    <span id="toastUpdatesCount" class="font-bold text-orange-800">0</span>
+                </div>
+                <div id="toastDuplicates" class="flex items-center justify-between p-2 bg-red-50 rounded text-xs hidden">
+                    <span class="text-red-700 flex items-center">
+                        <i class="fas fa-shield-alt mr-1"></i>
+                        Doublons évités
+                    </span>
+                    <span id="toastDuplicatesCount" class="font-bold text-red-800">0</span>
+                </div>
+                <div id="toastSkipped" class="flex items-center justify-between p-2 bg-gray-100 rounded text-xs hidden">
+                    <span class="text-gray-700 flex items-center">
+                        <i class="fas fa-minus-circle mr-1"></i>
+                        Inchangées
+                    </span>
+                    <span id="toastSkippedCount" class="font-bold text-gray-800">0</span>
+                </div>
+            </div>
+
+            <!-- Message spécial pour resynchronisation sans nouveautés -->
+            <div id="toastNoNewOrdersAlert" class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm hidden">
+                <div class="flex items-center text-blue-800 mb-1">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <strong>Resynchronisation sans nouveautés</strong>
+                </div>
+                <div class="text-blue-700">
+                    <span id="toastExistingCount">0</span> commandes existantes confirmées dans la feuille
+                </div>
+                <div class="text-xs text-blue-600 mt-1">
+                    🔍 Aucune insertion en double effectuée
+                </div>
+            </div>
+
+            <!-- Détails et timestamp -->
+            <div class="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100">
+                <div class="flex justify-between items-center">
+                    <span id="toastTimestamp"></span>
+                    <a href="/synchronisation/logs/" class="text-blue-600 hover:text-blue-800 transition-colors">
+                        Voir les logs
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Fonctions pour gérer le toast de synchronisation
+function showSyncToast(result) {
+    const toast = document.getElementById('syncToast');
+    const header = document.getElementById('toastHeader');
+    const icon = document.getElementById('toastIcon');
+    const iconClass = document.getElementById('toastIconClass');
+    const title = document.getElementById('toastTitle');
+    const message = document.getElementById('toastMessage');
+    const timestamp = document.getElementById('toastTimestamp');
+    const noNewOrdersAlert = document.getElementById('toastNoNewOrdersAlert');
+    const existingCount = document.getElementById('toastExistingCount');
+
+    // Déterminer le type de notification
+    const isNoNewOrders = result.new_orders_created === 0 && result.duplicate_orders_found > 0;
+    const isSuccess = result.success || result.new_orders_created > 0;
+
+    // Configuration selon le type
+    if (isNoNewOrders) {
+        // Cas spécial : Resynchronisation sans nouvelles commandes
+        header.className = 'px-4 py-3 border-b border-blue-100 flex items-center justify-between bg-blue-50';
+        icon.className = 'w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-blue-100';
+        iconClass.className = 'fas fa-info-circle text-sm text-blue-600';
+        title.textContent = 'Resynchronisation terminée';
+        title.className = 'font-semibold text-blue-800';
+        message.textContent = 'Aucune nouvelle commande trouvée dans la feuille.';
+        
+        // Afficher l'alert spéciale
+        existingCount.textContent = result.duplicate_orders_found;
+        noNewOrdersAlert.classList.remove('hidden');
+        
+    } else if (isSuccess) {
+        // Cas de succès
+        header.className = 'px-4 py-3 border-b border-green-100 flex items-center justify-between bg-green-50';
+        icon.className = 'w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-green-100';
+        iconClass.className = 'fas fa-check-circle text-sm text-green-600';
+        title.textContent = 'Synchronisation réussie';
+        title.className = 'font-semibold text-green-800';
+        message.textContent = `${result.new_orders_created} nouvelles commandes ajoutées avec succès.`;
+        
+    } else {
+        // Cas d'erreur
+        header.className = 'px-4 py-3 border-b border-red-100 flex items-center justify-between bg-red-50';
+        icon.className = 'w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-red-100';
+        iconClass.className = 'fas fa-exclamation-circle text-sm text-red-600';
+        title.textContent = 'Erreur de synchronisation';
+        title.className = 'font-semibold text-red-800';
+        message.textContent = 'Des erreurs sont survenues pendant la synchronisation.';
+    }
+
+    // Afficher les statistiques détaillées
+    updateToastStats(result);
+
+    // Timestamp
+    timestamp.textContent = `Terminé le ${new Date().toLocaleString('fr-FR')}`;
+
+    // Afficher le toast avec animation
+    toast.classList.remove('hidden', 'translate-x-full');
+    toast.classList.add('translate-x-0');
+
+    // Auto-masquer après délai (plus long pour le cas spécial)
+    setTimeout(() => {
+        hideSyncToast();
+    }, isNoNewOrders ? 8000 : 6000);
+}
+
+function updateToastStats(result) {
+    const stats = document.getElementById('toastStats');
+    
+    // Mettre à jour chaque statistique
+    updateToastStat('toastNewOrders', 'toastNewOrdersCount', result.new_orders_created);
+    updateToastStat('toastUpdates', 'toastUpdatesCount', result.existing_orders_updated);
+    updateToastStat('toastDuplicates', 'toastDuplicatesCount', result.duplicate_orders_found);
+    updateToastStat('toastSkipped', 'toastSkippedCount', result.existing_orders_skipped);
+
+    // Afficher la section stats si au moins une valeur > 0
+    if (result.new_orders_created > 0 || result.existing_orders_updated > 0 || 
+        result.duplicate_orders_found > 0 || result.existing_orders_skipped > 0) {
+        stats.classList.remove('hidden');
+    }
+}
+
+function updateToastStat(divId, countId, value) {
+    const div = document.getElementById(divId);
+    const count = document.getElementById(countId);
+    
+    if (div && count && value > 0) {
+        count.textContent = value;
+        div.classList.remove('hidden');
+    }
+}
+
+function hideSyncToast() {
+    const toast = document.getElementById('syncToast');
+    toast.classList.add('translate-x-full');
+    setTimeout(() => {
+        toast.classList.add('hidden');
+        // Reset pour la prochaine utilisation
+        resetToast();
+    }, 300);
+}
+
+function resetToast() {
+    // Masquer tous les éléments optionnels
+    document.getElementById('toastStats').classList.add('hidden');
+    document.getElementById('toastNoNewOrdersAlert').classList.add('hidden');
+    
+    // Masquer toutes les stats individuelles
+    ['toastNewOrders', 'toastUpdates', 'toastDuplicates', 'toastSkipped'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+    });
+}
+</script> 

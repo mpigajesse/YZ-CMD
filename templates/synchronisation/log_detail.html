@@ -117,6 +117,54 @@
                             </span>
                         </dd>
                     </div>
+                    
+                    <!-- Nouvelles statistiques détaillées -->
+                    {% if log.new_orders_created or log.existing_orders_updated or log.existing_orders_skipped or log.duplicate_orders_found %}
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <h4 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                            <i class="fas fa-chart-pie mr-2" style="color: var(--admin-color);"></i>
+                            Répartition des actions
+                        </h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            {% if log.new_orders_created %}
+                            <div class="flex items-center justify-between p-2 bg-green-50 rounded">
+                                <span class="text-xs text-green-700 flex items-center">
+                                    <i class="fas fa-plus-circle mr-1"></i>
+                                    Nouvelles
+                                </span>
+                                <span class="text-xs font-bold text-green-800">{{ log.new_orders_created }}</span>
+                            </div>
+                            {% endif %}
+                            {% if log.existing_orders_updated %}
+                            <div class="flex items-center justify-between p-2 bg-orange-50 rounded">
+                                <span class="text-xs text-orange-700 flex items-center">
+                                    <i class="fas fa-edit mr-1"></i>
+                                    Mises à jour
+                                </span>
+                                <span class="text-xs font-bold text-orange-800">{{ log.existing_orders_updated }}</span>
+                            </div>
+                            {% endif %}
+                            {% if log.duplicate_orders_found %}
+                            <div class="flex items-center justify-between p-2 bg-red-50 rounded">
+                                <span class="text-xs text-red-700 flex items-center">
+                                    <i class="fas fa-shield-alt mr-1"></i>
+                                    Doublons évités
+                                </span>
+                                <span class="text-xs font-bold text-red-800">{{ log.duplicate_orders_found }}</span>
+                            </div>
+                            {% endif %}
+                            {% if log.existing_orders_skipped %}
+                            <div class="flex items-center justify-between p-2 bg-gray-100 rounded">
+                                <span class="text-xs text-gray-700 flex items-center">
+                                    <i class="fas fa-minus-circle mr-1"></i>
+                                    Inchangées
+                                </span>
+                                <span class="text-xs font-bold text-gray-800">{{ log.existing_orders_skipped }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                 </dl>
             </div>
         </div>
@@ -400,45 +448,123 @@
 </div>
 
 {% block extra_js %}
+<!-- Script de synchronisation amélioré -->
+<script src="{% load static %}{% static 'js/sync-enhanced.js' %}"></script>
 <script>
+    // Fonction utilitaire pour récupérer les cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
     function retrySync() {
         {% if log.sheet_config %}
-            showSyncConfirmModal('Voulez-vous relancer cette synchronisation ?', function() {
-                showSyncInfoMessage('Fonctionnalité de relance à implémenter.');
-            });
+            // Utiliser le nouveau système de synchronisation améliorée
+            if (typeof syncNow === 'function') {
+                syncNow({{ log.sheet_config.id }}, '{{ log.sheet_config.sheet_name|escapejs }}');
+            } else {
+                showSyncConfirmModal('Voulez-vous relancer cette synchronisation ?', function() {
+                    // Fallback si le script amélioré n'est pas chargé
+                    fetch('/synchronisation/sync-now/{{ log.sheet_config.id }}/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showSyncSuccessMessage(data.message || 'Synchronisation lancée avec succès');
+                            // Recharger la page après 3 secondes
+                            setTimeout(() => location.reload(), 3000);
+                        } else {
+                            showSyncErrorMessage(data.message || 'Erreur lors du lancement de la synchronisation');
+                        }
+                    })
+                    .catch(error => {
+                        showSyncErrorMessage('Erreur de connexion: ' + error.message);
+                    });
+                });
+            }
         {% else %}
             showSyncErrorMessage('Configuration non disponible. Impossible de relancer la synchronisation.');
         {% endif %}
     }
 
     function downloadLog() {
-        // Créer le contenu du log à télécharger
-        const logContent = `Log de Synchronisation #{{ log.id }}
+        try {
+            // Créer le contenu du log à télécharger avec plus de détails
+            const logContent = `Log de Synchronisation #{{ log.id }}
 =================================================
 
+📊 INFORMATIONS GÉNÉRALES
+========================
 Date: {{ log.sync_date|date:"d/m/Y H:i:s" }}
 Configuration: {% if log.sheet_config %}{{ log.sheet_config.sheet_name }}{% else %}Configuration supprimée{% endif %}
 Statut: {{ log.get_status_display }}
-Enregistrements importés: {{ log.records_imported|default:0 }}
 Déclenché par: {{ log.triggered_by|default:"Système" }}
 {% if log.duration %}Durée: {{ log.duration }}s{% endif %}
 
-{% if log.error_message %}Erreur:
+📈 STATISTIQUES DÉTAILLÉES
+==========================
+Enregistrements importés: {{ log.records_imported|default:0 }}
+{% if log.new_orders_created %}Nouvelles commandes créées: {{ log.new_orders_created }}{% endif %}
+{% if log.existing_orders_updated %}Commandes existantes mises à jour: {{ log.existing_orders_updated }}{% endif %}
+{% if log.existing_orders_skipped %}Commandes existantes inchangées: {{ log.existing_orders_skipped }}{% endif %}
+{% if log.duplicate_orders_found %}Doublons évités: {{ log.duplicate_orders_found }}{% endif %}
+
+{% if log.execution_details %}📋 DÉTAILS D'EXÉCUTION
+=====================
+{{ log.execution_details }}{% endif %}
+
+{% if log.error_message %}❌ ERREUR RENCONTRÉE
+==================
 {{ log.error_message }}{% endif %}
 
-Généré le: ${new Date().toLocaleString()}`;
+📄 MÉTADONNÉES
+==============
+ID du log: {{ log.id }}
+{% if log.sheet_config %}ID de configuration: {{ log.sheet_config.id }}{% endif %}
+Généré le: ${new Date().toLocaleString()}
+Système: YZ-CMD - Gestion de Commandes`;
 
-        // Créer et télécharger le fichier
-        const blob = new Blob([logContent], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `sync_log_{{ log.id }}_${new Date().toISOString().split('T')[0]}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+            // Créer et télécharger le fichier
+            const blob = new Blob([logContent], { type: 'text/plain; charset=utf-8' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `sync_log_{{ log.id }}_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // Afficher une notification de succès
+            if (typeof showSyncToast === 'function') {
+                showSyncToast('📥 Log téléchargé avec succès !', 'success', 3000);
+            } else {
+                showSyncSuccessMessage('📥 Log téléchargé avec succès !');
+            }
+            
+        } catch (error) {
+            console.error('Erreur lors du téléchargement:', error);
+            if (typeof showSyncToast === 'function') {
+                showSyncToast('❌ Erreur lors du téléchargement du log', 'error', 4000);
+            } else {
+                showSyncErrorMessage('❌ Erreur lors du téléchargement du log');
+            }
+        }
     }
 
     // Auto-refresh si le log est en cours
@@ -623,4 +749,11 @@ Généré le: ${new Date().toLocaleString()}`;
     }
 </script>
 {% endblock %}
+
+<!-- Inclusion du modal de synchronisation réutilisable -->
+{% include 'synchronisation/_sync_progress_modal.html' %}
+
+<!-- Inclusion du toast de notification -->
+{% include 'composant_generale/sync_notification_toast.html' %}
+
 {% endblock content %}

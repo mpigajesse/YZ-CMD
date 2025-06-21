@@ -58,6 +58,12 @@ class SyncLog(models.Model):
     sheet_title = models.CharField(max_length=200, null=True, blank=True, verbose_name="Titre de la feuille")
     execution_details = models.JSONField(null=True, blank=True, verbose_name="Détails d'exécution")
     
+    # Nouveaux champs pour les statistiques détaillées
+    new_orders_created = models.IntegerField(default=0, verbose_name="Nouvelles commandes créées")
+    existing_orders_updated = models.IntegerField(default=0, verbose_name="Commandes existantes mises à jour") 
+    existing_orders_skipped = models.IntegerField(default=0, verbose_name="Commandes existantes inchangées")
+    duplicate_orders_found = models.IntegerField(default=0, verbose_name="Doublons détectés et évités")
+    
     def __str__(self):
         return f"Synchronisation du {self.sync_date.strftime('%d/%m/%Y %H:%M')} - {self.get_status_display()}"
     

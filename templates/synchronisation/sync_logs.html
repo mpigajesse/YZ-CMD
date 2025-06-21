@@ -225,9 +225,42 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
-                            <div class="flex items-center">
-                                <i class="fas fa-database mr-2" style="color: var(--admin-color);"></i>
-                                <span class="font-medium">{{ log.records_imported|default:0 }}</span>
+                            <div class="flex flex-col space-y-1">
+                                <!-- Total importé -->
+                                <div class="flex items-center">
+                                    <i class="fas fa-database mr-2 text-blue-600"></i>
+                                    <span class="font-medium">{{ log.records_imported|default:0 }} total</span>
+                                </div>
+                                
+                                <!-- Détails par type si disponibles -->
+                                {% if log.new_orders_created or log.existing_orders_updated or log.existing_orders_skipped or log.duplicate_orders_found %}
+                                <div class="text-xs text-gray-600 space-y-0.5">
+                                    {% if log.new_orders_created %}
+                                    <div class="flex items-center">
+                                        <i class="fas fa-plus-circle mr-1 text-green-600"></i>
+                                        <span>{{ log.new_orders_created }} nouvelles</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if log.existing_orders_updated %}
+                                    <div class="flex items-center">
+                                        <i class="fas fa-edit mr-1 text-orange-600"></i>
+                                        <span>{{ log.existing_orders_updated }} mises à jour</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if log.duplicate_orders_found %}
+                                    <div class="flex items-center">
+                                        <i class="fas fa-shield-alt mr-1 text-red-600"></i>
+                                        <span>{{ log.duplicate_orders_found }} doublons évités</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if log.existing_orders_skipped %}
+                                    <div class="flex items-center">
+                                        <i class="fas fa-minus-circle mr-1 text-gray-500"></i>
+                                        <span>{{ log.existing_orders_skipped }} inchangées</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
@@ -259,8 +292,12 @@
                             <a href="{% url 'synchronisation:log_detail' log.id %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
                                 <i class="fas fa-eye"></i>
                             </a>
-                            {% if log.status == 'error' %}
-                            <button onclick="retrySync({{ log.id }})" class="text-green-500 hover:text-green-700 mx-1 transition-colors" title="Relancer">
+                            {% if log.status == 'error' and log.sheet_config %}
+                            <button onclick="retrySync({{ log.id }}, {{ log.sheet_config.id }}, '{{ log.sheet_config.sheet_name|escapejs }}')" class="text-green-500 hover:text-green-700 mx-1 transition-colors" title="Relancer">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                            {% elif log.status == 'error' %}
+                            <button onclick="retrySync({{ log.id }})" class="text-green-500 hover:text-green-700 mx-1 transition-colors" title="Relancer" disabled>
                                 <i class="fas fa-redo"></i>
                             </button>
                             {% endif %}
@@ -345,7 +382,15 @@
     {% endif %}
 </div>
 
+<!-- Inclusion du modal de synchronisation réutilisable -->
+{% include 'synchronisation/_sync_progress_modal.html' %}
+
+<!-- Inclusion du toast de notification -->
+{% include 'composant_generale/sync_notification_toast.html' %}
+
 {% block extra_js %}
+<!-- Script de synchronisation amélioré -->
+<script src="{% load static %}{% static 'js/sync-enhanced.js' %}"></script>
 <script>
     function showSyncConfirmModal(message, callback) {
         const modal = createSyncModal('confirm', 'Confirmation de synchronisation', message, callback);
@@ -476,10 +521,72 @@
         document.querySelector('.fixed').remove();
     }
 
-    function retrySync(logId) {
-        showSyncConfirmModal('Voulez-vous relancer cette synchronisation ?', function() {
-            showSyncInfoMessage('Fonctionnalité de relance à implémenter.');
-        });
+    function retrySync(logId, configId = null, configName = null) {
+        if (configId && configName) {
+            // Utiliser le nouveau système de synchronisation améliorée
+            if (typeof syncNow === 'function') {
+                syncNow(configId, configName);
+            } else {
+                // Fallback si le script amélioré n'est pas chargé
+                showSyncConfirmModal(`Voulez-vous relancer la synchronisation pour "${configName}" ?`, function() {
+                    fetch(`/synchronisation/sync-now/${configId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (typeof showSyncToast === 'function') {
+                                showSyncToast('✅ ' + (data.message || 'Synchronisation lancée avec succès'), 'success', 4000);
+                            } else {
+                                showSyncSuccessMessage(data.message || 'Synchronisation lancée avec succès');
+                            }
+                            // Recharger la page après 3 secondes
+                            setTimeout(() => location.reload(), 3000);
+                        } else {
+                            if (typeof showSyncToast === 'function') {
+                                showSyncToast('❌ ' + (data.message || 'Erreur lors du lancement'), 'error', 5000);
+                            } else {
+                                showSyncErrorMessage(data.message || 'Erreur lors du lancement de la synchronisation');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        if (typeof showSyncToast === 'function') {
+                            showSyncToast('❌ Erreur de connexion: ' + error.message, 'error', 5000);
+                        } else {
+                            showSyncErrorMessage('Erreur de connexion: ' + error.message);
+                        }
+                    });
+                });
+            }
+        } else {
+            // Configuration non disponible
+            if (typeof showSyncToast === 'function') {
+                showSyncToast('❌ Configuration non disponible. Impossible de relancer la synchronisation.', 'error', 5000);
+            } else {
+                showSyncErrorMessage('Configuration non disponible. Impossible de relancer la synchronisation.');
+            }
+        }
+    }
+    
+    // Fonction utilitaire pour récupérer les cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
     // Auto-refresh pour les logs en cours
@@ -589,29 +696,7 @@
             document.getElementById('customConfirmModal').classList.remove('hidden');
         };
 
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            
-            // Si le cookie n'est pas trouvé et qu'on cherche le token CSRF, essayer la méta tag
-            if (!cookieValue && name === 'csrftoken') {
-                const metaTag = document.querySelector('meta[name="csrf-token"]');
-                if (metaTag) {
-                    cookieValue = metaTag.getAttribute('content');
-                }
-            }
-            
-            return cookieValue;
-        }
+        // Fonction getCookie déjà définie plus haut
 
         updateBulkDeleteLogsButton();
     });

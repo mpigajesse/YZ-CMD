@@ -276,7 +276,7 @@
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end space-x-2">
                                 {% if config.is_active %}
-                                <button onclick="syncNowWithSpinner({{ config.id }})" class="text-green-500 hover:text-green-700 transition-colors" title="Synchroniser maintenant">
+                                                                    <button onclick="syncNow({{ config.id }}, '{{ config.sheet_name|escapejs }}')" class="text-green-500 hover:text-green-700 transition-colors" title="Synchroniser maintenant">
                                     <i class="fas fa-sync"></i>
                                 </button>
                                 {% endif %}
@@ -362,12 +362,17 @@
 <!-- Inclusion du modal de synchronisation réutilisable -->
 {% include 'synchronisation/_sync_progress_modal.html' %}
 
+<!-- Inclusion du toast de notification -->
+{% include 'composant_generale/sync_notification_toast.html' %}
+
 {% csrf_token %}
 {% endblock %}
 
 {% block extra_js %}
 <!-- Chargement du système de spinners de synchronisation centralisé -->
 <script src="{% static 'js/sync-spinner.js' %}"></script>
+<!-- Chargement du système de notifications amélioré -->
+<script src="{% static 'js/sync-enhanced.js' %}"></script>
 
 <script>
     // Scripts spécifiques à la page config_list
@@ -378,31 +383,32 @@
 
     function syncAllActive() {
         // Vérifier qu'il y a des configurations actives
-        const activeConfigs = document.querySelectorAll('[onclick^="syncNowWithSpinner"]');
+        const activeConfigs = document.querySelectorAll('[onclick^="syncNow"]');
         if (activeConfigs.length === 0) {
             showSyncErrorMessage('Aucune configuration active trouvée.');
             return;
         }
         
         showSyncConfirmModal('Voulez-vous synchroniser toutes les configurations actives ? Cette opération peut prendre du temps.', function() {
-            // Afficher le modal de progression
-            showSyncProgressModal();
-            
-            // Compter le nombre de configurations actives
-            const activeConfigs = document.querySelectorAll('[onclick^="syncNowWithSpinner"]');
+            // Utiliser le nouveau système de notifications pour chaque configuration
             const configCount = activeConfigs.length;
+            let completedCount = 0;
             
-            // Simuler la synchronisation de toutes les configurations (en attendant l'implémentation côté serveur)
-            setTimeout(() => {
-                hideSyncProgressModal();
-                markAllStepsComplete();
-                
-                const totalRecords = configCount * 25; // Simulation: ~25 enregistrements par config
-                const message = `Synchronisation réussie ! ${configCount} configuration(s) synchronisée(s) avec ${totalRecords} enregistrements importés au total.`;
-                
-                showSyncSuccessMessage(message);
-                setTimeout(() => location.reload(), 2000);
-            }, 5000); // Plus long car plusieurs configurations
+            // Synchroniser chaque configuration avec le nouveau système
+            activeConfigs.forEach((button, index) => {
+                setTimeout(() => {
+                    const onclickAttr = button.getAttribute('onclick');
+                    // Exécuter la synchronisation avec le nouveau système
+                    eval(onclickAttr);
+                    
+                    completedCount++;
+                    if (completedCount === configCount) {
+                        setTimeout(() => {
+                            showSyncSuccessMessage(`Toutes les synchronisations sont terminées ! ${configCount} configuration(s) traitée(s).`);
+                        }, 2000);
+                    }
+                }, index * 6000); // Délai de 6 secondes entre chaque synchronisation
+            });
         });
     }
 
