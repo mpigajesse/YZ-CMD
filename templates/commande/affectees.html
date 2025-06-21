@@ -95,7 +95,7 @@
     <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: var(--admin-accent-color);">
         <form method="get" class="flex flex-col md:flex-row gap-4">
             <div class="flex-1">
-                <input type="text" name="search" value="{{ search_query }}" placeholder="Rechercher par numéro, client, téléphone..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <input type="text" name="search" value="{{ search_query }}" placeholder="Rechercher par ID YZ, numéro externe, nom client ou téléphone..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
             <div class="flex gap-2">
                 <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-sm">
@@ -126,6 +126,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">ID YZ</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">N° Externe</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Client</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Téléphone</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Date</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Ville</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Total</th>
@@ -145,11 +146,23 @@
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r" style="border-color: var(--admin-light-accent);">
                             {% if commande.client %}
                                 <div>
-                                    <div class="font-medium">{{ commande.client.nom }} {{ commande.client.prenom }}</div>
-                                    <div class="text-gray-500">{{ commande.client.numero_tel }}</div>
+                                    <div class="font-medium">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                                    {% if commande.client.email %}
+                                        <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                                    {% endif %}
                                 </div>
                             {% else %}
                                 <span class="text-gray-400">Client non défini</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">
+                            {% if commande.client %}
+                                <div class="flex items-center">
+                                    <i class="fas fa-phone mr-2" style="color: var(--admin-color);"></i>
+                                    <span class="font-medium" style="color: var(--admin-color);">{{ commande.client.numero_tel }}</span>
+                                </div>
+                            {% else %}
+                                <span class="text-gray-400">-</span>
                             {% endif %}
                         </td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">
