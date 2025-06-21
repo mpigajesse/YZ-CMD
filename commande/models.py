@@ -154,28 +154,22 @@ class EtatCommande(models.Model):
 
 class Operation(models.Model):
     TYPE_OPERATION_CHOICES = [
-        ('CONFIRMATION', 'Confirmation'),
-        ('ANNULATION', 'Annulation'),
-        ('PREPARATION', 'Préparation'),
-        ('EXPEDITION', 'Expédition'),
-        ('LIVRAISON', 'Livraison'),
-        ('RETOUR', 'Retour'),
-        ('MODIFICATION', 'Modification'),
-        ('COMMENTAIRE', 'Commentaire'),
         # Opérations spécifiques de confirmation
-        ('AUCUNE_ACTION', 'Aucune action'),
-        ('APPEL_1', 'Appel 1'),
-        ('APPEL_2', 'Appel 2'),
-        ('APPEL_3', 'Appel 3'),
-        ('APPEL_4', 'Appel 4'),
-        ('APPEL_5', 'Appel 5'),
-        ('APPEL_6', 'Appel 6'),
-        ('APPEL_7', 'Appel 7'),
-        ('APPEL_8', 'Appel 8'),
+        ('APPEL', 'Appel '),
+        ("Appel Whatsapp", "Appel Whatsapp"),
+        ("Message Whatsapp", "Appel Whatsapp "),
+        ("Vocal Whatsapp", "Vocal Whatsapp "),
         ('ENVOI_SMS', 'Envoi de SMS'),
-        ('ENVOI_MSG', 'Envoi de MSG'),
-        ('PROPOSITION_ABONNEMENT', 'Proposition d\'un abonnement'),
-        ('PROPOSITION_REDUCTION', 'Proposition d\'une offre de réduction'),
+    ]
+    Type_Commentaire_CHOICES=[
+        ("Commande Annulée", "Commande Annulée"),
+        ("Client hésitant", "Client hésitant"),
+        ("Client intéressé", "Client intéressé"),
+        ("Client non intéressé", "Client non intéressé"),
+        ("Client non joignable", "Client non joignable"),
+        ("commande reportée", "commande reportée"),
+        ("Article non disponible", "Article non disponible"),
+        
     ]
     
     type_operation = models.CharField(max_length=30, choices=TYPE_OPERATION_CHOICES)
@@ -183,6 +177,7 @@ class Operation(models.Model):
     conclusion = models.TextField()
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='operations')
     operateur = models.ForeignKey(Operateur, on_delete=models.CASCADE, related_name='operations')
+    commentaire = models.TextField( blank=True, null=True,choices=Type_Commentaire_CHOICES)
     
     class Meta:
         verbose_name = "Opération"

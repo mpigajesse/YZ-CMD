@@ -1,0 +1,166 @@
+<header class="bg-white shadow-md px-6 py-4 border-b" style="border-color: var(--preparation-border-accent);">
+    <div class="flex items-center justify-between">
+        <!-- Menu hamburger pour mobile -->
+        <button id="menu-toggle" class="p-2 rounded-lg transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-opacity-50" style="hover:background-color: var(--preparation-hover-bg); focus:ring-color: var(--preparation-primary); background-color: var(--preparation-light);">
+            <div class="space-y-1.5">
+                <span id="hamburger-line-1" class="block w-6 h-0.5 transition-all duration-300 transform origin-center" style="background-color: var(--preparation-primary);"></span>
+                <span id="hamburger-line-2" class="block w-6 h-0.5 mt-1.5 transition-all duration-300 transform origin-center" style="background-color: var(--preparation-primary);"></span>
+                <span id="hamburger-line-3" class="block w-6 h-0.5 mt-1.5 transition-all duration-300 transform origin-center" style="background-color: var(--preparation-primary);"></span>
+            </div>
+        </button>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">{% block page_title %}Mes Préparations{% endblock %}</h1>
+            <p class="text-gray-600 text-sm">{% block page_subtitle %}Interface Opérateur de Préparation{% endblock %}</p>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <span class="text-gray-700">{{ user.get_full_name|default:user.username }}</span>
+            <a href="{% url 'logout' %}" class="text-red-600 hover:text-red-800">
+                <i class="fas fa-sign-out-alt"></i> Déconnexion
+            </a>
+        </div>
+    </div>
+</header>
+
+<!-- Styles et animations CSS -->
+<style>
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.6s ease-out;
+}
+
+/* Animation pour le dropdown */
+.dropdown-enter {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.dropdown-leave {
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+/* Animation pour le menu hamburger */
+.hamburger-active #hamburger-line-1 {
+    transform: rotate(45deg) translate(6px, 6px);
+}
+
+.hamburger-active #hamburger-line-2 {
+    opacity: 0;
+    transform: scale(0);
+}
+
+.hamburger-active #hamburger-line-3 {
+    transform: rotate(-45deg) translate(6px, -6px);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const userMenuButton = document.getElementById('user-menu-button');
+    const userMenu = document.getElementById('user-menu');
+    const chevronIcon = document.getElementById('chevron-icon');
+    const progressBar = document.getElementById('progress-bar');
+    const menuToggle = document.getElementById('menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+    let isSidebarOpen = true;
+    
+    // Animation de la barre de progression au chargement
+    setTimeout(() => {
+        progressBar.style.width = '100%';
+        setTimeout(() => {
+            progressBar.style.opacity = '0';
+        }, 1000);
+    }, 100);
+    
+    // Toggle de la sidebar avec animation du hamburger
+    menuToggle.addEventListener('click', function() {
+        isSidebarOpen = !isSidebarOpen;
+        
+        if (isSidebarOpen) {
+            // Ouvrir la sidebar
+            sidebar.style.transform = 'translateX(0)';
+            sidebar.style.width = '256px';
+            menuToggle.classList.remove('hamburger-active');
+        } else {
+            // Fermer la sidebar
+            sidebar.style.transform = 'translateX(-100%)';
+            sidebar.style.width = '0px';
+            menuToggle.classList.add('hamburger-active');
+        }
+    });
+    
+    // Toggle du menu utilisateur avec animation
+    userMenuButton.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isHidden = userMenu.classList.contains('hidden');
+        
+        if (isHidden) {
+            // Afficher le menu
+            userMenu.classList.remove('hidden');
+            setTimeout(() => {
+                userMenu.classList.add('dropdown-enter');
+                userMenu.classList.remove('opacity-0', 'scale-95');
+            }, 10);
+            chevronIcon.style.transform = 'rotate(180deg)';
+        } else {
+            // Masquer le menu
+            userMenu.classList.add('opacity-0', 'scale-95');
+            userMenu.classList.remove('dropdown-enter');
+            setTimeout(() => {
+                userMenu.classList.add('hidden');
+            }, 300);
+            chevronIcon.style.transform = 'rotate(0deg)';
+        }
+    });
+    
+    // Fermer le menu si on clique ailleurs
+    document.addEventListener('click', function(event) {
+        if (!userMenuButton.contains(event.target)) {
+            userMenu.classList.add('opacity-0', 'scale-95');
+            userMenu.classList.remove('dropdown-enter');
+            setTimeout(() => {
+                userMenu.classList.add('hidden');
+            }, 300);
+            chevronIcon.style.transform = 'rotate(0deg)';
+        }
+    });
+    
+    // Animation de pulsation pour les icônes importantes
+    setInterval(() => {
+        const bellIcon = document.querySelector('.fa-bell');
+        if (bellIcon) {
+            bellIcon.parentElement.classList.add('animate-pulse');
+            setTimeout(() => {
+                bellIcon.parentElement.classList.remove('animate-pulse');
+            }, 2000);
+        }
+    }, 10000);
+    
+    // Responsive : fermer la sidebar sur mobile
+    function checkScreenSize() {
+        if (window.innerWidth < 1024) { // lg breakpoint
+            if (isSidebarOpen) {
+                sidebar.style.transform = 'translateX(-100%)';
+                menuToggle.classList.add('hamburger-active');
+                isSidebarOpen = false;
+            }
+        } else {
+            if (!isSidebarOpen) {
+                sidebar.style.transform = 'translateX(0)';
+                sidebar.style.width = '256px';
+                menuToggle.classList.remove('hamburger-active');
+                isSidebarOpen = true;
+            }
+        }
+    }
+    
+    // Vérifier la taille d'écran au chargement et au redimensionnement
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+});
+</script> 

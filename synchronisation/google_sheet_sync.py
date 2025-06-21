@@ -16,9 +16,10 @@ from django.db.models import Q
 class GoogleSheetSync:
     """Classe pour gérer la synchronisation avec Google Sheets"""
     
-    def __init__(self, sheet_config, triggered_by="admin"):
+    def __init__(self, sheet_config, triggered_by="admin", verbose=False):
         self.sheet_config = sheet_config
         self.triggered_by = triggered_by
+        self.verbose = verbose  # Contrôle l'affichage des messages détaillés
         self.records_imported = 0
         self.errors = []
         
@@ -30,6 +31,20 @@ class GoogleSheetSync:
         self.skipped_rows = 0
         self.sheet_title = ""
         self.execution_details = {}
+        
+        # Nouveaux compteurs pour distinguer les types d'opérations
+        self.new_orders_created = 0      # Nouvelles commandes créées
+        self.existing_orders_updated = 0  # Commandes existantes mises à jour
+        self.existing_orders_skipped = 0  # Commandes existantes inchangées
+        self.duplicate_orders_found = 0   # Commandes en double détectées
+    
+    def _log(self, message, level="info"):
+        """Log conditionnel selon le mode verbose"""
+        if self.verbose:
+            print(f"🔄 {message}")
+        # Toujours enregistrer les erreurs dans self.errors
+        if level == "error":
+            self.errors.append(message)
         
     def authenticate(self):
         """Authentification avec l'API Google Sheets"""
@@ -120,7 +135,7 @@ class GoogleSheetSync:
         return timezone.now().date()
     
     def process_row(self, row_data, headers):
-        """Traite une ligne de données et crée une nouvelle commande uniquement si elle n'existe pas"""
+        """Traite une ligne de données - nouvelles commandes uniquement, évite les doublons"""
         try:
             # Créer un dictionnaire avec les données de la ligne
             data = dict(zip(headers, row_data))
@@ -128,25 +143,30 @@ class GoogleSheetSync:
             # Vérifier si la commande existe déjà - essayer différentes variantes de clés
             order_number = data.get('N° Commande') or data.get('Numéro') or data.get('N°Commande') or data.get('Numero')
             if not order_number or not order_number.strip():
-                print(f"❌ Ligne rejetée : numéro de commande manquant ou vide")
-                self.errors.append(f"Ligne sans numéro de commande: {data}")
+                self._log(f"Ligne rejetée : numéro de commande manquant ou vide", "error")
                 return False
             
-            print(f"🔍 Traitement commande {order_number}")
+            self._log(f"Vérification commande {order_number}")
             
-            # Vérifier si la commande existe déjà et décider de l'action
+            # Vérifier si la commande existe déjà
             existing_commande = Commande.objects.filter(num_cmd=order_number).first()
             if existing_commande:
-                # La commande existe déjà, on la met à jour au lieu de l'ignorer
-                print(f"📝 Commande {order_number} existe déjà (ID YZ: {existing_commande.id_yz})")
+                # Commande existe déjà - pas d'insertion
+                self._log(f"Commande {order_number} existe déjà (ID YZ: {existing_commande.id_yz}) - IGNORÉE")
+                self.duplicate_orders_found += 1
+                
+                # Vérifier si une mise à jour est nécessaire
                 should_update = self._should_update_command(existing_commande, data)
                 if should_update:
-                    print(f"🔄 Mise à jour nécessaire pour {order_number}")
-                    return self._update_existing_command(existing_commande, data, headers)
+                    self._log(f"Mise à jour détectée pour commande existante {order_number}")
+                    success = self._update_existing_command(existing_commande, data, headers)
+                    if success:
+                        self.existing_orders_updated += 1
+                    return success
                 else:
-                    # Pas de changement nécessaire, on compte quand même comme traité
-                    print(f"✅ Aucun changement nécessaire pour {order_number}")
-                    self.records_imported += 1  # Compter comme traité même si pas modifié
+                    # Aucun changement nécessaire
+                    self._log(f"Commande {order_number} inchangée - aucune action requise")
+                    self.existing_orders_skipped += 1
                     return True
             
             # Récupérer ou créer le client
@@ -192,8 +212,8 @@ class GoogleSheetSync:
             except (ValueError, TypeError):
                 total_cmd_price = 0.0
 
-            # Créer une nouvelle commande en utilisant le même numéro vérifié
-            print(f"➕ Création nouvelle commande {order_number}")
+            # Créer une NOUVELLE commande (vérification déjà effectuée)
+            print(f"➕ Création NOUVELLE commande {order_number}")
             commande = Commande.objects.create(
                 num_cmd=order_number,  # Numéro externe du fichier Google Sheets
                 date_cmd=self._parse_date(data.get('Date', '')),
@@ -204,7 +224,8 @@ class GoogleSheetSync:
                 produit_init=data.get('Produit', ''),
                 # L'ID YZ sera généré automatiquement par la méthode save() du modèle (1, 2, 3, ...)
             )
-            print(f"✅ Nouvelle commande créée avec ID YZ: {commande.id_yz} et numéro externe: {commande.num_cmd}")
+            print(f"✅ NOUVELLE commande créée avec ID YZ: {commande.id_yz} et numéro externe: {commande.num_cmd}")
+            self.new_orders_created += 1
             # Parser le produit et créer l'article de commande et le panier
             product_str = data.get('Produit', '')
             product_info = self.parse_product(product_str)
@@ -329,15 +350,20 @@ class GoogleSheetSync:
         return False
     
     def _update_existing_command(self, existing_commande, data, headers):
-        """Met à jour une commande existante avec les nouvelles données"""
+        """Met à jour une commande existante avec les nouvelles données (PAS D'INSERTION)"""
         try:
             updated = False
+            changes_made = []
+            
+            print(f"🔄 Mise à jour en arrière-plan pour commande existante {existing_commande.num_cmd}")
             
             # Mettre à jour le prix si nécessaire
             try:
                 new_price = float(data.get('Prix', 0)) or float(data.get('Total', 0))
                 if abs(float(existing_commande.total_cmd) - new_price) > 0.01:
+                    old_price = existing_commande.total_cmd
                     existing_commande.total_cmd = new_price
+                    changes_made.append(f"Prix: {old_price} → {new_price}")
                     updated = True
             except (ValueError, TypeError):
                 pass
@@ -345,7 +371,9 @@ class GoogleSheetSync:
             # Mettre à jour l'adresse si nécessaire
             new_address = data.get('Adresse', '')
             if new_address and existing_commande.adresse != new_address:
+                old_address = existing_commande.adresse
                 existing_commande.adresse = new_address
+                changes_made.append(f"Adresse: '{old_address}' → '{new_address}'")
                 updated = True
             
             # Mettre à jour la ville si nécessaire
@@ -365,12 +393,13 @@ class GoogleSheetSync:
                         }
                     )
                     existing_commande.ville = ville_obj
+                    changes_made.append(f"Ville: '{current_ville_nom}' → '{new_ville_nom}'")
                     updated = True
             
             # Sauvegarder les changements de la commande
             if updated:
                 existing_commande.save()
-                print(f"Commande mise à jour: ID YZ {existing_commande.id_yz} (Ext: {existing_commande.num_cmd})")
+                print(f"📝 Commande mise à jour: ID YZ {existing_commande.id_yz} - Changements: {', '.join(changes_made)}")
             
             # Mettre à jour le statut si nécessaire
             new_status = self._map_status(data.get('Statut', '')) if data.get('Statut') else None
@@ -388,7 +417,8 @@ class GoogleSheetSync:
                     
                     # Créer le nouvel état
                     self._create_etat_commande(existing_commande, new_status, operateur_obj)
-                    print(f"État mis à jour pour la commande ID YZ {existing_commande.id_yz}: {current_status} -> {new_status}")
+                    changes_made.append(f"Statut: '{current_status}' → '{new_status}'")
+                    print(f"📊 État mis à jour pour commande existante ID YZ {existing_commande.id_yz}: {current_status} → {new_status}")
             
             # Mettre à jour les informations du client si nécessaire
             client_phone = data.get('Téléphone', '')
@@ -399,25 +429,28 @@ class GoogleSheetSync:
                 client_prenom = client_nom_prenom[1] if len(client_nom_prenom) > 1 else ''
                 
                 client_updated = False
+                client_changes = []
                 if client_nom and client_obj.nom != client_nom:
+                    client_changes.append(f"Nom: '{client_obj.nom}' → '{client_nom}'")
                     client_obj.nom = client_nom
                     client_updated = True
                 if client_prenom and client_obj.prenom != client_prenom:
+                    client_changes.append(f"Prénom: '{client_obj.prenom}' → '{client_prenom}'")
                     client_obj.prenom = client_prenom
                     client_updated = True
                 if new_address and client_obj.adresse != new_address:
+                    client_changes.append(f"Adresse client: '{client_obj.adresse}' → '{new_address}'")
                     client_obj.adresse = new_address
                     client_updated = True
                 
                 if client_updated:
                     client_obj.save()
-                    print(f"Informations client mises à jour pour {client_obj.get_full_name()}")
+                    print(f"👤 Client mis à jour: {client_obj.get_full_name()} - {', '.join(client_changes)}")
             
-            self.records_imported += 1
             return True
             
         except Exception as e:
-            self.errors.append(f"Erreur lors de la mise à jour de la commande {existing_commande.num_cmd}: {str(e)}")
+            self.errors.append(f"Erreur lors de la mise à jour de la commande existante {existing_commande.num_cmd}: {str(e)}")
             return False
     
     def _map_status(self, status):
@@ -560,36 +593,35 @@ class GoogleSheetSync:
             self.execution_details['total_rows'] = len(all_data)
             self.execution_details['data_rows'] = len(rows)
             
-            print(f"📊 Synchronisation démarrée - Total lignes à traiter : {len(rows)}")
-            print(f"🔤 En-têtes détectés : {headers}")
+            self._log(f"Synchronisation démarrée - Total lignes à traiter : {len(rows)}")
+            self._log(f"En-têtes détectés : {headers}")
             
             # Traiter chaque ligne
             for i, row in enumerate(rows, 2):  # Commencer à 2 car la ligne 1 contient les en-têtes
                 # Vérifier si la ligne est vide
                 if not any(cell.strip() for cell in row if cell):
-                    print(f"⚠️  Ligne {i} ignorée : ligne complètement vide")
+                    self._log(f"Ligne {i} ignorée : ligne complètement vide")
                     self.skipped_rows += 1
                     continue
                     
                 if len(row) == len(headers):  # Vérifier que la ligne a le bon nombre de colonnes
-                    print(f"🔄 Traitement ligne {i} : {dict(zip(headers[:3], row[:3]))}...")  # Afficher les 3 premiers champs
+                    self._log(f"Traitement ligne {i} : {dict(zip(headers[:3], row[:3]))}...")  # Afficher les 3 premiers champs
                     success = self.process_row(row, headers)
                     if success:
-                        print(f"✅ Ligne {i} traitée avec succès")
+                        self._log(f"Ligne {i} traitée avec succès")
                         self.processed_rows += 1
                     else:
-                        print(f"❌ Échec traitement ligne {i}")
+                        self._log(f"Échec traitement ligne {i}")
                         self.skipped_rows += 1
                 else:
                     error_msg = f"Ligne {i} ignorée: nombre de colonnes incorrect ({len(row)} vs {len(headers)})"
-                    print(f"⚠️  {error_msg}")
-                    self.errors.append(error_msg)
+                    self._log(error_msg, "error")
                     self.skipped_rows += 1
             
             # Marquer la fin de la synchronisation
             self.end_time = timezone.now()
             
-            # Calculer les statistiques finales
+            # Calculer les statistiques finales détaillées
             duration = (self.end_time - self.start_time).total_seconds()
             self.execution_details.update({
                 'finished_at': self.end_time.isoformat(),
@@ -598,8 +630,39 @@ class GoogleSheetSync:
                 'skipped_rows': self.skipped_rows,
                 'records_imported': self.records_imported,
                 'success_rate': (self.processed_rows / len(rows) * 100) if rows else 0,
-                'errors_count': len(self.errors)
+                'errors_count': len(self.errors),
+                
+                # Nouvelles statistiques détaillées
+                'new_orders_created': self.new_orders_created,
+                'existing_orders_updated': self.existing_orders_updated,
+                'existing_orders_skipped': self.existing_orders_skipped,
+                'duplicate_orders_found': self.duplicate_orders_found,
+                'insertion_avoided_count': self.duplicate_orders_found,  # Nombre d'insertions évitées
             })
+            
+            # Message de notification détaillé
+            notification_parts = []
+            
+            # Cas spécial : Aucune nouvelle commande mais des commandes existantes détectées
+            if self.new_orders_created == 0 and self.duplicate_orders_found > 0:
+                notification_parts.append(f"❌ Aucune nouvelle commande trouvée")
+                notification_parts.append(f"📋 {self.duplicate_orders_found} commandes existantes détectées dans la feuille")
+            elif self.new_orders_created > 0:
+                notification_parts.append(f"✅ {self.new_orders_created} nouvelles commandes créées")
+            
+            # Ajouts des autres types d'actions
+            if self.existing_orders_updated > 0:
+                notification_parts.append(f"🔄 {self.existing_orders_updated} commandes existantes mises à jour")
+            if self.existing_orders_skipped > 0:
+                notification_parts.append(f"➖ {self.existing_orders_skipped} commandes existantes inchangées")
+            
+            # Message par défaut si rien ne s'est passé
+            if not notification_parts:
+                notification_parts.append("⚠️ Aucune donnée valide trouvée")
+            
+            self.execution_details['sync_summary'] = " | ".join(notification_parts)
+            
+            self._log(f"Résumé synchronisation: {self.execution_details['sync_summary']}")
             
             # Déterminer le statut final
             if self.errors:
@@ -617,7 +680,7 @@ class GoogleSheetSync:
             return False
     
     def _log_sync(self, status):
-        """Enregistre un log de synchronisation"""
+        """Enregistre un log de synchronisation avec statistiques détaillées"""
         SyncLog.objects.create(
             status=status,
             records_imported=self.records_imported,
@@ -625,14 +688,20 @@ class GoogleSheetSync:
             sheet_config=self.sheet_config,
             triggered_by=self.triggered_by,
             
-            # Nouveaux champs détaillés
+            # Champs détaillés existants
             start_time=self.start_time,
             end_time=self.end_time,
             total_rows=self.total_rows,
             processed_rows=self.processed_rows,
             skipped_rows=self.skipped_rows,
             sheet_title=self.sheet_title,
-            execution_details=self.execution_details
+            execution_details=self.execution_details,
+            
+            # Nouvelles statistiques détaillées
+            new_orders_created=self.new_orders_created,
+            existing_orders_updated=self.existing_orders_updated,
+            existing_orders_skipped=self.existing_orders_skipped,
+            duplicate_orders_found=self.duplicate_orders_found,
         )
 
 # --- Configuration for Google Sheets API ---

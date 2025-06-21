@@ -25,4 +25,7 @@ urlpatterns = [
     path('lancer-confirmations-masse/', views.lancer_confirmations_masse, name='lancer_confirmations_masse'),
     path('selectionner-operation/', views.selectionner_operation, name='selectionner_operation'),
     path('commandes/<int:commande_id>/modifier/', views.modifier_commande, name='modifier_commande'),
+    path('api/articles-disponibles/', views.api_articles_disponibles, name='api_articles_disponibles'),
+    path('api/commentaires-disponibles/', views.api_commentaires_disponibles, name='api_commentaires_disponibles'),
+    path('api/commandes/<int:commande_id>/operations/', views.api_operations_commande, name='api_operations_commande'),
 ] 

@@ -1,0 +1,310 @@
+{% extends 'composant_generale/operatPrepa/base.html' %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-tags mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: var(--preparation-border-accent);">{{ page_subtitle }}</p>
+        </div>
+    </div>
+
+    <!-- Contenu de la page Étiquettes -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+            <i class="fas fa-list-alt mr-2"></i>Commandes Préparées pour Étiquettes
+        </h2>
+
+        <div class="mb-6 flex justify-between items-center">
+            <p class="text-gray-700">Sélectionnez les commandes dont vous souhaitez imprimer les étiquettes.</p>
+            <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <i class="fas fa-print mr-2"></i> Imprimer les étiquettes sélectionnées
+            </button>
+        </div>
+        
+        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead style="background-color: var(--preparation-primary);">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                            <input type="checkbox" class="rounded text-blue-600 focus:ring-blue-500">
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Préparée</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Statut Étiquette</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <!-- Exemple de ligne de commande préparée -->
+                    <tr>
+                        <td class="px-4 py-4 whitespace-nowrap text-center">
+                            <input type="checkbox" class="rounded text-blue-600 focus:ring-blue-500">
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">CMD001</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">EXT-001</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">Client A</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">Casablanca</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">2025-06-18</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-center">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Imprimée</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
+                            <a href="#" class="text-blue-600 hover:text-blue-900" title="Voir Détail"><i class="fas fa-eye"></i></a>
+                            <a href="#" class="text-red-600 hover:text-red-900 ml-2" title="Réinitialiser Statut"><i class="fas fa-sync-alt"></i></a>
+                            <a href="#" onclick="openEtiquetteModal('CMD001')" class="text-green-600 hover:text-green-900 ml-2" title="Imprimer Étiquette"><i class="fas fa-print"></i></a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-4 whitespace-nowrap text-center">
+                            <input type="checkbox" class="rounded text-blue-600 focus:ring-blue-500">
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">CMD002</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">EXT-002</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">Client B</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">Rabat</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">2025-06-19</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-center">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">En attente</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
+                            <a href="#" class="text-blue-600 hover:text-blue-900" title="Voir Détail"><i class="fas fa-eye"></i></a>
+                            <a href="#" class="text-red-600 hover:text-red-900 ml-2" title="Réinitialiser Statut"><i class="fas fa-sync-alt"></i></a>
+                            <a href="#" onclick="openEtiquetteModal('CMD002')" class="text-green-600 hover:text-green-900 ml-2" title="Imprimer Étiquette"><i class="fas fa-print"></i></a>
+                        </td>
+                    </tr>
+                    <!-- Fin exemple d'article -->
+                    
+                    <tr>
+                        <td colspan="8" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                            <p>Aucune commande préparée à afficher pour le moment.</p>
+                            <p class="text-xs text-gray-400 mt-1">Les commandes préparées et prêtes pour l'étiquetage apparaîtront ici.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200 text-gray-600">
+            <p><strong>Note:</strong> Cette page est une simulation. La logique de récupération des commandes préparées, de sélection multiple et d'impression des étiquettes sera implémentée dans une phase ultérieure.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Modale d'étiquette à imprimer -->
+<div id="etiquetteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+    <div class="bg-white rounded-lg shadow-2xl p-6 relative w-full max-w-xs print:w-auto print:shadow-none print:bg-white">
+        <button onclick="closeEtiquetteModal()" class="absolute top-2 right-2 text-gray-500 hover:text-red-600 text-xl font-bold no-print">&times;</button>
+        <div id="etiquetteContent">
+            <!-- L'étiquette simulée sera injectée ici -->
+        </div>
+        <div class="mt-4 flex justify-center no-print">
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-flex items-center shadow-lg">
+                <i class="fas fa-print mr-2"></i> Imprimer
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Fonction pour ouvrir la modale d'une seule étiquette
+function openEtiquetteModal(cmdId) {
+    var etiquetteHTML = `
+        <div class="label-simulation w-80 h-auto border border-black text-black text-xs font-sans flex flex-col mx-auto" style="width: 250px; border-width: 1.5px;">
+            <div class="flex justify-between items-center bg-black text-white p-2" style="height: 35px;">
+                <span class="font-bold text-base">N° ${cmdId.replace('CMD','')}</span>
+                <span class="text-sm">5/2/2025</span>
+            </div>
+            <div class="p-2 flex-grow">
+                <div class="flex items-center mb-1">
+                    <i class="fas fa-user text-black text-sm mr-2 w-4 flex-shrink-0"></i>
+                    <span class="font-bold text-sm">FOUZIA</span>
+                </div>
+                <div class="border-b border-dashed border-gray-400 my-1" style="height: 1px;"></div>
+                <div class="flex items-center mb-1">
+                    <i class="fas fa-phone-alt text-black text-sm mr-2 w-4 flex-shrink-0"></i>
+                    <span class="text-sm">06 93 21 89 80</span>
+                </div>
+                <div class="border-b border-dashed border-gray-400 my-1" style="height: 1px;"></div>
+                <div class="flex items-start mb-1">
+                    <i class="fas fa-map-marker-alt text-black text-sm mt-1 mr-2 w-4 flex-shrink-0"></i>
+                    <p class="text-sm leading-tight">
+                        HAY AMAL 02 RUE 46 NR6<br/>
+                        FIDA DERB SULTANE<br/>
+                        PHARMACIE ASSIA
+                    </p>
+                </div>
+                <div class="border-b border-dashed border-gray-400 my-1" style="height: 1px;"></div>
+                <div class="flex items-center mb-1">
+                    <i class="fas fa-city text-black text-sm mr-2 w-4 flex-shrink-0"></i>
+                    <span class="text-sm font-semibold">CASABLANCA</span>
+                </div>
+            </div>
+            <div class="px-2 py-1 border-t border-black" style="height: 30px; display: flex; align-items: center;">
+                <span class="text-sm font-semibold">SDL FEM YZ012 CUIVRE P38</span>
+            </div>
+            <div class="flex justify-between items-center bg-black text-white p-2" style="height: 35px;">
+                <span class="font-bold text-base">200 <span class="text-sm font-normal">DH</span></span>
+                <span class="font-bold text-base">CASABLANCA</span>
+            </div>
+            <div class="flex justify-between items-center p-1 text-xs">
+                <span class="font-bold text-sm" style="font-family: serif;">YOOZAK</span>
+                <div class="text-right leading-tight">
+                    <span>www.yoozak.com</span><br/>
+                    <span>06 34 21 56 39 / 47</span>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('etiquetteContent').innerHTML = etiquetteHTML;
+    document.getElementById('etiquetteModal').classList.remove('hidden');
+}
+function closeEtiquetteModal() {
+    document.getElementById('etiquetteModal').classList.add('hidden');
+}
+
+// Nouvelle fonction pour imprimer toutes les étiquettes sélectionnées
+document.addEventListener('DOMContentLoaded', function() {
+    const printSelectedButton = document.querySelector('button.bg-blue-600');
+    if (printSelectedButton) {
+        printSelectedButton.addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert("Veuillez sélectionner au moins une commande à imprimer.");
+                return;
+            }
+
+            let labelsToPrint = '';
+            checkboxes.forEach(function(checkbox) {
+                // Dans un vrai projet, tu récupérerais les données de la commande ici
+                // Pour cette simulation, on utilise des données factices basées sur l'exemple
+                const row = checkbox.closest('tr');
+                const cmdId = row.cells[1].textContent; // ID YZ
+                const clientName = row.cells[3].textContent; // Client
+                const city = row.cells[4].textContent; // Ville
+
+                // Recrée la structure de l'étiquette pour chaque sélection
+                labelsToPrint += `
+                    <div class="label-simulation" style="width: 250px; border: 1.5px solid black; margin-bottom: 20px; page-break-after: always;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; background-color: black; color: white; padding: 8px; height: 35px;">
+                            <span style="font-weight: bold; font-size: 16px;">N° ${cmdId.replace('CMD','')}</span>
+                            <span style="font-size: 12px;">5/2/2025</span>
+                        </div>
+                        <div style="padding: 8px; flex-grow: 1;">
+                            <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                                <i class="fas fa-user" style="color: black; font-size: 12px; margin-right: 8px; width: 16px; flex-shrink: 0;"></i>
+                                <span style="font-weight: bold; font-size: 14px;">${clientName}</span>
+                            </div>
+                            <div style="border-bottom: 1px dashed gray; margin: 4px 0; height: 1px;"></div>
+                            <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                                <i class="fas fa-phone-alt" style="color: black; font-size: 12px; margin-right: 8px; width: 16px; flex-shrink: 0;"></i>
+                                <span style="font-size: 14px;">06 93 21 89 80</span>
+                            </div>
+                            <div style="border-bottom: 1px dashed gray; margin: 4px 0; height: 1px;"></div>
+                            <div style="display: flex; align-items: flex-start; margin-bottom: 4px;">
+                                <i class="fas fa-map-marker-alt" style="color: black; font-size: 12px; margin-top: 4px; margin-right: 8px; width: 16px; flex-shrink: 0;"></i>
+                                <p style="font-size: 14px; line-height: 1.2;">
+                                    HAY AMAL 02 RUE 46 NR6<br/>
+                                    FIDA DERB SULTANE<br/>
+                                    PHARMACIE ASSIA
+                                </p>
+                            </div>
+                            <div style="border-bottom: 1px dashed gray; margin: 4px 0; height: 1px;"></div>
+                            <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                                <i class="fas fa-city" style="color: black; font-size: 12px; margin-right: 8px; width: 16px; flex-shrink: 0;"></i>
+                                <span style="font-size: 14px; font-weight: 600;">${city}</span>
+                            </div>
+                        </div>
+                        <div style="padding: 4px 8px; border-top: 1.5px solid black; height: 30px; display: flex; align-items: center;">
+                            <span style="font-size: 14px; font-weight: 600;">SDL FEM YZ012 CUIVRE P38</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; background-color: black; color: white; padding: 8px; height: 35px;">
+                            <span style="font-weight: bold; font-size: 16px;">200 <span style="font-size: 12px; font-weight: normal;">DH</span></span>
+                            <span style="font-weight: bold; font-size: 16px;">CASABLANCA</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px; font-size: 10px;">
+                            <span style="font-weight: bold; font-size: 14px; font-family: serif;">YOOZAK</span>
+                            <div style="text-align: right; line-height: 1.2;">
+                                <span>www.yoozak.com</span><br/>
+                                <span>06 34 21 56 39 / 47</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Impression Étiquettes</title>
+                    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+                    <style>
+                        @media print {
+                            body {
+                                margin: 0;
+                                padding: 0;
+                                background-color: white;
+                            }
+                            /* S'assurer que chaque étiquette commence sur une nouvelle page */
+                            .label-simulation {
+                                page-break-after: always;
+                            }
+                            .label-simulation:last-child {
+                                page-break-after: avoid;
+                            }
+                        }
+                        /* Styles pour l'affichage dans la fenêtre d'impression */
+                        body {
+                            font-family: Arial, sans-serif;
+                            font-size: 12px;
+                            display: flex;
+                            flex-wrap: wrap;
+                            justify-content: center; /* Centrer les étiquettes si elles sont moins nombreuses */
+                            padding: 10mm;
+                        }
+                        .label-simulation {
+                            width: 250px; /* Largeur fixe comme défini */
+                            height: auto;
+                            border: 1.5px solid black; 
+                            color: black; 
+                            font-size: 10px; 
+                            box-sizing: border-box;
+                            margin: 5mm; /* Marge entre les étiquettes */
+                            display: flex;
+                            flex-direction: column;
+                            /* S'assurer que l'arrière-plan est blanc pour l'impression */
+                            background-color: white;
+                        }
+                        .label-simulation span, .label-simulation p {
+                            font-family: inherit;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${labelsToPrint}
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+        });
+    }
+});
+</script>
+{% endblock %} 

@@ -36,33 +36,59 @@ def sync_dashboard(request):
 @login_required
 @user_passes_test(is_admin)
 def sync_now(request, config_id):
-    """Déclenche une synchronisation manuelle"""
+    """Déclenche une synchronisation manuelle avec vérifications en arrière-plan"""
     config = get_object_or_404(GoogleSheetConfig, pk=config_id, is_active=True)
     
-    # Créer une instance de synchronisation et l'exécuter
-    syncer = GoogleSheetSync(config, triggered_by=request.user.username)
+    # Créer une instance de synchronisation et l'exécuter (mode silencieux par défaut)
+    syncer = GoogleSheetSync(config, triggered_by=request.user.username, verbose=False)
     success = syncer.sync()
     
+    # Préparer le message de notification détaillé
+    sync_summary = syncer.execution_details.get('sync_summary', 'Résumé non disponible')
+    detailed_message = f"Synchronisation terminée: {sync_summary}"
+    
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        # Réponse AJAX
+        # Déterminer le type de notification pour AJAX
+        notification_type = 'success'
+        notification_message = detailed_message
+        
+        if syncer.new_orders_created == 0 and syncer.duplicate_orders_found > 0:
+            notification_type = 'info'
+            notification_message = f"Resynchronisation terminée: {sync_summary} 🔍 Toutes les commandes de la feuille existent déjà dans le système."
+        
+        # Réponse AJAX détaillée
         return JsonResponse({
             'success': success,
             'records_imported': syncer.records_imported,
+            'new_orders_created': syncer.new_orders_created,
+            'existing_orders_updated': syncer.existing_orders_updated,
+            'existing_orders_skipped': syncer.existing_orders_skipped,
+            'duplicate_orders_found': syncer.duplicate_orders_found,
+            'sync_summary': sync_summary,
+            'notification_type': notification_type,
+            'notification_message': notification_message,
             'errors': syncer.errors,
             'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S')
         })
     else:
-        # Réponse normale avec redirection
-        if success:
-            messages.success(
-                request, 
-                f"Synchronisation réussie. {syncer.records_imported} enregistrements importés."
-            )
+        # Réponse normale avec redirection et notification détaillée
+        if success or syncer.new_orders_created > 0 or syncer.existing_orders_updated > 0:
+            # Cas spécial : Aucune nouvelle commande trouvée
+            if syncer.new_orders_created == 0 and syncer.duplicate_orders_found > 0:
+                info_message = f"Resynchronisation terminée: {sync_summary}"
+                info_message += f" 🔍 Toutes les commandes de la feuille existent déjà dans le système."
+                messages.info(request, info_message)
+            else:
+                # Cas normal avec nouvelles commandes ou mises à jour
+                if syncer.duplicate_orders_found > 0 and syncer.new_orders_created > 0:
+                    detailed_message += f" 🛡️ Protection anti-doublons activée: {syncer.duplicate_orders_found} commandes existantes ignorées."
+                messages.success(request, detailed_message)
         else:
-            messages.error(
-                request, 
-                f"Erreur lors de la synchronisation. Consultez les logs pour plus de détails."
-            )
+            error_message = f"Synchronisation incomplète. {sync_summary}"
+            if syncer.errors:
+                error_message += f" Erreurs: {len(syncer.errors)} problèmes détectés."
+            messages.error(request, error_message)
+        
         return redirect('synchronisation:dashboard')
 
 @login_required
