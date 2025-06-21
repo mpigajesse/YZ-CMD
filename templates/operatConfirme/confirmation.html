@@ -164,8 +164,15 @@
                 Vue Grille
             </button>
         </div>
-        <div class="text-sm text-gray-600">
-            <strong>{{ commandes_a_confirmer.count }}</strong> commande{{ commandes_a_confirmer.count|pluralize }} à lancer
+        <div class="flex items-center space-x-4">
+            <div class="text-sm text-gray-600">
+                <strong>{{ commandes_a_confirmer.count }}</strong> commande{{ commandes_a_confirmer.count|pluralize }} à lancer
+            </div>
+            <button onclick="lancerSelection()" 
+                    class="flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors shadow-lg">
+                <i class="fas fa-rocket mr-2"></i>
+                Lancer Sélection
+            </button>
         </div>
     </div>
 
@@ -647,31 +654,8 @@ function lancerCommande(commandeId) {
 
 // Confirmation individuelle
 function confirmerCommande(commandeId) {
-    if (confirm('Êtes-vous sûr de vouloir confirmer cette commande ?')) {
-        fetch(`/operateur-confirme/commandes/${commandeId}/confirmer-ajax/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                'commentaire': 'Commande confirmée depuis la page confirmation'
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Rechargement de la page pour voir les modifications
-                location.reload();
-            } else {
-                alert('Erreur : ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            alert('Une erreur est survenue lors de la confirmation.');
-        });
-    }
+    window.currentCommandeId = commandeId;
+    showConfirmationModalSimple();
 }
 
 // Lancement en masse
@@ -680,13 +664,14 @@ function lancerSelection() {
                                   .map(cb => cb.value);
     
     if (selectedCommandes.length === 0) {
-        alert('Veuillez sélectionner au moins une commande.');
+        showSelectionErrorModal();
         return;
     }
     
-    if (confirm(`Lancer la confirmation de ${selectedCommandes.length} commande(s) sélectionnée(s) ?`)) {
-        lancerCommandes(selectedCommandes);
-    }
+    // Stocker les commandes sélectionnées et afficher le modal
+    window.selectedCommandes = selectedCommandes;
+    document.getElementById('selectedCommandesCount').textContent = selectedCommandes.length;
+    showMassConfirmationModal();
 }
 
 // Fonction AJAX pour lancer les confirmations
@@ -707,12 +692,12 @@ function lancerCommandes(commandeIds) {
             // Rechargement de la page pour voir les modifications
             location.reload();
         } else {
-            alert('Erreur : ' + data.message);
+            showErrorModal('Erreur : ' + data.message);
         }
     })
     .catch(error => {
         console.error('Erreur:', error);
-        alert('Une erreur est survenue lors du lancement.');
+        showErrorModal('Une erreur est survenue lors du lancement.');
     });
     
     hideConfirmModal();
@@ -743,5 +728,331 @@ document.getElementById('confirmModal').addEventListener('click', function(e) {
         hideConfirmModal();
     }
 });
+
+// ================== MODAL DE CONFIRMATION SIMPLE ==================
+
+// Fonction pour afficher le modal de confirmation simple
+function showConfirmationModalSimple() {
+    const modal = document.getElementById('confirmationModalSimple');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de confirmation simple
+function hideConfirmationModalSimple() {
+    const modal = document.getElementById('confirmationModalSimple');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour procéder à la confirmation simple
+function proceedWithSimpleConfirmation() {
+    hideConfirmationModalSimple();
+    
+    if (window.currentCommandeId) {
+        fetch(`/operateur-confirme/commandes/${window.currentCommandeId}/confirmer-ajax/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                'commentaire': 'Commande confirmée depuis la page confirmation'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Rechargement de la page pour voir les modifications
+                location.reload();
+            } else {
+                showErrorModal('Erreur : ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showErrorModal('Une erreur est survenue lors de la confirmation.');
+        });
+    }
+}
+
+// ================== MODAL DE CONFIRMATION EN MASSE ==================
+
+// Fonction pour afficher le modal de confirmation en masse
+function showMassConfirmationModal() {
+    const modal = document.getElementById('massConfirmationModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de confirmation en masse
+function hideMassConfirmationModal() {
+    const modal = document.getElementById('massConfirmationModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour procéder à la confirmation en masse
+function proceedWithMassConfirmation() {
+    hideMassConfirmationModal();
+    
+    if (window.selectedCommandes && window.selectedCommandes.length > 0) {
+        lancerCommandes(window.selectedCommandes);
+    }
+}
+
+// ================== MODALS D'ERREUR ET DE SÉLECTION ==================
+
+// Fonction pour afficher le modal d'erreur de sélection
+function showSelectionErrorModal() {
+    const modal = document.getElementById('selectionErrorModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal d'erreur de sélection
+function hideSelectionErrorModal() {
+    const modal = document.getElementById('selectionErrorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour afficher le modal d'erreur générique
+function showErrorModal(message) {
+    const modal = document.getElementById('errorModal');
+    const messageElement = document.getElementById('errorMessage');
+    if (modal && messageElement) {
+        messageElement.textContent = message;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal d'erreur générique
+function hideErrorModal() {
+    const modal = document.getElementById('errorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
 </script>
+
+<!-- Modal de Confirmation Simple Tailwind -->
+<div id="confirmationModalSimple" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f7d9c4;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b" style="border-color: #f7d9c4;">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                    <i class="fas fa-check-circle text-white text-lg"></i>
+                </div>
+                <h3 class="text-xl font-bold" style="color: #4B352A;">Confirmer la Commande</h3>
+            </div>
+            <button onclick="hideConfirmationModalSimple()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-question text-yellow-600"></i>
+                </div>
+                <p class="text-gray-700 font-medium">Êtes-vous sûr de vouloir confirmer cette commande ?</p>
+            </div>
+            <p class="text-sm text-gray-500 ml-11">Cette action ne peut pas être annulée.</p>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t" style="border-color: #f7d9c4;">
+            <button onclick="hideConfirmationModalSimple()" 
+                    class="px-5 py-2 rounded-lg font-medium transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300" 
+                    style="background-color: #f7d9c4; color: #4B352A;">
+                <i class="fas fa-times mr-1"></i>
+                Annuler
+            </button>
+            <button onclick="proceedWithSimpleConfirmation()" 
+                    class="px-5 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5" 
+                    style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                <i class="fas fa-check mr-1"></i>
+                Confirmer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes fade-in-down {
+        0% {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    .animate-fade-in-down {
+        animation: fade-in-down 0.4s ease-out;
+    }
+</style>
+
+<!-- Modal de Confirmation en Masse Tailwind -->
+<div id="massConfirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f7d9c4;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b" style="border-color: #f7d9c4;">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                    <i class="fas fa-list-check text-white text-lg"></i>
+                </div>
+                <h3 class="text-xl font-bold" style="color: #4B352A;">Confirmation en Masse</h3>
+            </div>
+            <button onclick="hideMassConfirmationModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-rocket text-blue-600"></i>
+                </div>
+                <div>
+                    <p class="text-gray-700 font-medium">
+                        Lancer la confirmation de <span id="selectedCommandesCount" class="font-bold text-blue-600">0</span> commande(s) sélectionnée(s) ?
+                    </p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-500 ml-11">Cette action va démarrer le processus de confirmation pour toutes les commandes sélectionnées.</p>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t" style="border-color: #f7d9c4;">
+            <button onclick="hideMassConfirmationModal()" 
+                    class="px-5 py-2 rounded-lg font-medium transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300" 
+                    style="background-color: #f7d9c4; color: #4B352A;">
+                <i class="fas fa-times mr-1"></i>
+                Annuler
+            </button>
+            <button onclick="proceedWithMassConfirmation()" 
+                    class="px-5 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5" 
+                    style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                <i class="fas fa-rocket mr-1"></i>
+                Lancer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'Erreur de Sélection -->
+<div id="selectionErrorModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f87171;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b border-red-200">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-lg"></i>
+                </div>
+                <h3 class="text-xl font-bold text-red-800">Sélection requise</h3>
+            </div>
+            <button onclick="hideSelectionErrorModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-hand-point-up text-orange-600"></i>
+                </div>
+                <p class="text-gray-700 font-medium">Veuillez sélectionner au moins une commande</p>
+            </div>
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 ml-11">
+                <p class="text-sm text-orange-700">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Cochez les cases à côté des commandes que vous souhaitez lancer en confirmation, puis cliquez sur "Lancer Sélection".
+                </p>
+            </div>
+        </div>
+        
+        <!-- Bouton d'action -->
+        <div class="flex justify-end pt-4 border-t border-red-200">
+            <button onclick="hideSelectionErrorModal()" 
+                    class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                <i class="fas fa-check mr-1"></i>
+                Compris
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'Erreur Générique -->
+<div id="errorModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f87171;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b border-red-200">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-times-circle text-red-600 text-lg"></i>
+                </div>
+                <h3 class="text-xl font-bold text-red-800">Erreur</h3>
+            </div>
+            <button onclick="hideErrorModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-exclamation text-red-600"></i>
+                </div>
+                <p id="errorMessage" class="text-gray-700 font-medium"></p>
+            </div>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 ml-11">
+                <p class="text-sm text-red-700">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Veuillez réessayer ou contacter l'administrateur si le problème persiste.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Bouton d'action -->
+        <div class="flex justify-end pt-4 border-t border-red-200">
+            <button onclick="hideErrorModal()" 
+                    class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                <i class="fas fa-times mr-1"></i>
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
+
 {% endblock %} 

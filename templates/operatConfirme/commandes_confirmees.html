@@ -54,60 +54,128 @@
         border-color: #6d4b3b;
         box-shadow: 0 10px 20px rgba(75, 53, 42, 0.1);
     }
+
+    /* Style pour les colonnes de sélection - toujours visibles */
+    .selection-column {
+        padding: 0.75rem 1rem;
+        text-align: center;
+        vertical-align: middle;
+        width: 50px;
+    }
+    
+    /* Transition smooth pour l'apparition des colonnes */
+    .confirmation-card {
+        transition: all 0.3s ease;
+    }
+    
+    .selection-mode {
+        border-color: #f87171 !important;
+        box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="main-content transition-all duration-300" id="mainContent">
+<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
     <!-- En-tête de la page -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #4B352A, #6d4b3b);">
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
-                <i class="fas fa-check-circle mr-3 text-yellow-400"></i>
+                <i class="fas fa-check-double mr-3" style="color: #f7d9c4;"></i>
                 Mes Commandes Confirmées
             </h1>
             <p style="color: #f7d9c4;">Commandes que j'ai confirmées et validées</p>
         </div>
         <div class="flex items-center gap-4 mt-4 md:mt-0">
             <div class="text-right">
-                <div class="text-2xl font-bold text-yellow-400">{{ mes_commandes_confirmees.count|default:0 }}</div>
+                <div class="text-2xl font-bold" style="color: #f7d9c4;">{{ mes_commandes_confirmees.count }}</div>
                 <div class="text-sm opacity-80">Confirmées par moi</div>
             </div>
         </div>
     </div>
 
     <!-- Statistiques -->
-    {% if mes_commandes_confirmees %}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Total confirmées -->
-        <div class="stat-card rounded-xl p-4 text-center">
-            <div class="text-2xl font-bold" style="color: #4B352A;">{{ mes_commandes_confirmees.count }}</div>
-            <div class="text-sm" style="color: #6d4b3b;">Total confirmées</div>
-        </div>
-        
-        <!-- Valeur totale -->
-        <div class="stat-card rounded-xl p-4 text-center">
-            <div class="text-2xl font-bold text-green-600">
-                {% widthratio mes_commandes_confirmees|length 1 1 as total_count %}
-                {% if total_count > 0 %}
-                    {{ mes_commandes_confirmees|length|floatformat:0 }}{% comment %}Simple count for now{% endcomment %}
-                {% else %}
-                    0
-                {% endif %} DH
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.1s; border-color: #f7d9c4;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(to right, #f7d9c4, #ede0d3); color: #4B352A;">
+                        <i class="fas fa-check-double text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total confirmées</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300" style="color: #4B352A;">{{ stats.total_confirmees|default:0 }}</p>
+                    </div>
+                </div>
             </div>
-            <div class="text-sm" style="color: #6d4b3b;">Valeur totale</div>
         </div>
-        
+
+        <!-- Valeur totale -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.2s; border-color: #f7d9c4;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur totale</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.valeur_totale|floatformat:2|default:0 }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Cette semaine -->
-        <div class="stat-card rounded-xl p-4 text-center">
-            <div class="text-2xl font-bold" style="color: #4B352A;">-</div>
-            <div class="text-sm" style="color: #6d4b3b;">Cette semaine</div>
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s; border-color: #f7d9c4;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(to right, #6d4b3b, #4B352A); color: white;">
+                        <i class="fas fa-calendar-week text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Cette semaine</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300" style="color: #6d4b3b;">{{ stats.confirmees_semaine|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
         </div>
-        
+
         <!-- Aujourd'hui -->
-        <div class="stat-card rounded-xl p-4 text-center">
-            <div class="text-2xl font-bold" style="color: #4B352A;">-</div>
-            <div class="text-sm" style="color: #6d4b3b;">Aujourd'hui</div>
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.4s; border-color: #f7d9c4;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-calendar-day text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Aujourd'hui</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ stats.confirmees_aujourdhui|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Barre d'actions du tableau -->
+    {% if mes_commandes_confirmees %}
+    <div class="flex justify-between items-center mb-4 px-2">
+        <div class="flex items-center space-x-4">
+            <button onclick="switchToTable()" id="btn-table" class="flex items-center px-4 py-2 rounded-lg font-medium text-white transition-colors" style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                <i class="fas fa-table mr-2"></i>
+                Vue Tableau
+            </button>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="text-sm text-gray-600">
+                <strong>{{ mes_commandes_confirmees.count }}</strong> commande{{ mes_commandes_confirmees.count|pluralize }} confirmée{{ mes_commandes_confirmees.count|pluralize }}
+            </div>
+            <button id="btnAnnulationMultiple" onclick="toggleSelectionMode()" 
+                    class="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors shadow-lg">
+                <i class="fas fa-times-circle mr-2"></i>
+                Annulation Multiple
+            </button>
         </div>
     </div>
     {% endif %}
@@ -130,7 +198,11 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
                 <tr>
+                    <th class="selection-column">
+                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="rounded">
+                    </th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville</th>
@@ -143,11 +215,14 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for commande in mes_commandes_confirmees %}
                 <tr class="hover:bg-orange-50 transition-colors">
+                    <td class="selection-column">
+                        <input type="checkbox" name="commande_selection" value="{{ commande.id }}" class="rounded commande-checkbox">
+                    </td>
                     <td class="px-4 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium" style="color: #4B352A;">{{ commande.id_yz }}</div>
-                        {% if commande.num_cmd != commande.id_yz|stringformat:"s" %}
-                        <div class="text-xs text-gray-500">{{ commande.num_cmd }}</div>
-                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-700">{{ commande.num_cmd|default:"Non spécifié" }}</div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium" style="color: #4B352A;">
@@ -170,7 +245,7 @@
                     <td class="px-4 py-4 whitespace-nowrap text-sm">
                         {% if commande.ville %}
                             <div style="color: #4B352A;">{{ commande.ville.nom }}</div>
-                            <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                            <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region|default_if_none:'' }}</div>
                         {% else %}
                             <div style="color: #6d4b3b;">{{ commande.ville_init|default:"Non spécifiée" }}</div>
                         {% endif %}
@@ -187,103 +262,458 @@
                         {% endfor %}
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        {% with operation_actuelle=commande|confirmation_operation %}
-                            {% if operation_actuelle %}
-                                {% if operation_actuelle.type_operation == 'AUCUNE_ACTION' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                        <i class="fas fa-minus mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'APPEL_1' %}
+                        {% with nb_operations=commande.operations.count %}
+                            {% if nb_operations > 0 %}
+                                {% if nb_operations == 1 %}
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        <i class="fas fa-phone mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
+                                        <i class="fas fa-check-circle mr-1"></i>
+                                        {{ nb_operations }} opération
                                     </span>
-                                {% elif operation_actuelle.type_operation == 'APPEL_2' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                        <i class="fas fa-phone mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
+                                {% elif nb_operations <= 3 %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="fas fa-check-double mr-1"></i>
+                                        {{ nb_operations }} opérations
                                     </span>
-                                {% elif operation_actuelle.type_operation == 'APPEL_3' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                        <i class="fas fa-phone mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'APPEL_4' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
-                                        <i class="fas fa-phone mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'APPEL_5' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                        <i class="fas fa-phone mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'APPEL_6' %}
+                                {% elif nb_operations <= 5 %}
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                        <i class="fas fa-phone mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'APPEL_7' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                        <i class="fas fa-phone mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'APPEL_8' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-800 text-white">
-                                        <i class="fas fa-phone-slash mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'ENVOI_SMS' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        <i class="fas fa-sms mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'ENVOI_MSG' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        <i class="fas fa-comment mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'PROPOSITION_ABONNEMENT' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                                        <i class="fas fa-gift mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
-                                    </span>
-                                {% elif operation_actuelle.type_operation == 'PROPOSITION_REDUCTION' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                                        <i class="fas fa-percent mr-1"></i>
-                                        {{ operation_actuelle.get_type_operation_display }}
+                                        <i class="fas fa-list mr-1"></i>
+                                        {{ nb_operations }} opérations
                                     </span>
                                 {% else %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                        <i class="fas fa-question mr-1"></i>
-                                    {{ operation_actuelle.get_type_operation_display }}
-                                </span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        {{ nb_operations }} opérations
+                                    </span>
                                 {% endif %}
-                                <div class="text-xs text-gray-400 mt-1">{{ operation_actuelle.date_operation|date:"d/m H:i" }}</div>
-                                {% if operation_actuelle.conclusion %}
-                                <div class="text-xs text-gray-500 mt-1" title="{{ operation_actuelle.conclusion }}">{{ operation_actuelle.conclusion|truncatechars:30 }}</div>
-                                {% endif %}
+                                <div class="text-xs text-gray-500 mt-1">
+                                    {% with derniere_operation=commande.operations.first %}
+                                        {% if derniere_operation %}
+                                            Dernière: {{ derniere_operation.date_operation|date:"d/m H:i" }}
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">
+                                    {% with types_operations=commande.operations.all %}
+                                        {% if types_operations %}
+                                            {% for operation in types_operations|slice:":3" %}
+                                                {{ operation.get_type_operation_display }}{% if not forloop.last %}, {% endif %}
+                                            {% endfor %}
+                                            {% if types_operations.count > 3 %}...{% endif %}
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
                             {% else %}
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                     <i class="fas fa-minus mr-1"></i>
-                                    Aucune action
+                                    Aucune opération
                                 </span>
+                                <div class="text-xs text-gray-500 mt-1">Pas d'actions effectuées</div>
                             {% endif %}
                         {% endwith %}
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap text-center">
-                        <a href="{% url 'operatConfirme:detail_commande' commande.pk %}" 
-                           class="px-3 py-1 text-white text-xs rounded transition-colors hover:shadow-lg" style="background: linear-gradient(135deg, #3b82f6, #60a5fa);" title="Voir ma confirmation complète">
-                            <i class="fas fa-eye mr-1"></i>
-                            Voir
-                        </a>
+                        <div class="flex space-x-2 justify-center">
+                            <a href="{% url 'operatConfirme:detail_commande' commande.pk %}" 
+                               class="px-3 py-1 text-white text-xs rounded transition-colors hover:shadow-lg" style="background: linear-gradient(135deg, #3b82f6, #60a5fa);" title="Voir ma confirmation complète">
+                                <i class="fas fa-eye mr-1"></i>
+                                Voir
+                            </a>
+                            <button onclick="annulerCommandeIndividuelle({{ commande.id }}, '{{ commande.id_yz }}')" 
+                                    class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors" title="Annuler cette commande">
+                                <i class="fas fa-times mr-1"></i>
+                                Annuler
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    
+    <!-- Barre d'actions pour l'annulation multiple -->
+    <div id="multipleSelectionBar" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl shadow-lg hidden">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <span id="selectedCount" class="text-red-700 font-medium">0 commande(s) sélectionnée(s)</span>
+                <button onclick="selectAllVisible()" class="text-red-600 hover:text-red-800 text-sm font-medium">
+                    <i class="fas fa-check-square mr-1"></i>Tout sélectionner
+                </button>
+                <button onclick="deselectAll()" class="text-red-600 hover:text-red-800 text-sm font-medium">
+                    <i class="fas fa-square mr-1"></i>Tout désélectionner
+                </button>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="toggleSelectionMode()" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-all">
+                    <i class="fas fa-times mr-2"></i>Annuler
+                </button>
+                <button onclick="showAnnulationMultipleModal()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all">
+                    <i class="fas fa-trash mr-2"></i>Annuler les Sélectionnées
+                </button>
+            </div>
+        </div>
+    </div>
     {% endif %}
 </div>
+
+<!-- Modal d'Annulation Individuelle -->
+<div id="annulationIndividuelleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-lg m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f87171;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b border-red-200">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mr-4">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-red-700">Annuler la Commande</h3>
+            </div>
+            <button onclick="hideAnnulationIndividuelleModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-start space-x-4 mb-6">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-times-circle text-red-600 text-lg"></i>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Êtes-vous sûr de vouloir annuler cette commande ?</h4>
+                    <p class="text-gray-600 mb-4">Commande : <span id="commandeIdDisplay" class="font-bold text-red-600"></span></p>
+                    <div class="text-gray-600 space-y-2">
+                        <p class="flex items-center">
+                            <i class="fas fa-undo mr-2 text-blue-500"></i>
+                            Le stock des articles sera restauré
+                        </p>
+                        <p class="flex items-center">
+                            <i class="fas fa-ban mr-2 text-red-500"></i>
+                            Cette action ne peut pas être annulée
+                        </p>
+                        <p class="flex items-center">
+                            <i class="fas fa-file-alt mr-2 text-orange-500"></i>
+                            La commande passera en état "Annulée"
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Champ motif d'annulation -->
+            <div class="mb-4">
+                <label for="motifAnnulationIndividuel" class="block text-sm font-medium text-gray-700 mb-2">
+                    Motif d'annulation (obligatoire)
+                </label>
+                <textarea id="motifAnnulationIndividuel" rows="3" 
+                          class="w-full p-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" 
+                          placeholder="Veuillez préciser le motif de l'annulation..."></textarea>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t border-red-200">
+            <button onclick="hideAnnulationIndividuelleModal()" 
+                    class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-all duration-200">
+                <i class="fas fa-times mr-2"></i>
+                Annuler
+            </button>
+            <button onclick="proceedAnnulationIndividuelle()" 
+                    class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transform hover:-translate-y-0.5">
+                <i class="fas fa-check mr-2"></i>
+                Confirmer l'Annulation
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'Annulation Multiple -->
+<div id="annulationMultipleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-2xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f87171;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b border-red-200">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mr-4">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-red-700">Annulation Multiple</h3>
+            </div>
+            <button onclick="hideAnnulationMultipleModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-start space-x-4 mb-6">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-times-circle text-red-600 text-lg"></i>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Êtes-vous sûr de vouloir annuler ces commandes ?</h4>
+                    <p class="text-gray-600 mb-4">Nombre de commandes sélectionnées : <span id="nombreCommandesSelectionnees" class="font-bold text-red-600">0</span></p>
+                    <div class="text-gray-600 space-y-2">
+                        <p class="flex items-center">
+                            <i class="fas fa-undo mr-2 text-blue-500"></i>
+                            Le stock de tous les articles sera restauré
+                        </p>
+                        <p class="flex items-center">
+                            <i class="fas fa-ban mr-2 text-red-500"></i>
+                            Cette action ne peut pas être annulée
+                        </p>
+                        <p class="flex items-center">
+                            <i class="fas fa-file-alt mr-2 text-orange-500"></i>
+                            Toutes les commandes passeront en état "Annulée"
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Liste des commandes sélectionnées -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-6 max-h-40 overflow-y-auto">
+                <h5 class="font-semibold text-gray-700 mb-3">Commandes à annuler :</h5>
+                <ul id="listeCommandesSelectionnees" class="space-y-2">
+                    <!-- Les éléments seront ajoutés dynamiquement par JavaScript -->
+                </ul>
+            </div>
+            
+            <!-- Champ motif d'annulation -->
+            <div class="mb-4">
+                <label for="motifAnnulationMultiple" class="block text-sm font-medium text-gray-700 mb-2">
+                    Motif d'annulation (obligatoire)
+                </label>
+                <textarea id="motifAnnulationMultiple" rows="3" 
+                          class="w-full p-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" 
+                          placeholder="Veuillez préciser le motif de l'annulation..."></textarea>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t border-red-200">
+            <button onclick="hideAnnulationMultipleModal()" 
+                    class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-all duration-200">
+                <i class="fas fa-times mr-2"></i>
+                Retour
+            </button>
+            <button onclick="proceedAnnulationMultiple()" 
+                    class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transform hover:-translate-y-0.5">
+                <i class="fas fa-check mr-2"></i>
+                Confirmer Annulation Multiple
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let selectionMode = false;
+
+    function getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value || '';
+    }
+
+    window.toggleSelectionMode = function() {
+        selectionMode = !selectionMode;
+        const confirmationCard = document.querySelector('.confirmation-card');
+        const selectionBar = document.getElementById('multipleSelectionBar');
+        const btnAnnulationMultiple = document.getElementById('btnAnnulationMultiple');
+
+        if (!confirmationCard || !selectionBar || !btnAnnulationMultiple) {
+            console.error('Éléments DOM manquants pour le mode sélection');
+            return;
+        }
+
+        if (selectionMode) {
+            confirmationCard.classList.add('selection-mode');
+            selectionBar.classList.remove('hidden');
+            btnAnnulationMultiple.innerHTML = '<i class="fas fa-times mr-2"></i>Annuler Sélection';
+            btnAnnulationMultiple.classList.remove('bg-red-600', 'hover:bg-red-700');
+            btnAnnulationMultiple.classList.add('bg-gray-500', 'hover:bg-gray-600');
+        } else {
+            confirmationCard.classList.remove('selection-mode');
+            selectionBar.classList.add('hidden');
+            btnAnnulationMultiple.innerHTML = '<i class="fas fa-times-circle mr-2"></i>Annulation Multiple';
+            btnAnnulationMultiple.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+            btnAnnulationMultiple.classList.add('bg-red-600', 'hover:bg-red-700');
+            deselectAll();
+        }
+    }
+
+    function updateSelectedCount() {
+        const selectedCheckboxes = document.querySelectorAll('.commande-checkbox:checked');
+        const count = selectedCheckboxes.length;
+        const selectedCountElement = document.getElementById('selectedCount');
+        if (selectedCountElement) {
+            selectedCountElement.textContent = `${count} commande(s) sélectionnée(s)`;
+        }
+    }
+
+    window.toggleSelectAll = function() {
+        const selectAllCheckbox = document.getElementById('selectAll');
+        if (!selectAllCheckbox) return;
+        const isChecked = selectAllCheckbox.checked;
+        document.querySelectorAll('.commande-checkbox').forEach(checkbox => {
+            checkbox.checked = isChecked;
+        });
+        updateSelectedCount();
+    }
+
+    window.selectAllVisible = function() {
+        document.querySelectorAll('.commande-checkbox').forEach(c => c.checked = true);
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) selectAll.checked = true;
+        updateSelectedCount();
+    }
+
+    window.deselectAll = function() {
+        document.querySelectorAll('.commande-checkbox').forEach(c => c.checked = false);
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) selectAll.checked = false;
+        updateSelectedCount();
+    }
+
+    document.querySelector('tbody')?.addEventListener('change', function(e) {
+        if (e.target.classList.contains('commande-checkbox')) {
+            updateSelectedCount();
+            const allCheckboxes = document.querySelectorAll('.commande-checkbox');
+            const checkedCheckboxes = document.querySelectorAll('.commande-checkbox:checked');
+            const selectAllCheckbox = document.getElementById('selectAll');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && allCheckboxes.length === checkedCheckboxes.length;
+            }
+        }
+    });
+
+    // Modals
+    let commandeAnnulerIndividuelle = null;
+    window.annulerCommandeIndividuelle = function(commandeId, commandeIdYz) {
+        commandeAnnulerIndividuelle = { id: commandeId, id_yz: commandeIdYz };
+        document.getElementById('commandeIdDisplay').textContent = commandeIdYz;
+        document.getElementById('motifAnnulationIndividuel').value = '';
+        document.getElementById('annulationIndividuelleModal').classList.remove('hidden');
+    }
+
+    window.hideAnnulationIndividuelleModal = function() {
+        document.getElementById('annulationIndividuelleModal').classList.add('hidden');
+    }
+
+    window.proceedAnnulationIndividuelle = function() {
+        const motif = document.getElementById('motifAnnulationIndividuel').value.trim();
+        if (!motif) {
+            showToast('Veuillez saisir un motif d\'annulation', 'error');
+            return;
+        }
+        
+        const button = event.target;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Annulation...';
+
+        fetch(`/operateur-confirme/commandes/${commandeAnnulerIndividuelle.id}/annuler-confirmee/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({ motif_annulation: motif })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                hideAnnulationIndividuelleModal();
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showToast(data.message || 'Une erreur est survenue', 'error');
+            }
+        })
+        .catch(() => showToast('Erreur de communication avec le serveur', 'error'))
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-check mr-2"></i>Confirmer l\'Annulation';
+        });
+    }
+
+    window.showAnnulationMultipleModal = function() {
+        const selectedCheckboxes = document.querySelectorAll('.commande-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            showToast('Veuillez sélectionner au moins une commande', 'error');
+            return;
+        }
+
+        document.getElementById('nombreCommandesSelectionnees').textContent = selectedCheckboxes.length;
+        const liste = document.getElementById('listeCommandesSelectionnees');
+        liste.innerHTML = '';
+        selectedCheckboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            const idYz = row.querySelector('td:nth-child(2) div').textContent.trim();
+            const client = row.querySelector('td:nth-child(4) div').textContent.trim();
+            const li = document.createElement('li');
+            li.className = 'flex justify-between items-center py-2 px-3 bg-red-50 rounded-lg border border-red-200';
+            li.innerHTML = `<span class="font-medium text-gray-900">${idYz}</span><span class="text-sm text-gray-600">${client}</span>`;
+            liste.appendChild(li);
+        });
+
+        document.getElementById('motifAnnulationMultiple').value = '';
+        document.getElementById('annulationMultipleModal').classList.remove('hidden');
+    }
+
+    window.hideAnnulationMultipleModal = function() {
+        document.getElementById('annulationMultipleModal').classList.add('hidden');
+    }
+
+    window.proceedAnnulationMultiple = function() {
+        const motif = document.getElementById('motifAnnulationMultiple').value.trim();
+        if (!motif) {
+            showToast('Veuillez saisir un motif pour l\'annulation multiple.', 'error');
+            return;
+        }
+        
+        const commandesIds = Array.from(document.querySelectorAll('.commande-checkbox:checked')).map(cb => cb.value);
+        const button = event.target;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Annulation en cours...';
+
+        fetch('/operateur-confirme/annuler-commandes-multiples/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({ commandes_ids: commandesIds, motif_annulation: motif })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success', 5000);
+                hideAnnulationMultipleModal();
+                toggleSelectionMode();
+                setTimeout(() => window.location.reload(), 2000);
+            } else {
+                showToast(data.message || 'Une erreur est survenue', 'error');
+            }
+        })
+        .catch(() => showToast('Erreur de communication avec le serveur', 'error'))
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-check mr-2"></i>Confirmer Annulation Multiple';
+        });
+    }
+
+    function showToast(message, type = 'info', duration = 3000) {
+        const toast = document.createElement('div');
+        const colors = {
+            success: 'bg-green-600', error: 'bg-red-600',
+            warning: 'bg-yellow-600', info: 'bg-blue-600'
+        };
+        toast.className = `fixed top-5 right-5 z-[100] px-6 py-4 rounded-lg shadow-lg text-white font-medium transition-transform duration-300 transform translate-x-full`;
+        toast.classList.add(colors[type] || colors.info);
+        toast.innerHTML = message.replace(/\n/g, '<br>');
+        document.body.appendChild(toast);
+        setTimeout(() => toast.classList.remove('translate-x-full'), 100);
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            toast.addEventListener('transitionend', () => toast.remove());
+        }, duration);
+    }
+});
+</script>
 {% endblock %} 
