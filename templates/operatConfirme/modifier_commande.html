@@ -179,6 +179,15 @@
                                    class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
                         </div>
                     </div>
+                    
+                    <!-- Bouton de validation pour cette section -->
+                    <div class="mt-4 flex justify-end">
+                        <button type="button" onclick="validerSection('informations-commande')" 
+                                class="px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center" 
+                                style="background: linear-gradient(135deg, #4B352A, #6d4b3b); hover:shadow-lg;">
+                            <i class="fas fa-check mr-2"></i>Valider les informations
+                        </button>
+                    </div>
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
                 </div>
 
@@ -209,9 +218,18 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Ville Client (Non modifiable)</label>
-                            <input type="text" value="{% if commande.ville %}{{ commande.ville.nom }}{% else %}{{ commande.ville_init|default:'Non spécifiée' }}{% endif %}" readonly
+                            <input type="text" value="{{ commande.ville_init|default:'Non spécifiée' }}" readonly
                                    class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
                         </div>
+                    </div>
+                    
+                    <!-- Bouton de validation pour cette section -->
+                    <div class="mt-4 flex justify-end">
+                        <button type="button" onclick="validerSection('informations-client')" 
+                                class="px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center" 
+                                style="background: linear-gradient(135deg, #4B352A, #6d4b3b); hover:shadow-lg;">
+                            <i class="fas fa-user-check mr-2"></i>Valider les infos client
+                        </button>
                     </div>
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
                 </div>
@@ -257,6 +275,15 @@
                                       class="w-full p-3 border rounded-lg focus:ring-2 transition-all" 
                                       style="border-color: #f7d9c4; focus:ring-color: #6d4b3b;"
                                       placeholder="Adresse complète de livraison">{{ commande.adresse }}</textarea>
+                    </div>
+                    
+                    <!-- Bouton de validation pour cette section -->
+                    <div class="mt-4 flex justify-end">
+                        <button type="button" onclick="validerSection('informations-livraison')" 
+                                class="px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center" 
+                                style="background: linear-gradient(135deg, #4B352A, #6d4b3b); hover:shadow-lg;">
+                            <i class="fas fa-truck mr-2"></i>Valider la livraison
+                        </button>
                     </div>
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
                 </div>
@@ -384,6 +411,15 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Bouton de validation pour cette section -->
+                    <div class="mt-4 flex justify-end">
+                        <button type="button" onclick="validerSection('gestion-operations')" 
+                                class="px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center" 
+                                style="background: linear-gradient(135deg, #4B352A, #6d4b3b); hover:shadow-lg;">
+                            <i class="fas fa-cogs mr-2"></i>Valider les opérations
+                        </button>
+                    </div>
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
                 </div>
 
@@ -501,6 +537,15 @@
                                 {{ commande.total_cmd|floatformat:2 }} DH
                             </div>
                         </div>
+                    </div>
+                    
+                    <!-- Bouton de validation pour cette section -->
+                    <div class="mt-4 flex justify-end">
+                        <button type="button" onclick="validerSection('articles-commande')" 
+                                class="px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center" 
+                                style="background: linear-gradient(135deg, #4B352A, #6d4b3b); hover:shadow-lg;">
+                            <i class="fas fa-box mr-2"></i>Valider les articles
+                        </button>
                     </div>
                 
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
@@ -2052,10 +2097,9 @@ function confirmerCommande() {
                 
     console.log('✅ Toutes les vérifications passées, confirmation en cours...');
     
-    // Demander confirmation à l'utilisateur
-    if (!confirm('🎯 Êtes-vous sûr de vouloir confirmer cette commande ?\n\n⚠️ ATTENTION: Cette action va décrémenter le stock des articles et ne peut pas être annulée.\n\nLa commande sera envoyée vers l\'administration.')) {
-        return;
-    }
+    // Afficher le modal de confirmation
+    showConfirmationModal();
+    return;
     
     // Afficher une notification de traitement en cours
     showNotification('⏳ Confirmation en cours... (vérification du stock)', 'info');
@@ -2104,15 +2148,9 @@ function confirmerCommande() {
                 console.error('❌ DEBUG: Erreur de confirmation:', data.message);
                 
                 if (data.stock_insuffisant && data.stock_insuffisant.length > 0) {
-                    // Afficher les détails du stock insuffisant
-                    let errorMessage = '❌ Confirmation impossible - Stock insuffisant :\n\n';
-                    data.stock_insuffisant.forEach(item => {
-                        errorMessage += `• ${item.article}: Stock disponible=${item.stock_actuel}, Demandé=${item.quantite_demandee}\n`;
-                    });
-                    errorMessage += '\n💡 Veuillez modifier les quantités ou retirer les articles en rupture.';
-                    
-                    // Utiliser une alert pour plus de visibilité sur les erreurs de stock
-                    alert(errorMessage);
+                    // Préparer les données pour le modal de stock insuffisant
+                    window.stockInsuffisantData = data.stock_insuffisant;
+                    showStockInsuffisantModal();
                 } else {
                     showNotification('❌ Erreur lors de la confirmation : ' + data.message, 'error');
                 }
@@ -3341,5 +3379,462 @@ document.addEventListener('DOMContentLoaded', function() {
 
 });
 
+// ================== MODAL DE CONFIRMATION ==================
+
+// Fonction pour afficher le modal de confirmation
+function showConfirmationModal() {
+    const modal = document.getElementById('confirmationModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de confirmation
+function hideConfirmationModal() {
+    const modal = document.getElementById('confirmationModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour procéder à la confirmation
+function proceedWithConfirmation() {
+    hideConfirmationModal();
+    
+    // Afficher une notification de traitement en cours
+    showNotification('⏳ Confirmation en cours... (vérification du stock)', 'info');
+    
+    // Récupérer les informations de livraison du formulaire
+    const villeSelect = document.getElementById('ville-select');
+    const adresseTextarea = document.querySelector('textarea[name="adresse_livraison"]');
+    
+    const villeId = villeSelect ? villeSelect.value : '';
+    const adresse = adresseTextarea ? adresseTextarea.value.trim() : '';
+    
+    console.log('🏙️ DEBUG: Données de livraison à envoyer:', {
+        ville_livraison: villeId,
+        adresse_livraison: adresse
+    });
+    
+    // Confirmer la commande avec les informations de livraison
+    fetch(`/operateur-confirme/commandes/{{ commande.id }}/confirmer-ajax/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    'commentaire': 'Commande confirmée après vérification complète',
+                    'ville_livraison': villeId,
+                    'adresse_livraison': adresse
+                })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('📬 DEBUG: Réponse de confirmation reçue:', data);
+            
+            if (data.success) {
+                // Message de succès avec détails du stock
+                let successMessage = '✅ Commande confirmée avec succès !';
+                
+                if (data.articles_decrémentes && data.articles_decrémentes > 0) {
+                    successMessage += `\n📦 ${data.articles_decrémentes} article(s) décrémenté(s) du stock.`;
+                    
+                    // Log détaillé des modifications de stock
+                    if (data.details_stock && data.details_stock.length > 0) {
+                        console.log('📊 DEBUG: Détails de la décrémentation du stock:');
+                        data.details_stock.forEach((item, index) => {
+                            console.log(`   Article ${index + 1}: ${item.article}`);
+                            console.log(`      - Stock: ${item.ancien_stock} → ${item.nouveau_stock} (-${item.quantite_decrémententée})`);
+                        });
+                    }
+                }
+                
+                showNotification(successMessage, 'success');
+                
+                // Rediriger après un court délai pour voir la notification
+                setTimeout(() => {
+                window.location.href = '{% url "operatConfirme:commandes_confirmees" %}';
+                }, 3000); // 3 secondes pour lire les détails
+                
+            } else {
+                // Gestion des erreurs de stock insuffisant
+                console.error('❌ DEBUG: Erreur de confirmation:', data.message);
+                
+                if (data.stock_insuffisant && data.stock_insuffisant.length > 0) {
+                    // Préparer les données pour le modal de stock insuffisant
+                    window.stockInsuffisantData = data.stock_insuffisant;
+                    showStockInsuffisantModal();
+                } else {
+                    showNotification('❌ Erreur lors de la confirmation : ' + data.message, 'error');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('❌ DEBUG: Erreur de connexion:', error);
+            showNotification('❌ Une erreur de connexion est survenue : ' + error.message, 'error');
+        });
+}
+
+// ================== MODAL DE STOCK INSUFFISANT ==================
+
+// Fonction pour afficher le modal de stock insuffisant
+function showStockInsuffisantModal() {
+    // Remplir le contenu du modal avec les données de stock
+    const stockList = document.getElementById('stockInsuffisantList');
+    if (stockList && window.stockInsuffisantData) {
+        stockList.innerHTML = '';
+        window.stockInsuffisantData.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'flex justify-between items-center py-2 px-3 bg-red-50 rounded-lg border border-red-200';
+            li.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span class="font-medium text-gray-900">${item.article}</span>
+                </div>
+                <div class="text-sm text-red-600">
+                    <span class="font-medium">Stock: ${item.stock_actuel}</span> | 
+                    <span class="font-medium">Demandé: ${item.quantite_demandee}</span>
+                </div>
+            `;
+            stockList.appendChild(li);
+        });
+    }
+    
+    const modal = document.getElementById('stockInsuffisantModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de stock insuffisant
+function hideStockInsuffisantModal() {
+    const modal = document.getElementById('stockInsuffisantModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// ================== VALIDATION DES SECTIONS ==================
+
+// Fonction pour valider une section
+function validerSection(sectionId) {
+    const sectionElement = event.target.closest('.verification-item');
+    const sectionName = getSectionName(sectionId);
+    
+    // Traitement spécifique pour les informations de livraison
+    if (sectionId === 'informations-livraison') {
+        sauvegarderInformationsLivraison(sectionElement, sectionName);
+        return;
+    }
+    
+    // Animation de validation pour les autres sections
+    sectionElement.classList.add('verified');
+    
+    // Afficher une notification de succès
+    showToast(`✅ ${sectionName} validée avec succès !`, 'success');
+    
+    // Optionnel : Désactiver le bouton après validation
+    const button = event.target;
+    button.innerHTML = '<i class="fas fa-check-double mr-2"></i>Validé';
+    button.disabled = true;
+    button.style.background = '#6b7280';
+    button.style.cursor = 'not-allowed';
+    button.classList.add('cursor-not-allowed');
+    
+    // Vérifier si toutes les sections sont validées
+    checkAllSectionsValidated();
+}
+
+// Fonction pour sauvegarder les informations de livraison
+function sauvegarderInformationsLivraison(sectionElement, sectionName) {
+    const button = event.target;
+    
+    // Récupérer seulement l'adresse de livraison (saisie manuelle)
+    const adresseTextarea = document.querySelector('textarea[name="adresse_livraison"]');
+    const adresse = adresseTextarea ? adresseTextarea.value.trim() : '';
+    
+    // Désactiver le bouton pendant la sauvegarde
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sauvegarde...';
+    
+    // Préparer les données à envoyer (seulement l'adresse)
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    formData.append('action', 'save_livraison');
+    formData.append('adresse_livraison', adresse);
+    
+    // Envoyer la requête AJAX
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Animation de validation
+            sectionElement.classList.add('verified');
+            
+            // Afficher une notification de succès
+            const message = adresse ? 
+                `✅ ${sectionName} sauvegardée avec succès ! Adresse: ${adresse.substring(0, 50)}${adresse.length > 50 ? '...' : ''}` :
+                `✅ ${sectionName} validée avec succès !`;
+            showToast(message, 'success');
+            
+            // Mettre à jour le bouton
+            button.innerHTML = '<i class="fas fa-check-double mr-2"></i>Validé';
+            button.style.background = '#6b7280';
+            button.style.cursor = 'not-allowed';
+            button.classList.add('cursor-not-allowed');
+            
+            // Vérifier si toutes les sections sont validées
+            checkAllSectionsValidated();
+        } else {
+            // Erreur lors de la sauvegarde
+            showToast(`❌ Erreur lors de la sauvegarde : ${data.error || 'Erreur inconnue'}`, 'error');
+            
+            // Réactiver le bouton
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-truck mr-2"></i>Valider la livraison';
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de la sauvegarde des informations de livraison:', error);
+        showToast('❌ Erreur de connexion lors de la sauvegarde', 'error');
+        
+        // Réactiver le bouton
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-truck mr-2"></i>Valider la livraison';
+    });
+}
+
+// Fonction pour obtenir le nom de la section
+function getSectionName(sectionId) {
+    const sectionNames = {
+        'informations-commande': 'Section Informations Commande',
+        'informations-client': 'Section Informations Client',
+        'informations-livraison': 'Section Informations Livraison',
+        'gestion-operations': 'Section Gestion des Opérations',
+        'articles-commande': 'Section Articles de la Commande'
+    };
+    return sectionNames[sectionId] || 'Section';
+}
+
+// Fonction pour vérifier si toutes les sections sont validées
+function checkAllSectionsValidated() {
+    const allSections = document.querySelectorAll('.verification-item');
+    const validatedSections = document.querySelectorAll('.verification-item.verified');
+    
+    if (allSections.length === validatedSections.length) {
+        showToast('🎉 Toutes les sections ont été validées ! Vous pouvez maintenant confirmer la commande.', 'success', 5000);
+        
+        // Optionnel : Mettre en évidence le bouton de confirmation finale
+        const confirmButton = document.querySelector('.btn-confirm');
+        if (confirmButton) {
+            confirmButton.classList.add('animate-pulse');
+            setTimeout(() => {
+                confirmButton.classList.remove('animate-pulse');
+            }, 3000);
+        }
+    }
+}
+
+// Fonction pour afficher les notifications toast
+function showToast(message, type = 'info', duration = 3000) {
+    // Créer l'élément toast
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg text-white font-medium transition-all duration-300 transform translate-x-full`;
+    
+    // Définir les couleurs selon le type
+    const colors = {
+        'success': 'bg-green-600',
+        'error': 'bg-red-600',
+        'warning': 'bg-yellow-600',
+        'info': 'bg-blue-600'
+    };
+    
+    toast.classList.add(colors[type] || colors['info']);
+    toast.innerHTML = message;
+    
+    // Ajouter au DOM
+    document.body.appendChild(toast);
+    
+    // Animation d'entrée
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full');
+    }, 100);
+    
+    // Animation de sortie et suppression
+    setTimeout(() => {
+        toast.classList.add('translate-x-full');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, duration);
+}
+
 </script>
+
+<!-- Modal de Confirmation Tailwind -->
+<div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-lg m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f7d9c4;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b" style="border-color: #f7d9c4;">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                    <i class="fas fa-check-circle text-white text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold" style="color: #4B352A;">Confirmer la Commande</h3>
+            </div>
+            <button onclick="hideConfirmationModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-start space-x-4 mb-6">
+                <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 text-lg"></i>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Êtes-vous sûr de vouloir confirmer cette commande ?</h4>
+                    <div class="text-gray-600 space-y-2">
+                        <p class="flex items-center">
+                            <i class="fas fa-info-circle mr-2 text-blue-500"></i>
+                            Cette action va décrémenter le stock des articles
+                        </p>
+                        <p class="flex items-center">
+                            <i class="fas fa-ban mr-2 text-red-500"></i>
+                            Cette action ne peut pas être annulée
+                        </p>
+                        <p class="flex items-center">
+                            <i class="fas fa-paper-plane mr-2 text-green-500"></i>
+                            La commande sera envoyée vers l'administration
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t" style="border-color: #f7d9c4;">
+            <button onclick="hideConfirmationModal()" 
+                    class="px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300" 
+                    style="background-color: #f7d9c4; color: #4B352A;">
+                <i class="fas fa-times mr-2"></i>
+                Annuler
+            </button>
+            <button onclick="proceedWithConfirmation()" 
+                    class="px-6 py-3 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5" 
+                    style="background: linear-gradient(135deg, #4B352A, #6d4b3b); focus:ring-color: #4B352A;">
+                <i class="fas fa-check mr-2"></i>
+                Confirmer la Commande
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes fade-in-down {
+        0% {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    .animate-fade-in-down {
+        animation: fade-in-down 0.4s ease-out;
+    }
+</style>
+
+<!-- Modal de Stock Insuffisant Tailwind -->
+<div id="stockInsuffisantModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-2xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f87171;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b border-red-200">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mr-4">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-red-700">Stock Insuffisant</h3>
+            </div>
+            <button onclick="hideStockInsuffisantModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-start space-x-4 mb-6">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-times-circle text-red-600 text-lg"></i>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Confirmation impossible</h4>
+                    <p class="text-gray-600">Les articles suivants n'ont pas un stock suffisant pour traiter cette commande :</p>
+                </div>
+            </div>
+            
+            <!-- Liste des articles en rupture -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <ul id="stockInsuffisantList" class="space-y-3">
+                    <!-- Les éléments seront ajoutés dynamiquement par JavaScript -->
+                </ul>
+            </div>
+            
+            <!-- Suggestions d'action -->
+            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-lightbulb text-blue-600"></i>
+                    </div>
+                    <div>
+                        <h5 class="font-semibold text-blue-900 mb-2">Suggestions :</h5>
+                        <ul class="text-sm text-blue-800 space-y-1">
+                            <li class="flex items-center">
+                                <i class="fas fa-edit mr-2"></i>
+                                Modifier les quantités des articles concernés
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-trash-alt mr-2"></i>
+                                Retirer les articles en rupture de stock
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-exchange-alt mr-2"></i>
+                                Remplacer par des articles similaires disponibles
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t border-red-200">
+            <button onclick="hideStockInsuffisantModal()" 
+                    class="px-6 py-3 bg-red-600 text-white rounded-lg font-medium transition-all duration-200 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transform hover:-translate-y-0.5">
+                <i class="fas fa-check mr-2"></i>
+                Compris
+            </button>
+        </div>
+    </div>
+</div>
+
 {% endblock %} 

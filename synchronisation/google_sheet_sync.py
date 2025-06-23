@@ -221,6 +221,7 @@ class GoogleSheetSync:
                 adresse=data.get('Adresse', ''),
                 client=client_obj,
                 ville=ville_obj,
+                ville_init=ville_nom,  # ← CORRECTION: Sauvegarder la ville initiale du CSV
                 produit_init=data.get('Produit', ''),
                 # L'ID YZ sera généré automatiquement par la méthode save() du modèle (1, 2, 3, ...)
             )

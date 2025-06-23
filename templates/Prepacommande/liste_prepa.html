@@ -6,6 +6,7 @@
 {% block page_subtitle %}{{ page_subtitle }}{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="main-content transition-all duration-300" id="mainContent">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
          style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
@@ -18,9 +19,91 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: var(--preparation-border-accent);">
-        <h2 class="text-2xl font-bold mb-6" style="color: var(--preparation-primary);">Liste des Commandes à Préparer</h2>
-        
+    <!-- Statistiques rapides -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Total des commandes affectées -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-teal-100 to-teal-200 text-teal-600 transition-all duration-300 group-hover:from-teal-500 group-hover:to-teal-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-boxes text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Affectées</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-teal-600">{{ stats.total_affectees }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Valeur totale -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur Totale</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.valeur_totale|floatformat:0 }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commandes urgentes -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 transition-all duration-300 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Urgentes</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600">{{ stats.commandes_urgentes }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8 preparation-card" style="border-color: var(--preparation-border-accent);">
+        <!-- En-tête avec boutons -->
+        {% if commandes_affectees %}
+        <div class="flex justify-between items-center mb-4 px-2">
+            <div class="flex items-center space-x-4">
+                <button onclick="switchToTable()" id="btn-table" class="flex items-center px-4 py-2 rounded-lg font-medium text-white transition-colors" style="background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-dark));">
+                    <i class="fas fa-table mr-2"></i>
+                    Vue Tableau
+                </button>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm text-gray-600">
+                    <strong>{{ commandes_affectees.count }}</strong> commande{{ commandes_affectees.count|pluralize }} affectée{{ commandes_affectees.count|pluralize }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <h2 class="text-2xl font-bold mb-4 md:mb-0" style="color: var(--preparation-primary);">Mes Commandes Affectées</h2>
+            
+            <!-- Barre de recherche -->
+            <div class="w-full md:w-auto">
+                <form method="get" class="flex">
+                    <input type="text" name="search" value="{{ search_query }}" 
+                           placeholder="Rechercher par ID, nom, téléphone..." 
+                           class="px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-offset-2 transition-all w-full md:w-80"
+                           style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                    <button type="submit" 
+                            class="px-6 py-2 text-white rounded-r-lg hover:shadow-lg transition-all"
+                            style="background-color: var(--preparation-primary);">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
         <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead style="background-color: var(--preparation-primary);">
@@ -29,8 +112,9 @@
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Affectation</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
                         <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
@@ -38,47 +122,218 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    <!-- Exemple de ligne (à remplacer par les données réelles de Django) -->
-                    <tr>
+                    {% if commandes_affectees %}
+                        {% for commande in commandes_affectees %}
+                        <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-4 whitespace-nowrap">
-                            <a href="{% url 'Prepacommande:detail_prepa' 123 %}" class="text-sm font-medium hover:underline transition-all" style="color: var(--preparation-primary);">
-                                CMD001
+                                <a href="{% url 'Prepacommande:detail_prepa' commande.pk %}" class="text-sm font-medium hover:underline transition-all" style="color: var(--preparation-primary);">
+                                    {{ commande.id_yz }}
                             </a>
                         </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">EXT-001</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">Client A</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">+2126XXXXXXXX</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">Casablanca</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">2025-06-19</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">150.00 DH</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ commande.num_cmd|default:'-' }}
+                            </td>
+                            <!-- Colonne Client -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                                {% if commande.client.email %}
+                                <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Téléphone -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.client.numero_tel %}
+                                <div class="text-sm text-gray-900 font-medium">
+                                    <i class="fas fa-phone mr-1"></i>
+                                    {{ commande.client.numero_tel }}
+                                </div>
+                                {% else %}
+                                <div class="text-sm text-gray-500">Non renseigné</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville Client -->
+                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                {% if commande.ville_init and commande.ville_init != '' %}
+                                    <div style="color: var(--preparation-primary);" class="font-medium">{{ commande.ville_init }}</div>
+                                {% else %}
+                                    <div style="color: var(--preparation-primary);">Non spécifiée</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville & Région (ville de livraison) -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.ville %}
+                                    <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                                    <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non définie</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% for etat in commande.etats.all %}
+                                    {% if etat.enum_etat.libelle == 'En préparation' %}
+                                        <div class="text-sm text-gray-900">{{ etat.date_debut|date:"d/m/Y" }}</div>
+                                        <div class="text-xs text-gray-500">{{ etat.date_debut|date:"H:i" }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                            </td>
                         <td class="px-4 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">En attente</span>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
-                            <a href="#" class="text-blue-600 hover:text-blue-900" title="Voir Panier">
-                                <i class="fas fa-shopping-cart"></i>
-                            </a>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
-                            <a href="{% url 'Prepacommande:detail_prepa' 123 %}" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                <i class="fas fa-boxes mr-1"></i> Préparer
-                            </a>
-                        </td>
-                    </tr>
-                    
-                    <tr>
-                        <td colspan="10" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                            <p>Aucune commande à préparer pour le moment.</p>
-                            <p class="text-xs text-gray-400 mt-1">Les commandes confirmées seront affichées ici, en attente d'être affectées à un opérateur de préparation.</p>
-                        </td>
-                    </tr>
+                                {% for etat in commande.etats.all %}
+                                    {% if etat.enum_etat.libelle == 'En préparation' %}
+                                        {% if etat.date_fin %}
+                                            <!-- Commande préparée -->
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                <i class="fas fa-check mr-1"></i>
+                                                Préparée
+                                            </span>
+                                                                {% else %}
+                            <!-- Commande en cours de préparation -->
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                <i class="fas fa-cog fa-spin mr-1"></i>
+                                En préparation
+                            </span>
+                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-center">
+                                <a href="{% url 'Prepacommande:detail_prepa' commande.pk %}" 
+                                   class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                   style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                   title="Voir le panier de cette commande">
+                                    <i class="fas fa-shopping-cart mr-1"></i> 
+                                    {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
+                                </a>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-center">
+                                <div class="flex items-center justify-center space-x-2">
+                                    {% for etat in commande.etats.all %}
+                                        {% if etat.enum_etat.libelle == 'En préparation' %}
+                                            {% if not etat.date_fin %}
+                                                <!-- Bouton Préparer (si pas encore préparée) -->
+                                                <a href="{% url 'Prepacommande:detail_prepa' commande.pk %}" 
+                                                   class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                                   style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                                   title="Préparer cette commande">
+                                                    <i class="fas fa-boxes mr-1"></i> Préparer
+                                                </a>
+                                              </div>
+                                          {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                <div class="flex flex-col items-center py-8">
+                                    <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
+                                    <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande affectée</h3>
+                                    <p class="text-gray-500">Vous n'avez actuellement aucune commande à préparer.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
 
-        <div class="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200 text-gray-600">
-            <p><strong>Note:</strong> Les fonctionnalités complètes d'affichage, de filtrage et d'affectation des commandes seront ajoutées dans une phase ultérieure du projet.</p>
+        <!-- Pagination -->
+        {% if commandes_affectees.has_other_pages %}
+        <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
+            <div class="flex flex-1 justify-between sm:hidden">
+                {% if commandes_affectees.has_previous %}
+                    <a href="?page={{ commandes_affectees.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
+                {% endif %}
+                {% if commandes_affectees.has_next %}
+                    <a href="?page={{ commandes_affectees.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Affichage de
+                        <span class="font-medium">{{ commandes_affectees.start_index }}</span>
+                        à
+                        <span class="font-medium">{{ commandes_affectees.end_index }}</span>
+                        sur
+                        <span class="font-medium">{{ commandes_affectees.paginator.count }}</span>
+                        résultats
+                    </p>
+                </div>
+            </div>
         </div>
+        {% endif %}
     </div>
 </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fonction pour afficher les notifications toast
+    function showToast(message, type = 'info', duration = 3000) {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all transform translate-x-full opacity-0 max-w-sm`;
+        
+        if (type === 'success') {
+            toast.classList.add('bg-green-500', 'text-white');
+        } else if (type === 'error') {
+            toast.classList.add('bg-red-500', 'text-white');
+        } else {
+            toast.classList.add('bg-blue-500', 'text-white');
+        }
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    ${type === 'success' ? '<i class="fas fa-check-circle"></i>' : 
+                      type === 'error' ? '<i class="fas fa-exclamation-circle"></i>' : 
+                      '<i class="fas fa-info-circle"></i>'}
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium">${message}</p>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full', 'opacity-0');
+        }, 100);
+        
+        setTimeout(() => {
+            toast.classList.add('translate-x-full', 'opacity-0');
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 300);
+        }, duration);
+    }
+
+    // Animation d'entrée pour les éléments
+    const cards = document.querySelectorAll('.preparation-card, .group');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s ease-out';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+
+    // Fonction pour basculer vers la vue tableau
+    window.switchToTable = function() {
+        // Fonction maintenue pour compatibilité
+        showToast('Vue tableau active', 'info');
+    };
+});
+</script>
 {% endblock %} 

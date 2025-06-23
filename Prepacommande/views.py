@@ -5,8 +5,13 @@ from django.contrib.auth import update_session_auth_hash
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from datetime import datetime, timedelta
+from django.http import JsonResponse
+from django.db import transaction
+
+import json
 from parametre.models import Operateur
 from commande.models import Commande, EtatCommande, EnumEtatCmd, Operation, Panier
+from django.urls import reverse
 
 # Create your views here.
 
@@ -160,9 +165,75 @@ def home_view(request):
 @login_required
 def liste_prepa(request):
     """Liste des commandes à préparer pour les opérateurs de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        
+        # Vérifier que l'utilisateur est un opérateur de préparation
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé. Vous n'êtes pas un opérateur de préparation.")
+            return redirect('login')
+            
+    except Operateur.DoesNotExist:
+        messages.error(request, "Votre profil opérateur n'existe pas.")
+        return redirect('login')
+
+    # Récupérer les commandes dont l'état ACTUEL est "En préparation" et qui sont affectées à cet opérateur
+    # On cherche les commandes qui ont un état "En préparation" actif (sans date_fin) avec cet opérateur
+    from django.db.models import Q, Max
+    
+    commandes_affectees = Commande.objects.filter(
+        etats__enum_etat__libelle='En préparation',
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True  # État actif (en cours)
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+    
+    # Si aucune commande trouvée avec la méthode stricte, essayer une approche plus large
+    if not commandes_affectees.exists():
+        # Chercher toutes les commandes qui ont été affectées à cet opérateur pour la préparation
+        # et qui n'ont pas encore d'état "Préparée" ou "En cours de livraison"
+        commandes_affectees = Commande.objects.filter(
+            etats__enum_etat__libelle='En préparation',
+            etats__operateur=operateur_profile
+        ).exclude(
+            # Exclure les commandes qui ont déjà un état ultérieur actif
+            Q(etats__enum_etat__libelle__in=['Préparée', 'En cours de livraison', 'Livrée', 'Annulée'], etats__date_fin__isnull=True)
+        ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+    
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_affectees = commandes_affectees.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query)
+        ).distinct()
+    
+    # Tri par date d'affectation (plus récentes en premier)
+    commandes_affectees = commandes_affectees.order_by('-etats__date_debut')
+    
+    # Statistiques
+    total_affectees = commandes_affectees.count()
+    valeur_totale = commandes_affectees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Commandes urgentes (affectées depuis plus de 1 jour)
+    date_limite_urgence = timezone.now() - timedelta(days=1)
+    commandes_urgentes = commandes_affectees.filter(
+        etats__date_debut__lt=date_limite_urgence
+    ).count()
+    
     context = {
-        'page_title': 'Commandes à Préparer',
-        'page_subtitle': 'Gérez les commandes en attente de préparation',
+        'page_title': 'Mes Commandes à Préparer',
+        'page_subtitle': f'Vous avez {total_affectees} commande(s) affectée(s)',
+        'commandes_affectees': commandes_affectees,
+        'search_query': search_query,
+        'stats': {
+            'total_affectees': total_affectees,
+            'valeur_totale': valeur_totale,
+            'commandes_urgentes': commandes_urgentes,
+        },
+        'operateur_profile': operateur_profile,
     }
     return render(request, 'Prepacommande/liste_prepa.html', context)
 
@@ -270,20 +341,194 @@ def changer_mot_de_passe_view(request):
 
 @login_required
 def detail_prepa(request, pk):
-    # Cette vue est un placeholder pour la page de détail de la préparation de commande
-    # La logique réelle sera implémentée ultérieurement.
+    """Vue détaillée pour la préparation d'une commande spécifique"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        
+        # Vérifier que l'utilisateur est un opérateur de préparation
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé. Vous n'êtes pas un opérateur de préparation.")
+            return redirect('login')
+            
+    except Operateur.DoesNotExist:
+        messages.error(request, "Votre profil opérateur n'existe pas.")
+        return redirect('login')
+
+    # Récupérer la commande spécifique
+    try:
+        commande = Commande.objects.select_related(
+            'client', 'ville', 'ville__region'
+        ).prefetch_related(
+            'paniers__article', 'etats__enum_etat', 'etats__operateur'
+        ).get(id=pk)
+    except Commande.DoesNotExist:
+        messages.error(request, "La commande demandée n'existe pas.")
+        return redirect('Prepacommande:liste_prepa')
+
+    # Vérifier que la commande est bien affectée à cet opérateur pour la préparation
+    etat_preparation = commande.etats.filter(
+        enum_etat__libelle='En préparation',
+        operateur=operateur_profile
+    ).first()
+    
+    if not etat_preparation:
+        messages.error(request, "Cette commande ne vous est pas affectée pour la préparation.")
+        return redirect('Prepacommande:liste_prepa')
+
+    # Récupérer les paniers (articles) de la commande
+    paniers = commande.paniers.all().select_related('article')
+    
+    # Ajouter le prix unitaire et le total de chaque ligne
+    for panier in paniers:
+        panier.prix_unitaire = panier.sous_total / panier.quantite if panier.quantite > 0 else 0
+        panier.total_ligne = panier.sous_total
+    
+    # Calculer le total des articles
+    total_articles = sum(panier.total_ligne for panier in paniers)
+    
+    # Récupérer tous les états de la commande pour afficher l'historique
+    etats_commande = commande.etats.all().select_related('enum_etat', 'operateur').order_by('date_debut')
+    
+    # Déterminer l'état actuel
+    etat_actuel = etats_commande.filter(date_fin__isnull=True).first()
+    
+    # Gestion des actions POST (marquer comme préparée, etc.)
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'marquer_preparee':
+            if etat_preparation and not etat_preparation.date_fin:
+                with transaction.atomic():
+                    # Terminer l'état de préparation actuel
+                    etat_preparation.date_fin = timezone.now()
+                    etat_preparation.commentaire = "Préparation terminée par l'opérateur."
+                    etat_preparation.save()
+
+                    # Créer ou récupérer l'état "Préparée"
+                    etat_preparee_enum, created = EnumEtatCmd.objects.get_or_create(
+                        libelle='Préparée',
+                        defaults={'ordre': 45, 'couleur': '#22C55E'} # Vert pour "Préparée"
+                    )
+                    
+                    # Créer le nouvel état "Préparée" pour la commande
+                    EtatCommande.objects.create(
+                        commande=commande,
+                        enum_etat=etat_preparee_enum,
+                        operateur=operateur_profile,
+                        date_debut=timezone.now(),
+                        commentaire="Commande marquée comme préparée."
+                    )
+                    
+                    messages.success(request, f"La commande {commande.id_yz} a été marquée comme préparée.")
+                
+                return redirect('Prepacommande:liste_prepa')
+    
     context = {
-        'page_title': f'Préparation Commande #{pk}',
-        'page_subtitle': 'Détails de la commande et étapes de préparation',
-        'commande_id': pk,
+        'page_title': f'Préparation Commande {commande.id_yz}',
+        'page_subtitle': f'Détails de la commande et étapes de préparation',
+        'commande': commande,
+        'paniers': paniers,
+        'total_articles': total_articles,
+        'etats_commande': etats_commande,
+        'etat_actuel': etat_actuel,
+        'etat_preparation': etat_preparation,
+        'operateur_profile': operateur_profile,
     }
     return render(request, 'Prepacommande/detail_prepa.html', context)
 
 @login_required
 def etiquette_view(request):
     """Page de gestion des étiquettes pour les commandes préparées"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        
+        # Vérifier que l'utilisateur est un opérateur de préparation
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé. Vous n'êtes pas un opérateur de préparation.")
+            return redirect('login')
+            
+    except Operateur.DoesNotExist:
+        messages.error(request, "Votre profil opérateur n'existe pas.")
+        return redirect('login')
+
+    # Récupérer les commandes préparées par cet opérateur
+    # Une commande est considérée comme préparée quand elle a eu l'état "En préparation" qui est terminé
+    from django.db.models import Max
+    
+    commandes_preparees = Commande.objects.filter(
+        etats__enum_etat__libelle='En préparation',
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=False  # État terminé = commande préparée
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats__enum_etat').annotate(
+        date_preparation=Max('etats__date_fin')
+    ).distinct()
+    
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_preparees = commandes_preparees.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query)
+        ).distinct()
+    
+    # Tri par date de préparation (plus récentes en premier)
+    commandes_preparees = commandes_preparees.order_by('-date_preparation')
+    
+    # Statistiques
+    total_preparees = commandes_preparees.count()
+    
     context = {
         'page_title': 'Gestion des Étiquettes',
-        'page_subtitle': 'Imprimez les étiquettes des commandes préparées',
+        'page_subtitle': f'Gérez les étiquettes de vos {total_preparees} commande(s) préparée(s)',
+        'commandes_preparees': commandes_preparees,
+        'search_query': search_query,
+        'total_preparees': total_preparees,
+        'operateur_profile': operateur_profile,
+        'api_produits_url_base': reverse('Prepacommande:api_commande_produits', args=[99999999]),
     }
     return render(request, 'Prepacommande/etiquette.html', context)
+
+@login_required
+
+
+@login_required
+def api_commande_produits(request, commande_id):
+    """API pour récupérer les produits d'une commande pour les étiquettes"""
+    try:
+        # Récupérer la commande. La sécurité est déjà gérée par la page
+        # qui appelle cette API, qui ne liste que les commandes autorisées.
+        commande = Commande.objects.get(id=commande_id)
+        
+        # Récupérer tous les produits de la commande
+        paniers = commande.paniers.all().select_related('article')
+        
+        # Construire la liste des produits
+        produits_list = []
+        for panier in paniers:
+            if panier.article:
+                # Format: "NOM REFERENCE , POINTURE"
+                produit_info = f"{panier.article.nom or ''} {panier.article.reference or ''}".strip()
+                if panier.article.pointure:
+                    produit_info += f" , {panier.article.pointure}"
+                
+                # Ajouter la quantité si elle est supérieure à 1
+                if panier.quantite > 1:
+                    produit_info += f" (x{panier.quantite})" # Mettre la quantité entre parenthèses
+                produits_list.append(produit_info)
+        
+        # Joindre tous les produits en une seule chaîne, en utilisant " + " comme séparateur
+        produits_text = " + ".join(produits_list) if produits_list else "PRODUITS NON SPÉCIFIÉS"
+        
+        return JsonResponse({
+            'success': True,
+            'produits': produits_text,
+            'nombre_articles': len(produits_list)
+        })
+        
+    except Commande.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Commande non trouvée'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})

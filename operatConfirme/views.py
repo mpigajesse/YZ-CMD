@@ -14,7 +14,7 @@ from django.utils import timezone
 from commande.models import Commande, EtatCommande, EnumEtatCmd
 from datetime import datetime, timedelta
 from django.db.models import Sum
-from django.db import models
+from django.db import models, transaction
 
 # Create your views here.
 
@@ -222,6 +222,28 @@ def confirmer_commande_ajax(request, commande_id):
         with transaction.atomic():
             print(f"🎯 DEBUG: Début de la confirmation de la commande {commande.id_yz}")
             
+            # IMPORTANT: Récupérer et sauvegarder les informations de livraison depuis le formulaire
+            # Ces informations doivent être envoyées avec la requête de confirmation
+            try:
+                if 'ville_livraison' in data and data['ville_livraison']:
+                    from parametre.models import Ville
+                    nouvelle_ville = Ville.objects.get(id=data['ville_livraison'])
+                    commande.ville = nouvelle_ville
+                    print(f"🏙️ DEBUG: Ville de livraison mise à jour: {nouvelle_ville.nom}")
+                
+                if 'adresse_livraison' in data:
+                    commande.adresse = data['adresse_livraison']
+                    print(f"📍 DEBUG: Adresse de livraison mise à jour: {data['adresse_livraison'][:50]}...")
+                
+                # Sauvegarder les modifications de la commande
+                commande.save()
+                print(f"💾 DEBUG: Informations de livraison sauvegardées")
+                
+            except Ville.DoesNotExist:
+                print(f"❌ DEBUG: Ville de livraison non trouvée: {data.get('ville_livraison')}")
+            except Exception as e:
+                print(f"⚠️ DEBUG: Erreur lors de la sauvegarde des infos de livraison: {str(e)}")
+            
             # Vérifier le stock et décrémenter les articles
             articles_decrémentes = []
             stock_insuffisant = []
@@ -424,6 +446,9 @@ def parametre(request):
 @login_required
 def commandes_confirmees(request):
     """Vue pour afficher les commandes confirmées par l'opérateur connecté"""
+    from django.utils import timezone
+    from datetime import timedelta
+    
     try:
         # Récupérer l'objet Operateur correspondant à l'utilisateur connecté
         operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
@@ -435,15 +460,49 @@ def commandes_confirmees(request):
             etats__operateur=operateur  # Utiliser l'objet Operateur
         ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
         
+
+        
         # Tri par date de confirmation (plus récentes en premier)
         mes_commandes_confirmees = mes_commandes_confirmees.order_by('-etats__date_debut')
+        
+        # Calcul des statistiques
+        today = timezone.now().date()
+        week_start = today - timedelta(days=today.weekday())
+        
+        stats = {}
+        stats['total_confirmees'] = mes_commandes_confirmees.count()
+        
+        # Valeur totale des commandes confirmées
+        valeur_totale = mes_commandes_confirmees.aggregate(
+            total=Sum('total_cmd')
+        )['total'] or 0
+        stats['valeur_totale'] = valeur_totale
+        
+        # Commandes confirmées cette semaine
+        stats['confirmees_semaine'] = mes_commandes_confirmees.filter(
+            etats__date_debut__date__gte=week_start,
+            etats__enum_etat__libelle='Confirmée'
+        ).count()
+        
+        # Commandes confirmées aujourd'hui
+        stats['confirmees_aujourdhui'] = mes_commandes_confirmees.filter(
+            etats__date_debut__date=today,
+            etats__enum_etat__libelle='Confirmée'
+        ).count()
         
     except Operateur.DoesNotExist:
         # Si l'utilisateur n'est pas un opérateur, liste vide
         mes_commandes_confirmees = Commande.objects.none()
+        stats = {
+            'total_confirmees': 0,
+            'valeur_totale': 0,
+            'confirmees_semaine': 0,
+            'confirmees_aujourdhui': 0
+        }
     
     context = {
         'mes_commandes_confirmees': mes_commandes_confirmees,
+        'stats': stats,
     }
     
     return render(request, 'operatConfirme/commandes_confirmees.html', context)
@@ -1520,6 +1579,28 @@ def modifier_commande(request, commande_id):
                     traceback.print_exc()
                     return JsonResponse({'success': False, 'error': str(e)})
             
+            elif action == 'save_livraison':
+                # Sauvegarder seulement l'adresse de livraison (saisie manuelle)
+                try:
+                    adresse = request.POST.get('adresse_livraison', '').strip()
+                    
+                    # Mettre à jour seulement l'adresse (pas obligatoire)
+                    commande.adresse = adresse
+                    
+                    # Sauvegarder les modifications
+                    commande.save()
+                    
+                    message = 'Adresse de livraison sauvegardée avec succès' if adresse else 'Section livraison validée'
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': message,
+                        'adresse': adresse
+                    })
+                    
+                except Exception as e:
+                    return JsonResponse({'success': False, 'error': str(e)})
+            
             # ================ TRAITEMENT NORMAL DU FORMULAIRE ================
             
             # Mise à jour des informations client
@@ -1881,5 +1962,6 @@ def api_commentaires_disponibles(request):
         })
     
     return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
 
 

@@ -12,4 +12,6 @@ urlpatterns = [
     path('changer-mot-de-passe/', views.changer_mot_de_passe_view, name='changer_mot_de_passe'),
     path('detail-prepa/<int:pk>/', views.detail_prepa, name='detail_prepa'),
     path('etiquettes/', views.etiquette_view, name='etiquette'),
+
+    path('api/commande/<int:commande_id>/produits/', views.api_commande_produits, name='api_commande_produits'),
 ] 

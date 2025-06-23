@@ -14,6 +14,8 @@ from client.models import Client
 from parametre.models import Ville, Operateur
 from article.models import Article
 from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
 
 # Create your views here.
 
@@ -1304,6 +1306,75 @@ def annuler_commande(request, pk):
         return JsonResponse({'success': False, 'message': str(e)})
 
 # Fonction utilitaire pour automatiser les changements d'état
+def repartition_automatique_commandes():
+    """
+    Répartit automatiquement les commandes préparées aux opérateurs logistiques
+    selon un algorithme de répartition par ville/région
+    """
+    from .models import EnumEtatCmd, EtatCommande
+    from parametre.models import Operateur
+    from django.db.models import Count
+    
+    try:
+        # Récupérer les commandes préparées non encore affectées pour la livraison
+        commandes_preparees = Commande.objects.filter(
+            etats__enum_etat__libelle='Préparée',
+            etats__date_fin__isnull=True  # État actif
+        ).exclude(
+            # Exclure celles qui ont déjà un état de livraison
+            etats__enum_etat__libelle__in=['En cours de livraison', 'Livrée', 'Retournée']
+        ).select_related('ville', 'ville__region').distinct()
+        
+        if not commandes_preparees.exists():
+            return 0, "Aucune commande préparée à répartir"
+        
+        # Récupérer les opérateurs logistiques actifs
+        operateurs_logistiques = Operateur.objects.filter(
+            type_operateur='LOGISTIQUE',
+            actif=True
+        )
+        
+        if not operateurs_logistiques.exists():
+            return 0, "Aucun opérateur logistique actif disponible"
+        
+        # Créer ou récupérer l'état "En cours de livraison"
+        etat_livraison, created = EnumEtatCmd.objects.get_or_create(
+            libelle='En cours de livraison',
+            defaults={'ordre': 60, 'couleur': '#F59E0B'}
+        )
+        
+        commandes_affectees = 0
+        
+        # Algorithme de répartition simple : round-robin par opérateur
+        operateurs_list = list(operateurs_logistiques)
+        operateur_index = 0
+        
+        for commande in commandes_preparees:
+            # Sélectionner l'opérateur suivant (round-robin)
+            operateur_selectionne = operateurs_list[operateur_index]
+            operateur_index = (operateur_index + 1) % len(operateurs_list)
+            
+            # Terminer l'état "Préparée"
+            etat_actuel = commande.etat_actuel
+            if etat_actuel and etat_actuel.enum_etat.libelle == 'Préparée':
+                etat_actuel.terminer_etat()
+            
+            # Créer l'état "En cours de livraison" avec l'opérateur affecté
+            EtatCommande.objects.create(
+                commande=commande,
+                enum_etat=etat_livraison,
+                operateur=operateur_selectionne,
+                commentaire=f"Affectation automatique à {operateur_selectionne.nom_complet} pour livraison"
+            )
+            
+            commandes_affectees += 1
+        
+        return commandes_affectees, f"{commandes_affectees} commandes réparties automatiquement"
+        
+    except Exception as e:
+        return 0, f"Erreur lors de la répartition automatique: {str(e)}"
+
+
 def gerer_changement_etat_automatique(commande, nouvel_etat_libelle, operateur=None, commentaire=None):
     """
     Gère automatiquement le changement d'état d'une commande
@@ -1324,13 +1395,31 @@ def gerer_changement_etat_automatique(commande, nouvel_etat_libelle, operateur=N
                 defaults={'ordre': 70, 'couleur': '#EF4444'}
             )
             redirect_url = reverse('commande:annulees')
+        elif nouvel_etat_libelle == 'En cours de livraison':
+            nouvel_etat, created = EnumEtatCmd.objects.get_or_create(
+                libelle='En cours de livraison',
+                defaults={'ordre': 60, 'couleur': '#F59E0B'}
+            )
+            redirect_url = None
+        elif nouvel_etat_libelle == 'Préparée':
+            # Cas spécial : quand une commande devient "Préparée", déclencher la répartition automatique
+            nouvel_etat, created = EnumEtatCmd.objects.get_or_create(
+                libelle='Préparée',
+                defaults={'ordre': 50, 'couleur': '#10B981'}
+            )
+            redirect_url = None
         else:
-            # Pour les autres états, pas de redirection automatique
+            # Pour les autres états, essayer de les récupérer ou les créer
             try:
                 nouvel_etat = EnumEtatCmd.objects.get(libelle=nouvel_etat_libelle)
                 redirect_url = None
             except EnumEtatCmd.DoesNotExist:
-                return None, f"L'état '{nouvel_etat_libelle}' n'existe pas"
+                # Créer l'état s'il n'existe pas avec des valeurs par défaut
+                nouvel_etat, created = EnumEtatCmd.objects.get_or_create(
+                    libelle=nouvel_etat_libelle,
+                    defaults={'ordre': 50, 'couleur': '#6366F1'}
+                )
+                redirect_url = None
         
         # Terminer l'état actuel
         etat_actuel = commande.etat_actuel
@@ -1345,6 +1434,23 @@ def gerer_changement_etat_automatique(commande, nouvel_etat_libelle, operateur=N
             operateur=operateur,
             commentaire=commentaire or f"Changement automatique vers '{nouvel_etat.libelle}'"
         )
+        
+        # Si la commande devient "Préparée", déclencher la répartition automatique après un délai
+        if nouvel_etat_libelle == 'Préparée':
+            # Utiliser une tâche asynchrone ou un délai pour éviter les conflits
+            from django.utils import timezone
+            from datetime import timedelta
+            import threading
+            
+            def repartir_apres_delai():
+                import time
+                time.sleep(2)  # Attendre 2 secondes pour que l'état soit bien enregistré
+                repartition_automatique_commandes()
+            
+            # Lancer la répartition dans un thread séparé
+            thread = threading.Thread(target=repartir_apres_delai)
+            thread.daemon = True
+            thread.start()
         
         return redirect_url, None
         
@@ -1409,7 +1515,7 @@ def statistiques_motifs_annulation(request):
 
 @login_required
 def commandes_confirmees(request):
-    """Vue pour afficher les commandes confirmées"""
+    """Page des commandes confirmées"""
     from django.utils import timezone
     from datetime import datetime, timedelta
     
@@ -1478,6 +1584,12 @@ def commandes_confirmees(request):
         etats__date_fin__isnull=True
     ).aggregate(total=Sum('total_cmd'))['total'] or 0
     
+    # Récupérer les opérateurs de préparation actifs
+    operateurs_preparation = Operateur.objects.filter(
+        type_operateur='PREPARATION',
+        actif=True
+    ).order_by('nom', 'prenom')
+    
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
@@ -1486,9 +1598,80 @@ def commandes_confirmees(request):
         'confirmees_semaine': confirmees_semaine,
         'confirmees_mois': confirmees_mois,
         'montant_total': montant_total,
+        'operateurs_preparation': operateurs_preparation,
+        'page_title': 'Commandes Confirmées',
+        'page_subtitle': 'Liste des commandes validées prêtes pour la préparation',
     }
     
     return render(request, 'commande/confirmees.html', context)
+
+@login_required
+def commandes_preparees(request):
+    """Page des commandes préparées"""
+    from django.utils import timezone
+    from datetime import timedelta
+
+    # Une commande est "préparée" si elle a un état "Préparée" actif
+    # ET qu'elle n'a AUCUN état lié à la livraison.
+    base_commandes_preparees = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True
+    ).exclude(
+        etats__enum_etat__libelle__in=['En cours de livraison', 'Livrée', 'Retournée']
+    ).distinct()
+
+    # Statistiques (calculées avant le filtrage par recherche)
+    today = timezone.now().date()
+    start_of_week = today - timedelta(days=today.weekday())
+    start_of_month = today.replace(day=1)
+    
+    # Le filtre `etats__date_fin__date` peut causer des doublons si une commande a plusieurs états "En préparation" terminés le même jour.
+    # Bien que ce soit un cas rare, l'utilisation de `distinct()` sur la clé primaire de la commande est une bonne pratique.
+    preparees_aujourd_hui = base_commandes_preparees.filter(etats__date_fin__date=today).count()
+    preparees_semaine = base_commandes_preparees.filter(etats__date_fin__date__gte=start_of_week).count()
+    preparees_mois = base_commandes_preparees.filter(etats__date_fin__date__gte=start_of_month).count()
+    
+    total_preparees = base_commandes_preparees.count()
+    total_montant = base_commandes_preparees.aggregate(total=Sum('total_cmd'))['total'] or 0
+
+    # La queryset pour la liste affichée, avec l'optimisation `select_related`
+    commandes_preparees = base_commandes_preparees.select_related('client', 'ville', 'ville__region').order_by('-etats__date_fin')
+    
+    # Filtrage par recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_preparees = commandes_preparees.filter(
+            Q(num_cmd__icontains=search_query) |
+            Q(id_yz__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query)
+        )
+    
+    # Pagination
+    paginator = Paginator(commandes_preparees, 15)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Récupérer les opérateurs de livraison ou logistiques actifs pour l'affectation
+    operateurs_livraison = Operateur.objects.filter(
+        Q(type_operateur='LIVRAISON') | Q(type_operateur='LOGISTIQUE'),
+        actif=True
+    )
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'total_commandes': total_preparees,
+        'total_montant': total_montant,
+        'preparees_aujourd_hui': preparees_aujourd_hui,
+        'preparees_semaine': preparees_semaine,
+        'preparees_mois': preparees_mois,
+        'operateurs_livraison': operateurs_livraison,
+        'page_title': 'Commandes Préparées',
+        'page_subtitle': 'Liste des commandes prêtes pour la livraison',
+    }
+    return render(request, 'commande/preparees.html', context)
 
 @login_required
 def suivi_confirmations(request):
@@ -1556,6 +1739,28 @@ def suivi_confirmations(request):
     # Montant total des commandes confirmées
     montant_total = commandes_confirmees.aggregate(total=Sum('total_cmd'))['total'] or 0
     
+    # Récupérer les opérateurs de préparation actifs
+    operateurs_preparation = Operateur.objects.filter(
+        type_operateur='PREPARATION',
+        actif=True
+    ).order_by('nom', 'prenom')
+    
+    # Récupérer les commandes par opérateur
+    commandes_par_operateur = {}
+    for commande in commandes_confirmees:
+        operateur = commande.etats.filter(enum_etat__libelle='Confirmée').first().operateur
+        if operateur:
+            if operateur.nom not in commandes_par_operateur:
+                commandes_par_operateur[operateur.nom] = []
+            commandes_par_operateur[operateur.nom].append(commande)
+    
+    # Récupérer les jours de vérification
+    jours_verification = {
+        'aujourd_hui': today,
+        'hier': yesterday,
+        'semaine': this_week
+    }
+    
     context = {
         'commandes_confirmees': commandes_confirmees,
         'page_obj': page_obj,
@@ -1565,6 +1770,250 @@ def suivi_confirmations(request):
         'confirmees_semaine': confirmees_semaine,
         'en_attente_count': en_attente_count,
         'montant_total': montant_total,
+        'operateurs_preparation': operateurs_preparation,
+        'commandes_par_operateur': sorted(commandes_par_operateur.items()),
+        'jours_verification': jours_verification,
     }
     
     return render(request, 'commande/suivi_confirmations.html', context)
+
+@require_POST
+@login_required
+def affecter_preparation(request, commande_id):
+    """Affecter une commande à un opérateur de préparation."""
+    if request.method == 'POST':
+        try:
+            # Vérifier que l'utilisateur est admin
+            try:
+                operateur_admin = Operateur.objects.get(user=request.user, type_operateur='ADMIN')
+            except Operateur.DoesNotExist:
+                return JsonResponse({'success': False, 'message': 'Accès non autorisé.'})
+            
+            # Récupérer les données de la requête
+            data = json.loads(request.body)
+            operateur_id = data.get('operateur_id')
+            commentaire = data.get('commentaire', '')
+            
+            if not operateur_id:
+                return JsonResponse({'success': False, 'message': 'Veuillez sélectionner un opérateur.'})
+            
+            # Récupérer la commande et l'opérateur
+            commande = get_object_or_404(Commande, id=commande_id)
+            operateur_preparation = get_object_or_404(Operateur, id=operateur_id, type_operateur='PREPARATION', actif=True)
+            
+            # Vérifier que la commande est confirmée
+            etat_actuel = commande.etat_actuel
+            if not etat_actuel or etat_actuel.enum_etat.libelle != 'Confirmée':
+                return JsonResponse({'success': False, 'message': 'Cette commande n\'est pas confirmée.'})
+            
+            # Vérifier si un état "En préparation" existe
+            try:
+                etat_preparation, created = EnumEtatCmd.objects.get_or_create(
+                    libelle='En préparation',
+                    defaults={'ordre': 40, 'couleur': '#3B82F6'}
+                )
+            except Exception as e:
+                return JsonResponse({'success': False, 'message': f'Erreur lors de la récupération de l\'état: {str(e)}'})
+            
+            # Utiliser une transaction pour s'assurer de la cohérence
+            with transaction.atomic():
+                # Terminer l'état actuel (Confirmée)
+                etat_actuel.terminer_etat(operateur=operateur_admin)
+                
+                # Créer le nouvel état "En préparation"
+                from .models import EtatCommande
+                nouvel_etat = EtatCommande.objects.create(
+                    commande=commande,
+                    enum_etat=etat_preparation,
+                    operateur=operateur_preparation,
+                    commentaire=f"Affectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
+                    date_debut=timezone.now()
+                )
+                
+                return JsonResponse({
+                    'success': True, 
+                    'message': f'Commande {commande.id_yz} affectée avec succès à {operateur_preparation.nom_complet} pour la préparation.'
+                })
+                
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': f'Une erreur est survenue: {str(e)}'})
+
+@require_POST
+@login_required
+def affecter_livraison(request, commande_id):
+    """Affecte une commande préparée à un opérateur de livraison."""
+    try:
+        data = json.loads(request.body)
+        operateur_id = data.get('operateur_id')
+        commentaire = data.get('commentaire', '')
+        
+        if not operateur_id:
+            return JsonResponse({'success': False, 'message': 'ID de l\'opérateur manquant.'}, status=400)
+        
+        commande = get_object_or_404(Commande, id=commande_id)
+        operateur = get_object_or_404(
+            Operateur, 
+            id=operateur_id, 
+            type_operateur__in=['LIVRAISON', 'LOGISTIQUE']
+        )
+        
+        # Vérifier si la commande a un état "Préparée" actif.
+        # C'est plus robuste que de se fier à la propriété `etat_actuel`.
+        est_prete = commande.etats.filter(enum_etat__libelle='Préparée', date_fin__isnull=True).exists()
+        
+        if not est_prete:
+            return JsonResponse({'success': False, 'message': f'La commande {commande.id_yz} n\'est pas prête pour la livraison.'}, status=400)
+
+        # Utiliser la fonction centralisée pour changer l'état
+        gerer_changement_etat_automatique(
+            commande, 
+            'En cours de livraison', 
+            operateur=operateur,
+            commentaire=commentaire
+        )
+        
+        messages.success(request, f'La commande {commande.id_yz} a été affectée à {operateur.nom_complet} pour la livraison.')
+        return JsonResponse({'success': True, 'message': 'Affectation réussie.'})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Données JSON invalides.'}, status=400)
+    except Operateur.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Opérateur de livraison non trouvé.'}, status=404)
+    except Commande.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Commande non trouvée.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Une erreur est survenue: {str(e)}'}, status=500)
+
+@require_POST
+@login_required
+def affecter_livraison_multiple(request):
+    """Affecte plusieurs commandes préparées à un opérateur de livraison."""
+    try:
+        data = json.loads(request.body)
+        commandes_ids = data.get('commandes_ids', [])
+        operateur_id = data.get('operateur_id')
+        commentaire = data.get('commentaire', '')
+
+        if not commandes_ids or not operateur_id:
+            return JsonResponse({'success': False, 'message': 'Données manquantes.'}, status=400)
+
+        operateur = get_object_or_404(
+            Operateur, 
+            id=operateur_id, 
+            type_operateur__in=['LIVRAISON', 'LOGISTIQUE']
+        )
+        
+        commandes_affectees_yz = []
+        commandes_erreurs_yz = []
+
+        with transaction.atomic():
+            commandes_a_traiter = Commande.objects.filter(id__in=commandes_ids)
+            for commande in commandes_a_traiter:
+                try:
+                    # Vérifier si la commande a un état "Préparée" actif.
+                    est_prete = commande.etats.filter(enum_etat__libelle='Préparée', date_fin__isnull=True).exists()
+
+                    if not est_prete:
+                        commandes_erreurs_yz.append(f"{commande.id_yz} (non prête)")
+                        continue
+
+                    gerer_changement_etat_automatique(
+                        commande, 
+                        'En cours de livraison', 
+                        operateur=operateur,
+                        commentaire=commentaire
+                    )
+                    commandes_affectees_yz.append(commande.id) # We'll use the command ID
+                except Exception as e:
+                    commandes_erreurs_yz.append(f"{commande.id_yz} ({str(e)})")
+
+        message = f"{len(commandes_affectees_yz)} commande(s) affectée(s) avec succès."
+        if commandes_erreurs_yz:
+            message += f" Erreurs sur les commandes : {', '.join(commandes_erreurs_yz)}."
+        
+        return JsonResponse({
+            'success': len(commandes_erreurs_yz) == 0, 
+            'message': message,
+            'commandes_affectees_ids': commandes_affectees_yz
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@require_POST
+@login_required
+def affecter_preparation_multiple(request):
+    """Affecte plusieurs commandes confirmées à un opérateur de préparation."""
+    try:
+        # Vérifier que l'utilisateur est admin
+        try:
+            operateur_admin = Operateur.objects.get(user=request.user, type_operateur='ADMIN')
+        except Operateur.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Accès non autorisé.'})
+        
+        data = json.loads(request.body)
+        commandes_ids = data.get('commande_ids', [])
+        operateur_id = data.get('operateur_id')
+        commentaire = data.get('commentaire', '')
+
+        if not commandes_ids or not operateur_id:
+            return JsonResponse({'success': False, 'message': 'Données manquantes.'}, status=400)
+
+        operateur_preparation = get_object_or_404(
+            Operateur, 
+            id=operateur_id, 
+            type_operateur='PREPARATION',
+            actif=True
+        )
+        
+        commandes_affectees_yz = []
+        commandes_erreurs_yz = []
+
+        # Vérifier si un état "En préparation" existe
+        try:
+            etat_preparation, created = EnumEtatCmd.objects.get_or_create(
+                libelle='En préparation',
+                defaults={'ordre': 40, 'couleur': '#3B82F6'}
+            )
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': f'Erreur lors de la récupération de l\'état: {str(e)}'})
+
+        with transaction.atomic():
+            commandes_a_traiter = Commande.objects.filter(id__in=commandes_ids)
+            for commande in commandes_a_traiter:
+                try:
+                    # Vérifier que la commande est confirmée
+                    etat_actuel = commande.etat_actuel
+                    if not etat_actuel or etat_actuel.enum_etat.libelle != 'Confirmée':
+                        commandes_erreurs_yz.append(f"{commande.id_yz} (non confirmée)")
+                        continue
+
+                    # Terminer l'état actuel (Confirmée)
+                    etat_actuel.terminer_etat(operateur=operateur_admin)
+                    
+                    # Créer le nouvel état "En préparation"
+                    from .models import EtatCommande
+                    EtatCommande.objects.create(
+                        commande=commande,
+                        enum_etat=etat_preparation,
+                        operateur=operateur_preparation,
+                        commentaire=f"Affectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
+                        date_debut=timezone.now()
+                    )
+                    
+                    commandes_affectees_yz.append(commande.id_yz)
+                except Exception as e:
+                    commandes_erreurs_yz.append(f"{commande.id_yz} ({str(e)})")
+
+        message = f"{len(commandes_affectees_yz)} commande(s) affectée(s) avec succès à {operateur_preparation.nom_complet} pour la préparation."
+        if commandes_erreurs_yz:
+            message += f" Erreurs sur les commandes : {', '.join(commandes_erreurs_yz)}."
+        
+        return JsonResponse({
+            'success': len(commandes_erreurs_yz) == 0, 
+            'message': message,
+            'commandes_affectees_ids': commandes_affectees_yz
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)

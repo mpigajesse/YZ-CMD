@@ -2,7 +2,7 @@
 {% load static %}
 {% load commande_filters %}
 
-{% block title %}Commandes Confirmées - YZ-CMD{% endblock %}
+{% block title %}Commandes Préparées - YZ-CMD{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -78,18 +78,18 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
-                <i class="fas fa-check-circle mr-3" style="color: var(--admin-accent-color);"></i>
+                <i class="fas fa-box-open mr-3" style="color: var(--admin-accent-color);"></i>
                 {{ page_title }}
             </h1>
             <p style="color: var(--admin-accent-color);">{{ page_subtitle }}</p>
         </div>
         <div class="flex items-center gap-4 mt-4 md:mt-0">
             <div class="text-right">
-                <div class="text-2xl font-bold" style="color: var(--admin-accent-color);">{{ total_confirmees|default:0 }}</div>
-                <div class="text-sm opacity-80">Total confirmées</div>
+                <div class="text-2xl font-bold" style="color: var(--admin-accent-color);">{{ total_commandes|default:0 }}</div>
+                <div class="text-sm opacity-80">Total préparées</div>
             </div>
-            <div class="text-right border-l border-white/50 pl-4 ml-4">
-                <div class="text-2xl font-bold" style="color: var(--admin-accent-color);">{{ montant_total|default:0|floatformat:0 }} DH</div>
+             <div class="text-right border-l border-white/50 pl-4 ml-4">
+                <div class="text-2xl font-bold" style="color: var(--admin-accent-color);">{{ total_montant|default:0|floatformat:0 }} DH</div>
                 <div class="text-sm opacity-80">Valeur totale</div>
             </div>
         </div>
@@ -99,49 +99,49 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <!-- Aujourd'hui -->
         <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.1s;">
-                <div class="flex items-center">
+            <div class="flex items-center">
                 <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
-                        <i class="fas fa-calendar-day text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
+                    <i class="fas fa-calendar-day text-2xl"></i>
+                </div>
+                <div class="ml-4">
                     <p class="text-sm font-medium text-gray-600">Aujourd'hui</p>
-                    <p class="text-3xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ confirmees_aujourd_hui|default:0 }}</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ preparees_aujourd_hui|default:0 }}</p>
                 </div>
             </div>
         </div>
         <!-- Cette semaine -->
         <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.2s;">
-                <div class="flex items-center">
+            <div class="flex items-center">
                 <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
-                        <i class="fas fa-calendar-week text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
+                    <i class="fas fa-calendar-week text-2xl"></i>
+                </div>
+                <div class="ml-4">
                     <p class="text-sm font-medium text-gray-600">Cette semaine</p>
-                    <p class="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ confirmees_semaine|default:0 }}</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ preparees_semaine|default:0 }}</p>
                 </div>
             </div>
         </div>
         <!-- Ce mois -->
         <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s;">
-                <div class="flex items-center">
+            <div class="flex items-center">
                 <div class="p-4 rounded-full bg-gradient-to-r from-purple-100 to-purple-200 text-purple-600 group-hover:from-purple-500 group-hover:to-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
-                        <i class="fas fa-calendar-alt text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
+                    <i class="fas fa-calendar-alt text-2xl"></i>
+                </div>
+                <div class="ml-4">
                     <p class="text-sm font-medium text-gray-600">Ce mois</p>
-                    <p class="text-3xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ confirmees_mois|default:0 }}</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ preparees_mois|default:0 }}</p>
                 </div>
             </div>
         </div>
         <!-- Total -->
         <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.4s;">
-                <div class="flex items-center">
+            <div class="flex items-center">
                 <div class="p-4 rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-600 group-hover:from-yellow-500 group-hover:to-yellow-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
-                    <i class="fas fa-check-double text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Total Confirmées</p>
-                    <p class="text-3xl font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{{ total_confirmees|default:0 }}</p>
+                    <i class="fas fa-box-open text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Préparées</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{{ total_commandes|default:0 }}</p>
                 </div>
             </div>
         </div>
@@ -152,18 +152,18 @@
         <div class="flex flex-col md:flex-row justify-between items-center gap-4">
             <form method="get" class="flex-grow flex items-center gap-4">
                 <div class="relative flex-grow">
-                        <input type="text" name="search" value="{{ search_query|default:'' }}" 
-                               class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
-                               style="border-color: #99dddd; focus:ring-color: #023535;"
-                               placeholder="Rechercher par N° commande, client, opérateur...">
-                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" name="search" value="{{ search_query|default:'' }}" 
+                           class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                           style="border-color: #99dddd; focus:ring-color: #023535;"
+                           placeholder="Rechercher par N° commande, client...">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                 </div>
                 <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
                         style="background-color: #023535;">
                     Rechercher
                 </button>
                 {% if search_query %}
-                <a href="{% url 'commande:confirmees' %}" class="px-4 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                <a href="{% url 'commande:preparees' %}" class="px-4 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
                     Réinitialiser
                 </a>
                 {% endif %}
@@ -171,7 +171,7 @@
              <!-- Actions en masse -->
             <div class="flex gap-2">
                 <button id="bulkAffectBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm opacity-50 cursor-not-allowed" disabled>
-                    <i class="fas fa-users-cog mr-2"></i> Affecter sélection
+                    <i class="fas fa-shipping-fast mr-2"></i> Affecter sélection
                 </button>
             </div>
         </div>
@@ -187,9 +187,9 @@
             <div class="ml-3">
                 <p class="text-sm text-yellow-700">
                     {% if search_query %}
-                        Aucune commande confirmée trouvée pour la recherche "{{ search_query }}".
+                        Aucune commande préparée trouvée pour la recherche "{{ search_query }}".
                     {% else %}
-                        Aucune commande confirmée pour le moment.
+                        Aucune commande préparée pour le moment.
                     {% endif %}
                 </p>
             </div>
@@ -197,7 +197,7 @@
     </div>
     {% endif %}
 
-    <!-- Tableau des commandes confirmées -->
+    <!-- Tableau des commandes -->
     {% if page_obj.object_list %}
     <div class="overflow-x-auto mb-8 bg-white rounded-xl shadow-lg">
         <table class="min-w-full divide-y divide-gray-200">
@@ -212,8 +212,8 @@
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Confirmation</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur Conf.</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Préparation</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur Prépa.</th>
                     <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
@@ -253,18 +253,18 @@
                         <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        {% with etat_confirmee=commande|get_etat:'Confirmée' %}
-                            {% if etat_confirmee %}
-                                <div class="text-sm text-gray-900">{{ etat_confirmee.date_debut|date:"d/m/Y" }}</div>
-                                <div class="text-xs text-gray-500">{{ etat_confirmee.date_debut|date:"H:i" }}</div>
+                        {% with etat_preparee=commande|get_etat:'En préparation' %}
+                            {% if etat_preparee %}
+                                <div class="text-sm text-gray-900">{{ etat_preparee.date_fin|date:"d/m/Y" }}</div>
+                                <div class="text-xs text-gray-500">{{ etat_preparee.date_fin|date:"H:i" }}</div>
                             {% endif %}
                         {% endwith %}
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        {% with etat_confirmee=commande|get_etat:'Confirmée' %}
-                            {% if etat_confirmee and etat_confirmee.operateur %}
-                                <div class="text-sm text-gray-900">{{ etat_confirmee.operateur.nom_complet }}</div>
-                                <div class="text-xs text-gray-500">{{ etat_confirmee.operateur.type_operateur }}</div>
+                        {% with etat_preparee=commande|get_etat:'En préparation' %}
+                            {% if etat_preparee and etat_preparee.operateur %}
+                                <div class="text-sm text-gray-900">{{ etat_preparee.operateur.nom_complet }}</div>
+                                <div class="text-xs text-gray-500">{{ etat_preparee.operateur.type_operateur }}</div>
                             {% else %}
                                  <span class="text-xs text-gray-500 italic">Non assigné</span>
                             {% endif %}
@@ -276,7 +276,7 @@
                                 <i class="fas fa-eye"></i>
                             </a>
                             <button onclick="showAffectationModal({{ commande.id }}, '{{ commande.id_yz }}')" 
-                                    class="text-blue-500 hover:text-blue-700 transition-colors" title="Affecter à la préparation">
+                                    class="text-blue-500 hover:text-blue-700 transition-colors" title="Affecter à un livreur">
                                 <i class="fas fa-user-plus"></i>
                             </button>
                         </div>
@@ -312,13 +312,13 @@
             </div>
             <div>
                 <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-        {% if page_obj.has_previous %}
+                    {% if page_obj.has_previous %}
                         <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
                             <span class="sr-only">Précédent</span>
                             <i class="fas fa-chevron-left h-5 w-5"></i>
-            </a>
-        {% endif %}
-
+                        </a>
+                    {% endif %}
+                    
                     {% for i in page_obj.paginator.page_range %}
                         {% if i == page_obj.number %}
                             <a href="#" aria-current="page" class="relative z-10 inline-flex items-center px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style="background-color: var(--admin-color);">{{ i }}</a>
@@ -327,12 +327,12 @@
                         {% endif %}
                     {% endfor %}
 
-        {% if page_obj.has_next %}
+                    {% if page_obj.has_next %}
                         <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
                             <span class="sr-only">Suivant</span>
                             <i class="fas fa-chevron-right h-5 w-5"></i>
-            </a>
-        {% endif %}
+                        </a>
+                    {% endif %}
                 </nav>
             </div>
         </div>
@@ -341,16 +341,16 @@
     {% endif %}
 </div>
 
-<!-- Modal d'affectation aux opérateurs de préparation -->
+<!-- Modal d'affectation aux opérateurs de livraison -->
 <div id="affectationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
     <div class="relative p-8 bg-white w-full max-w-4xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid var(--admin-color);">
         <!-- En-tête du modal -->
         <div class="flex justify-between items-center pb-4 border-b" style="border-color: var(--admin-color);">
             <div class="flex items-center">
                 <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--admin-color);">
-                    <i class="fas fa-cogs text-white text-xl"></i>
+                    <i class="fas fa-truck text-white text-xl"></i>
                 </div>
-                <h3 class="text-2xl font-bold" style="color: var(--admin-color);">Affecter à la Préparation</h3>
+                <h3 class="text-2xl font-bold" style="color: var(--admin-color);">Affecter à la Livraison</h3>
             </div>
             <button onclick="hideAffectationModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -362,24 +362,24 @@
         <!-- Contenu du modal -->
         <div class="py-6">
             <div class="mb-6">
-                <p class="text-gray-600 mb-2">Commandes : <span id="commandeIdAffectation" class="font-bold" style="color: var(--admin-color);"></span></p>
-                <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                <p class="text-gray-600 mb-2">Commande : <span id="commandeIdAffectation" class="font-bold" style="color: var(--admin-color);"></span></p>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                     <div class="flex items-center">
-                        <i class="fas fa-info-circle text-green-500 mr-2"></i>
-                        <p class="text-sm text-green-700">Affectation aux opérateurs de préparation uniquement</p>
+                        <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                        <p class="text-sm text-blue-700">Affectation aux opérateurs de livraison uniquement</p>
                     </div>
                 </div>
                 <p class="text-gray-700 font-medium">Sélectionner un opérateur :</p>
             </div>
             
-            <!-- Grille des opérateurs de préparation -->
+            <!-- Grille des opérateurs de livraison -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 max-h-80 overflow-y-auto">
-                {% for operateur in operateurs_preparation %}
-                <div class="operateur-card border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all duration-200" 
+                {% for operateur in operateurs_livraison %}
+                <div class="operateur-card border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200" 
                      data-operateur-id="{{ operateur.id }}" onclick="selectOperateur(this, {{ operateur.id }})">
                     <div class="flex flex-col items-center text-center">
                         <!-- Avatar -->
-                        <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mb-3">
+                        <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mb-3">
                             <i class="fas fa-user text-white text-lg"></i>
                         </div>
                         <!-- Nom de l'opérateur -->
@@ -388,15 +388,15 @@
                         <p class="text-xs text-gray-500 mb-2">{{ operateur.email }}</p>
                         <!-- Badge du nombre de commandes -->
                         <div class="flex items-center">
-                            <i class="fas fa-cogs text-green-500 mr-1 text-xs"></i>
-                            <span class="text-xs text-green-600 font-medium">0 commandes affectées</span>
+                            <i class="fas fa-clipboard-list text-blue-500 mr-1 text-xs"></i>
+                            <span class="text-xs text-blue-600 font-medium">0 commandes affectées</span>
                         </div>
                     </div>
                 </div>
                 {% empty %}
                 <div class="col-span-full text-center py-8 text-gray-500">
                     <i class="fas fa-user-slash text-4xl mb-4"></i>
-                    <p>Aucun opérateur de préparation disponible</p>
+                    <p>Aucun opérateur de livraison disponible</p>
                 </div>
                 {% endfor %}
             </div>
@@ -473,13 +473,13 @@
             const selectedCommandes = getSelectedCommandes();
             document.getElementById('commandeIdAffectation').textContent = `${selectedCommandes.length} commandes sélectionnées`;
         } else {
-        commandeToAffect = commandeId;
-        document.getElementById('commandeIdAffectation').textContent = commandeIdYz;
+            commandeToAffect = commandeId;
+            document.getElementById('commandeIdAffectation').textContent = commandeIdYz;
         }
         // Réinitialiser la sélection
         selectedOperateurId = null;
         document.querySelectorAll('.operateur-card').forEach(card => {
-            card.classList.remove('border-green-500', 'bg-green-100', 'ring-2', 'ring-green-500');
+            card.classList.remove('border-blue-500', 'bg-blue-100', 'ring-2', 'ring-blue-500');
             card.classList.add('border-gray-200');
         });
         document.getElementById('commentaireAffectation').value = '';
@@ -489,13 +489,13 @@
     function selectOperateur(cardElement, operateurId) {
         // Désélectionner toutes les cartes
         document.querySelectorAll('.operateur-card').forEach(card => {
-            card.classList.remove('border-green-500', 'bg-green-100', 'ring-2', 'ring-green-500');
+            card.classList.remove('border-blue-500', 'bg-blue-100', 'ring-2', 'ring-blue-500');
             card.classList.add('border-gray-200');
         });
         
         // Sélectionner la carte cliquée
         cardElement.classList.remove('border-gray-200');
-        cardElement.classList.add('border-green-500', 'bg-green-100', 'ring-2', 'ring-green-500');
+        cardElement.classList.add('border-blue-500', 'bg-blue-100', 'ring-2', 'ring-blue-500');
         
         selectedOperateurId = operateurId;
     }
@@ -554,25 +554,28 @@
         button.disabled = true;
         button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Affectation...';
 
-        let url = `/commande/affecter-preparation-multiple/`;
+        let url = `/commande/affecter-livraison-multiple/`;
         let body = JSON.stringify({ 
             operateur_id: operateurId, 
             commentaire: commentaire,
-            commande_ids: bulkAffect ? getSelectedCommandes() : [commandeToAffect]
+            commandes_ids: bulkAffect ? getSelectedCommandes() : [commandeToAffect]
         });
         
         const csrfToken = getCsrfToken();
 
         fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': csrfToken 
+            },
             body: body
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 hideAffectationModal();
-                showSuccessModal(data.message || 'Les commandes ont été affectées pour la préparation.');
+                showSuccessModal(data.message || 'Les commandes ont été affectées pour la livraison.');
             } else {
                 showErrorModal(data.message || 'Une erreur est survenue.');
             }

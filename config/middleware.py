@@ -36,7 +36,7 @@ class UserTypeValidationMiddleware:
         self.allowed_prefixes = {
             'CONFIRMATION': '/operateur-confirme/',
             'LOGISTIQUE': '/operateur-logistique/',
-            'PRÉPARATION': '/operateur-preparation/',
+            'PREPARATION': '/operateur-preparation/',
             'ADMIN': '/parametre/', # Pour les opérateurs de type ADMIN qui ne sont pas forcément superusers
         }
         self.universal_allowed_paths_startswith = (
@@ -45,6 +45,7 @@ class UserTypeValidationMiddleware:
             '/login/',
             '/logout/',
             '/password_reset/', # Si vous avez des URLs de réinitialisation de mot de passe
+            '/__reload__/', # Pour le middleware de rechargement automatique en développement
         )
         self.universal_allowed_exact_paths = (
             # Ajoutez ici des chemins exacts si nécessaire, par exemple une page d'accueil publique
@@ -78,12 +79,17 @@ class UserTypeValidationMiddleware:
                 # Si le chemin actuel ne commence PAS par le préfixe attendu pour ce type d'opérateur,
                 # rediriger vers la page d'accueil spécifique à son rôle.
                 if not request.path.startswith(expected_prefix):
-                    messages.error(request, f"Accès non autorisé. Redirection vers votre interface {user_type.capitalize()}. (Code: MWI-001)")
+                    # Éviter les messages répétés en utilisant la session
+                    session_key = f'middleware_redirect_{user_type}'
+                    if not request.session.get(session_key, False):
+                        messages.error(request, f"Accès non autorisé. Redirection vers votre interface {user_type.capitalize()}. (Code: MWI-001)")
+                        request.session[session_key] = True
+                    
                     if user_type == 'CONFIRMATION':
                         return redirect(reverse('operatConfirme:home'))
                     elif user_type == 'LOGISTIQUE':
                         return redirect(reverse('operatLogistic:home'))
-                    elif user_type == 'PRÉPARATION':
+                    elif user_type == 'PREPARATION':
                         return redirect(reverse('Prepacommande:home'))
                     elif user_type == 'ADMIN':
                         return redirect(reverse('app_admin:home'))
@@ -92,6 +98,11 @@ class UserTypeValidationMiddleware:
                         messages.error(request, "Type d'opérateur non géré pour la redirection. (Code: MWI-002)")
                         logout(request)
                         return redirect(settings.LOGIN_URL)
+                else:
+                    # Si l'accès est autorisé, nettoyer le flag de redirection
+                    session_key = f'middleware_redirect_{user_type}'
+                    if session_key in request.session:
+                        del request.session[session_key]
             else:
                 # Si le type d'opérateur n'est pas mappé dans allowed_prefixes, ou profil_operateur.type_operateur est None/vide
                 messages.error(request, "Votre type d'opérateur n'est pas correctement configuré. Veuillez contacter l'administrateur. (Code: MWI-003)")

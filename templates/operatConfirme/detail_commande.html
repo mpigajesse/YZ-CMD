@@ -82,22 +82,19 @@
         
         <!-- Actions rapides -->
         <div class="flex space-x-3 mt-4 md:mt-0">
-            <button onclick="toggleEditMode()" id="editModeBtn" 
+            <a href="{% url 'operatConfirme:modifier_commande' commande.id %}" id="editModeBtn" 
                     class="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg transition-all duration-300">
                 <i class="fas fa-edit mr-2"></i>
                 Modifier
-            </button>
+            </a>
             {% comment %} Bouton selon l'état de la commande {% endcomment %}
             {% if commande.etat_actuel %}
                 {% if commande.etat_actuel.enum_etat.libelle == 'Affectée' %}
-                <form method="post" action="{% url 'operatConfirme:lancer_confirmation' commande.id %}" style="display: inline;">
-                    {% csrf_token %}
-                    <button type="submit" 
-                            class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors shadow-lg">
-                        <i class="fas fa-play mr-2"></i>
-                        Lancer Confirmation
-                    </button>
-                </form>
+                <button onclick="lancerConfirmationDetail({{ commande.id }})" 
+                        class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors shadow-lg">
+                    <i class="fas fa-play mr-2"></i>
+                    Lancer Confirmation
+                </button>
                 {% elif commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %}
                     <form method="post" style="display: inline;">
                         {% csrf_token %}
@@ -759,5 +756,91 @@ document.addEventListener('DOMContentLoaded', function() {
         }, index * 100);
     });
 });
+
+// ================== FONCTION LANCER CONFIRMATION DETAIL ==================
+
+function lancerConfirmationDetail(commandeId) {
+    // Afficher une notification de traitement en cours
+    showNotification('⏳ Lancement de la confirmation en cours...', 'info');
+    
+    fetch(`/operateur-confirme/commandes/${commandeId}/lancer-confirmation/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('✅ ' + data.message, 'success');
+            // Rediriger vers la page modifier_commande après un court délai
+            setTimeout(() => {
+                window.location.href = `/operateur-confirme/commandes/${commandeId}/modifier/`;
+            }, 1500);
+        } else {
+            showNotification('❌ ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showNotification('❌ Une erreur est survenue lors du lancement de la confirmation', 'error');
+    });
+}
+
+// ================== SYSTÈME DE NOTIFICATIONS ==================
+
+function showNotification(message, type = 'info') {
+    // Supprimer les notifications existantes
+    const existingNotifications = document.querySelectorAll('.notification-toast');
+    existingNotifications.forEach(notif => notif.remove());
+    
+    // Créer la notification
+    const notification = document.createElement('div');
+    notification.className = 'notification-toast fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 max-w-md';
+    
+    // Styles selon le type
+    if (type === 'success') {
+        notification.classList.add('bg-green-500', 'text-white');
+    } else if (type === 'error') {
+        notification.classList.add('bg-red-500', 'text-white');
+    } else if (type === 'warning') {
+        notification.classList.add('bg-yellow-500', 'text-white');
+    } else {
+        notification.classList.add('bg-blue-500', 'text-white');
+    }
+    
+    notification.innerHTML = `
+        <div class="flex items-center">
+            <div class="flex-1">
+                ${message}
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-white hover:text-gray-200">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Animation d'entrée
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 10);
+    
+    // Auto-suppression après 5 secondes
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 300);
+    }, 5000);
+}
+
 </script>
 {% endblock %}
