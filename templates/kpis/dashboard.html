@@ -1,0 +1,392 @@
+<!-- Dashboard KPIs Principal Yoozak -->
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard KPIs - Yoozak{% endblock %}
+
+{% block page_title %}📊 Dashboard KPIs{% endblock %}
+{% block page_subtitle %}Indicateurs de Performance - Chaussures & Sandales Premium{% endblock %}
+
+{% block extra_css %}
+<!-- Styles spécialisés pour les KPIs -->
+<link rel="stylesheet" href="{% static 'css/kpis.css' %}">
+<style>
+    /* Styles critiques inline pour éviter les FOUC */
+    .kpi-loading-skeleton {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: loading-pulse 1.5s infinite;
+    }
+    
+    @keyframes loading-pulse {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    
+    /* Variables CSS pour le thème Yoozak */
+    :root {
+        --yoozak-primary: #3b82f6;
+        --yoozak-secondary: #10b981;
+        --yoozak-accent: #f59e0b;
+        --yoozak-warning: #ef4444;
+        --yoozak-purple: #8b5cf6;
+        --yoozak-brown: #92400e;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Container principal avec gestion responsive -->
+<div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <!-- Système de Filtres Persistants -->
+    <div class="sticky top-0 z-20 mb-6">
+        {% include 'kpis/components/filters.html' %}
+    </div>
+
+    <!-- Navigation par Onglets et Contenu KPIs -->
+    <div class="space-y-6">
+        {% include 'kpis/components/tabs_navigation.html' %}
+    </div>
+
+    <!-- Zone d'alerts globales (notifications système) -->
+    <div id="global-alerts" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Loading overlay pour les transitions -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-40 hidden">
+        <div class="flex items-center justify-center h-full">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+                <p class="text-gray-600">Chargement des KPIs...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour les détails KPIs (optionnel) -->
+<div id="kpi-detail-modal" class="fixed inset-0 bg-black/50 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 id="modal-title" class="text-xl font-bold text-gray-900"></h3>
+                    <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div id="modal-content">
+                    <!-- Contenu dynamique -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Bibliothèques externes -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<!-- Scripts spécialisés KPIs -->
+<script src="{% static 'js/kpis/filters.js' %}"></script>
+<script src="{% static 'js/kpis/charts.js' %}"></script>
+<script src="{% static 'js/kpis/dashboard.js' %}"></script>
+
+<!-- Script d'initialisation principal -->
+<script>
+class YoozakKPIDashboard {
+    constructor() {
+        this.version = '1.0.0';
+        this.initialized = false;
+        this.activeTab = 'vue-generale';
+        this.filters = {};
+        this.charts = new Map();
+        this.lastUpdate = null;
+        
+        this.init();
+    }
+    
+    async init() {
+        try {
+            console.log('🏭 Initialisation Dashboard KPIs Yoozak v' + this.version);
+            
+            // Attendre que le DOM soit prêt
+            if (document.readyState === 'loading') {
+                await new Promise(resolve => {
+                    document.addEventListener('DOMContentLoaded', resolve);
+                });
+            }
+            
+            // Initialiser les composants
+            this.initializeFilters();
+            this.initializeTabs();
+            this.initializeCharts();
+            this.initializeRealTimeUpdates();
+            this.initializeKeyboardShortcuts();
+            
+            this.initialized = true;
+            this.showSuccessMessage('Dashboard KPIs initialisé avec succès');
+            
+            // Émettre l'événement de démarrage
+            this.emit('dashboardReady', {
+                version: this.version,
+                timestamp: new Date().toISOString()
+            });
+            
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'initialisation:', error);
+            this.showErrorMessage('Erreur lors du chargement du dashboard');
+        }
+    }
+    
+    initializeFilters() {
+        // Restaurer les filtres depuis le localStorage
+        const savedFilters = localStorage.getItem('yoozak-kpi-filters');
+        if (savedFilters) {
+            try {
+                this.filters = JSON.parse(savedFilters);
+                this.applyFilters(this.filters);
+            } catch (e) {
+                console.warn('Filtres sauvegardés invalides, réinitialisation');
+            }
+        }
+        
+        // Écouter les changements de filtres
+        document.addEventListener('filterChanged', (e) => {
+            this.handleFilterChange(e.detail);
+        });
+    }
+    
+    initializeTabs() {
+        // Restaurer l'onglet actif depuis l'URL ou localStorage
+        const urlHash = window.location.hash.substring(1);
+        const savedTab = localStorage.getItem('yoozak-kpi-active-tab');
+        
+        this.activeTab = urlHash || savedTab || 'vue-generale';
+        
+        // Écouter les changements d'onglets
+        document.addEventListener('tabChanged', (e) => {
+            this.activeTab = e.detail.tab;
+            localStorage.setItem('yoozak-kpi-active-tab', this.activeTab);
+            this.refreshActiveTabData();
+        });
+    }
+    
+    async initializeCharts() {
+        // Initialiser Chart.js avec la configuration Yoozak
+        if (typeof Chart !== 'undefined') {
+            Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+            Chart.defaults.color = '#374151';
+            Chart.defaults.borderColor = '#e5e7eb';
+            Chart.defaults.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+        }
+        
+        // Charger les graphiques de l'onglet actif
+        await this.loadChartsForTab(this.activeTab);
+    }
+    
+    initializeRealTimeUpdates() {
+        // Mise à jour automatique toutes les 5 minutes
+        setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                this.refreshAllData();
+            }
+        }, 5 * 60 * 1000);
+        
+        // Mise à jour quand la page redevient visible
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                const timeSinceLastUpdate = Date.now() - (this.lastUpdate || 0);
+                if (timeSinceLastUpdate > 2 * 60 * 1000) { // 2 minutes
+                    this.refreshAllData();
+                }
+            }
+        });
+    }
+    
+    initializeKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + R : Actualiser
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                this.refreshAllData();
+                return;
+            }
+            
+            // Touches 1-5 : Naviguer entre onglets
+            if (e.key >= '1' && e.key <= '5' && !e.ctrlKey && !e.metaKey) {
+                const tabs = ['vue-generale', 'ventes', 'clients', 'operations', 'chaussures-stocks'];
+                const tabIndex = parseInt(e.key) - 1;
+                if (tabs[tabIndex]) {
+                    const button = document.querySelector(`[data-tab="${tabs[tabIndex]}"]`);
+                    if (button) button.click();
+                }
+            }
+        });
+    }
+    
+    async refreshAllData() {
+        try {
+            this.showLoadingOverlay(true);
+            
+            // Simuler le chargement des données
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Mettre à jour l'horodatage
+            this.lastUpdate = Date.now();
+            this.updateTimestamp();
+            
+            // Émettre l'événement de mise à jour
+            this.emit('dataRefreshed', { timestamp: this.lastUpdate });
+            
+            this.showSuccessMessage('Données mises à jour');
+            
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour:', error);
+            this.showErrorMessage('Erreur lors de la mise à jour des données');
+        } finally {
+            this.showLoadingOverlay(false);
+        }
+    }
+    
+    async handleFilterChange(filterData) {
+        this.filters = { ...this.filters, ...filterData };
+        
+        // Sauvegarder les filtres
+        localStorage.setItem('yoozak-kpi-filters', JSON.stringify(this.filters));
+        
+        // Appliquer les filtres
+        await this.applyFilters(this.filters);
+    }
+    
+    async applyFilters(filters) {
+        console.log('🎯 Application des filtres:', filters);
+        
+        // Ici on ferait les appels API avec les filtres
+        // Pour l'instant, on simule
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        this.emit('filtersApplied', { filters });
+    }
+    
+    async loadChartsForTab(tabName) {
+        console.log('📊 Chargement des graphiques pour:', tabName);
+        
+        // Logique spécifique par onglet
+        switch (tabName) {
+            case 'vue-generale':
+                await this.loadGeneralCharts();
+                break;
+            case 'ventes':
+                await this.loadSalesCharts();
+                break;
+            // ... autres onglets
+        }
+    }
+    
+    async loadGeneralCharts() {
+        // Graphique évolution CA (déjà implémenté dans vue_generale.html)
+        const caChart = document.getElementById('ca-evolution-chart');
+        if (caChart && !this.charts.has('ca-evolution')) {
+            // Le graphique est déjà initialisé dans vue_generale.html
+            this.charts.set('ca-evolution', true);
+        }
+    }
+    
+    async loadSalesCharts() {
+        // Graphiques pour l'onglet ventes
+        console.log('📈 Chargement des graphiques de vente');
+    }
+    
+    async refreshActiveTabData() {
+        console.log('🔄 Actualisation des données pour:', this.activeTab);
+        await this.loadChartsForTab(this.activeTab);
+    }
+    
+    showLoadingOverlay(show) {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.classList.toggle('hidden', !show);
+        }
+    }
+    
+    updateTimestamp() {
+        const elements = document.querySelectorAll('#last-update');
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('fr-FR');
+        
+        elements.forEach(el => {
+            el.textContent = `Dernière MAJ: ${timeString}`;
+        });
+    }
+    
+    showSuccessMessage(message) {
+        this.showNotification(message, 'success');
+    }
+    
+    showErrorMessage(message) {
+        this.showNotification(message, 'error');
+    }
+    
+    showNotification(message, type = 'info') {
+        const container = document.getElementById('global-alerts');
+        if (!container) return;
+        
+        const alert = document.createElement('div');
+        alert.className = `
+            px-4 py-3 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full
+            ${type === 'success' ? 'bg-green-500 text-white' : 
+              type === 'error' ? 'bg-red-500 text-white' : 
+              'bg-blue-500 text-white'}
+        `;
+        alert.innerHTML = `
+            <div class="flex items-center gap-2">
+                <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation-triangle' : 'info'}"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        container.appendChild(alert);
+        
+        // Animation d'entrée
+        setTimeout(() => {
+            alert.classList.remove('translate-x-full');
+        }, 100);
+        
+        // Suppression automatique
+        setTimeout(() => {
+            alert.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            }, 300);
+        }, 3000);
+    }
+    
+    emit(eventName, data = {}) {
+        const event = new CustomEvent(eventName, { 
+            detail: { ...data, source: 'YoozakKPIDashboard' }
+        });
+        document.dispatchEvent(event);
+    }
+}
+
+// Initialiser le dashboard
+window.yoozakDashboard = new YoozakKPIDashboard();
+
+// Exposer des fonctions globales pour la compatibilité
+window.refreshAllKPIs = () => window.yoozakDashboard.refreshAllData();
+window.updateKPIs = (filters) => window.yoozakDashboard.handleFilterChange(filters);
+
+// Debug en développement
+if (typeof console !== 'undefined') {
+    console.log('%c🚀 Dashboard KPIs Yoozak', 'color: #3b82f6; font-size: 16px; font-weight: bold;');
+    console.log('📊 5 onglets spécialisés chaussures & sandales');
+    console.log('🎯 Filtres géographiques Maroc + pointures');
+    console.log('📱 Responsive design mobile-first');
+    console.log('⚡ Mise à jour temps réel');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,382 @@
+<!-- Onglet Vue Générale - KPIs Critiques Yoozak -->
+{% load static %}
+
+<!-- Message d'erreur (masqué par défaut) -->
+<div class="kpi-error-message hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+  <i class="fas fa-exclamation-triangle mr-2"></i>
+  <span>Message d'erreur</span>
+</div>
+
+<!-- KPIs Critiques (Top 4) -->
+<div class="mb-8">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900">🏠 Vue d'Ensemble</h2>
+      <p class="text-gray-600">Les 4 indicateurs critiques pour le pilotage quotidien de Yoozak</p>
+    </div>
+    <div class="flex items-center gap-3 text-sm text-gray-500">
+      <div class="flex items-center gap-1">
+        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+        <span>Dernière MAJ: <span class="last-update-time">--:--</span></span>
+      </div>
+      <button data-action="refresh" class="flex items-center gap-1 px-3 py-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200">
+        <i class="fas fa-sync-alt text-xs"></i>
+        <span>Actualiser</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+    <!-- KPI 1: CA du Mois -->
+    <div data-kpi="ca-mois">
+      {% include 'kpis/components/kpi_card.html' with title="Chiffre d'Affaires" subtitle='Ce mois' value='--' unit='DH' icon='fas fa-coins' color='blue' trend='--' trend_label='vs mois dernier' status='loading' sub_value='Chargement...' %}
+    </div>
+
+    <!-- KPI 2: Commandes du Jour -->
+    <div data-kpi="commandes-jour">
+      {% include 'kpis/components/kpi_card.html' with title='Commandes' subtitle="Aujourd'hui" value='--' unit='commandes' icon='fas fa-shopping-cart' color='green' trend='--' trend_label='vs hier' sub_value='Chargement...' status='loading' %}
+    </div>
+
+    <!-- KPI 3: Stock Critique Pointures -->
+    <div data-kpi="stock-critique">
+      {% include 'kpis/components/kpi_card.html' with title='Stock Critique' subtitle='Pointures 38-42' value='--' unit='articles' icon='fas fa-exclamation-triangle' color='orange' trend='--' trend_label='seuil critique' sub_value='Chargement...' status='loading' %}
+    </div>
+
+    <!-- KPI 4: Taux Conversion Téléphonique -->
+    <div data-kpi="taux-conversion">
+      {% include 'kpis/components/kpi_card.html' with title='Taux Conversion' subtitle='Appels téléphoniques' value='--' unit='%' icon='fas fa-phone' color='purple' trend='--' trend_label='vs objectif 70%' sub_value='Chargement...' status='loading' %}
+    </div>
+  </div>
+</div>
+
+<!-- KPIs Secondaires - Vue Synthétique -->
+<div class="mb-8">
+  <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+    <i class="fas fa-tachometer-alt text-gray-600"></i>
+    Indicateurs Synthétiques
+  </h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div data-kpi="clients-fideles">
+      {% include 'kpis/components/kpi_card.html' with title='Clients Fidèles' value='--' unit='clients' size='small' color='blue' trend='--' %}
+    </div>
+    <div data-kpi="panier-moyen">
+      {% include 'kpis/components/kpi_card.html' with title='Panier Moyen' value='--' unit='DH' size='small' color='green' trend='--' %}
+    </div>
+    <div data-kpi="delai-livraison">
+      {% include 'kpis/components/kpi_card.html' with title='Délai Livraison' value='--' unit='jours' size='small' color='purple' trend='--' %}
+    </div>
+    <div data-kpi="satisfaction">
+      {% include 'kpis/components/kpi_card.html' with title='Satisfaction' value='--' unit='/5' size='small' color='yellow' trend='--' %}
+    </div>
+    <div data-kpi="support-24-7">
+      {% include 'kpis/components/kpi_card.html' with title='Support 24/7' value='--' unit='min' size='small' color='green' trend='--' %}
+    </div>
+    <div data-kpi="stock-total">
+      {% include 'kpis/components/kpi_card.html' with title='Stock Total' value='--' unit='articles' size='small' color='blue' trend='--' %}
+    </div>
+  </div>
+</div>
+
+<!-- Graphique Principal: Evolution CA -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+  <!-- Evolution CA 12 mois -->
+  <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900">📈 Evolution du Chiffre d'Affaires</h3>
+        <p class="text-sm text-gray-600">Tendance sur 12 mois glissants</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <select class="text-sm border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-blue-500">
+          <option value="12months">12 mois</option>
+          <option value="6months">6 mois</option>
+          <option value="3months">3 mois</option>
+        </select>
+        <button class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"><i class="fas fa-expand"></i></button>
+      </div>
+    </div>
+
+    <!-- Canvas pour Chart.js -->
+    <div class="relative h-64">
+      <canvas id="ca-evolution-chart" class="w-full h-full"></canvas>
+    </div>
+
+    <!-- Légende/Résumé -->
+    <div class="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+      <div class="text-center">
+        <div class="text-2xl font-bold text-blue-600">1.25M</div>
+        <div class="text-sm text-gray-600">Ce mois</div>
+      </div>
+      <div class="text-center">
+        <div class="text-2xl font-bold text-green-600">+15.2%</div>
+        <div class="text-sm text-gray-600">Croissance</div>
+      </div>
+      <div class="text-center">
+        <div class="text-2xl font-bold text-purple-600">12.8M</div>
+        <div class="text-sm text-gray-600">Année en cours</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Répartition Géographique (Carte Maroc) -->
+  <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900">🌍 Performance par Région</h3>
+        <p class="text-sm text-gray-600">Répartition CA - Maroc</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="text-sm text-blue-600 hover:text-blue-800"><i class="fas fa-map"></i> Vue carte</button>
+        <button class="text-sm text-gray-500 hover:text-gray-700"><i class="fas fa-chart-pie"></i> Vue graphique</button>
+      </div>
+    </div>
+
+    <!-- Placeholder pour carte interactive Maroc -->
+    <div class="relative h-64 bg-gradient-to-br from-blue-50 to-green-50 rounded-lg flex items-center justify-center">
+      <div class="text-center">
+        <i class="fas fa-map-marked-alt text-4xl text-blue-400 mb-2"></i>
+        <p class="text-gray-600">Carte interactive du Maroc</p>
+        <p class="text-sm text-gray-500">Intégration en cours...</p>
+      </div>
+    </div>
+
+    <!-- Top Régions -->
+    <div class="mt-4 pt-4 border-t border-gray-100">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+            <span class="text-sm font-medium">Casablanca-Settat</span>
+          </div>
+          <div class="text-sm font-semibold text-gray-900">385K DH (31%)</div>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+            <span class="text-sm font-medium">Rabat-Salé-Kénitra</span>
+          </div>
+          <div class="text-sm font-semibold text-gray-900">268K DH (21%)</div>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 bg-orange-500 rounded-full"></div>
+            <span class="text-sm font-medium">Marrakech-Safi</span>
+          </div>
+          <div class="text-sm font-semibold text-gray-900">187K DH (15%)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Alertes et Activité Récente -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- Alertes Importantes -->
+  <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+    <div class="flex items-center gap-2 mb-4">
+      <i class="fas fa-bell text-orange-500"></i>
+      <h3 class="text-lg font-semibold text-gray-900">🚨 Alertes</h3>
+    </div>
+
+    <div class="space-y-3">
+      <!-- Alerte Stock -->
+      <div class="flex items-start gap-3 p-3 bg-orange-50 rounded-lg border-l-4 border-orange-400">
+        <i class="fas fa-exclamation-triangle text-orange-500 mt-1"></i>
+        <div>
+          <div class="font-medium text-orange-800">Stock Critique</div>
+          <div class="text-sm text-orange-600">Sandales femme P39 - Plus que 3 unités</div>
+          <div class="text-xs text-orange-500 mt-1">Il y a 15 min</div>
+        </div>
+      </div>
+
+      <!-- Alerte Commande -->
+      <div class="flex items-start gap-3 p-3 bg-red-50 rounded-lg border-l-4 border-red-400">
+        <i class="fas fa-clock text-red-500 mt-1"></i>
+        <div>
+          <div class="font-medium text-red-800">Retard Livraison</div>
+          <div class="text-sm text-red-600">5 commandes Casablanca en retard</div>
+          <div class="text-xs text-red-500 mt-1">Il y a 32 min</div>
+        </div>
+      </div>
+
+      <!-- Alerte Positive -->
+      <div class="flex items-start gap-3 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
+        <i class="fas fa-trophy text-green-500 mt-1"></i>
+        <div>
+          <div class="font-medium text-green-800">Objectif Atteint</div>
+          <div class="text-sm text-green-600">Objectif mensuel dépassé de 15%</div>
+          <div class="text-xs text-green-500 mt-1">Il y a 1h</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 pt-4 border-t border-gray-100">
+      <a href="#" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+        Voir toutes les alertes
+        <i class="fas fa-chevron-right text-xs"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Activité Récente -->
+  <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+    <div class="flex items-center gap-2 mb-4">
+      <i class="fas fa-history text-blue-500"></i>
+      <h3 class="text-lg font-semibold text-gray-900">⚡ Activité</h3>
+    </div>
+
+    <div class="space-y-3">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+          <i class="fas fa-check text-green-600 text-sm"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-medium">Commande #1247 confirmée</div>
+          <div class="text-xs text-gray-500">Chaussures Homme - Casablanca</div>
+        </div>
+        <div class="text-xs text-gray-400">2 min</div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+          <i class="fas fa-phone text-blue-600 text-sm"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-medium">Appel client - Suivi</div>
+          <div class="text-xs text-gray-500">Fatima A. - Rabat</div>
+        </div>
+        <div class="text-xs text-gray-400">5 min</div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+          <i class="fas fa-truck text-purple-600 text-sm"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-medium">Livraison expédiée</div>
+          <div class="text-xs text-gray-500">Commande #1245 - Marrakech</div>
+        </div>
+        <div class="text-xs text-gray-400">12 min</div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+          <i class="fas fa-box text-yellow-600 text-sm"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-medium">Stock mis à jour</div>
+          <div class="text-xs text-gray-500">Baskets Homme P41</div>
+        </div>
+        <div class="text-xs text-gray-400">18 min</div>
+      </div>
+    </div>
+
+    <div class="mt-4 pt-4 border-t border-gray-100">
+      <a href="#" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+        Voir historique complet
+        <i class="fas fa-chevron-right text-xs"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Opérateurs Actifs -->
+  <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+    <div class="flex items-center gap-2 mb-4">
+      <i class="fas fa-users text-green-500"></i>
+      <h3 class="text-lg font-semibold text-gray-900">👥 Équipe Active</h3>
+    </div>
+
+    <div class="space-y-4">
+      <!-- Opérateur 1 -->
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">SA</div>
+          <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+        </div>
+        <div class="flex-1">
+          <div class="font-medium text-gray-900">Sarah A.</div>
+          <div class="text-xs text-gray-500">Confirmation • 12 appels</div>
+        </div>
+        <div class="text-sm font-semibold text-green-600">85%</div>
+      </div>
+
+      <!-- Opérateur 2 -->
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold">MB</div>
+          <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+        </div>
+        <div class="flex-1">
+          <div class="font-medium text-gray-900">Mohamed B.</div>
+          <div class="text-xs text-gray-500">Logistique • 8 commandes</div>
+        </div>
+        <div class="text-sm font-semibold text-blue-600">92%</div>
+      </div>
+
+      <!-- Opérateur 3 -->
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <div class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold">FK</div>
+          <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-orange-500 rounded-full border-2 border-white"></div>
+        </div>
+        <div class="flex-1">
+          <div class="font-medium text-gray-900">Fatima K.</div>
+          <div class="text-xs text-gray-500">Confirmation • En pause</div>
+        </div>
+        <div class="text-sm font-semibold text-gray-400">--</div>
+      </div>
+    </div>
+
+    <div class="mt-4 pt-4 border-t border-gray-100">
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-gray-600">Opérateurs actifs</span>
+        <span class="font-semibold text-gray-900">7/12</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Script pour initialiser les graphiques -->
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Graphique Evolution CA
+    const ctx = document.getElementById('ca-evolution-chart')
+    if (ctx && typeof Chart !== 'undefined') {
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+          datasets: [
+            {
+              label: 'CA (DH)',
+              data: [850000, 920000, 1100000, 1050000, 1180000, 1220000, 1350000, 1280000, 1450000, 1380000, 1520000, 1250000],
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              tension: 0.4,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function (value) {
+                  return value / 1000 + 'K DH'
+                }
+              }
+            }
+          }
+        }
+      })
+    }
+  })
+</script>

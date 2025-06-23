@@ -33,6 +33,7 @@ urlpatterns = [
     path('livraison/', include('livraison.urls')),
     path('parametre/', include('parametre.urls')),
     path('synchronisation/', include('synchronisation.urls')),
+    path('kpis/', include('kpis.urls')),
 
     # Django browser reload (développement)
     path("__reload__/", include("django_browser_reload.urls")),
