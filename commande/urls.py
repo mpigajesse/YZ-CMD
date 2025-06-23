@@ -23,7 +23,12 @@ urlpatterns = [
     path('a-traiter/', views.commandes_a_traiter, name='a_traiter'),
     path('annulees/', views.commandes_annulees, name='annulees'),
     path('confirmees/', views.commandes_confirmees, name='confirmees'),
+    path('preparees/', views.commandes_preparees, name='preparees'),
     path('suivi-confirmations/', views.suivi_confirmations, name='suivi_confirmations'),
+    path('affecter-preparation/<int:commande_id>/', views.affecter_preparation, name='affecter_preparation'),
+    path('affecter-preparation-multiple/', views.affecter_preparation_multiple, name='affecter_preparation_multiple'),
+    path('affecter-livraison/<int:commande_id>/', views.affecter_livraison, name='affecter_livraison'),
+    path('affecter-livraison-multiple/', views.affecter_livraison_multiple, name='affecter_livraison_multiple'),
     # URLs pour l'affectation et changement de statut
     path('affecter/', views.affecter_commandes, name='affecter_commandes'),
     path('desaffecter/', views.desaffecter_commandes, name='desaffecter_commandes'),

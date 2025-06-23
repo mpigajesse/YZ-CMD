@@ -36,6 +36,7 @@ class Operateur(models.Model):
     TYPE_OPERATEUR_CHOICES = [
         ('CONFIRMATION', 'Opérateur de Confirmation'),
         ('LOGISTIQUE', 'Opérateur Logistique'),
+        ('PREPARATION', 'Opérateur de Préparation'),
         ('ADMIN', 'Administrateur'),
     ]
     
@@ -74,6 +75,10 @@ class Operateur(models.Model):
     @property
     def is_logistique(self):
         return self.type_operateur == 'LOGISTIQUE'
+    
+    @property
+    def is_preparation(self):
+        return self.type_operateur == 'PREPARATION'
     
     @property
     def is_admin(self):

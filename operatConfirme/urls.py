@@ -28,6 +28,5 @@ urlpatterns = [
     path('api/articles-disponibles/', views.api_articles_disponibles, name='api_articles_disponibles'),
     path('api/commentaires-disponibles/', views.api_commentaires_disponibles, name='api_commentaires_disponibles'),
     path('api/commandes/<int:commande_id>/operations/', views.api_operations_commande, name='api_operations_commande'),
-    path('commandes/<int:commande_id>/annuler-confirmee/', views.annuler_commande_confirmee, name='annuler_commande_confirmee'),
-    path('annuler-commandes-multiples/', views.annuler_commandes_multiples, name='annuler_commandes_multiples'),
+
 ] 

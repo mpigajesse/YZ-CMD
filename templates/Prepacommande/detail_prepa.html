@@ -13,9 +13,9 @@
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
                 <i class="fas fa-truck-loading mr-3" style="color: var(--preparation-border-accent);"></i>
-                Préparation Commande #{{ commande_id }}
+                {{ page_title }}
             </h1>
-            <p style="color: var(--preparation-border-accent);">Détails de la commande et étapes de préparation</p>
+            <p style="color: var(--preparation-border-accent);">{{ page_subtitle }}</p>
         </div>
         <div class="flex items-center gap-4 mt-4 md:mt-0">
             <a href="{% url 'Prepacommande:liste_prepa' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
@@ -30,13 +30,13 @@
             <i class="fas fa-user mr-2"></i>Informations Client
         </h2>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Client -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Nom complet -->
             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <label class="block text-sm font-semibold mb-2 text-gray-600">Client :</label>
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Nom complet :</label>
                 <p class="text-lg font-medium text-gray-800">
                     <i class="fas fa-user mr-2" style="color: var(--preparation-primary);"></i>
-                    Client Exemple
+                    {{ commande.client.prenom }} {{ commande.client.nom }}
                 </p>
             </div>
             
@@ -45,26 +45,65 @@
                 <label class="block text-sm font-semibold mb-2 text-gray-600">Téléphone :</label>
                 <p class="text-lg font-medium text-gray-800">
                     <i class="fas fa-phone mr-2" style="color: var(--preparation-primary);"></i>
-                    +212 6XX-XXXXXX
+                    {{ commande.client.numero_tel|default:"Non renseigné" }}
                 </p>
             </div>
 
-            <!-- Ville -->
+            <!-- Email -->
             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <label class="block text-sm font-semibold mb-2 text-gray-600">Ville :</label>
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Email :</label>
                 <p class="text-lg font-medium text-gray-800">
-                    <i class="fas fa-map-marker-alt mr-2" style="color: var(--preparation-primary);"></i>
-                    Casablanca
+                    <i class="fas fa-envelope mr-2" style="color: var(--preparation-primary);"></i>
+                    {% if commande.client.email %}
+                        <a href="mailto:{{ commande.client.email }}" class="text-blue-600 hover:text-blue-800 underline">
+                            {{ commande.client.email }}
+                        </a>
+                    {% else %}
+                        <span class="text-gray-500">Non renseigné</span>
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- Ville Client (origine) -->
+            <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <label class="block text-sm font-semibold mb-2 text-orange-600">Ville Client (origine) :</label>
+                <p class="text-lg font-medium text-orange-800">
+                    <i class="fas fa-home mr-2"></i>
+                    {{ commande.ville_init|default:"Non spécifiée" }}
+                </p>
+            </div>
+
+            <!-- Ville de livraison -->
+            <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                <label class="block text-sm font-semibold mb-2 text-green-600">Ville de livraison :</label>
+                <p class="text-lg font-medium text-green-800">
+                    <i class="fas fa-map-marker-alt mr-2"></i>
+                    {{ commande.ville.nom }}
+                </p>
+                {% if commande.ville.region %}
+                    <p class="text-sm text-green-600 mt-1">
+                        <i class="fas fa-globe mr-1"></i>
+                        Région : {{ commande.ville.region.nom_region }}
+                    </p>
+                {% endif %}
+            </div>
+
+            <!-- Frais de livraison -->
+            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <label class="block text-sm font-semibold mb-2 text-purple-600">Frais de livraison :</label>
+                <p class="text-lg font-medium text-purple-800">
+                    <i class="fas fa-truck mr-2"></i>
+                    {{ commande.ville.frais_livraison|default:0|floatformat:2 }} DH
                 </p>
             </div>
 
             <!-- Adresse de livraison -->
-            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 col-span-1 md:col-span-2">
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 col-span-1 md:col-span-2 lg:col-span-3">
                 <label class="block text-sm font-semibold mb-2 text-blue-600">
-                    <i class="fas fa-map-marked-alt mr-2"></i>Adresse de livraison :
+                    <i class="fas fa-map-marked-alt mr-2"></i>Adresse de livraison complète :
                 </label>
                 <p class="text-lg font-medium text-blue-800">
-                    123 Rue de l'Exemple, Quartier Simulation, Casablanca
+                    {{ commande.adresse|default:"Adresse non renseignée" }}
                 </p>
             </div>
         </div>
@@ -82,7 +121,7 @@
                 <label class="block text-sm font-semibold mb-2 text-gray-600">ID YZ :</label>
                 <p class="text-lg font-medium text-gray-800">
                     <i class="fas fa-barcode mr-2" style="color: var(--preparation-primary);"></i>
-                    CMD{{ commande_id }}
+                    {{ commande.id_yz }}
                 </p>
             </div>
             
@@ -91,7 +130,7 @@
                 <label class="block text-sm font-semibold mb-2 text-gray-600">N° Externe :</label>
                 <p class="text-lg font-medium text-gray-800">
                     <i class="fas fa-hashtag mr-2" style="color: var(--preparation-primary);"></i>
-                    EXT-{{ commande_id }}
+                    {{ commande.num_cmd|default:"-" }}
                 </p>
             </div>
             
@@ -100,7 +139,7 @@
                 <label class="block text-sm font-semibold mb-2 text-gray-600">Date de commande :</label>
                 <p class="text-lg font-medium text-gray-800">
                     <i class="fas fa-calendar-alt mr-2" style="color: var(--preparation-primary);"></i>
-                    19/06/2025
+                    {{ commande.date_cmd|date:"d/m/Y" }}
                 </p>
             </div>
 
@@ -109,23 +148,23 @@
                 <label class="block text-sm font-semibold mb-2 text-gray-600">Valeur de la commande :</label>
                 <p class="text-lg font-medium text-gray-800">
                     <i class="fas fa-money-bill-wave mr-2" style="color: var(--preparation-primary);"></i>
-                    150.00 DH
+                    {{ commande.total_cmd|floatformat:2 }} DH
                 </p>
             </div>
 
             <!-- État actuel -->
-            <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                <label class="block text-sm font-semibold mb-2 text-yellow-600">État actuel :</label>
+            <div class="{% if etat_actuel.enum_etat.libelle == 'En préparation' %}bg-blue-50 border-blue-200{% elif etat_preparation.date_fin %}bg-green-50 border-green-200{% else %}bg-yellow-50 border-yellow-200{% endif %} p-4 rounded-lg border">
+                <label class="block text-sm font-semibold mb-2 {% if etat_actuel.enum_etat.libelle == 'En préparation' %}text-blue-600{% elif etat_preparation.date_fin %}text-green-600{% else %}text-yellow-600{% endif %}">État actuel :</label>
                 <div class="flex items-center">
-                    <div class="w-3 h-3 rounded-full mr-2" style="background-color: orange;"></div>
-                    <p class="text-lg font-medium text-yellow-800">
-                        <i class="fas fa-hourglass-half mr-2"></i>
-                        En attente de préparation
+                    <div class="w-3 h-3 rounded-full mr-2" style="background-color: {% if etat_actuel.enum_etat.libelle == 'En préparation' %}#3b82f6{% elif etat_preparation.date_fin %}#10b981{% else %}orange{% endif %};"></div>
+                    <p class="text-lg font-medium {% if etat_actuel.enum_etat.libelle == 'En préparation' %}text-blue-800{% elif etat_preparation.date_fin %}text-green-800{% else %}text-yellow-800{% endif %}">
+                        <i class="fas {% if etat_actuel.enum_etat.libelle == 'En préparation' %}fa-cog fa-spin{% elif etat_preparation.date_fin %}fa-check-circle{% else %}fa-hourglass-half{% endif %} mr-2"></i>
+                        {{ etat_actuel.enum_etat.libelle }}
                     </p>
                 </div>
-                <p class="text-xs text-yellow-600 mt-1">
+                <p class="text-xs {% if etat_actuel.enum_etat.libelle == 'En préparation' %}text-blue-600{% elif etat_preparation.date_fin %}text-green-600{% else %}text-yellow-600{% endif %} mt-1">
                     <i class="fas fa-clock mr-1"></i>
-                    Dernière mise à jour : 19/06/2025 à 10:30
+                    Dernière mise à jour : {{ etat_actuel.date_debut|date:"d/m/Y à H:i" }}
                 </p>
             </div>
         </div>
@@ -148,73 +187,144 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    <!-- Exemple d'article -->
-                    <tr>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Article A</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">2</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-right">50.00 DH</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-right">100.00 DH</td>
-                    </tr>
-                    <tr>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Article B</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">1</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-right">50.00 DH</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-right">50.00 DH</td>
-                    </tr>
-                    <!-- Fin exemple d'article -->
-                    <tr>
-                        <td colspan="3" class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">Total Commande:</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">150.00 DH</td>
-                    </tr>
+                    {% for panier in paniers %}
+                        <tr>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ panier.article.nom }}
+                                {% if panier.article.reference %}
+                                    <span class="text-xs text-gray-500 block">Réf: {{ panier.article.reference }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ panier.quantite }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{{ panier.prix_unitaire|floatformat:2 }} DH</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{{ panier.total_ligne|floatformat:2 }} DH</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                                <div class="flex flex-col items-center py-6">
+                                    <i class="fas fa-shopping-basket text-4xl text-gray-300 mb-3"></i>
+                                    <p class="text-lg font-medium text-gray-600 mb-1">Aucun article</p>
+                                    <p class="text-sm text-gray-400">Cette commande ne contient aucun article</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    {% if paniers %}
+                        <tr class="bg-gray-50">
+                            <td colspan="3" class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">Total Commande:</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">{{ commande.total_cmd|floatformat:2 }} DH</td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- Section 4: Étapes de Préparation -->
+    <!-- Section 4: Historique des États -->
     <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
         <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
-            <i class="fas fa-clipboard-list mr-2"></i>Étapes de Préparation
+            <i class="fas fa-history mr-2"></i>Historique des États
         </h2>
-        <p class="text-gray-700 mb-4">Cette section simulera les différentes étapes du processus de préparation. Les actions seront implémentées ici.</p>
         
         <div class="space-y-4">
-            <div class="flex items-center p-4 bg-green-50 border-l-4 border-green-500 rounded-lg shadow-sm">
-                <i class="fas fa-check-circle text-green-600 mr-3 text-xl"></i>
-                <div>
-                    <h3 class="font-semibold text-gray-800">Commande en attente d'affectation</h3>
-                    <p class="text-sm text-gray-600">Automatiquement au moment de la confirmation. (Simulé)</p>
+            {% for etat in etats_commande %}
+                <div class="flex items-center p-4 
+                    {% if etat.enum_etat.libelle == 'Confirmée' %}bg-green-50 border-l-4 border-green-500
+                    {% elif etat.enum_etat.libelle == 'En préparation' and not etat.date_fin %}bg-blue-50 border-l-4 border-blue-500
+                    {% elif etat.enum_etat.libelle == 'En préparation' and etat.date_fin %}bg-purple-50 border-l-4 border-purple-500
+                    {% else %}bg-gray-50 border-l-4 border-gray-300{% endif %} 
+                    rounded-lg shadow-sm">
+                    <i class="fas 
+                        {% if etat.enum_etat.libelle == 'Confirmée' %}fa-check-circle text-green-600
+                        {% elif etat.enum_etat.libelle == 'En préparation' and not etat.date_fin %}fa-cog fa-spin text-blue-600
+                        {% elif etat.enum_etat.libelle == 'En préparation' and etat.date_fin %}fa-check-double text-purple-600
+                        {% else %}fa-clock text-gray-600{% endif %} 
+                        mr-3 text-xl"></i>
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-gray-800">{{ etat.enum_etat.libelle }}</h3>
+                        <div class="text-sm text-gray-600">
+                            <p>
+                                <i class="fas fa-calendar mr-1"></i>
+                                Début : {{ etat.date_debut|date:"d/m/Y à H:i" }}
+                            </p>
+                            {% if etat.date_fin %}
+                                <p>
+                                    <i class="fas fa-flag-checkered mr-1"></i>
+                                    Fin : {{ etat.date_fin|date:"d/m/Y à H:i" }}
+                                </p>
+                            {% endif %}
+                            {% if etat.operateur %}
+                                <p>
+                                    <i class="fas fa-user mr-1"></i>
+                                    Opérateur : {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            <div class="flex items-center p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg shadow-sm">
-                <i class="fas fa-spinner text-blue-600 mr-3 text-xl"></i>
-                <div>
-                    <h3 class="font-semibold text-gray-800">Affectée à {{ request.user.get_full_name }}</h3>
-                    <p class="text-sm text-gray-600">Opérateur de préparation désigné. (Simulé)</p>
-                </div>
-            </div>
-
-            <div class="flex items-center p-4 bg-gray-50 border-l-4 border-gray-300 rounded-lg shadow-sm">
-                <i class="fas fa-box-open text-gray-600 mr-3 text-xl"></i>
-                <div>
-                    <h3 class="font-semibold text-gray-800">Début de la préparation</h3>
-                    <p class="text-sm text-gray-600">Marquez les articles comme préparés. (Bientôt fonctionnel)</p>
-                </div>
-            </div>
-            
-            <div class="flex items-center p-4 bg-gray-50 border-l-4 border-gray-300 rounded-lg shadow-sm">
-                <i class="fas fa-truck text-gray-600 mr-3 text-xl"></i>
-                <div>
-                    <h3 class="font-semibold text-gray-800">Prête pour la livraison</h3>
-                    <p class="text-sm text-gray-600">Tous les articles sont préparés et emballés. (Bientôt fonctionnel)</p>
-                </div>
-            </div>
+            {% endfor %}
         </div>
     </div>
 
-    <div class="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200 text-gray-600">
-        <p><strong>Note:</strong> Cette page est une simulation. La logique de récupération des données réelles de la commande et la gestion interactive des étapes de préparation seront implémentées dans une phase ultérieure.</p>
+    <!-- Section 5: Actions de Préparation -->
+    {% if etat_preparation and not etat_preparation.date_fin %}
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+            <i class="fas fa-clipboard-list mr-2"></i>Actions de Préparation
+        </h2>
+        
+        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+            <div class="flex items-center">
+                <i class="fas fa-info-circle text-blue-600 mr-3 text-xl"></i>
+                <div>
+                    <h3 class="font-semibold text-blue-800">Commande en cours de préparation</h3>
+                    <p class="text-sm text-blue-600">Marquez la commande comme préparée une fois tous les articles rassemblés et emballés.</p>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" class="flex flex-col sm:flex-row gap-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="marquer_preparee">
+            <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
+                <i class="fas fa-check-double mr-2"></i>
+                Marquer comme Préparée
+            </button>
+            <a href="{% url 'Prepacommande:liste_prepa' %}" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Retour à la liste
+            </a>
+        </form>
     </div>
+    {% elif etat_preparation.date_fin %}
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle text-green-600 mr-3 text-xl"></i>
+                <div>
+                    <h3 class="font-semibold text-green-800">Commande Préparée</h3>
+                    <p class="text-sm text-green-600">
+                        Cette commande a été marquée comme préparée le {{ etat_preparation.date_fin|date:"d/m/Y à H:i" }}.
+                        Elle est maintenant prête pour l'étiquetage et la livraison.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 flex gap-4">
+            <a href="{% url 'Prepacommande:etiquette' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center">
+                <i class="fas fa-tags mr-2"></i>
+                Gérer les Étiquettes
+            </a>
+            <a href="{% url 'Prepacommande:liste_prepa' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Retour à la liste
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+
 </div>
 {% endblock %} 

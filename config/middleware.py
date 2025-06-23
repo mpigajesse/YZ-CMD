@@ -36,7 +36,7 @@ class UserTypeValidationMiddleware:
         self.allowed_prefixes = {
             'CONFIRMATION': '/operateur-confirme/',
             'LOGISTIQUE': '/operateur-logistique/',
-            'PRÉPARATION': '/operateur-preparation/',
+            'PREPARATION': '/operateur-preparation/',
             'ADMIN': '/parametre/', # Pour les opérateurs de type ADMIN qui ne sont pas forcément superusers
         }
         self.universal_allowed_paths_startswith = (
@@ -89,7 +89,7 @@ class UserTypeValidationMiddleware:
                         return redirect(reverse('operatConfirme:home'))
                     elif user_type == 'LOGISTIQUE':
                         return redirect(reverse('operatLogistic:home'))
-                    elif user_type == 'PRÉPARATION':
+                    elif user_type == 'PREPARATION':
                         return redirect(reverse('Prepacommande:home'))
                     elif user_type == 'ADMIN':
                         return redirect(reverse('app_admin:home'))

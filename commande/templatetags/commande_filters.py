@@ -42,3 +42,26 @@ def format_montant(value):
         return f"{float(value):.2f}"
     except (ValueError, TypeError):
         return "0.00"
+
+@register.filter
+def get_etat(commande, libelle_etat):
+    """
+    Récupère un état spécifique de la commande par son libellé.
+    Utilisé principalement pour trouver l'opérateur et la date d'un état précis.
+    """
+    try:
+        # On cherche l'état actuel (sans date de fin) qui correspond au libellé
+        etat = commande.etats.filter(
+            enum_etat__libelle__exact=libelle_etat,
+            date_fin__isnull=True
+        ).first()
+        
+        # Si on ne trouve pas d'état actuel, on prend le plus récent (historique)
+        if not etat:
+            etat = commande.etats.filter(
+                enum_etat__libelle__exact=libelle_etat
+            ).order_by('-date_debut').first()
+            
+        return etat
+    except Exception:
+        return None

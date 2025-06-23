@@ -222,6 +222,28 @@ def confirmer_commande_ajax(request, commande_id):
         with transaction.atomic():
             print(f"🎯 DEBUG: Début de la confirmation de la commande {commande.id_yz}")
             
+            # IMPORTANT: Récupérer et sauvegarder les informations de livraison depuis le formulaire
+            # Ces informations doivent être envoyées avec la requête de confirmation
+            try:
+                if 'ville_livraison' in data and data['ville_livraison']:
+                    from parametre.models import Ville
+                    nouvelle_ville = Ville.objects.get(id=data['ville_livraison'])
+                    commande.ville = nouvelle_ville
+                    print(f"🏙️ DEBUG: Ville de livraison mise à jour: {nouvelle_ville.nom}")
+                
+                if 'adresse_livraison' in data:
+                    commande.adresse = data['adresse_livraison']
+                    print(f"📍 DEBUG: Adresse de livraison mise à jour: {data['adresse_livraison'][:50]}...")
+                
+                # Sauvegarder les modifications de la commande
+                commande.save()
+                print(f"💾 DEBUG: Informations de livraison sauvegardées")
+                
+            except Ville.DoesNotExist:
+                print(f"❌ DEBUG: Ville de livraison non trouvée: {data.get('ville_livraison')}")
+            except Exception as e:
+                print(f"⚠️ DEBUG: Erreur lors de la sauvegarde des infos de livraison: {str(e)}")
+            
             # Vérifier le stock et décrémenter les articles
             articles_decrémentes = []
             stock_insuffisant = []
@@ -437,6 +459,8 @@ def commandes_confirmees(request):
             etats__date_fin__isnull=True,
             etats__operateur=operateur  # Utiliser l'objet Operateur
         ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
+        
+
         
         # Tri par date de confirmation (plus récentes en premier)
         mes_commandes_confirmees = mes_commandes_confirmees.order_by('-etats__date_debut')
@@ -1555,6 +1579,28 @@ def modifier_commande(request, commande_id):
                     traceback.print_exc()
                     return JsonResponse({'success': False, 'error': str(e)})
             
+            elif action == 'save_livraison':
+                # Sauvegarder seulement l'adresse de livraison (saisie manuelle)
+                try:
+                    adresse = request.POST.get('adresse_livraison', '').strip()
+                    
+                    # Mettre à jour seulement l'adresse (pas obligatoire)
+                    commande.adresse = adresse
+                    
+                    # Sauvegarder les modifications
+                    commande.save()
+                    
+                    message = 'Adresse de livraison sauvegardée avec succès' if adresse else 'Section livraison validée'
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': message,
+                        'adresse': adresse
+                    })
+                    
+                except Exception as e:
+                    return JsonResponse({'success': False, 'error': str(e)})
+            
             # ================ TRAITEMENT NORMAL DU FORMULAIRE ================
             
             # Mise à jour des informations client
@@ -1917,203 +1963,5 @@ def api_commentaires_disponibles(request):
     
     return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
 
-@login_required
-def annuler_commande_confirmee(request, commande_id):
-    """Annule une commande confirmée individuellement"""
-    if request.method == 'POST':
-        try:
-            import json
-            data = json.loads(request.body)
-            motif_annulation = data.get('motif_annulation', '')
-            
-            # Récupérer l'opérateur de confirmation
-            try:
-                operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
-            except Operateur.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Profil d\'opérateur de confirmation non trouvé'
-                })
-            
-            # Récupérer la commande
-            try:
-                commande = Commande.objects.get(id=commande_id)
-            except Commande.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Commande non trouvée'
-                })
-            
-            # Vérifier que la commande est confirmée par cet opérateur
-            etat_confirme = commande.etats.filter(
-                operateur=operateur,
-                enum_etat__libelle='Confirmée',
-                date_fin__isnull=True
-            ).first()
-            
-            if not etat_confirme:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Cette commande n\'a pas été confirmée par vous ou n\'est plus dans l\'état confirmé'
-                })
-            
-            # État "Annulée"
-            try:
-                etat_annulee = EnumEtatCmd.objects.get(libelle='Annulée')
-            except EnumEtatCmd.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'État "Annulée" non trouvé dans le système'
-                })
-            
-            with transaction.atomic():
-                # Restaurer le stock des articles
-                for panier in commande.paniers.all():
-                    if panier.article.qte_disponible is not None:
-                        panier.article.qte_disponible += panier.quantite
-                        panier.article.save()
-                
-                # Terminer l'état actuel
-                etat_confirme.date_fin = timezone.now()
-                etat_confirme.save()
-                
-                # Créer le nouvel état "Annulée"
-                EtatCommande.objects.create(
-                    commande=commande,
-                    enum_etat=etat_annulee,
-                    operateur=operateur,
-                    date_debut=timezone.now(),
-                    commentaire=f"Commande annulée par l'opérateur. Motif: {motif_annulation}"
-                )
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Commande {commande.id_yz} annulée avec succès. Le stock a été restauré.'
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': f'Erreur lors de l\'annulation: {str(e)}'
-            })
-    
-    return JsonResponse({
-        'success': False,
-        'message': 'Méthode non autorisée'
-    })
 
-@login_required
-def annuler_commandes_multiples(request):
-    """Annule plusieurs commandes confirmées en une seule fois"""
-    if request.method == 'POST':
-        try:
-            import json
-            data = json.loads(request.body)
-            commandes_ids = data.get('commandes_ids', [])
-            motif_annulation = data.get('motif_annulation', '')
-            
-            if not commandes_ids:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Aucune commande sélectionnée'
-                })
-            
-            # Récupérer l'opérateur de confirmation
-            try:
-                operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
-            except Operateur.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Profil d\'opérateur de confirmation non trouvé'
-                })
-            
-            # État "Annulée"
-            try:
-                etat_annulee = EnumEtatCmd.objects.get(libelle='Annulée')
-            except EnumEtatCmd.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'État "Annulée" non trouvé dans le système'
-                })
-            
-            commandes_annulees = []
-            commandes_erreurs = []
-            
-            with transaction.atomic():
-                for commande_id in commandes_ids:
-                    try:
-                        commande = Commande.objects.get(id=commande_id)
-                        
-                        # Vérifier que la commande est confirmée par cet opérateur
-                        etat_confirme = commande.etats.filter(
-                            operateur=operateur,
-                            enum_etat__libelle='Confirmée',
-                            date_fin__isnull=True
-                        ).first()
-                        
-                        if not etat_confirme:
-                            commandes_erreurs.append({
-                                'id_yz': commande.id_yz,
-                                'erreur': 'Commande non confirmée par vous ou plus dans l\'état confirmé'
-                            })
-                            continue
-                        
-                        # Restaurer le stock des articles
-                        for panier in commande.paniers.all():
-                            if panier.article.qte_disponible is not None:
-                                panier.article.qte_disponible += panier.quantite
-                                panier.article.save()
-                        
-                        # Terminer l'état actuel
-                        etat_confirme.date_fin = timezone.now()
-                        etat_confirme.save()
-                        
-                        # Créer le nouvel état "Annulée"
-                        EtatCommande.objects.create(
-                            commande=commande,
-                            enum_etat=etat_annulee,
-                            operateur=operateur,
-                            date_debut=timezone.now(),
-                            commentaire=f"Commande annulée par l'opérateur (annulation multiple). Motif: {motif_annulation}"
-                        )
-                        
-                        commandes_annulees.append(commande.id_yz)
-                        
-                    except Commande.DoesNotExist:
-                        commandes_erreurs.append({
-                            'id_yz': f'ID {commande_id}',
-                            'erreur': 'Commande non trouvée'
-                        })
-                    except Exception as e:
-                        commandes_erreurs.append({
-                            'id_yz': f'ID {commande_id}',
-                            'erreur': str(e)
-                        })
-            
-            # Préparer la réponse
-            message_parts = []
-            if commandes_annulees:
-                message_parts.append(f'{len(commandes_annulees)} commande(s) annulée(s) avec succès')
-            if commandes_erreurs:
-                message_parts.append(f'{len(commandes_erreurs)} erreur(s) rencontrée(s)')
-            
-            return JsonResponse({
-                'success': len(commandes_annulees) > 0,
-                'message': ' - '.join(message_parts),
-                'commandes_annulees': commandes_annulees,
-                'commandes_erreurs': commandes_erreurs,
-                'total_annulees': len(commandes_annulees),
-                'total_erreurs': len(commandes_erreurs)
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': f'Erreur lors de l\'annulation multiple: {str(e)}'
-            })
-    
-    return JsonResponse({
-        'success': False,
-        'message': 'Méthode non autorisée'
-    })
 

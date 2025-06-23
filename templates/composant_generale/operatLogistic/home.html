@@ -1,13 +1,13 @@
 {% extends 'composant_generale/operatLogistic/base.html' %}
 
-{% block title %}Accueil - Opérateur Logistique{% endblock %}
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
 
-{% block page_title %}Tableau de Bord{% endblock %}
-{% block page_subtitle %}Interface Opérateur Logistique{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
 
 {% block content %}
-<!-- Statistiques rapides avec animations - Thème Vert -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+<!-- Statistiques rapides avec animations -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
     <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-orange-300 animate-slideInUp" style="animation-delay: 0.1s;">
         <div class="flex items-center justify-between">
         <div class="flex items-center">
@@ -16,7 +16,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">En préparation</p>
-                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600" id="preparation-count">0</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600" id="preparation-count">{{ en_preparation }}</p>
                 </div>
             </div>
             <div class="text-orange-500 text-sm font-semibold bg-orange-50 px-2 py-1 rounded-full">
@@ -25,41 +25,24 @@
         </div>
     </div>
     
-    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.2s;">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center">
-                <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
-                    <i class="fas fa-truck text-2xl"></i>
-            </div>
-            <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Prêtes à expédier</p>
-                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600" id="expedition-count">0</p>
-                </div>
-            </div>
-            <div class="text-blue-500 text-sm font-semibold bg-blue-50 px-2 py-1 rounded-full">
-                +0%
-            </div>
-        </div>
-    </div>
-    
-    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.3s;">
+    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.2s;">
         <div class="flex items-center justify-between">
         <div class="flex items-center">
                 <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
-                    <i class="fas fa-check text-2xl"></i>
+                    <i class="fas fa-truck text-2xl"></i>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Expédiées</p>
-                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600" id="expediees-count">0</p>
+                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Mes commandes</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600" id="expediees-count">{{ mes_commandes_total }}</p>
                 </div>
             </div>
             <div class="text-green-500 text-sm font-semibold bg-green-50 px-2 py-1 rounded-full">
-                +15%
+                {% if evolution_semaine >= 0 %}+{% endif %}{{ evolution_semaine }}%
             </div>
         </div>
     </div>
     
-    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-red-300 animate-slideInUp" style="animation-delay: 0.4s;">
+    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-red-300 animate-slideInUp" style="animation-delay: 0.3s;">
         <div class="flex items-center justify-between">
         <div class="flex items-center">
                 <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
@@ -67,7 +50,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Stock manquant</p>
-                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600" id="manquant-count">0</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600" id="manquant-count">{{ stock_manquant }}</p>
                 </div>
             </div>
             <div class="text-red-500 text-sm font-semibold bg-red-50 px-2 py-1 rounded-full">
@@ -86,20 +69,45 @@
                 Commandes urgentes
             </h3>
             <div class="bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                0 urgentes
+                {{ nb_commandes_urgentes }} urgentes
             </div>
         </div>
+        {% if nb_commandes_urgentes > 0 %}
+        <div class="space-y-3">
+            {% for commande in commandes_urgentes|slice:":5" %}
+            <div class="flex items-center justify-between bg-red-50 p-4 rounded-lg border border-red-200 hover:bg-red-100 transition-colors">
+                <div class="flex items-center">
+                    <div class="w-3 h-3 bg-red-500 rounded-full mr-3 animate-pulse"></div>
+                    <div>
+                        <div class="font-semibold text-gray-800">{{ commande.id_yz }}</div>
+                        <div class="text-sm text-gray-600">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-semibold text-red-600">{{ commande.ville.nom }}</div>
+                    <div class="text-xs text-gray-500">{{ commande.etat_actuel.date_debut|timesince }} ago</div>
+                </div>
+            </div>
+            {% endfor %}
+            {% if nb_commandes_urgentes > 5 %}
+            <div class="text-center pt-3">
+                <span class="text-sm text-gray-500">Et {{ nb_commandes_urgentes|add:"-5" }} autres commandes urgentes...</span>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
         <div class="text-center py-12">
             <div class="mb-6">
-                <i class="fas fa-fire text-6xl text-gray-300 animate-bounce"></i>
+                <i class="fas fa-check-circle text-6xl text-green-300"></i>
             </div>
             <h4 class="text-lg font-semibold text-gray-600 mb-2">Aucune commande urgente</h4>
-            <p class="text-gray-500 text-sm mb-4">Les commandes prioritaires apparaîtront ici</p>
+            <p class="text-gray-500 text-sm mb-4">Toutes vos commandes sont dans les délais !</p>
             <a href="{% url 'operatLogistic:liste_commandes' %}" class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
                 <i class="fas fa-search mr-2"></i>
-                Voir toutes les commandes
+                Voir mes commandes
             </a>
         </div>
+        {% endif %}
     </div>
     
     <div class="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl border border-gray-100 animate-slideInRight">
@@ -112,31 +120,34 @@
                 Tout voir
             </a>
         </div>
+        {% if stats_par_ville %}
+        <div class="space-y-3">
+            <h5 class="font-semibold text-gray-700 mb-3">Top Villes - Mes Livraisons</h5>
+            {% for ville in stats_par_ville %}
+            <div class="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <div class="flex items-center">
+                    <div class="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                    <div>
+                        <div class="font-medium text-gray-800">{{ ville.ville__nom }}</div>
+                        <div class="text-xs text-gray-500">{{ ville.ville__region__nom_region }}</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="font-semibold text-blue-600">{{ ville.nb_commandes }}</div>
+                    <div class="text-xs text-gray-500">{{ ville.total_montant|floatformat:0 }} DH</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
         <div class="text-center py-12">
             <div class="mb-6">
-                <i class="fas fa-exchange-alt text-6xl text-gray-300 animate-pulse"></i>
+                <i class="fas fa-map-marker-alt text-6xl text-gray-300"></i>
             </div>
-            <h4 class="text-lg font-semibold text-gray-600 mb-2">Aucun mouvement récent</h4>
-            <p class="text-gray-500 text-sm mb-4">Les derniers mouvements s'afficheront ici</p>
-            
-            <!-- Simulation de mouvements -->
-            <div class="mt-6 space-y-3">
-                <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg animate-pulse">
-                    <div class="flex items-center">
-                        <div class="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
-                        <div class="h-4 bg-gray-200 rounded w-28"></div>
-                    </div>
-                    <div class="h-3 bg-gray-200 rounded w-16"></div>
-                </div>
-                <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg animate-pulse" style="animation-delay: 0.2s;">
-                    <div class="flex items-center">
-                        <div class="w-3 h-3 bg-orange-400 rounded-full mr-3"></div>
-                        <div class="h-4 bg-gray-200 rounded w-24"></div>
-                    </div>
-                    <div class="h-3 bg-gray-200 rounded w-20"></div>
-                </div>
-            </div>
+            <h4 class="text-lg font-semibold text-gray-600 mb-2">Aucune livraison</h4>
+            <p class="text-gray-500 text-sm mb-4">Vos statistiques de livraison apparaîtront ici</p>
         </div>
+        {% endif %}
     </div>
 </div>
 
@@ -152,60 +163,247 @@
         </div>
     </div>
     
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-white rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-orange-600" id="performance-preparation">0</div>
-            <div class="text-sm text-gray-600">En préparation</div>
+            <div class="text-2xl font-bold text-orange-600">{{ mes_commandes_aujourd_hui }}</div>
+            <div class="text-sm text-gray-600">Aujourd'hui</div>
             <div class="mt-2 bg-orange-100 rounded-full h-2">
-                <div class="bg-orange-500 h-2 rounded-full w-0 transition-all duration-1000" id="bar-preparation"></div>
+                <div class="bg-orange-500 h-2 rounded-full transition-all duration-1000" style="width: {% widthratio mes_commandes_aujourd_hui 10 100 %}%"></div>
             </div>
         </div>
         
         <div class="bg-white rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-blue-600" id="performance-expedition">0</div>
-            <div class="text-sm text-gray-600">Expédiées</div>
+            <div class="text-2xl font-bold text-blue-600">{{ mes_commandes_semaine }}</div>
+            <div class="text-sm text-gray-600">Cette semaine</div>
             <div class="mt-2 bg-blue-100 rounded-full h-2">
-                <div class="bg-blue-500 h-2 rounded-full w-0 transition-all duration-1000" id="bar-expedition"></div>
+                <div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: {% widthratio mes_commandes_semaine 20 100 %}%"></div>
             </div>
         </div>
         
         <div class="bg-white rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-green-600" id="performance-livraison">0h</div>
-            <div class="text-sm text-gray-600">Délai moyen</div>
-            <div class="mt-2 bg-green-100 rounded-full h-2">
-                <div class="bg-green-500 h-2 rounded-full w-0 transition-all duration-1000" id="bar-livraison"></div>
-            </div>
-        </div>
-        
-        <div class="bg-white rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-purple-600" id="performance-satisfaction">0%</div>
-            <div class="text-sm text-gray-600">Satisfaction</div>
+            <div class="text-2xl font-bold text-purple-600">{{ mes_commandes_montant|floatformat:0 }}</div>
+            <div class="text-sm text-gray-600">DH Total</div>
             <div class="mt-2 bg-purple-100 rounded-full h-2">
-                <div class="bg-purple-500 h-2 rounded-full w-0 transition-all duration-1000" id="bar-satisfaction"></div>
+                <div class="bg-purple-500 h-2 rounded-full transition-all duration-1000" style="width: {% if mes_commandes_montant %}{% widthratio mes_commandes_montant 5000 100 %}{% else %}0{% endif %}%"></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Alertes de stock -->
-<div class="mt-8 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl p-6 border border-red-100">
+<!-- Alertes de stock détaillées -->
+<div class="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-100">
     <div class="flex items-center justify-between mb-6">
         <h3 class="text-xl font-bold text-gray-800 flex items-center">
-            <i class="fas fa-exclamation-triangle text-red-500 mr-3 animate-pulse"></i>
-            Alertes de stock
+            <i class="fas fa-boxes text-amber-500 mr-3"></i>
+            État du stock
         </h3>
-        <div class="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold animate-pulse">
-            0 alertes
+        {% if stock_manquant > 0 %}
+        <div class="bg-amber-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+            {{ stock_manquant }} alertes
+        </div>
+        {% else %}
+        <div class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+            <i class="fas fa-check mr-1"></i>OK
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="space-y-3">
+        {% for alerte in alertes_stock %}
+        <div class="flex items-center justify-between p-4 rounded-lg border 
+            {% if alerte.type == 'danger' %}bg-red-50 border-red-200
+            {% elif alerte.type == 'warning' %}bg-amber-50 border-amber-200
+            {% elif alerte.type == 'info' %}bg-blue-50 border-blue-200
+            {% else %}bg-green-50 border-green-200{% endif %}">
+            <div class="flex items-center">
+                <div class="mr-3">
+                    <i class="{{ alerte.icon }} 
+                        {% if alerte.type == 'danger' %}text-red-500
+                        {% elif alerte.type == 'warning' %}text-amber-500
+                        {% elif alerte.type == 'info' %}text-blue-500
+                        {% else %}text-green-500{% endif %}
+                        {% if alerte.type == 'danger' %}animate-pulse{% endif %}"></i>
+                </div>
+                <div>
+                    <div class="font-medium text-gray-800">{{ alerte.message }}</div>
+                    {% if alerte.type == 'danger' %}
+                    <div class="text-sm text-red-600">Action immédiate requise</div>
+                    {% elif alerte.type == 'warning' %}
+                    <div class="text-sm text-amber-600">Surveillance recommandée</div>
+                    {% elif alerte.type == 'info' %}
+                    <div class="text-sm text-blue-600">Planification suggérée</div>
+                    {% else %}
+                    <div class="text-sm text-green-600">Situation normale</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="text-right">
+                {% if alerte.count > 0 %}
+                <div class="text-lg font-bold 
+                    {% if alerte.type == 'danger' %}text-red-600
+                    {% elif alerte.type == 'warning' %}text-amber-600
+                    {% elif alerte.type == 'info' %}text-blue-600
+                    {% else %}text-green-600{% endif %}">
+                    {{ alerte.count }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Résumé rapide -->
+    {% if articles_rupture > 0 or articles_stock_faible > 0 %}
+    <div class="mt-4 pt-4 border-t border-amber-200">
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-gray-600">Résumé :</span>
+            <div class="flex space-x-4">
+                {% if articles_rupture > 0 %}
+                <span class="text-red-600 font-medium">{{ articles_rupture }} en rupture</span>
+                {% endif %}
+                {% if articles_stock_faible > 0 %}
+                <span class="text-amber-600 font-medium">{{ articles_stock_faible }} stock faible</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Détails avancés du stock -->
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Statistiques générales -->
+        <div class="bg-white rounded-lg p-4 border border-amber-200">
+            <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                <i class="fas fa-chart-bar text-amber-500 mr-2"></i>
+                Statistiques Générales
+            </h4>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Total articles actifs :</span>
+                    <span class="font-medium">{{ stock_total.total_articles|default:0 }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Stock total (unités) :</span>
+                    <span class="font-medium">{{ stock_total.total_stock|default:0 }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Valeur totale stock :</span>
+                    <span class="font-medium text-green-600">{{ stock_total.valeur_totale|floatformat:0|default:0 }} DH</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Articles populaires -->
+        <div class="bg-white rounded-lg p-4 border border-amber-200">
+            <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                <i class="fas fa-fire text-orange-500 mr-2"></i>
+                Articles Populaires
+            </h4>
+            {% if articles_populaires %}
+            <div class="space-y-2">
+                {% for article in articles_populaires %}
+                <div class="flex justify-between items-center text-sm">
+                    <div class="flex-1 truncate">
+                        <span class="text-gray-800 font-medium">{{ article.nom }}</span>
+                        <span class="text-xs text-gray-500 ml-2">{{ article.categorie }}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-blue-600 font-medium">{{ article.nb_commandes }}</span>
+                        <span class="text-xs text-gray-500">cmd</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500">Aucune donnée disponible</p>
+            {% endif %}
         </div>
     </div>
     
-    <div class="text-center py-8">
-        <div class="mb-4">
-            <i class="fas fa-check-circle text-4xl text-green-400"></i>
+    <!-- Articles à réapprovisionner en priorité -->
+    {% if articles_a_reapprovisionner %}
+    <div class="mt-4 bg-blue-50 rounded-lg p-4 border border-blue-200">
+        <h4 class="font-semibold text-blue-800 mb-3 flex items-center">
+            <i class="fas fa-exclamation-circle text-blue-600 mr-2"></i>
+            Articles Prioritaires à Réapprovisionner
+        </h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {% for article in articles_a_reapprovisionner %}
+            <div class="bg-white rounded-lg p-3 border border-blue-200">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h5 class="font-medium text-gray-800 text-sm">{{ article.nom }}</h5>
+                        <p class="text-xs text-gray-500">{{ article.couleur }} - {{ article.pointure }}</p>
+                        <p class="text-xs text-blue-600 font-medium">{{ article.categorie }}</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-lg font-bold 
+                            {% if article.qte_disponible <= 2 %}text-red-600
+                            {% elif article.qte_disponible <= 5 %}text-orange-600
+                            {% else %}text-blue-600{% endif %}">
+                            {{ article.qte_disponible }}
+                        </div>
+                        <div class="text-xs text-gray-500">unités</div>
+                    </div>
+                </div>
+                <div class="mt-2 pt-2 border-t border-gray-100">
+                    <div class="text-xs text-gray-600">
+                        Prix : {{ article.prix_unitaire }} DH
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        <h4 class="text-lg font-semibold text-gray-600 mb-2">Tout va bien !</h4>
-        <p class="text-gray-500 text-sm">Aucune alerte de stock critique pour le moment</p>
     </div>
+    {% endif %}
+    
+    <!-- Analyse par catégorie -->
+    {% if categories_stock %}
+    <div class="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+            <i class="fas fa-layer-group text-gray-600 mr-2"></i>
+            Analyse par Catégorie
+        </h4>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200">
+                        <th class="text-left py-2 text-gray-600">Catégorie</th>
+                        <th class="text-center py-2 text-gray-600">Total</th>
+                        <th class="text-center py-2 text-gray-600">Rupture</th>
+                        <th class="text-center py-2 text-gray-600">Stock Faible</th>
+                        <th class="text-center py-2 text-gray-600">Stock Moyen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cat in categories_stock %}
+                    <tr class="border-b border-gray-100">
+                        <td class="py-2 font-medium text-gray-800">{{ cat.categorie|default:"Non spécifiée" }}</td>
+                        <td class="text-center py-2">{{ cat.total_articles }}</td>
+                        <td class="text-center py-2">
+                            {% if cat.articles_rupture > 0 %}
+                            <span class="text-red-600 font-medium">{{ cat.articles_rupture }}</span>
+                            {% else %}
+                            <span class="text-gray-400">0</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center py-2">
+                            {% if cat.articles_faible > 0 %}
+                            <span class="text-amber-600 font-medium">{{ cat.articles_faible }}</span>
+                            {% else %}
+                            <span class="text-gray-400">0</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center py-2">
+                            <span class="text-blue-600">{{ cat.stock_moyen|floatformat:1 }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Style et animations CSS -->
@@ -253,51 +451,6 @@
 <!-- JavaScript pour les animations et interactions -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Animation des compteurs
-    function animateCounter(elementId, targetValue, duration = 2000) {
-        const element = document.getElementById(elementId);
-        const startValue = 0;
-        const increment = targetValue / (duration / 16);
-        let currentValue = startValue;
-        
-        const timer = setInterval(() => {
-            currentValue += increment;
-            if (currentValue >= targetValue) {
-                currentValue = targetValue;
-                clearInterval(timer);
-            }
-            element.textContent = Math.floor(currentValue);
-        }, 16);
-    }
-    
-    // Animation des barres de progression
-    function animateProgressBar(barId, percentage) {
-        const bar = document.getElementById(barId);
-        setTimeout(() => {
-            bar.style.width = percentage + '%';
-        }, 500);
-    }
-    
-    // Simulation de données pour opérateur logistique
-    setTimeout(() => {
-        animateCounter('preparation-count', 15, 1500);
-        animateCounter('expedition-count', 28, 1500);
-        animateCounter('expediees-count', 67, 1500);
-        animateCounter('manquant-count', 2, 1500);
-        
-        // Performance
-        animateCounter('performance-preparation', 15, 1800);
-        animateCounter('performance-expedition', 28, 1800);
-        document.getElementById('performance-livraison').textContent = '1.2h';
-        animateCounter('performance-satisfaction', 94, 1800);
-        
-        // Barres de progression
-        animateProgressBar('bar-preparation', 60);
-        animateProgressBar('bar-expedition', 75);
-        animateProgressBar('bar-livraison', 88);
-        animateProgressBar('bar-satisfaction', 94);
-    }, 1000);
-    
     // Interaction hover pour les cartes statistiques
     const statCards = document.querySelectorAll('.group');
     statCards.forEach(card => {
@@ -320,6 +473,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 300);
         });
     }, 4000);
+    
+    // Animation d'entrée pour les barres de progression
+    setTimeout(() => {
+        const progressBars = document.querySelectorAll('.bg-orange-500, .bg-blue-500, .bg-green-500, .bg-purple-500');
+        progressBars.forEach(bar => {
+            bar.style.transition = 'width 1.5s ease-out';
+        });
+    }, 500);
 });
 </script>
 {% endblock %} 

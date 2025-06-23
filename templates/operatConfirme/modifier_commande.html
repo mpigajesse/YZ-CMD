@@ -185,9 +185,6 @@
                         <button type="button" onclick="validerSection('informations-commande')" 
                                 class="px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center" 
                                 style="background: linear-gradient(135deg, #4B352A, #6d4b3b); hover:shadow-lg;">
-
-
-                                
                             <i class="fas fa-check mr-2"></i>Valider les informations
                         </button>
                     </div>
@@ -221,7 +218,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Ville Client (Non modifiable)</label>
-                            <input type="text" value="{% if commande.ville %}{{ commande.ville.nom }}{% else %}{{ commande.ville_init|default:'Non spécifiée' }}{% endif %}" readonly
+                            <input type="text" value="{{ commande.ville_init|default:'Non spécifiée' }}" readonly
                                    class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
                         </div>
                     </div>
@@ -3409,7 +3406,19 @@ function proceedWithConfirmation() {
     // Afficher une notification de traitement en cours
     showNotification('⏳ Confirmation en cours... (vérification du stock)', 'info');
     
-    // Confirmer directement la commande
+    // Récupérer les informations de livraison du formulaire
+    const villeSelect = document.getElementById('ville-select');
+    const adresseTextarea = document.querySelector('textarea[name="adresse_livraison"]');
+    
+    const villeId = villeSelect ? villeSelect.value : '';
+    const adresse = adresseTextarea ? adresseTextarea.value.trim() : '';
+    
+    console.log('🏙️ DEBUG: Données de livraison à envoyer:', {
+        ville_livraison: villeId,
+        adresse_livraison: adresse
+    });
+    
+    // Confirmer la commande avec les informations de livraison
     fetch(`/operateur-confirme/commandes/{{ commande.id }}/confirmer-ajax/`, {
                 method: 'POST',
                 headers: {
@@ -3417,7 +3426,9 @@ function proceedWithConfirmation() {
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
                 body: JSON.stringify({
-                    'commentaire': 'Commande confirmée après vérification complète'
+                    'commentaire': 'Commande confirmée après vérification complète',
+                    'ville_livraison': villeId,
+                    'adresse_livraison': adresse
                 })
         })
         .then(response => response.json())
@@ -3515,7 +3526,13 @@ function validerSection(sectionId) {
     const sectionElement = event.target.closest('.verification-item');
     const sectionName = getSectionName(sectionId);
     
-    // Animation de validation
+    // Traitement spécifique pour les informations de livraison
+    if (sectionId === 'informations-livraison') {
+        sauvegarderInformationsLivraison(sectionElement, sectionName);
+        return;
+    }
+    
+    // Animation de validation pour les autres sections
     sectionElement.classList.add('verified');
     
     // Afficher une notification de succès
@@ -3531,6 +3548,71 @@ function validerSection(sectionId) {
     
     // Vérifier si toutes les sections sont validées
     checkAllSectionsValidated();
+}
+
+// Fonction pour sauvegarder les informations de livraison
+function sauvegarderInformationsLivraison(sectionElement, sectionName) {
+    const button = event.target;
+    
+    // Récupérer seulement l'adresse de livraison (saisie manuelle)
+    const adresseTextarea = document.querySelector('textarea[name="adresse_livraison"]');
+    const adresse = adresseTextarea ? adresseTextarea.value.trim() : '';
+    
+    // Désactiver le bouton pendant la sauvegarde
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sauvegarde...';
+    
+    // Préparer les données à envoyer (seulement l'adresse)
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    formData.append('action', 'save_livraison');
+    formData.append('adresse_livraison', adresse);
+    
+    // Envoyer la requête AJAX
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Animation de validation
+            sectionElement.classList.add('verified');
+            
+            // Afficher une notification de succès
+            const message = adresse ? 
+                `✅ ${sectionName} sauvegardée avec succès ! Adresse: ${adresse.substring(0, 50)}${adresse.length > 50 ? '...' : ''}` :
+                `✅ ${sectionName} validée avec succès !`;
+            showToast(message, 'success');
+            
+            // Mettre à jour le bouton
+            button.innerHTML = '<i class="fas fa-check-double mr-2"></i>Validé';
+            button.style.background = '#6b7280';
+            button.style.cursor = 'not-allowed';
+            button.classList.add('cursor-not-allowed');
+            
+            // Vérifier si toutes les sections sont validées
+            checkAllSectionsValidated();
+        } else {
+            // Erreur lors de la sauvegarde
+            showToast(`❌ Erreur lors de la sauvegarde : ${data.error || 'Erreur inconnue'}`, 'error');
+            
+            // Réactiver le bouton
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-truck mr-2"></i>Valider la livraison';
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de la sauvegarde des informations de livraison:', error);
+        showToast('❌ Erreur de connexion lors de la sauvegarde', 'error');
+        
+        // Réactiver le bouton
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-truck mr-2"></i>Valider la livraison';
+    });
 }
 
 // Fonction pour obtenir le nom de la section

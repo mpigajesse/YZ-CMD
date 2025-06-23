@@ -7,6 +7,8 @@
     {% load static %}
     {% load tailwind_tags %}
     {% tailwind_css %}
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
@@ -279,22 +281,29 @@
                     <div class="subtitle animate-fadeIn" style="animation-delay: 0.6s;">Système de Gestion de Commandes</div>
                 </div>
                 <p class="title">Connexion</p>
-                <form method="post" action="{% url 'login' %}">
+                <form method="post" action="{% url 'login' %}" id="loginForm">
                     {% csrf_token %}
                     {% if form.errors %}
-                        <div class="alert alert-danger">
-                            <p>Nom d'utilisateur ou mot de passe incorrect.</p>
+                        <div class="alert alert-danger" style="background-color: #fee; border: 1px solid #fcc; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
+                            <p style="color: #c00; margin: 0;">Nom d'utilisateur ou mot de passe incorrect.</p>
                         </div>
                     {% endif %}
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}" style="background-color: #fee; border: 1px solid #fcc; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
+                                <p style="color: #c00; margin: 0;">{{ message }}</p>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
                     <div class="inp">
-                        <input type="text" name="username" class="input" placeholder="Nom d'utilisateur" required>
+                        <input type="text" name="username" class="input" placeholder="Nom d'utilisateur" required id="username">
                         <i class="fas fa-user"></i>
                     </div>
                     <div class="inp">
-                        <input type="password" name="password" class="input" placeholder="Mot de passe" required>
+                        <input type="password" name="password" class="input" placeholder="Mot de passe" required id="password">
                         <i class="fas fa-lock"></i>
                     </div>
-                    <button type="submit" class="submit">Se connecter</button>
+                    <button type="submit" class="submit" id="submitBtn">Se connecter</button>
                 </form>
                 <div class="footer">
                     Besoin d'aide ? <a href="{% url 'admin:index' %}" class="link">Accéder à l'administration</a>
@@ -310,6 +319,47 @@
             </div>
         </div>
     </div>
-    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('loginForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const username = document.getElementById('username');
+            const password = document.getElementById('password');
+
+            console.log('Login form loaded');
+
+            form.addEventListener('submit', function(e) {
+                console.log('Form submission attempted');
+                console.log('Username:', username.value);
+                console.log('Password length:', password.value.length);
+                
+                // Vérifier que les champs ne sont pas vides
+                if (!username.value.trim()) {
+                    alert('Veuillez saisir votre nom d\'utilisateur');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                if (!password.value.trim()) {
+                    alert('Veuillez saisir votre mot de passe');
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Afficher un indicateur de chargement
+                submitBtn.innerHTML = 'Connexion en cours...';
+                submitBtn.disabled = true;
+                
+                console.log('Form submitted successfully');
+                return true;
+            });
+
+            // Test au clic du bouton
+            submitBtn.addEventListener('click', function(e) {
+                console.log('Submit button clicked');
+            });
+        });
+    </script>
 </body>
 </html> 
