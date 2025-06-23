@@ -1217,10 +1217,20 @@ def lancer_confirmations_masse(request):
     })
 
 @login_required
-def annuler_lancement_confirmation(request, commande_id):
-    """Vue pour annuler le lancement de confirmation d'une commande (En cours de confirmation -> Affectée)"""
+def annuler_commande_confirmation(request, commande_id):
+    """Vue pour annuler définitivement une commande (En cours de confirmation -> Annulée)"""
     if request.method == 'POST':
         try:
+            import json
+            data = json.loads(request.body)
+            motif = data.get('motif', '').strip()
+            
+            if not motif:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Le motif d\'annulation est obligatoire'
+                })
+            
             # Récupérer l'opérateur de confirmation
             try:
                 operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
@@ -1239,7 +1249,7 @@ def annuler_lancement_confirmation(request, commande_id):
                     'message': 'Commande non trouvée'
                 })
             
-            # Vérifier que la commande est dans l'état "En cours de confirmation"
+            # Vérifier que la commande est dans l'état "En cours de confirmation" ou "Affectée"
             etat_actuel = commande.etats.filter(
                 operateur=operateur,
                 date_fin__isnull=True
@@ -1251,43 +1261,55 @@ def annuler_lancement_confirmation(request, commande_id):
                     'message': 'Cette commande ne vous est pas affectée'
                 })
             
-            if etat_actuel.enum_etat.libelle.lower() == 'affectée':
+            if etat_actuel.enum_etat.libelle.lower() == 'annulée':
                 return JsonResponse({
                     'success': True,
-                    'message': 'La commande est déjà en état "Affectée"'
+                    'message': 'La commande est déjà annulée'
                 })
             
-            if etat_actuel.enum_etat.libelle.lower() != 'en cours de confirmation':
+            # Autoriser l'annulation depuis "En cours de confirmation" ou "Affectée"
+            etats_autorises = ['en cours de confirmation', 'affectée']
+            if etat_actuel.enum_etat.libelle.lower() not in etats_autorises:
                 return JsonResponse({
                     'success': False,
-                    'message': f'Cette commande est en état "{etat_actuel.enum_etat.libelle}" et ne peut pas être remise en "Affectée"'
+                    'message': f'Cette commande est en état "{etat_actuel.enum_etat.libelle}" et ne peut pas être annulée depuis cet état'
                 })
             
-            # État "Affectée"
-            try:
-                etat_affectee = EnumEtatCmd.objects.get(libelle='Affectée')
-            except EnumEtatCmd.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'État "Affectée" non trouvé dans le système'
-                })
+            # Récupérer ou créer l'état "Annulée"
+            etat_annulee, created = EnumEtatCmd.objects.get_or_create(
+                libelle='Annulée',
+                defaults={'ordre': 70, 'couleur': '#EF4444'}
+            )
             
             # Terminer l'état actuel
             etat_actuel.date_fin = timezone.now()
             etat_actuel.save()
             
-            # Créer le nouvel état "Affectée"
+            # Créer le nouvel état "Annulée"
             EtatCommande.objects.create(
                 commande=commande,
-                enum_etat=etat_affectee,
+                enum_etat=etat_annulee,
                 operateur=operateur,
                 date_debut=timezone.now(),
-                commentaire="Lancement de confirmation annulé par l'opérateur"
+                commentaire=f"Commande annulée par l'opérateur de confirmation - Motif: {motif}"
+            )
+            
+            # Sauvegarder le motif d'annulation dans la commande
+            commande.motif_annulation = motif
+            commande.save()
+            
+            # Créer une opération d'annulation
+            from commande.models import Operation
+            Operation.objects.create(
+                commande=commande,
+                type_operation='ANNULATION',
+                conclusion=motif,
+                operateur=operateur
             )
             
             return JsonResponse({
                 'success': True,
-                'message': f'Lancement annulé avec succès pour la commande {commande.id_yz}. La commande est remise en état "Affectée".'
+                'message': f'Commande {commande.id_yz} annulée définitivement. Motif: {motif}'
             })
             
         except Exception as e:

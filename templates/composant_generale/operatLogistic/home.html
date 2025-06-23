@@ -448,39 +448,60 @@
 }
 </style>
 
-<!-- JavaScript pour les animations et interactions -->
+<!-- JavaScript pour les animations et interactions de la page home -->
 <script>
+// Namespace pour éviter les conflits
+window.HomePageAnimations = {
+    init: function() {
+        this.initStatCards();
+        this.initIconAnimations();
+        this.initProgressBars();
+    },
+    
+    initStatCards: function() {
+        const statCards = document.querySelectorAll('.group');
+        statCards.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px) scale(1.02)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    },
+    
+    initIconAnimations: function() {
+        setInterval(() => {
+            const icons = document.querySelectorAll('.fa-fire, .fa-exchange-alt, .fa-exclamation-triangle');
+            icons.forEach(icon => {
+                icon.style.transform = 'scale(1.1) rotate(5deg)';
+                setTimeout(() => {
+                    icon.style.transform = 'scale(1) rotate(0deg)';
+                }, 300);
+            });
+        }, 4000);
+    },
+    
+    initProgressBars: function() {
+        setTimeout(() => {
+            const progressBars = document.querySelectorAll('.bg-orange-500, .bg-blue-500, .bg-green-500, .bg-purple-500');
+            progressBars.forEach(bar => {
+                bar.style.transition = 'width 1.5s ease-out';
+            });
+        }, 500);
+    }
+};
+
+// Initialisation sans conflit avec la sidebar
 document.addEventListener('DOMContentLoaded', function() {
-    // Interaction hover pour les cartes statistiques
-    const statCards = document.querySelectorAll('.group');
-    statCards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-5px) scale(1.02)';
-        });
-        
-        card.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0) scale(1)';
-        });
-    });
-    
-    // Animation des icônes spéciales
-    setInterval(() => {
-        const icons = document.querySelectorAll('.fa-fire, .fa-exchange-alt, .fa-exclamation-triangle');
-        icons.forEach(icon => {
-            icon.style.transform = 'scale(1.1) rotate(5deg)';
-            setTimeout(() => {
-                icon.style.transform = 'scale(1) rotate(0deg)';
-            }, 300);
-        });
-    }, 4000);
-    
-    // Animation d'entrée pour les barres de progression
+    // Attendre que la sidebar soit initialisée
     setTimeout(() => {
-        const progressBars = document.querySelectorAll('.bg-orange-500, .bg-blue-500, .bg-green-500, .bg-purple-500');
-        progressBars.forEach(bar => {
-            bar.style.transition = 'width 1.5s ease-out';
-        });
-    }, 500);
+        if (window.HomePageAnimations) {
+            window.HomePageAnimations.init();
+            console.log('Home page animations initialized');
+        }
+    }, 200); // Délai réduit pour éviter les conflits
 });
 </script>
 {% endblock %} 

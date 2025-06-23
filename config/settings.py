@@ -27,7 +27,12 @@ SECRET_KEY = 'django-insecure-beulebpje4!9xvoqg(@rn7$j0rt2)n2%8z=!euaw%t3&3j_z8*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '192.168.216.128',  # Votre adresse IP locale
+    '192.168.216.*',    # Toutes les adresses de votre sous-réseau
+]
 
 
 # Application definition
@@ -173,6 +178,14 @@ CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 # CORS configuration
 CORS_ALLOW_ALL_ORIGINS = True  # Pour le développement seulement
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://192.168.216.128:8000",
+]
+
+# Autoriser les requêtes depuis votre réseau local
+CORS_ALLOW_CREDENTIALS = True
 
 # Tailwind configuration
 TAILWIND_APP_NAME = 'theme'
@@ -189,7 +202,13 @@ SESSION_COOKIE_NAME = 'yz_cmd_sessionid'  # Nom personnalisé du cookie de sessi
 # Protection CSRF renforcée
 CSRF_COOKIE_SECURE = not DEBUG  # False en développement, True en production
 CSRF_COOKIE_HTTPONLY = True
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000', 
+    'http://127.0.0.1:8000',
+    'http://192.168.216.128:8000',
+    'http://192.168.216.*:8000',
+    
+]
 CSRF_USE_SESSIONS = True # Ajout pour stocker le jeton CSRF dans la session
 
 # Configuration Google Sheets

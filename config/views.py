@@ -46,3 +46,34 @@ def test_admin_url(request):
     except NoReverseMatch as e:
         message = f"Failed to resolve admin:liste_operateurs: {e}"
     return render(request, 'test_url.html', {'message': message}) 
+
+@login_required 
+def clear_middleware_messages(request):
+    """Vue utilitaire pour forcer le nettoyage des messages MWI-001"""
+    from django.contrib import messages
+    
+    # Nettoyer les flags de session
+    keys_to_remove = [key for key in request.session.keys() if key.startswith('middleware_redirect')]
+    for key in keys_to_remove:
+        del request.session[key]
+    
+    # Nettoyer les messages MWI-001
+    storage = messages.get_messages(request)
+    messages_to_keep = []
+    messages_cleaned = 0
+    
+    for message in storage:
+        if not ("MWI-001" in str(message) and "Accès non autorisé" in str(message)):
+            messages_to_keep.append(message)
+        else:
+            messages_cleaned += 1
+    
+    # Remettre seulement les messages à garder
+    storage.used = True
+    for message in messages_to_keep:
+        messages.add_message(request, message.level, message.message, message.tags)
+    
+    messages.success(request, f"✅ Nettoyage terminé. {messages_cleaned} message(s) MWI-001 supprimé(s).")
+    
+    # Rediriger vers la page d'accueil appropriée selon le type d'utilisateur
+    return home_redirect(request) 

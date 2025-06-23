@@ -5,6 +5,7 @@ from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
 from .views import home_redirect
+from . import views
 
 urlpatterns = [
     # Redirection de la page d'accueil vers login de l'application
@@ -22,12 +23,15 @@ urlpatterns = [
         next_page='login'
     ), name='logout'),
     path('home/', home_redirect, name='app_home'),
+    path('clear-middleware/', views.clear_middleware_messages, name='clear_middleware'),
 
     # URLs des applications (avec leurs préfixes clairs)
     path('commande/', include('commande.urls')),
     path('article/', include('article.urls')),
     path('client/', include('client.urls')),
     path('operateur-confirme/', include('operatConfirme.urls')),
+    # Redirection pour compatibilité avec d'anciens liens
+    path('operatConfirme/', RedirectView.as_view(url='/operateur-confirme/', permanent=True)),
     path('operateur-logistique/', include('operatLogistic.urls')),
     path('operateur-preparation/', include('Prepacommande.urls')),
     path('livraison/', include('livraison.urls')),

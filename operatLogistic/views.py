@@ -5,7 +5,7 @@ from django.contrib.auth.models import User, Group
 from parametre.models import Operateur # Assurez-vous que ce chemin est correct
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm # Importez PasswordChangeForm
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponse
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
 from django.utils import timezone
@@ -13,6 +13,18 @@ from datetime import datetime, timedelta
 from commande.models import Commande
 from commande.views import gerer_changement_etat_automatique
 import json
+import csv
+import io
+from urllib.parse import quote
+
+# Pour l'exportation Excel
+try:
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    EXCEL_AVAILABLE = True
+except ImportError:
+    EXCEL_AVAILABLE = False
 
 # Create your views here.
 
@@ -696,3 +708,300 @@ def signaler_probleme(request, commande_id):
             return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
     
     return JsonResponse({'success': False, 'message': 'Méthode non autorisée.'})
+
+# === FONCTIONS D'EXPORTATION ===
+
+def _get_commandes_preparees():
+    """Fonction utilitaire pour récupérer les commandes préparées (en cours de livraison)"""
+    return Commande.objects.filter(
+        etats__enum_etat__libelle='En cours de livraison',
+        etats__date_fin__isnull=True  # État actif
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats__operateur').distinct()
+
+def _prepare_commande_data(commandes):
+    """Fonction utilitaire pour préparer les données de commande pour l'exportation"""
+    data = []
+    for commande in commandes:
+        # Récupérer l'opérateur affecté pour la livraison
+        etat_livraison = commande.etats.filter(
+            enum_etat__libelle='En cours de livraison',
+            date_fin__isnull=True
+        ).first()
+        
+        operateur_affecte = etat_livraison.operateur if etat_livraison else None
+        
+        # Vérifier si les champs existent avant de les utiliser
+        ville_nom = commande.ville.nom if commande.ville else commande.ville_init or 'Non définie'
+        region_nom = commande.ville.region.nom_region if commande.ville and commande.ville.region else 'Non définie'
+        client_email = getattr(commande.client, 'email', '') or ''
+        
+        # Construire le panier (articles commandés)
+        panier_details = []
+        paniers = commande.paniers.all().select_related('article')
+        
+        for panier in paniers:
+            if panier.article:
+                # Format: "Nom Article [Référence] (Qté: X) - Prix unitaire DH"
+                article_info = f"{panier.article.nom or 'Article sans nom'}"
+                
+                if panier.article.reference:
+                    article_info += f" [{panier.article.reference}]"
+                
+                # Ajouter couleur et pointure si disponibles
+                details_supplementaires = []
+                if hasattr(panier.article, 'couleur') and panier.article.couleur:
+                    details_supplementaires.append(f"Couleur: {panier.article.couleur}")
+                if hasattr(panier.article, 'pointure') and panier.article.pointure:
+                    details_supplementaires.append(f"Pointure: {panier.article.pointure}")
+                
+                if details_supplementaires:
+                    article_info += f" ({', '.join(details_supplementaires)})"
+                
+                article_info += f" - Qté: {panier.quantite}"
+                article_info += f" - {panier.article.prix_unitaire:.2f} DH/unité"
+                article_info += f" - Sous-total: {panier.sous_total:.2f} DH"
+                
+                panier_details.append(article_info)
+        
+        # Joindre tous les articles avec un séparateur
+        panier_complet = " | ".join(panier_details) if panier_details else "Aucun article"
+        
+        data.append({
+            'ID YZ': commande.id_yz or '',
+            'Numéro Commande': commande.num_cmd or '',
+            'Client': f"{commande.client.prenom} {commande.client.nom}",
+            'Téléphone': commande.client.numero_tel or '',
+            'Email': client_email,
+            'Ville': ville_nom,
+            'Région': region_nom,
+            'Adresse': commande.adresse or '',
+            'Panier (Articles)': panier_complet,
+            'Nombre d\'Articles': paniers.count(),
+            'Montant Total': f"{commande.total_cmd:.2f} DH",
+            'Date Commande': commande.date_cmd.strftime('%d/%m/%Y') if commande.date_cmd else '',
+            'Date Création': commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else '',
+            'Opérateur Affecté': operateur_affecte.nom_complet if operateur_affecte else 'Non affecté',
+            'Date Affectation': etat_livraison.date_debut.strftime('%d/%m/%Y %H:%M') if etat_livraison and etat_livraison.date_debut else '',
+            'Statut': 'En cours de livraison'
+        })
+    return data
+
+@login_required
+def export_all_regions_excel(request):
+    """Exporter toutes les commandes de toutes les régions en Excel"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur logistique
+        operateur = Operateur.objects.get(user=request.user, type_operateur='LOGISTIQUE')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Accès non autorisé.")
+        return redirect('operatLogistic:repartition')
+    
+    if not EXCEL_AVAILABLE:
+        messages.error(request, "L'exportation Excel n'est pas disponible. Veuillez installer openpyxl.")
+        return redirect('operatLogistic:repartition')
+    
+    # Récupérer toutes les commandes préparées
+    commandes = _get_commandes_preparees()
+    
+    if not commandes.exists():
+        messages.warning(request, "Aucune commande disponible pour l'exportation.")
+        return redirect('operatLogistic:repartition')
+    
+    # Préparer les données
+    data = _prepare_commande_data(commandes)
+    
+    # Créer le fichier Excel
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Toutes les Régions"
+    
+    # En-têtes
+    headers = list(data[0].keys()) if data else []
+    
+    # Style pour les en-têtes
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = worksheet.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+    
+    # Ajouter les données
+    for row, commande_data in enumerate(data, 2):
+        for col, value in enumerate(commande_data.values(), 1):
+            worksheet.cell(row=row, column=col, value=value)
+    
+    # Ajuster la largeur des colonnes
+    for col in range(1, len(headers) + 1):
+        worksheet.column_dimensions[get_column_letter(col)].width = 20
+    
+    # Préparer la réponse
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    
+    filename = f"commandes_toutes_regions_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Sauvegarder le fichier
+    workbook.save(response)
+    
+    return response
+
+@login_required
+def export_all_regions_csv(request):
+    """Exporter toutes les commandes de toutes les régions en CSV"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur logistique
+        operateur = Operateur.objects.get(user=request.user, type_operateur='LOGISTIQUE')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Accès non autorisé.")
+        return redirect('operatLogistic:repartition')
+    
+    # Récupérer toutes les commandes préparées
+    commandes = _get_commandes_preparees()
+    
+    if not commandes.exists():
+        messages.warning(request, "Aucune commande disponible pour l'exportation.")
+        return redirect('operatLogistic:repartition')
+    
+    # Préparer les données
+    data = _prepare_commande_data(commandes)
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"commandes_toutes_regions_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Ajouter BOM pour Excel
+    response.write('\ufeff')
+    
+    # Créer le writer CSV
+    writer = csv.writer(response, delimiter=';')  # Utiliser point-virgule pour Excel
+    
+    # Écrire les en-têtes
+    if data:
+        writer.writerow(data[0].keys())
+        
+        # Écrire les données
+        for commande_data in data:
+            writer.writerow(commande_data.values())
+    
+    return response
+
+@login_required
+def export_region_excel(request, nom_region):
+    """Exporter les commandes d'une région spécifique en Excel"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur logistique
+        operateur = Operateur.objects.get(user=request.user, type_operateur='LOGISTIQUE')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Accès non autorisé.")
+        return redirect('operatLogistic:repartition')
+    
+    if not EXCEL_AVAILABLE:
+        messages.error(request, "L'exportation Excel n'est pas disponible. Veuillez installer openpyxl.")
+        return redirect('operatLogistic:repartition')
+    
+    from urllib.parse import unquote
+    nom_region = unquote(nom_region)
+    
+    # Récupérer les commandes de cette région
+    commandes = _get_commandes_preparees().filter(ville__region__nom_region=nom_region)
+    
+    if not commandes.exists():
+        messages.warning(request, f"Aucune commande disponible pour la région {nom_region}.")
+        return redirect('operatLogistic:repartition')
+    
+    # Préparer les données
+    data = _prepare_commande_data(commandes)
+    
+    # Créer le fichier Excel
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = f"Région {nom_region}"
+    
+    # En-têtes
+    headers = list(data[0].keys()) if data else []
+    
+    # Style pour les en-têtes
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = worksheet.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+    
+    # Ajouter les données
+    for row, commande_data in enumerate(data, 2):
+        for col, value in enumerate(commande_data.values(), 1):
+            worksheet.cell(row=row, column=col, value=value)
+    
+    # Ajuster la largeur des colonnes
+    for col in range(1, len(headers) + 1):
+        worksheet.column_dimensions[get_column_letter(col)].width = 20
+    
+    # Préparer la réponse
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    
+    filename = f"commandes_{nom_region.replace(' ', '_')}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Sauvegarder le fichier
+    workbook.save(response)
+    
+    return response
+
+@login_required
+def export_region_csv(request, nom_region):
+    """Exporter les commandes d'une région spécifique en CSV"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur logistique
+        operateur = Operateur.objects.get(user=request.user, type_operateur='LOGISTIQUE')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Accès non autorisé.")
+        return redirect('operatLogistic:repartition')
+    
+    from urllib.parse import unquote
+    nom_region = unquote(nom_region)
+    
+    # Récupérer les commandes de cette région
+    commandes = _get_commandes_preparees().filter(ville__region__nom_region=nom_region)
+    
+    if not commandes.exists():
+        messages.warning(request, f"Aucune commande disponible pour la région {nom_region}.")
+        return redirect('operatLogistic:repartition')
+    
+    # Préparer les données
+    data = _prepare_commande_data(commandes)
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"commandes_{nom_region.replace(' ', '_')}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Ajouter BOM pour Excel
+    response.write('\ufeff')
+    
+    # Créer le writer CSV
+    writer = csv.writer(response, delimiter=';')  # Utiliser point-virgule pour Excel
+    
+    # Écrire les en-têtes
+    if data:
+        writer.writerow(data[0].keys())
+        
+        # Écrire les données
+        for commande_data in data:
+            writer.writerow(commande_data.values())
+    
+    return response
