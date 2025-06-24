@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.dashboard, name='home'),
     path('home/', views.dashboard, name='dashboard'),
     path('commandes/', views.liste_commandes, name='liste_commandes'),
+    path('commandes/creer/', views.creer_commande, name='creer_commande'),
     path('confirmation/', views.confirmation, name='confirmation'),
     path('mes-commandes-confirmees/', views.commandes_confirmees, name='commandes_confirmees'),
     path('commandes/<int:commande_id>/', views.detail_commande, name='detail_commande'),
@@ -28,5 +29,6 @@ urlpatterns = [
     path('api/articles-disponibles/', views.api_articles_disponibles, name='api_articles_disponibles'),
     path('api/commentaires-disponibles/', views.api_commentaires_disponibles, name='api_commentaires_disponibles'),
     path('api/commandes/<int:commande_id>/operations/', views.api_operations_commande, name='api_operations_commande'),
+    path('api/commande/<int:commande_id>/panier/', views.api_panier_commande, name='api_panier_commande'),
 
 ] 

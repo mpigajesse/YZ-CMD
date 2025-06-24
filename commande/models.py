@@ -25,6 +25,7 @@ class EnumEtatCmd(models.Model):
     ]
     
     DELIVERY_STATUS_CHOICES = [
+        ('à imprimer', 'À imprimer'),
         ('en_preparation', 'En préparation'),
         ('en_livraison', 'En livraison'),
         ('livree', 'Livrée'),

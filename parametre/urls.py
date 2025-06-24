@@ -8,7 +8,6 @@ urlpatterns = [
     path('operateurs/', views.liste_operateurs, name='liste_operateurs'),
     path('operateurs/creer/', views.creer_operateur, name='creer_operateur'),
     path('operateurs/detail/<int:pk>/', views.detail_operateur, name='detail_operateur'),
-    path('synchronisation/', views.synchronisation, name='synchronisation'),
     
 
     path('regions/', views.liste_regions, name='liste_regions'),

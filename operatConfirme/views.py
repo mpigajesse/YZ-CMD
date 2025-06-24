@@ -5,16 +5,18 @@ from django.core.paginator import Paginator
 from commande.models import Commande
 from django.contrib import messages
 from django.contrib.auth.models import User, Group
-from parametre.models import Operateur # Assurez-vous que ce chemin est correct
+from parametre.models import Operateur, Ville # Assurez-vous que ce chemin est correct
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm # Importez PasswordChangeForm
 from django.http import JsonResponse
 import json
 from django.utils import timezone
-from commande.models import Commande, EtatCommande, EnumEtatCmd
+from commande.models import Commande, EtatCommande, EnumEtatCmd, Panier
 from datetime import datetime, timedelta
 from django.db.models import Sum
 from django.db import models, transaction
+from client.models import Client
+from article.models import Article
 
 # Create your views here.
 
@@ -1982,6 +1984,220 @@ def api_commentaires_disponibles(request):
             'success': True,
             'commentaires': commentaires_data
         })
+    
+    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+@login_required
+def creer_commande(request):
+    """Créer une nouvelle commande - Interface opérateur de confirmation"""
+    try:
+        # Récupérer le profil opérateur de l'utilisateur connecté
+        operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil d'opérateur de confirmation non trouvé.")
+        return redirect('login')
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Récupérer les données du formulaire
+                type_client = request.POST.get('type_client')
+                ville_id = request.POST.get('ville_livraison')
+                adresse = request.POST.get('adresse', '').strip()
+                is_upsell = request.POST.get('is_upsell') == 'on'
+
+                # Valider la présence de la ville et de l'adresse
+                if not ville_id or not adresse:
+                    messages.error(request, "Veuillez sélectionner une ville et fournir une adresse.")
+                    return redirect('operatConfirme:creer_commande')
+
+                # Gérer le client selon le type
+                if type_client == 'existant':
+                    client_id = request.POST.get('client')
+                    if not client_id:
+                        messages.error(request, "Veuillez sélectionner un client existant.")
+                        return redirect('operatConfirme:creer_commande')
+                    client = get_object_or_404(Client, pk=client_id)
+                else:  # nouveau client
+                    # Récupérer les données du nouveau client
+                    nouveau_prenom = request.POST.get('nouveau_prenom', '').strip()
+                    nouveau_nom = request.POST.get('nouveau_nom', '').strip()
+                    nouveau_telephone = request.POST.get('nouveau_telephone', '').strip()
+                    nouveau_email = request.POST.get('nouveau_email', '').strip()
+
+                    # Validation des champs obligatoires pour nouveau client
+                    if not all([nouveau_prenom, nouveau_nom, nouveau_telephone]):
+                        messages.error(request, "Veuillez remplir tous les champs obligatoires du nouveau client (prénom, nom, téléphone).")
+                        return redirect('operatConfirme:creer_commande')
+
+                    # Vérifier si le téléphone existe déjà
+                    if Client.objects.filter(numero_tel=nouveau_telephone).exists():
+                        messages.warning(request, f"Un client avec le numéro {nouveau_telephone} existe déjà. Utilisez 'Client existant' ou modifiez le numéro.")
+                        return redirect('operatConfirme:creer_commande')
+
+                    # Créer le nouveau client
+                    client = Client.objects.create(
+                        prenom=nouveau_prenom,
+                        nom=nouveau_nom,
+                        numero_tel=nouveau_telephone,
+                        email=nouveau_email if nouveau_email else None,
+                        is_active=True
+                    )
+                    # On ne met plus de message ici, on le composera à la fin
+
+                ville = get_object_or_404(Ville, pk=ville_id)
+
+                # Créer la commande avec un total temporaire de 0
+                commande = Commande.objects.create(
+                    client=client,
+                    ville=ville,
+                    adresse=adresse,
+                    total_cmd=0,  # Le total sera recalculé côté serveur
+                    is_upsell=is_upsell
+                )
+
+                # Traiter le panier et calculer le total
+                article_ids = request.POST.getlist('article_id')
+                quantites = request.POST.getlist('quantite')
+                
+                if not article_ids:
+                    messages.warning(request, "La commande a été créée mais est vide. Aucun article n'a été ajouté.")
+                
+                total_calcule = 0
+                for i, article_id in enumerate(article_ids):
+                    try:
+                        quantite = int(quantites[i])
+                        if quantite > 0 and article_id:
+                            article = get_object_or_404(Article, pk=article_id)
+                            sous_total = article.prix_unitaire * quantite
+                            total_calcule += sous_total
+                            
+                            Panier.objects.create(
+                                commande=commande,
+                                article=article,
+                                quantite=quantite,
+                                sous_total=sous_total
+                            )
+                    except (ValueError, IndexError, Article.DoesNotExist) as e:
+                        messages.error(request, f"Erreur lors de l'ajout d'un article : {e}")
+                        raise e # Annule la transaction
+
+                # Mettre à jour le total final de la commande avec le montant recalculé
+                commande.total_cmd = total_calcule
+                commande.save()
+
+                # Créer l'état initial "Affectée" directement à l'opérateur créateur
+                try:
+                    etat_affectee = EnumEtatCmd.objects.get(libelle='Affectée')
+                    EtatCommande.objects.create(
+                        commande=commande,
+                        enum_etat=etat_affectee,
+                        operateur=operateur,
+                        commentaire=f"Commande créée et auto-affectée à {operateur.nom_complet}"
+                    )
+                except EnumEtatCmd.DoesNotExist:
+                    try:
+                        etat_initial = EnumEtatCmd.objects.get(libelle='Non affectée')
+                        EtatCommande.objects.create(
+                            commande=commande,
+                            enum_etat=etat_initial,
+                            commentaire=f"Commande créée par {operateur.nom_complet}"
+                        )
+                    except EnumEtatCmd.DoesNotExist:
+                        pass # Si aucun état n'existe, créer sans état initial
+                
+                # Composer le message de succès final
+                message_final = f"Commande YZ-{commande.id_yz} créée avec succès."
+                if type_client != 'existant':
+                    message_final = f"Nouveau client '{client.get_full_name}' créé. " + message_final
+
+                messages.success(request, message_final)
+                return redirect('operatConfirme:liste_commandes')
+
+        except Exception as e:
+            messages.error(request, f"Erreur critique lors de la création de la commande: {str(e)}")
+            # Rediriger vers le formulaire pour correction
+            return redirect('operatConfirme:creer_commande')
+
+    # GET request - afficher le formulaire
+    clients = Client.objects.all().order_by('prenom', 'nom')
+    articles = Article.objects.all().order_by('nom')
+    villes = Ville.objects.select_related('region').order_by('region__nom_region', 'nom')
+
+    context = {
+        'operateur': operateur,
+        'clients': clients,
+        'articles': articles,
+        'villes': villes,
+    }
+
+    return render(request, 'operatConfirme/creer_commande.html', context)
+
+@login_required
+def api_panier_commande(request, commande_id):
+    """API pour récupérer le contenu du panier d'une commande"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur de confirmation
+        operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    if request.method == 'GET':
+        try:
+            # Récupérer la commande avec ses paniers
+            commande = get_object_or_404(
+                Commande.objects.select_related('client', 'ville').prefetch_related(
+                    'paniers__article'
+                ),
+                pk=commande_id
+            )
+            
+            # Vérifier que la commande est affectée à cet opérateur ou qu'il peut la voir
+            etat_actuel = commande.etats.filter(
+                operateur=operateur,
+                date_fin__isnull=True
+            ).first()
+            
+            if not etat_actuel:
+                return JsonResponse({'error': 'Cette commande ne vous est pas affectée'}, status=403)
+            
+            # Préparer les données pour le template
+            paniers = commande.paniers.all()
+            total_articles = sum(panier.quantite for panier in paniers)
+            total_montant = sum(panier.sous_total for panier in paniers)
+            frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+            total_final = total_montant + frais_livraison
+            
+            # Construire la liste des articles pour le JSON
+            articles_data = []
+            for panier in paniers:
+                articles_data.append({
+                    'nom': str(panier.article.nom),
+                    'reference': str(panier.article.reference) if panier.article.reference else 'N/A',
+                    'description': str(panier.article.description) if panier.article.description else '',
+                    'prix_unitaire': float(panier.article.prix_unitaire),
+                    'quantite': panier.quantite,
+                    'sous_total': float(panier.sous_total)
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'commande': {
+                    'id_yz': commande.id_yz,
+                    'client_nom': str(commande.client.get_full_name),
+                    'total_articles': total_articles,
+                    'total_montant': float(total_montant),
+                    'frais_livraison': float(frais_livraison),
+                    'total_final': float(total_final)
+                },
+                'articles': articles_data
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Erreur lors de la récupération du panier: {str(e)}'
+            }, status=500)
     
     return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
 

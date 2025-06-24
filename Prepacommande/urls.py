@@ -14,4 +14,5 @@ urlpatterns = [
     path('etiquettes/', views.etiquette_view, name='etiquette'),
 
     path('api/commande/<int:commande_id>/produits/', views.api_commande_produits, name='api_commande_produits'),
+    path('api/commande/<int:commande_id>/changer-etat-preparation/', views.api_changer_etat_preparation, name='api_changer_etat_preparation'),
 ] 

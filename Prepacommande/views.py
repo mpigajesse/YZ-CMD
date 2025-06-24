@@ -177,12 +177,12 @@ def liste_prepa(request):
         messages.error(request, "Votre profil opérateur n'existe pas.")
         return redirect('login')
 
-    # Récupérer les commandes dont l'état ACTUEL est "En préparation" et qui sont affectées à cet opérateur
-    # On cherche les commandes qui ont un état "En préparation" actif (sans date_fin) avec cet opérateur
+    # Récupérer les commandes dont l'état ACTUEL est "À imprimer" ou "En préparation" et qui sont affectées à cet opérateur
+    # On cherche les commandes qui ont un état "À imprimer" ou "En préparation" actif (sans date_fin) avec cet opérateur
     from django.db.models import Q, Max
     
     commandes_affectees = Commande.objects.filter(
-        etats__enum_etat__libelle='En préparation',
+        Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
         etats__operateur=operateur_profile,
         etats__date_fin__isnull=True  # État actif (en cours)
     ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
@@ -192,7 +192,7 @@ def liste_prepa(request):
         # Chercher toutes les commandes qui ont été affectées à cet opérateur pour la préparation
         # et qui n'ont pas encore d'état "Préparée" ou "En cours de livraison"
         commandes_affectees = Commande.objects.filter(
-            etats__enum_etat__libelle='En préparation',
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
             etats__operateur=operateur_profile
         ).exclude(
             # Exclure les commandes qui ont déjà un état ultérieur actif
@@ -234,6 +234,8 @@ def liste_prepa(request):
             'commandes_urgentes': commandes_urgentes,
         },
         'operateur_profile': operateur_profile,
+        'api_produits_url_base': reverse('Prepacommande:api_commande_produits', args=[99999999]),
+        'api_changer_etat_url_base': reverse('Prepacommande:api_changer_etat_preparation', args=[99999999]),
     }
     return render(request, 'Prepacommande/liste_prepa.html', context)
 
@@ -367,7 +369,7 @@ def detail_prepa(request, pk):
 
     # Vérifier que la commande est bien affectée à cet opérateur pour la préparation
     etat_preparation = commande.etats.filter(
-        enum_etat__libelle='En préparation',
+        Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation'),
         operateur=operateur_profile
     ).first()
     
@@ -396,8 +398,37 @@ def detail_prepa(request, pk):
     if request.method == 'POST':
         action = request.POST.get('action')
         
-        if action == 'marquer_preparee':
-            if etat_preparation and not etat_preparation.date_fin:
+        if action == 'commencer_preparation':
+            # Passer de "À imprimer" vers "En préparation"
+            if etat_preparation and etat_preparation.enum_etat.libelle == 'À imprimer' and not etat_preparation.date_fin:
+                with transaction.atomic():
+                    # Terminer l'état "À imprimer"
+                    etat_preparation.date_fin = timezone.now()
+                    etat_preparation.commentaire = "Impression terminée, début de la préparation."
+                    etat_preparation.save()
+
+                    # Créer ou récupérer l'état "En préparation"
+                    etat_en_preparation_enum, created = EnumEtatCmd.objects.get_or_create(
+                        libelle='En préparation',
+                        defaults={'ordre': 40, 'couleur': '#3B82F6'}
+                    )
+                    
+                    # Créer le nouvel état "En préparation"
+                    EtatCommande.objects.create(
+                        commande=commande,
+                        enum_etat=etat_en_preparation_enum,
+                        operateur=operateur_profile,
+                        date_debut=timezone.now(),
+                        commentaire="Commande passée en préparation."
+                    )
+                    
+                    messages.success(request, f"La commande {commande.id_yz} est maintenant en cours de préparation.")
+                
+                return redirect('Prepacommande:detail_prepa', pk=commande.id)
+        
+        elif action == 'marquer_preparee':
+            # Passer de "En préparation" vers "Préparée"
+            if etat_preparation and etat_preparation.enum_etat.libelle == 'En préparation' and not etat_preparation.date_fin:
                 with transaction.atomic():
                     # Terminer l'état de préparation actuel
                     etat_preparation.date_fin = timezone.now()
@@ -452,15 +483,15 @@ def etiquette_view(request):
         return redirect('login')
 
     # Récupérer les commandes préparées par cet opérateur
-    # Une commande est considérée comme préparée quand elle a eu l'état "En préparation" qui est terminé
+    # Une commande est considérée comme préparée quand elle a un état "Préparée" actif
     from django.db.models import Max
     
     commandes_preparees = Commande.objects.filter(
-        etats__enum_etat__libelle='En préparation',
+        etats__enum_etat__libelle='Préparée',
         etats__operateur=operateur_profile,
-        etats__date_fin__isnull=False  # État terminé = commande préparée
+        etats__date_fin__isnull=True  # État actif = commande préparée
     ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats__enum_etat').annotate(
-        date_preparation=Max('etats__date_fin')
+        date_preparation=Max('etats__date_debut')
     ).distinct()
     
     # Recherche
@@ -481,13 +512,12 @@ def etiquette_view(request):
     total_preparees = commandes_preparees.count()
     
     context = {
-        'page_title': 'Gestion des Étiquettes',
-        'page_subtitle': f'Gérez les étiquettes de vos {total_preparees} commande(s) préparée(s)',
+        'page_title': 'Consultation des Commandes Préparées',
+        'page_subtitle': f'Consultez vos {total_preparees} commande(s) préparée(s)',
         'commandes_preparees': commandes_preparees,
         'search_query': search_query,
         'total_preparees': total_preparees,
         'operateur_profile': operateur_profile,
-        'api_produits_url_base': reverse('Prepacommande:api_commande_produits', args=[99999999]),
     }
     return render(request, 'Prepacommande/etiquette.html', context)
 
@@ -528,6 +558,66 @@ def api_commande_produits(request, commande_id):
             'nombre_articles': len(produits_list)
         })
         
+    except Commande.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Commande non trouvée'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+
+@login_required
+def api_changer_etat_preparation(request, commande_id):
+    """API pour changer l'état d'une commande de 'À imprimer' vers 'En préparation'"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Méthode non autorisée'})
+    
+    try:
+        # Vérifier que l'utilisateur est un opérateur de préparation
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
+        
+        # Récupérer la commande
+        commande = Commande.objects.get(id=commande_id)
+        
+        # Vérifier que la commande est bien affectée à cet opérateur avec l'état "À imprimer"
+        etat_a_imprimer = commande.etats.filter(
+            enum_etat__libelle='À imprimer',
+            operateur=operateur_profile,
+            date_fin__isnull=True
+        ).first()
+        
+        if not etat_a_imprimer:
+            return JsonResponse({'success': False, 'message': 'Cette commande n\'est pas dans l\'état "À imprimer" ou ne vous est pas affectée'})
+        
+        # Effectuer la transition d'état
+        with transaction.atomic():
+            # Terminer l'état "À imprimer"
+            etat_a_imprimer.date_fin = timezone.now()
+            etat_a_imprimer.commentaire = "Impression terminée, passage automatique en préparation."
+            etat_a_imprimer.save()
+
+            # Créer ou récupérer l'état "En préparation"
+            etat_en_preparation_enum, created = EnumEtatCmd.objects.get_or_create(
+                libelle='En préparation',
+                defaults={'ordre': 40, 'couleur': '#3B82F6'}
+            )
+            
+            # Créer le nouvel état "En préparation"
+            EtatCommande.objects.create(
+                commande=commande,
+                enum_etat=etat_en_preparation_enum,
+                operateur=operateur_profile,
+                date_debut=timezone.now(),
+                commentaire="Commande passée automatiquement en préparation après impression."
+            )
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Commande {commande.id_yz} passée en préparation',
+            'nouvel_etat': 'En préparation'
+        })
+        
+    except Operateur.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Profil opérateur non trouvé'})
     except Commande.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Commande non trouvée'})
     except Exception as e:

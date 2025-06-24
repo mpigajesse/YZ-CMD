@@ -10,17 +10,66 @@ from .models import Client
 
 @login_required
 def liste_clients(request):
-    clients = Client.objects.all()
+    from django.db.models import Count
+    from synchronisation.models import SyncLog
+    
+    # Ajouter l'annotation pour compter les commandes par client
+    clients = Client.objects.annotate(
+        nombre_commandes=Count('commandes', distinct=True)
+    ).all()
     search_query = request.GET.get('search', '')
 
     if search_query:
-        clients = clients.filter(
-            Q(nom__icontains=search_query) |
-            Q(prenom__icontains=search_query) |
-            Q(numero_tel__icontains=search_query) |
-            Q(email__icontains=search_query) |
-            Q(adresse__icontains=search_query)
-        )
+        # Recherche flexible et variée
+        search_terms = search_query.strip().split()
+        
+        # Construction de la requête de recherche
+        search_conditions = Q()
+        
+        for term in search_terms:
+            term_conditions = (
+                # Recherche dans les données du client
+                Q(nom__icontains=term) |
+                Q(prenom__icontains=term) |
+                Q(numero_tel__icontains=term) |
+                Q(email__icontains=term) |
+                Q(adresse__icontains=term) |
+                Q(id__icontains=term) |  # Recherche par ID client
+                
+                # Recherche dans les commandes associées
+                Q(commandes__id_yz__icontains=term) |
+                Q(commandes__num_cmd__icontains=term) |
+                Q(commandes__total_cmd__icontains=term) |
+                
+                # Recherche dans les villes des commandes
+                Q(commandes__ville__nom__icontains=term) |
+                Q(commandes__ville_init__icontains=term) |
+                
+                # Recherche dans les états des commandes
+                Q(commandes__etats__enum_etat__libelle__icontains=term) |
+                
+                # Recherche dans les produits des commandes
+                Q(commandes__produit_init__icontains=term)
+            )
+            search_conditions &= term_conditions
+        
+        # Recherche globale si un seul terme (pour retrouver "Dupont Jean" avec "Jean Dupont")
+        if len(search_terms) == 1:
+            global_term = search_query.strip()
+            search_conditions |= (
+                Q(nom__icontains=global_term) |
+                Q(prenom__icontains=global_term) |
+                Q(numero_tel__icontains=global_term) |
+                Q(email__icontains=global_term) |
+                Q(adresse__icontains=global_term) |
+                Q(commandes__id_yz__icontains=global_term) |
+                Q(commandes__num_cmd__icontains=global_term) |
+                Q(commandes__ville__nom__icontains=global_term) |
+                Q(commandes__ville_init__icontains=global_term) |
+                Q(commandes__etats__enum_etat__libelle__icontains=global_term)
+            )
+        
+        clients = clients.filter(search_conditions).distinct()
 
     clients = clients.order_by('-date_creation')
 
@@ -28,18 +77,123 @@ def liste_clients(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    # Statistiques vérifiées
+    total_clients = Client.objects.count()
+    clients_avec_commandes = Client.objects.filter(commandes__isnull=False).distinct().count()
+    clients_sans_commandes = total_clients - clients_avec_commandes
+    
+    # NOUVELLES STATISTIQUES POUR LES COMMANDES
+    # Compter les clients distincts avec des commandes erronées (état actuel)
+    clients_avec_cmd_erronees = Client.objects.filter(
+        commandes__etats__enum_etat__libelle__iexact='Erronée',
+        commandes__etats__date_fin__isnull=True
+    ).distinct().count()
+
+    # Compter les clients distincts avec des commandes doublons (état actuel)
+    clients_avec_cmd_doublons = Client.objects.filter(
+        commandes__etats__enum_etat__libelle__iexact='Doublon',
+        commandes__etats__date_fin__isnull=True
+    ).distinct().count()
+
+    # Vérifier les doublons potentiels de clients (basé sur le numéro de tel)
+    doublons_detectes = Client.objects.values('numero_tel').annotate(
+        count=Count('id')
+    ).filter(count__gt=1).count()
+    
+    # Dernière synchronisation
+    derniere_sync = SyncLog.objects.filter(status__in=['success', 'partial']).first()
+    
+    # Calculer les pourcentages
+    pourcentage_avec_commandes = round((clients_avec_commandes / total_clients * 100), 1) if total_clients > 0 else 0
+    pourcentage_sans_commandes = round((clients_sans_commandes / total_clients * 100), 1) if total_clients > 0 else 0
+
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
-        'total_clients': Client.objects.count(),
+        'total_clients': total_clients,
+        'clients_avec_commandes': clients_avec_commandes,
+        'clients_sans_commandes': clients_sans_commandes,
+        'doublons_detectes': doublons_detectes,
+        'clients_avec_cmd_erronees': clients_avec_cmd_erronees,
+        'clients_avec_cmd_doublons': clients_avec_cmd_doublons,
+        'derniere_sync': derniere_sync,
+        'pourcentage_avec_commandes': pourcentage_avec_commandes,
+        'pourcentage_sans_commandes': pourcentage_sans_commandes,
     }
     return render(request, 'client/liste_clients.html', context)
 
 @login_required
 def detail_client(request, pk):
+    from django.db.models import Q, Count
+    from django.core.paginator import Paginator
+    
     client = get_object_or_404(Client, pk=pk)
+    
+    # Récupérer le terme de recherche
+    search_query = request.GET.get('search', '')
+    
+    # Récupérer toutes les commandes du client
+    commandes_queryset = client.commandes.all().order_by('-date_cmd', '-date_creation')
+    
+    # Appliquer la recherche si nécessaire
+    if search_query:
+        commandes_queryset = commandes_queryset.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(ville__nom__icontains=search_query) |
+            Q(ville_init__icontains=search_query)
+        )
+    
+    # Pagination
+    paginator = Paginator(commandes_queryset, 15)  # 15 commandes par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Calculer les statistiques sur toutes les commandes du client (pas seulement la page actuelle)
+    toutes_commandes = client.commandes.all()
+    total_commandes = toutes_commandes.count()
+    
+    # Commandes confirmées
+    commandes_confirmees = toutes_commandes.filter(
+        etats__enum_etat__libelle__icontains='confirmée'
+    ).distinct().count()
+    
+    # Commandes annulées
+    commandes_annulees = toutes_commandes.filter(
+        etats__enum_etat__libelle__icontains='annulée'
+    ).distinct().count()
+    
+    # Montant total
+    montant_total = sum(commande.total_cmd for commande in toutes_commandes)
+    
+    # Statistiques par état (toutes les commandes, même sans état défini)
+    etats_stats = toutes_commandes.values(
+        'etats__enum_etat__libelle',
+        'etats__enum_etat__couleur'
+    ).annotate(
+        count=Count('id', distinct=True)
+    ).filter(
+        etats__date_fin__isnull=True  # État actuel seulement
+    ).order_by('-count')
+    
+    # Ajouter les commandes sans état défini aux statistiques
+    commandes_sans_etat = toutes_commandes.filter(etats__isnull=True).count()
+    if commandes_sans_etat > 0:
+        etats_stats = list(etats_stats) + [{
+            'etats__enum_etat__libelle': 'Non défini',
+            'etats__enum_etat__couleur': '#6B7280',
+            'count': commandes_sans_etat
+        }]
+    
     context = {
-        'client': client
+        'client': client,
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'total_commandes': total_commandes,
+        'commandes_confirmees': commandes_confirmees,
+        'commandes_annulees': commandes_annulees,
+        'montant_total': montant_total,
+        'etats_stats': etats_stats,
     }
     return render(request, 'client/detail_client.html', context)
 

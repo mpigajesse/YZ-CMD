@@ -30,6 +30,47 @@
         font-weight: 500;
         text-transform: capitalize;
     }
+
+    /* Toast simple */
+    .toast-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #22c55e;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        animation: slideInRight 0.3s ease-out;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        min-width: 300px;
+    }
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -44,13 +85,21 @@
             </h1>
             <p style="color: #f7d9c4;">Visualisation de toutes vos commandes affectées</p>
         </div>
-                    <div class="flex items-center gap-4 mt-4 md:mt-0">
-                <div class="text-right">
-                    <div class="text-2xl font-bold" style="color: #f7d9c4;">{{ total_commandes|default:0 }}</div>
-                    <div class="text-sm opacity-80">Total affectées</div>
-                </div>
-            </div>
+        <div class="text-right">
+            <div class="text-2xl font-bold" style="color: #f7d9c4;">{{ total_commandes|default:0 }}</div>
+            <div class="text-sm opacity-80">Total affectées</div>
+        </div>
     </div>
+
+    <!-- Messages Toast -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="toast-notification" id="toast-{{ forloop.counter }}">
+            <i class="{% if message.tags == 'success' %}fas fa-check-circle{% elif message.tags == 'error' %}fas fa-exclamation-circle{% elif message.tags == 'warning' %}fas fa-exclamation-triangle{% else %}fas fa-info-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
 
     <!-- Statistiques -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -133,11 +182,18 @@
                     Rechercher
                 </button>
                 {% if search_query %}
-                                    <a href="{% url 'operatConfirme:liste_commandes' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                <a href="{% url 'operatConfirme:liste_commandes' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
                     Réinitialiser
                 </a>
-                                {% endif %}
+                {% endif %}
             </form>
+
+            <!-- Bouton Nouvelle Commande au centre -->
+            <div class="flex justify-center">
+                <a href="{% url 'operatConfirme:creer_commande' %}" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fas fa-plus mr-2"></i>Nouvelle Commande
+                </a>
+            </div>
 
             <!-- Liens vers autres pages -->
             <div class="flex gap-2">
@@ -248,8 +304,8 @@
                     <td class="px-4 py-4 whitespace-nowrap text-center">
                         <button type="button" onclick="viewCart({{ commande.pk }})" class="transition-colors" style="color: #4B352A;" title="Voir le panier">
                             <i class="fas fa-shopping-basket text-lg"></i>
-                            {% if commande.panier.articles.count > 0 %}
-                                <span class="ml-1 text-white text-xs rounded-full px-1.5 py-0.5" style="background-color: #6d4b3b;">{{ commande.panier.articles.count }}</span>
+                            {% if commande.paniers.count > 0 %}
+                                <span class="ml-1 text-white text-xs rounded-full px-1.5 py-0.5" style="background-color: #6d4b3b;">{{ commande.paniers.count }}</span>
                             {% endif %}
                         </button>
                     </td>
@@ -354,32 +410,161 @@ document.addEventListener('DOMContentLoaded', function() {
     // Plus de fonctionnalités de sélection multiple nécessaires
 });
 
+// Fonction pour construire le HTML du panier
+function buildCartHTML(data) {
+    const commande = data.commande;
+    const articles = data.articles;
+    
+    let html = `
+        <div class="space-y-4">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="font-semibold text-blue-800">Commande YZ-${commande.id_yz}</h4>
+                        <p class="text-blue-700 text-sm">Client: ${commande.client_nom}</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-lg font-bold text-blue-800">${commande.total_articles} article${commande.total_articles > 1 ? 's' : ''}</div>
+                        <div class="text-sm text-blue-600">Total: ${commande.total_montant.toFixed(2)} DH</div>
+                    </div>
+                </div>
+            </div>`;
+    
+    if (articles.length > 0) {
+        html += `
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Article</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Référence</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix unitaire</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sous-total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">`;
+        
+        articles.forEach(article => {
+            html += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">${article.nom}</div>
+                                ${article.description ? `<div class="text-sm text-gray-500">${article.description}</div>` : ''}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${article.reference}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${article.prix_unitaire.toFixed(2)} DH
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    ${article.quantite}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                ${article.sous_total.toFixed(2)} DH
+                            </td>
+                        </tr>`;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>`;
+    } else {
+        html += `
+            <div class="text-center py-8">
+                <i class="fas fa-shopping-basket text-4xl text-gray-400 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Panier vide</h3>
+                <p class="text-gray-500">Cette commande ne contient aucun article.</p>
+            </div>`;
+    }
+    
+    html += `
+            <div class="bg-gray-50 rounded-lg p-4 mt-4">
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-600">Sous-total articles:</span>
+                        <span class="text-sm font-medium">${commande.total_montant.toFixed(2)} DH</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-600">Frais de livraison:</span>
+                        <span class="text-sm font-medium">${commande.frais_livraison.toFixed(2)} DH</span>
+                    </div>
+                    <hr class="border-gray-300">
+                    <div class="flex justify-between">
+                        <span class="text-lg font-semibold text-gray-900">Total commande:</span>
+                        <span class="text-lg font-bold text-green-600">${commande.total_final.toFixed(2)} DH</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    
+    return html;
+}
+
 // Fonctions pour les actions
 function viewCart(commandeId) {
-    fetch(`/api/commande/${commandeId}/panier/`)
-        .then(response => response.json())
+    console.log('Chargement du panier pour la commande:', commandeId);
+    
+    fetch(`/operateur-confirme/api/commande/${commandeId}/panier/`)
+        .then(response => {
+            console.log('Statut de la réponse:', response.status);
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            document.getElementById('cartContent').innerHTML = data.html;
-            document.getElementById('cartModal').classList.remove('hidden');
+            console.log('Données reçues:', data);
+            if (data.success) {
+                const html = buildCartHTML(data);
+                document.getElementById('cartContent').innerHTML = html;
+                document.getElementById('cartModal').classList.remove('hidden');
+            } else {
+                alert(data.error || 'Erreur lors du chargement du panier');
+            }
         })
         .catch(error => {
             console.error('Erreur:', error);
-            alert('Erreur lors du chargement du panier');
+            alert('Erreur lors du chargement du panier: ' + error.message);
         });
 }
 
 // Gestion des modals
-document.getElementById('closeCartModal').addEventListener('click', function() {
-    document.getElementById('cartModal').classList.add('hidden');
-});
+const closeCartModalBtn = document.getElementById('closeCartModal');
+const cartModal = document.getElementById('cartModal');
+
+if (closeCartModalBtn) {
+    closeCartModalBtn.addEventListener('click', function() {
+        if (cartModal) {
+            cartModal.classList.add('hidden');
+        }
+    });
+}
 
 // Fermer le modal du panier en cliquant à l'extérieur
 window.addEventListener('click', function(event) {
-    const cartModal = document.getElementById('cartModal');
-    
-    if (event.target === cartModal) {
+    if (cartModal && event.target === cartModal) {
         cartModal.classList.add('hidden');
     }
+});
+
+// Gestion des toasts
+document.addEventListener('DOMContentLoaded', function() {
+    const toasts = document.querySelectorAll('.toast-notification');
+    
+    toasts.forEach(function(toast, index) {
+        // Auto-masquage après 4 secondes
+        setTimeout(function() {
+            toast.style.animation = 'slideOutRight 0.3s ease-out forwards';
+            setTimeout(function() {
+                toast.remove();
+            }, 300);
+        }, 4000 + (index * 500)); // Décalage si plusieurs toasts
+    });
 });
 </script>
 {% endblock %}

@@ -137,7 +137,7 @@ def generate_operators():
                 'nom': nom,
                 'prenom': prenom,
                 'mail': email,
-                'type_operateur': 'PRÉPARATION',
+                'type_operateur': 'PREPARATION',
                 'telephone': f'+2128{i:08d}',
                 'adresse': f'Adresse PO {i}',
                 'actif': True,

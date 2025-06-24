@@ -24,6 +24,10 @@ urlpatterns = [
     ), name='logout'),
     path('home/', home_redirect, name='app_home'),
     path('clear-middleware/', views.clear_middleware_messages, name='clear_middleware'),
+    
+    # APIs de diagnostic et correction (admin seulement)
+    path('admin/diagnostic-clients/', views.diagnostic_clients_ajax, name='diagnostic_clients_ajax'),
+    path('admin/corriger-clients/', views.corriger_clients_ajax, name='corriger_clients_ajax'),
 
     # URLs des applications (avec leurs préfixes clairs)
     path('commande/', include('commande.urls')),

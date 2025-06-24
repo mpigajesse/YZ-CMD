@@ -1,0 +1,330 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Détail Client {{ client.get_full_name }} - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #023535, #034a4a);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-user-circle mr-3" style="color: #66cccc;"></i>
+                Détails du Client: {{ client.get_full_name }}
+            </h1>
+            <p style="color: #99dddd;">Informations complètes sur le client et ses commandes.</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'client:liste' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: #034a4a; color: white; hover:background-color: #023535;">
+                <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiques des commandes -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Commandes -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-shopping-cart text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Commandes</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ total_commandes }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commandes Confirmées -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Confirmées</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ commandes_confirmees }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Montant Total -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-purple-300 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-purple-100 to-purple-200 text-purple-600 transition-all duration-300 group-hover:from-purple-500 group-hover:to-purple-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Montant Total</p>
+                        <p class="text-2xl font-bold text-gray-900 transition-all duration-300 group-hover:text-purple-600">{{ montant_total|floatformat:0 }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commandes Annulées -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-red-300 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-times-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Annulées</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600">{{ commandes_annulees }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for message in messages %}
+        <div class="p-3 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% endif %} flex items-center">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% endif %} mr-2"></i>
+            <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Détails du client -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: #e6fffe;">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold" style="color: #023535;">Informations Générales</h2>
+            <a href="{% url 'client:modifier' client.id %}" class="inline-flex items-center px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-edit mr-2"></i>Modifier ce client
+            </a>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <p class="text-sm font-semibold text-gray-600 mb-1">Nom Complet:</p>
+                <p class="text-lg text-gray-900" style="color: #023535;">{{ client.get_full_name }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-600 mb-1">Numéro de Téléphone:</p>
+                <p class="text-lg text-gray-900" style="color: #023535;">{{ client.numero_tel }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-600 mb-1">Email:</p>
+                <p class="text-lg text-gray-900" style="color: #023535;">{{ client.email|default:'N/A' }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-600 mb-1">Statut:</p>
+                <p class="text-lg text-gray-900">
+                    {% if client.is_active %}
+                        <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">Actif</span>
+                    {% else %}
+                        <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inactif</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="md:col-span-2">
+                <p class="text-sm font-semibold text-gray-600 mb-1">Adresse:</p>
+                <p class="text-lg text-gray-900" style="color: #023535;">{{ client.adresse|default:'N/A' }}</p>
+            </div>
+        </div>
+
+        <h2 class="text-2xl font-bold mb-6 mt-8" style="color: #023535;">Dates Importantes</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <p class="text-sm font-semibold text-gray-600 mb-1">Date de création:</p>
+                <p class="text-lg text-gray-900" style="color: #023535;">{{ client.date_creation|date:"d M Y H:i" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-600 mb-1">Dernière modification:</p>
+                <p class="text-lg text-gray-900" style="color: #023535;">{{ client.date_modification|date:"d M Y H:i" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques par état -->
+    {% if etats_stats %}
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: #e6fffe;">
+        <h2 class="text-2xl font-bold mb-6" style="color: #023535;">Statistiques par État</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for etat in etats_stats %}
+            <div class="flex items-center p-4 rounded-lg border" style="border-color: {{ etat.enum_etat__couleur }}20; background-color: {{ etat.enum_etat__couleur }}10;">
+                <div class="w-4 h-4 rounded-full mr-3" style="background-color: {{ etat.enum_etat__couleur }};"></div>
+                <div class="flex-1">
+                    <p class="font-semibold text-gray-900">{{ etat.enum_etat__libelle }}</p>
+                    <p class="text-sm text-gray-600">{{ etat.count }} commande{{ etat.count|pluralize }}</p>
+                </div>
+                <div class="text-2xl font-bold" style="color: {{ etat.enum_etat__couleur }};">{{ etat.count }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Liste des commandes du client -->
+    <div class="bg-white rounded-xl shadow-lg border p-6" style="border-color: #e6fffe;">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <h2 class="text-2xl font-bold mb-4 md:mb-0" style="color: #023535;">
+                <i class="fas fa-list mr-2"></i>Toutes les Commandes du Client
+            </h2>
+            
+            <!-- Barre de recherche -->
+            <div class="w-full md:w-auto">
+                <form method="GET" class="flex">
+                    <div class="relative">
+                        <input type="text" name="search" value="{{ search_query }}" placeholder="Rechercher..." class="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="ml-2 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: #023535; color: white; hover:background-color: #034a4a;">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if page_obj %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+                <thead class="bg-gray-50" style="background-color: #023535;">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">ID YZ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">N° Externe</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Ville</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Total</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">État</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Upsell</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for commande in page_obj.object_list %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: #e6fffe;">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {{ commande.id_yz }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: #e6fffe;">{{ commande.num_cmd }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: #e6fffe;">{{ commande.date_cmd|date:"d/m/Y" }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: #e6fffe;">
+                            {% if commande.ville %}
+                                {{ commande.ville.nom }}
+                            {% else %}
+                                {{ commande.ville_init|default:"Non spécifiée" }}
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: #e6fffe;">
+                            {{ commande.total_cmd|floatformat:2 }} DH
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #e6fffe;">
+                            {% if commande.etat_actuel %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium" style="background-color: {{ commande.etat_actuel.enum_etat.couleur }}20; color: {{ commande.etat_actuel.enum_etat.couleur }};">
+                                    {{ commande.etat_actuel.enum_etat.libelle }}
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    Nouveau
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #e6fffe;">
+                            {% if commande.is_upsell %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Oui</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Non</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{% url 'commande:detail' commande.pk %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'commande:modifier' commande.pk %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-6">
+            <div class="flex flex-1 justify-between sm:hidden">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Affichage de <span class="font-medium">{{ page_obj.start_index }}</span> à <span class="font-medium">{{ page_obj.end_index }}</span> sur <span class="font-medium">{{ page_obj.paginator.count }}</span> résultats
+                    </p>
+                </div>
+                <div>
+                    <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                        {% if page_obj.has_previous %}
+                            <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        {% endif %}
+                        
+                        <span class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 focus:outline-offset-0" style="background-color: #023535; color: white;">
+                            {{ page_obj.number }}
+                        </span>
+                        
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                            <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-10">
+            <i class="fas fa-inbox text-6xl mb-4" style="color: #99dddd;"></i>
+            <h5 class="text-lg mb-2" style="color: #023535;">Aucune commande trouvée</h5>
+            <p class="text-gray-600">Ce client n'a actuellement aucune commande.</p>
+        </div>
+        {% endif %}
+    </div>
+
+     </div>
+</div>
+
+<style>
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slideInUp {
+    animation: slideInUp 0.6s ease-out forwards;
+}
+</style>
+{% endblock %} 
