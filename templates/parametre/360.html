@@ -1,0 +1,337 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Vue 360{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-globe mr-3" style="color: var(--admin-accent-color);"></i>
+                Vue 360
+            </h1>
+            <p style="color: var(--admin-accent-color);">Aperçu global et exportation des données</p>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-box text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Articles</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ total_articles }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-users text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Clients</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ total_clients }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-yellow-300 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-600 transition-all duration-300 group-hover:from-yellow-500 group-hover:to-yellow-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-shopping-cart text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Commandes</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-yellow-600">{{ total_commandes }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-red-300 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-user-tie text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Opérateurs</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600">{{ total_operateurs }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres de recherche -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Filtres de Recherche</h3>
+        <form method="GET" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label for="search" class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
+                    <input type="text" id="search" name="search" value="{{ search }}" 
+                           placeholder="N° commande, ID Yoozak, nom client, téléphone..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="date_debut" class="block text-sm font-medium text-gray-700 mb-2">Date début</label>
+                    <input type="date" id="date_debut" name="date_debut" value="{{ date_debut }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="date_fin" class="block text-sm font-medium text-gray-700 mb-2">Date fin</label>
+                    <input type="date" id="date_fin" name="date_fin" value="{{ date_fin }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <i class="fas fa-search mr-2"></i>Filtrer
+                </button>
+                <a href="{% url 'app_admin:page_360' %}" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    <i class="fas fa-times mr-2"></i>Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Bloc d'exportation -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h3 class="text-xl font-semibold text-gray-800 mb-2">Exportation des Données</h3>
+            <p class="text-gray-600 mb-2">Exportez toutes les données clés de la base de données au format CSV ou Excel.</p>
+        </div>
+        <div class="flex gap-2">
+            <form action="{% url 'app_admin:export_all_data_csv' %}" method="post" class="inline-block">
+                {% csrf_token %}
+                {% if search %}<input type="hidden" name="search" value="{{ search }}">{% endif %}
+                {% if date_debut %}<input type="hidden" name="date_debut" value="{{ date_debut }}">{% endif %}
+                {% if date_fin %}<input type="hidden" name="date_fin" value="{{ date_fin }}">{% endif %}
+                <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 export-btn" data-export="csv">
+                    <i class="fas fa-file-csv"></i> 
+                    <span class="btn-text">Exporter CSV</span>
+                    <span class="loading-text hidden">
+                        <i class="fas fa-spinner fa-spin"></i> Export en cours...
+                    </span>
+                </button>
+            </form>
+            <a href="{% url 'app_admin:export_all_data_excel' %}{% if search or date_debut or date_fin %}?{% endif %}{% if search %}search={{ search }}{% endif %}{% if search and date_debut %}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}{% endif %}{% if date_debut and date_fin %}&{% elif search and date_fin %}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}{% endif %}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 export-btn" data-export="excel">
+                <i class="fas fa-file-excel"></i> 
+                <span class="btn-text">Exporter Excel</span>
+                <span class="loading-text hidden">
+                    <i class="fas fa-spinner fa-spin"></i> Export en cours...
+                </span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Tableau de toutes les commandes -->
+    <div class="bg-white rounded-xl shadow-md border overflow-x-auto">
+        <div class="p-6 border-b flex justify-between items-center">
+            <h3 class="text-xl font-semibold text-gray-800">Détails des Commandes</h3>
+            <div class="text-sm text-gray-600">
+                Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} 
+                ({{ page_obj.paginator.count }} commandes au total)
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 border-t" style="border-collapse: collapse;">
+                <thead style="background-color: var(--admin-color);">
+                <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">N°</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Identifiant Yoozak</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Client</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Téléphone</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Adresse</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Ville</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Région</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Panier</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Prix Total (DH)</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Date Commande</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Statut Confirmation</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Date Confirmation</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Obs. Confirmation</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Opérateur Assigné</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Agent Confirmation</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Client Fidèle</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">UPSELL</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Préparation</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">État Livraison</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">État Paiement</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Tarif</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Reste à Payer</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Date Paiement</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Pièce Retournée</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Obs. Livraison</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for cmd in commandes_data %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.num_cmd }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.id_yz }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.client_nom_prenom }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.client_telephone }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.client_adresse }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.ville }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.region }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.panier }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.prix_total_dh }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.date_commande }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.confirmation_status }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.date_confirmation }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.observations_confirmation }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.operateur_assigne }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.agent_confirmation }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.client_fidele }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.upsell_display }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.preparation_status }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.etat_livraison }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.etat_paiement }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.tarif_livraison|floatformat:2 }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.reste_a_payer|floatformat:2 }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.date_paiement }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.piece_retournee }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{{ cmd.observation_livraison }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="26" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        Aucune commande trouvée.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="px-6 py-4 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex-1 flex justify-between sm:hidden">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            Précédent
+                        </a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            Suivant
+                        </a>
+                    {% endif %}
+                </div>
+                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-700">
+                            Affichage de 
+                            <span class="font-medium">{{ page_obj.start_index }}</span>
+                            à 
+                            <span class="font-medium">{{ page_obj.end_index }}</span>
+                            sur 
+                            <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                            résultats
+                        </p>
+                    </div>
+                    <div>
+                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                            {% if page_obj.has_previous %}
+                                <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                    <span class="sr-only">Précédent</span>
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            {% endif %}
+                            
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-indigo-50 text-sm font-medium text-indigo-600">
+                                        {{ num }}
+                                    </span>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <a href="?page={{ num }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                        {{ num }}
+                                    </a>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if page_obj.has_next %}
+                                <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                    <span class="sr-only">Suivant</span>
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            {% endif %}
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.animate-slideInUp');
+        cards.forEach((card, index) => {
+            card.style.animationDelay = `${0.1 + index * 0.1}s`;
+            card.style.opacity = '1';
+        });
+        
+        // Gestion des exports avec indicateur de progression
+        const exportBtns = document.querySelectorAll('.export-btn');
+        
+        exportBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                const btnText = this.querySelector('.btn-text');
+                const loadingText = this.querySelector('.loading-text');
+                
+                // Afficher le loading
+                btnText.classList.add('hidden');
+                loadingText.classList.remove('hidden');
+                
+                // Désactiver le bouton temporairement
+                this.style.pointerEvents = 'none';
+                this.style.opacity = '0.7';
+                
+                // Réactiver après 3 secondes (temps estimé minimal)
+                setTimeout(() => {
+                    btnText.classList.remove('hidden');
+                    loadingText.classList.add('hidden');
+                    this.style.pointerEvents = 'auto';
+                    this.style.opacity = '1';
+                }, 3000);
+            });
+        });
+        
+        // Message d'information pour gros volumes
+        const totalCommandes = {{ total_commandes }};
+        if (totalCommandes > 10000) {
+            const exportSection = document.querySelector('.bg-white.rounded-xl.shadow-md.border.p-6.mb-8');
+            const warning = document.createElement('div');
+            warning.className = 'bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4';
+            warning.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>
+                    <span class="text-yellow-800 text-sm">
+                        <strong>Volume important :</strong> ${totalCommandes} commandes dans la base. 
+                        L'export peut prendre plusieurs minutes.
+                    </span>
+                </div>
+            `;
+            exportSection.insertBefore(warning, exportSection.firstChild.nextSibling);
+        }
+    });
+</script>
+{% endblock %} 

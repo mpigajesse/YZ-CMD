@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'operatLogistic',
     'synchronisation',
     'Prepacommande',
+    'kpis',
     
 ]
 

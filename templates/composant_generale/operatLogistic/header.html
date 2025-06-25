@@ -14,7 +14,18 @@
         </div>
         
         <div class="flex items-center space-x-4">
-            <span class="text-gray-700">{{ user.get_full_name|default:user.username }}</span>
+            <div class="text-right">
+                <p class="text-gray-700 font-medium">{{ user.get_full_name|default:user.username }}</p>
+                <p class="text-xs text-gray-500">
+                    {% if user.profil_operateur %}
+                        {{ user.profil_operateur.mail }}
+                    {% elif user.email %}
+                        {{ user.email }}
+                    {% else %}
+                        Email non défini
+                    {% endif %}
+                </p>
+            </div>
             <form method="post" action="{% url 'logout' %}" class="inline">
                 {% csrf_token %}
                 <button type="submit" class="text-red-600 hover:text-red-800 transition-colors">

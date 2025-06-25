@@ -19,6 +19,11 @@
 
         <!-- Actions utilisateur -->
         <div class="flex items-center space-x-4">
+            <!-- Vue 360 -->
+            <a href="{% url 'app_admin:page_360' %}" class="p-3 text-gray-600 transition-all duration-300 transform hover:scale-110 rounded-full" style="hover:color: #023535; hover:background-color: #f0fffe;" title="Vue 360">
+                <i class="fas fa-globe text-xl"></i>
+            </a>
+
             <!-- Notifications -->
             <button class="relative p-3 text-gray-600 transition-all duration-300 transform hover:scale-110 rounded-full" style="hover:color: #023535; hover:background-color: #f0fffe;">
                 <i class="fas fa-bell text-xl"></i>
@@ -56,14 +61,12 @@
                             {% endif %}
                         </p>
                         <p class="text-xs text-gray-500">
-                            {% if request.user.is_superuser %}
-                                Administrateur Système
-                            {% elif request.user.profil_operateur %}
-                                {{ request.user.profil_operateur.get_type_operateur_display }}
-                            {% elif request.user.groups.first %}
-                                {{ request.user.groups.first.name|capfirst }}
+                            {% if request.user.profil_operateur %}
+                                {{ request.user.profil_operateur.mail }}
+                            {% elif request.user.email %}
+                                {{ request.user.email }}
                             {% else %}
-                                Utilisateur
+                                Email non défini
                             {% endif %}
                         </p>
                     </div>

@@ -4,7 +4,7 @@ from django.views.generic import RedirectView
 from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import home_redirect
+from .views import home_redirect, custom_logout
 from . import views
 
 urlpatterns = [
@@ -19,9 +19,7 @@ urlpatterns = [
         template_name='login/login.html',
         extra_context={'app_login': True}
     ), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(
-        next_page='login'
-    ), name='logout'),
+    path('logout/', custom_logout, name='logout'),
     path('home/', home_redirect, name='app_home'),
     path('clear-middleware/', views.clear_middleware_messages, name='clear_middleware'),
     
@@ -41,6 +39,7 @@ urlpatterns = [
     path('livraison/', include('livraison.urls')),
     path('parametre/', include('parametre.urls')),
     path('synchronisation/', include('synchronisation.urls')),
+    path('kpis/', include('kpis.urls')),
 
     # Django browser reload (développement)
     path("__reload__/", include("django_browser_reload.urls")),

@@ -9,6 +9,8 @@ from parametre.models import Operateur
 import json
 import subprocess
 import os
+from django.contrib.auth import logout
+from django.contrib import messages
 
 @login_required
 def home_redirect(request):
@@ -209,4 +211,9 @@ def corriger_clients_ajax(request):
         return JsonResponse({
             'success': False,
             'error': str(e)
-        }) 
+        })
+
+def custom_logout(request):
+    logout(request)
+    messages.info(request, "Vous avez été déconnecté avec succès.")
+    return redirect('login') 
