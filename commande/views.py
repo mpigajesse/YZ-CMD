@@ -162,34 +162,40 @@ def creer_commande(request):
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                # Récupérer les données de base de la commande
-                num_cmd = request.POST.get('num_cmd')
-                date_cmd = request.POST.get('date_cmd')
-                client_id = request.POST.get('client')
-                ville_id = request.POST.get('ville')
+                # Déterminer le type de client
+                type_client = request.POST.get('type_client')
+                
+                # Gestion du client
+                if type_client == 'nouveau':
+                    # Créer un nouveau client
+                    client = Client.objects.create(
+                        prenom=request.POST.get('nouveau_prenom'),
+                        nom=request.POST.get('nouveau_nom'),
+                        numero_tel=request.POST.get('nouveau_telephone'),
+                        email=request.POST.get('nouveau_email', '')  # Email optionnel
+                    )
+                else:
+                    # Utiliser un client existant
+                    client_id = request.POST.get('client')
+                    if not client_id:
+                        messages.error(request, "Veuillez sélectionner un client.")
+                        return redirect('commande:creer')
+                    client = Client.objects.get(pk=client_id)
+
+                # Récupérer les autres données de la commande
+                ville_id = request.POST.get('ville_livraison')
                 adresse = request.POST.get('adresse')
                 is_upsell = request.POST.get('is_upsell') == 'on'
                 
-                # Vérifier que le numéro de commande n'existe pas déjà (si fourni)
-                if num_cmd and Commande.objects.filter(num_cmd=num_cmd).exists():
-                    messages.error(request, f"Une commande avec le numéro {num_cmd} existe déjà.")
-                    return redirect('commande:creer')
-                
-                # Créer la commande (l'ID YZ sera généré automatiquement)
-                commande_data = {
-                    'date_cmd': date_cmd,
-                    'client_id': client_id,
-                    'ville_id': ville_id,
-                    'adresse': adresse,
-                    'is_upsell': is_upsell,
-                    'total_cmd': 0  # Sera calculé après ajout des articles
-                }
-                
-                # Ajouter num_cmd seulement s'il est fourni, sinon laisser l'ID YZ être généré
-                if num_cmd:
-                    commande_data['num_cmd'] = num_cmd
-                
-                commande = Commande.objects.create(**commande_data)
+                # Créer la commande
+                commande = Commande.objects.create(
+                    client=client,
+                    ville_id=ville_id,
+                    adresse=adresse,
+                    total_cmd=0,  # Sera calculé après ajout des articles
+                    is_upsell=is_upsell,
+                    origine='ADMIN'  # Définir l'origine comme Administrateur
+                )
                 
                 # Traiter les articles du panier
                 total_commande = 0
@@ -197,26 +203,20 @@ def creer_commande(request):
                 
                 while f'article_{article_counter}' in request.POST:
                     article_id = request.POST.get(f'article_{article_counter}')
-                    quantite = request.POST.get(f'quantite_{article_counter}')
-                    sous_total = request.POST.get(f'sous_total_{article_counter}')
-                    
-                    if article_id and quantite and sous_total:
-                        try:
-                            article = Article.objects.get(pk=article_id)
-                            quantite = int(quantite)
-                            sous_total = float(sous_total)
-                            
-                            # Créer l'entrée dans le panier
-                            Panier.objects.create(
-                                commande=commande,
-                                article=article,
-                                quantite=quantite,
-                                sous_total=sous_total
-                            )
-                            
-                            total_commande += sous_total
-                        except (Article.DoesNotExist, ValueError):
-                            pass
+                    if article_id:
+                        article = Article.objects.get(pk=article_id)
+                        quantite = int(request.POST.get(f'quantite_{article_counter}', 1))
+                        
+                        # Créer le panier
+                        Panier.objects.create(
+                            commande=commande,
+                            article=article,
+                            quantite=quantite,
+                            sous_total=quantite * article.prix_unitaire
+                        )
+                        
+                        # Mettre à jour le total
+                        total_commande += quantite * article.prix_unitaire
                     
                     article_counter += 1
                 
@@ -224,24 +224,29 @@ def creer_commande(request):
                 commande.total_cmd = total_commande
                 commande.save()
                 
-                messages.success(request, f"La commande {commande.id_yz} a été créée avec succès.")
+                messages.success(request, "La commande a été créée avec succès.")
                 return redirect('commande:detail', pk=commande.pk)
                 
+        except Client.DoesNotExist:
+            messages.error(request, "Le client sélectionné n'existe pas.")
+        except Article.DoesNotExist:
+            messages.error(request, "Un des articles sélectionnés n'existe pas.")
         except Exception as e:
-            messages.error(request, f"Erreur lors de la création de la commande: {str(e)}")
-            return redirect('commande:creer')
+            messages.error(request, f"Une erreur s'est produite lors de la création de la commande : {str(e)}")
+        
+        return redirect('commande:creer')
     
-    clients = Client.objects.all()
-    villes = Ville.objects.all()
-    articles = Article.objects.all()
-    articles_json = serializers.serialize('json', articles, fields=('nom', 'reference', 'description', 'prix_unitaire', 'qte_disponible', 'categorie', 'couleur', 'pointure', 'image'))
-    
+    # GET request
     context = {
-        'clients': clients,
-        'villes': villes,
-        'articles': articles,
-        'articles_json': articles_json,
+        'clients': Client.objects.all().order_by('nom', 'prenom'),
+        'articles': Article.objects.all().order_by('nom'),
+        'villes': Ville.objects.select_related('region').all().order_by('nom'),
     }
+    
+    # Debug des frais de livraison
+    for ville in context['villes']:
+        print(f"Ville: {ville.nom}, Frais: {ville.frais_livraison}, Région: {ville.region.nom_region if ville.region else 'N/A'}")
+    
     return render(request, 'commande/creer.html', context)
 
 @login_required

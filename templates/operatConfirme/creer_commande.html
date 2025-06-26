@@ -236,33 +236,25 @@
                 </div>
             </div>
 
-            <!-- Section Client et Livraison -->
-            <div class="form-section">
-                <h3 class="text-lg font-semibold mb-4 flex items-center" style="color: #4B352A;">
-                    <i class="fas fa-user mr-2" style="color: #6d4b3b;"></i>
-                    Client et livraison
+            <!-- Section Client -->
+            <div class="bg-white rounded-xl p-6 mb-6 shadow-lg">
+                <h3 class="text-lg font-semibold mb-4" style="color: #4B352A;">
+                    <i class="fas fa-user mr-2"></i>
+                    Informations Client
                 </h3>
                 
-                <!-- Type de client avec système de basculement -->
-                <div class="mb-6">
-                    <label class="label-style mb-3">Type de client:</label>
-                    <div class="flex items-center justify-center gap-4 p-4 bg-white rounded-lg border-2 border-gray-200">
-                        <!-- Bouton Client Existant -->
-                        <button type="button" id="btn-client-existant" class="client-type-btn flex items-center gap-2 p-3 rounded-lg shadow-md transition-all duration-300">
-                            <i class="fas fa-user-check"></i>
-                            <span>Client existant</span>
-                        </button>
-                        
-                        <!-- Toggle Switch -->
-                        <div id="client-type-toggle" class="toggle-switch">
-                            <div class="toggle-handle"></div>
-                        </div>
-
-                        <!-- Bouton Nouveau Client -->
-                        <button type="button" id="btn-nouveau-client" class="client-type-btn flex items-center gap-2 p-3 rounded-lg shadow-md transition-all duration-300">
-                            <i class="fas fa-user-plus"></i>
-                            <span>Nouveau client</span>
-                        </button>
+                <!-- Sélection du type de client -->
+                <div class="mb-4">
+                    <label class="label-style">Type de client</label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="type_client" value="existant" checked class="form-radio text-brown-600">
+                            <span class="ml-2">Client existant</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="type_client" value="nouveau" class="form-radio text-brown-600">
+                            <span class="ml-2">Nouveau client</span>
+                        </label>
                     </div>
                 </div>
 
@@ -298,35 +290,35 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Section Livraison -->
-                <div class="form-section">
-                    <h3 class="text-lg font-semibold mb-4 flex items-center" style="color: #4B352A;">
-                        <i class="fas fa-truck mr-2" style="color: #6d4b3b;"></i>
-                        Livraison
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="ville_livraison" class="label-style">Ville de livraison:</label>
-                            <select id="ville_livraison" name="ville_livraison" class="input-field w-full" required>
-                                <option value="" disabled selected>-- Choisir une ville --</option>
-                                {% for ville in villes %}
-                                <option value="{{ ville.pk }}" data-frais="{{ ville.frais_livraison|default_if_none:0 }}" data-region="{{ ville.region.nom_region|default:'' }}">{{ ville.nom }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div>
-                            <label for="frais_livraison" class="label-style">Frais de livraison (DH):</label>
-                            <input type="text" id="frais_livraison" class="input-field w-full bg-gray-100" readonly>
-                        </div>
-                        <div>
-                            <label for="region_livraison" class="label-style">Région:</label>
-                            <input type="text" id="region_livraison" class="input-field w-full bg-gray-100" readonly>
-                        </div>
-                         <div>
-                            <label for="adresse" class="label-style">Adresse complète:</label>
-                            <input type="text" id="adresse" name="adresse" class="input-field w-full" placeholder="Entrez l'adresse complète..." required>
-                        </div>
+            <!-- Section Livraison -->
+            <div class="form-section">
+                <h3 class="text-lg font-semibold mb-4 flex items-center" style="color: #4B352A;">
+                    <i class="fas fa-truck mr-2" style="color: #6d4b3b;"></i>
+                    Livraison
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="ville_livraison" class="label-style">Ville de livraison:</label>
+                        <select id="ville_livraison" name="ville_livraison" class="input-field w-full" required>
+                            <option value="" disabled selected>-- Choisir une ville --</option>
+                            {% for ville in villes %}
+                            <option value="{{ ville.pk }}" data-frais="{{ ville.frais_livraison|default_if_none:0 }}" data-region="{{ ville.region.nom_region|default:'' }}">{{ ville.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="frais_livraison" class="label-style">Frais de livraison (DH):</label>
+                        <input type="text" id="frais_livraison" class="input-field w-full bg-gray-100" readonly>
+                    </div>
+                    <div>
+                        <label for="region_livraison" class="label-style">Région:</label>
+                        <input type="text" id="region_livraison" class="input-field w-full bg-gray-100" readonly>
+                    </div>
+                     <div>
+                        <label for="adresse" class="label-style">Adresse complète:</label>
+                        <input type="text" id="adresse" name="adresse" class="input-field w-full" placeholder="Entrez l'adresse complète..." required>
                     </div>
                 </div>
             </div>
@@ -605,6 +597,38 @@
         // Calculer le total
         calculerTotal();
     }
+
+    // Gestion de l'affichage des sections selon le type de client
+    document.querySelectorAll('input[name="type_client"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const clientExistantSection = document.getElementById('section-client-existant');
+            const nouveauClientSection = document.getElementById('section-nouveau-client');
+            
+            if (this.value === 'existant') {
+                clientExistantSection.style.display = 'block';
+                nouveauClientSection.style.display = 'none';
+                // Réinitialiser les champs du nouveau client
+                document.getElementById('nouveau_prenom').value = '';
+                document.getElementById('nouveau_nom').value = '';
+                document.getElementById('nouveau_telephone').value = '';
+                document.getElementById('nouveau_email').value = '';
+            } else {
+                clientExistantSection.style.display = 'none';
+                nouveauClientSection.style.display = 'block';
+                // Réinitialiser la sélection du client existant
+                document.getElementById('client').selectedIndex = 0;
+            }
+        });
+    });
+
+    // Initialisation au chargement de la page
+    window.addEventListener('load', function() {
+        const typeClientRadios = document.querySelectorAll('input[name="type_client"]');
+        const checkedRadio = Array.from(typeClientRadios).find(radio => radio.checked);
+        if (checkedRadio) {
+            checkedRadio.dispatchEvent(new Event('change'));
+        }
+    });
 
     // ---- INITIALISATION ----
     setupClientToggle();

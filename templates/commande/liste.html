@@ -286,8 +286,23 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for commande in page_obj %}
                 <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium border-r border-gray-200" style="color: var(--admin-color);">
-                        <span class="font-bold">{{ commande.id_yz }}</span>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center">
+                            <div>
+                                <div class="font-medium text-gray-900">
+                                    {% if commande.origine == 'OC' %}
+                                        <span class="text-orange-600">{{ commande.num_cmd }}</span>
+                                    {% elif commande.origine == 'ADMIN' %}
+                                        <span class="text-blue-600">{{ commande.num_cmd }}</span>
+                                    {% else %}
+                                        <span>{{ commande.num_cmd }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-sm text-gray-500">
+                                    ID YZ: {{ commande.id_yz }}
+                                </div>
+                            </div>
+                        </div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
                         {% if commande.num_cmd != commande.id_yz|stringformat:"s" %}

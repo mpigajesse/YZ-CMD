@@ -2058,7 +2058,6 @@ def creer_commande(request):
                         email=nouveau_email if nouveau_email else None,
                         is_active=True
                     )
-                    # On ne met plus de message ici, on le composera à la fin
 
                 ville = get_object_or_404(Ville, pk=ville_id)
 
@@ -2068,7 +2067,8 @@ def creer_commande(request):
                     ville=ville,
                     adresse=adresse,
                     total_cmd=0,  # Le total sera recalculé côté serveur
-                    is_upsell=is_upsell
+                    is_upsell=is_upsell,
+                    origine='OC'  # Définir l'origine comme Opérateur Confirmation
                 )
 
                 # Traiter le panier et calculer le total

@@ -103,10 +103,25 @@
             <!-- N° Externe -->
             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                 <label class="block text-sm font-semibold mb-2 text-gray-600">N° Externe :</label>
-                <p class="text-lg font-medium text-gray-800">
-                    <i class="fas fa-hashtag mr-2" style="color: var(--admin-color);"></i>
-                    {{ commande.num_cmd|default:"Non spécifié" }}
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                            {% if commande.origine == 'OC' %}
+                                <span class="text-orange-600">{{ commande.num_cmd }}</span>
+                                <span class="text-sm text-gray-500">(Créée par un opérateur)</span>
+                            {% elif commande.origine == 'ADMIN' %}
+                                <span class="text-blue-600">{{ commande.num_cmd }}</span>
+                                <span class="text-sm text-gray-500">(Créée par un administrateur)</span>
+                            {% else %}
+                                <span>{{ commande.num_cmd }}</span>
+                                <span class="text-sm text-gray-500">(Synchronisée)</span>
+                            {% endif %}
+                        </h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">
+                            ID YZ: {{ commande.id_yz }}
                 </p>
+                    </div>
+                </div>
             </div>
             
             <!-- Date de commande -->
