@@ -658,21 +658,8 @@ def modifier_profile_confirme(request):
 
 @login_required
 def changer_mot_de_passe_confirme(request):
-    """Page de changement de mot de passe pour l'opérateur de confirmation"""
-    if request.method == 'POST':
-        form = PasswordChangeForm(request.user, request.POST)
-        if form.is_valid():
-            user = form.save()
-            update_session_auth_hash(request, user)  # Important! Pour garder l'utilisateur connecté
-            messages.success(request, 'Votre mot de passe a été mis à jour avec succès !')
-            return redirect('operatConfirme:profile')
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{field.capitalize()}: {error}")
-    else:
-        form = PasswordChangeForm(request.user)
-    return render(request, 'operatConfirme/changer_mot_de_passe.html', {'form': form})
+    """Page de changement de mot de passe pour l'opérateur de confirmation - Désactivée"""
+    return redirect('operatConfirme:profile')
 
 @login_required
 def detail_commande(request, commande_id):

@@ -2143,3 +2143,93 @@ def api_panier_commande(request, commande_id):
             }, status=500)
     
     return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+@login_required
+def suivi_preparations(request):
+    """Vue pour le suivi en temps réel des activités de préparation des commandes"""
+    from django.utils import timezone
+    from datetime import datetime, timedelta
+    
+    # Récupérer toutes les commandes en préparation
+    commandes_preparation = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['À imprimer', 'En préparation'],
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations', 'paniers__article').distinct()
+    
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_preparation = commandes_preparation.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query) |
+            Q(etats__operateur__nom__icontains=search_query) |
+            Q(etats__operateur__prenom__icontains=search_query)
+        ).distinct()
+    
+    # Tri par date de début de préparation (plus récentes en premier)
+    commandes_preparation = commandes_preparation.order_by('-etats__date_debut')
+    
+    # Pagination
+    paginator = Paginator(commandes_preparation, 25)  # 25 commandes par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques
+    today = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+    this_week = today - timedelta(days=7)
+    
+    # Compter par période et par état
+    a_imprimer_count = Commande.objects.filter(
+        etats__enum_etat__libelle='À imprimer',
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    en_preparation_count = Commande.objects.filter(
+        etats__enum_etat__libelle='En préparation',
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    preparees_aujourd_hui = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_debut__date=today
+    ).distinct().count()
+    
+    preparees_semaine = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_debut__date__gte=this_week
+    ).distinct().count()
+    
+    # Montant total des commandes en préparation
+    montant_total = commandes_preparation.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Récupérer les commandes par opérateur de préparation
+    commandes_par_operateur = {}
+    for commande in commandes_preparation:
+        etat_actuel = commande.etats.filter(
+            enum_etat__libelle__in=['À imprimer', 'En préparation'],
+            date_fin__isnull=True
+        ).first()
+        
+        if etat_actuel and etat_actuel.operateur:
+            operateur_nom = f"{etat_actuel.operateur.prenom} {etat_actuel.operateur.nom}"
+            if operateur_nom not in commandes_par_operateur:
+                commandes_par_operateur[operateur_nom] = []
+            commandes_par_operateur[operateur_nom].append(commande)
+    
+    context = {
+        'commandes_preparation': page_obj,
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'a_imprimer_count': a_imprimer_count,
+        'en_preparation_count': en_preparation_count,
+        'preparees_aujourd_hui': preparees_aujourd_hui,
+        'preparees_semaine': preparees_semaine,
+        'montant_total': montant_total,
+        'commandes_par_operateur': sorted(commandes_par_operateur.items()),
+    }
+    
+    return render(request, 'commande/suivi_preparations.html', context)
