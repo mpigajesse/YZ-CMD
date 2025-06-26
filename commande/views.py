@@ -21,9 +21,12 @@ from datetime import timedelta
 
 @login_required
 def liste_commandes(request):
-    commandes = Commande.objects.all()
+    commandes = Commande.objects.select_related('client', 'ville').prefetch_related('etats__enum_etat')
     search_query = request.GET.get('search', '')
+    ville_filter = request.GET.get('ville_filter', '')
+    etat_filter = request.GET.get('etat_filter', '')
     
+    # Recherche par texte général
     if search_query:
         commandes = commandes.filter(
             Q(num_cmd__icontains=search_query) |
@@ -31,8 +34,26 @@ def liste_commandes(request):
             Q(client__nom__icontains=search_query) |
             Q(client__prenom__icontains=search_query) |
             Q(client__numero_tel__icontains=search_query) |
-            Q(produit_init__icontains=search_query)
-        )
+            Q(produit_init__icontains=search_query) |
+            # Recherche par ville
+            Q(ville__nom__icontains=search_query) |
+            Q(ville_init__icontains=search_query) |
+            # Recherche par état de commande
+            Q(etats__enum_etat__libelle__icontains=search_query) |
+            # Recherche par adresse
+            Q(adresse__icontains=search_query)
+        ).distinct()
+    
+    # Filtre par ville spécifique
+    if ville_filter:
+        commandes = commandes.filter(ville_id=ville_filter)
+    
+    # Filtre par état spécifique
+    if etat_filter:
+        commandes = commandes.filter(
+            etats__enum_etat_id=etat_filter,
+            etats__date_fin__isnull=True  # État actuel
+        ).distinct()
 
     # Triez par ID YZ croissant (1, 2, 3, ...)
     commandes = commandes.order_by('id_yz')
@@ -71,10 +92,19 @@ def liste_commandes(request):
 
     # Récupérer les opérateurs actifs pour l'affectation
     operateurs = Operateur.objects.filter(actif=True)
+    
+    # Récupérer les listes pour les filtres
+    from parametre.models import Ville
+    villes = Ville.objects.all().order_by('nom')
+    etats = EnumEtatCmd.objects.all().order_by('ordre', 'libelle')
 
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
+        'ville_filter': ville_filter,
+        'etat_filter': etat_filter,
+        'villes': villes,
+        'etats': etats,
         'total_commandes': Commande.objects.count(),
         'commandes_non_affectees': commandes_non_affectees,
         'commandes_affectees': commandes_affectees,

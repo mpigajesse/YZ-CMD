@@ -139,25 +139,60 @@
 
     <!-- Barre de recherche et filtres -->
     <div class="bg-white rounded-xl shadow-md border p-6 mb-8" style="border-color: var(--admin-light-accent);">
-        <form method="get" class="flex flex-col md:flex-row gap-4">
-            <div class="flex-grow">
-                <div class="relative">
-                    <input type="text" name="search" value="{{ search_query|default:'' }}" 
-                           class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
-                           style="border-color: var(--admin-accent-color); focus:ring-color: var(--admin-color);"
-                           placeholder="Rechercher par N° commande, client, ville ou état de commande...">
-                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+        <form method="get" class="space-y-4">
+            <!-- Recherche générale -->
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-grow">
+                    <div class="relative">
+                        <input type="text" name="search" value="{{ search_query|default:'' }}" 
+                               class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                               style="border-color: var(--admin-accent-color); focus:ring-color: var(--admin-color);"
+                               placeholder="Rechercher par N° commande, client, ville, état ou adresse...">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                        style="background-color: var(--admin-color);">
+                    Rechercher
+                </button>
+                {% if search_query or ville_filter or etat_filter %}
+                <a href="{% url 'commande:liste' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    Réinitialiser
+                </a>
+                {% endif %}
+            </div>
+            
+            <!-- Filtres spécifiques -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-map-marker-alt mr-1"></i>Filtrer par ville
+                    </label>
+                    <select name="ville_filter" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                            style="border-color: var(--admin-accent-color); focus:ring-color: var(--admin-color);">
+                        <option value="">Toutes les villes</option>
+                        {% for ville in villes %}
+                        <option value="{{ ville.id }}" {% if ville_filter == ville.id|stringformat:"s" %}selected{% endif %}>
+                            {{ ville.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-tags mr-1"></i>Filtrer par état
+                    </label>
+                    <select name="etat_filter" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                            style="border-color: var(--admin-accent-color); focus:ring-color: var(--admin-color);">
+                        <option value="">Tous les états</option>
+                        {% for etat in etats %}
+                        <option value="{{ etat.id }}" {% if etat_filter == etat.id|stringformat:"s" %}selected{% endif %}>
+                            {{ etat.libelle }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
-            <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
-                    style="background-color: var(--admin-color);">
-                Rechercher
-            </button>
-            {% if search_query %}
-            <a href="{% url 'commande:liste' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
-                Réinitialiser
-            </a>
-            {% endif %}
         </form>
     </div>
 
@@ -297,12 +332,12 @@
             <ul class="flex items-center -space-x-px">
             {% if page_obj.has_previous %}
                     <li>
-                        <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                        <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if etat_filter %}&etat_filter={{ etat_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
                             <i class="fas fa-angle-double-left"></i>
                         </a>
                     </li>
                     <li>
-                        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if etat_filter %}&etat_filter={{ etat_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
                             <i class="fas fa-angle-left"></i>
                         </a>
                     </li>
@@ -315,19 +350,19 @@
                         </li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                         <li>
-                            <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">{{ num }}</a>
+                            <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if etat_filter %}&etat_filter={{ etat_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">{{ num }}</a>
                         </li>
                 {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
                     <li>
-                        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if etat_filter %}&etat_filter={{ etat_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
                             <i class="fas fa-angle-right"></i>
                         </a>
                     </li>
                     <li>
-                        <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                        <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if etat_filter %}&etat_filter={{ etat_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
                             <i class="fas fa-angle-double-right"></i>
                         </a>
                     </li>
@@ -485,6 +520,22 @@
                 cartModal.classList.add('hidden');
             }
         });
+        
+        // Auto-soumission du formulaire quand les filtres changent
+        const villeFilter = document.querySelector('select[name="ville_filter"]');
+        const etatFilter = document.querySelector('select[name="etat_filter"]');
+        
+        if (villeFilter) {
+            villeFilter.addEventListener('change', function() {
+                this.closest('form').submit();
+            });
+        }
+        
+        if (etatFilter) {
+            etatFilter.addEventListener('change', function() {
+                this.closest('form').submit();
+            });
+        }
     });
 
     function getCookie(name) {
