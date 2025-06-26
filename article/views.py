@@ -87,38 +87,84 @@ def detail_article(request, id):
 def creer_article(request):
     """Créer un nouvel article"""
     if request.method == 'POST':
-        # Récupérer les données du formulaire
-        nom = request.POST.get('nom')
-        couleur = request.POST.get('couleur')
-        pointure = request.POST.get('pointure')
+        try:
+            # Récupérer les données du formulaire
+            nom = request.POST.get('nom')
+            couleur = request.POST.get('couleur')
+            pointure = request.POST.get('pointure')
 
-        # Vérifier l'unicité de la combinaison nom, couleur, pointure
-        if Article.objects.filter(nom=nom, couleur=couleur, pointure=pointure).exists():
-            messages.error(request, "Un article avec le même nom, couleur et pointure existe déjà.")
-            # Renvoyer le formulaire avec les données saisies
+            # Vérifier l'unicité de la combinaison nom, couleur, pointure
+            if Article.objects.filter(nom=nom, couleur=couleur, pointure=pointure).exists():
+                messages.error(request, "Un article avec le même nom, couleur et pointure existe déjà.")
+                # Renvoyer le formulaire avec les données saisies
+                return render(request, 'article/creer.html', {'form_data': request.POST})
+
+            # Valider et convertir le prix
+            prix_str = request.POST.get('prix_unitaire', '').strip().replace(',', '.')
+            if not prix_str:
+                messages.error(request, "Le prix unitaire est obligatoire.")
+                return render(request, 'article/creer.html', {'form_data': request.POST})
+            
+            try:
+                prix_unitaire = float(prix_str)
+                if prix_unitaire <= 0:
+                    messages.error(request, "Le prix unitaire doit être supérieur à 0.")
+                    return render(request, 'article/creer.html', {'form_data': request.POST})
+            except ValueError:
+                messages.error(request, "Le prix unitaire doit être un nombre valide.")
+                return render(request, 'article/creer.html', {'form_data': request.POST})
+
+            # Valider la pointure
+            pointure_str = request.POST.get('pointure', '').strip()
+            if not pointure_str:
+                messages.error(request, "La pointure est obligatoire.")
+                return render(request, 'article/creer.html', {'form_data': request.POST})
+            
+            try:
+                pointure = int(pointure_str)
+                if pointure < 30:
+                    messages.error(request, "La pointure ne peut pas être inférieure à 30.")
+                    return render(request, 'article/creer.html', {'form_data': request.POST})
+            except ValueError:
+                messages.error(request, "La pointure doit être un nombre entier valide.")
+                return render(request, 'article/creer.html', {'form_data': request.POST})
+
+            # Valider la quantité
+            qte_str = request.POST.get('qte_disponible', '').strip()
+            if not qte_str:
+                messages.error(request, "La quantité disponible est obligatoire.")
+                return render(request, 'article/creer.html', {'form_data': request.POST})
+            
+            try:
+                qte_disponible = int(qte_str)
+                if qte_disponible < 0:
+                    messages.error(request, "La quantité disponible ne peut pas être négative.")
+                    return render(request, 'article/creer.html', {'form_data': request.POST})
+            except ValueError:
+                messages.error(request, "La quantité disponible doit être un nombre entier valide.")
+                return render(request, 'article/creer.html', {'form_data': request.POST})
+
+            article = Article()
+            article.nom = nom
+            article.couleur = couleur
+            article.pointure = pointure_str  # Utiliser la chaîne de caractères pour la pointure
+            article.reference = request.POST.get('reference')
+            article.description = request.POST.get('description')
+            article.prix_unitaire = prix_unitaire
+            article.qte_disponible = qte_disponible
+            article.categorie = request.POST.get('categorie')
+            
+            # Gérer l'image si elle est fournie
+            if 'image' in request.FILES:
+                article.image = request.FILES['image']
+            
+            article.save()
+            messages.success(request, f"L'article '{article.nom}' a été créé avec succès.")
+            return redirect('article:liste')
+            
+        except Exception as e:
+            messages.error(request, f"Une erreur est survenue lors de la création de l'article : {str(e)}")
             return render(request, 'article/creer.html', {'form_data': request.POST})
-
-        article = Article()
-        article.nom = nom
-        article.couleur = couleur
-        article.pointure = pointure
-        article.reference = request.POST.get('reference')
-        article.description = request.POST.get('description')
-        
-        # Assurer la conversion correcte du prix
-        prix_str = request.POST.get('prix_unitaire', '0').replace(',', '.')
-        article.prix_unitaire = prix_str
-        
-        article.qte_disponible = request.POST.get('qte_disponible')
-        article.categorie = request.POST.get('categorie')
-        
-        # Gérer l'image si elle est fournie
-        if 'image' in request.FILES:
-            article.image = request.FILES['image']
-        
-        article.save()
-        messages.success(request, f"L'article '{article.nom}' a été créé avec succès.")
-        return redirect('article:liste')
     
     return render(request, 'article/creer.html')
 
@@ -128,31 +174,80 @@ def modifier_article(request, id):
     article = get_object_or_404(Article, id=id, actif=True)
 
     if request.method == 'POST':
-        nom = request.POST.get('nom')
-        couleur = request.POST.get('couleur')
-        pointure = request.POST.get('pointure')
+        try:
+            nom = request.POST.get('nom')
+            couleur = request.POST.get('couleur')
+            pointure = request.POST.get('pointure')
 
-        # Vérifier l'unicité de la combinaison nom, couleur, pointure
-        if Article.objects.filter(nom=nom, couleur=couleur, pointure=pointure).exclude(pk=id).exists():
-            messages.error(request, "Un autre article avec le même nom, couleur et pointure existe déjà.")
-        else:
+            # Vérifier l'unicité de la combinaison nom, couleur, pointure
+            if Article.objects.filter(nom=nom, couleur=couleur, pointure=pointure).exclude(pk=id).exists():
+                messages.error(request, "Un autre article avec le même nom, couleur et pointure existe déjà.")
+                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+
+            # Valider et convertir le prix
+            prix_str = request.POST.get('prix_unitaire', '').strip().replace(',', '.')
+            if not prix_str:
+                messages.error(request, "Le prix unitaire est obligatoire.")
+                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+            
+            try:
+                prix_unitaire = float(prix_str)
+                if prix_unitaire <= 0:
+                    messages.error(request, "Le prix unitaire doit être supérieur à 0.")
+                    return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+            except ValueError:
+                messages.error(request, "Le prix unitaire doit être un nombre valide.")
+                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+
+            # Valider la pointure
+            pointure_str = request.POST.get('pointure', '').strip()
+            if not pointure_str:
+                messages.error(request, "La pointure est obligatoire.")
+                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+            
+            try:
+                pointure = int(pointure_str)
+                if pointure < 30:
+                    messages.error(request, "La pointure ne peut pas être inférieure à 30.")
+                    return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+            except ValueError:
+                messages.error(request, "La pointure doit être un nombre entier valide.")
+                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+
+            # Valider la quantité
+            qte_str = request.POST.get('qte_disponible', '').strip()
+            if not qte_str:
+                messages.error(request, "La quantité disponible est obligatoire.")
+                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+            
+            try:
+                qte_disponible = int(qte_str)
+                if qte_disponible < 0:
+                    messages.error(request, "La quantité disponible ne peut pas être négative.")
+                    return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+            except ValueError:
+                messages.error(request, "La quantité disponible doit être un nombre entier valide.")
+                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+
             article.nom = nom
             article.reference = request.POST.get('reference')
             article.couleur = couleur
-            article.pointure = pointure
-        article.description = request.POST.get('description')
-            # Assurer la conversion correcte du prix
-        prix_str = request.POST.get('prix_unitaire', '0').replace(',', '.')
-        article.prix_unitaire = prix_str
-        article.qte_disponible = request.POST.get('qte_disponible')
-        article.categorie = request.POST.get('categorie')
+            article.pointure = pointure_str  # Utiliser la chaîne de caractères pour la pointure
+            article.description = request.POST.get('description')
+            article.prix_unitaire = prix_unitaire
+            article.qte_disponible = qte_disponible
+            article.categorie = request.POST.get('categorie')
+                
+            if 'image' in request.FILES:
+                article.image = request.FILES['image']
             
-        if 'image' in request.FILES:
-            article.image = request.FILES['image']
-        
-        article.save()
-        messages.success(request, "L'article a été modifié avec succès.")
-        return redirect('article:liste')
+            article.save()
+            messages.success(request, "L'article a été modifié avec succès.")
+            return redirect('article:liste')
+            
+        except Exception as e:
+            messages.error(request, f"Une erreur est survenue lors de la modification de l'article : {str(e)}")
+            return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
     
     context = {
         'article': article,
