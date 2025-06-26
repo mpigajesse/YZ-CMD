@@ -28,6 +28,7 @@ def liste_clients(request):
 
     # Filtres
     ville_filter = request.GET.get('ville_filter', '')
+    ville_init_filter = request.GET.get('ville_init_filter', '')
     region_filter = request.GET.get('region_filter', '')
 
     if search_query:
@@ -37,35 +38,49 @@ def liste_clients(request):
         # Construction de la requête de recherche
         search_conditions = Q()
         
-        for term in search_terms:
-            term_conditions = (
-                # Recherche dans les données du client
-                Q(nom__icontains=term) |
-                Q(prenom__icontains=term) |
-                Q(numero_tel__icontains=term) |
-                Q(email__icontains=term) |
-                Q(adresse__icontains=term) |
-                Q(id__icontains=term) |  # Recherche par ID client
-                
-                # Recherche dans les commandes associées
-                Q(commandes__id_yz__icontains=term) |
-                Q(commandes__num_cmd__icontains=term) |
-                Q(commandes__total_cmd__icontains=term) |
-                
-                # Recherche dans les villes des commandes
-                Q(commandes__ville__nom__icontains=term) |
-                Q(commandes__ville_init__icontains=term) |
-                
-                # Recherche dans les états des commandes
-                Q(commandes__etats__enum_etat__libelle__icontains=term) |
-                
-                # Recherche dans les produits des commandes
-                Q(commandes__produit_init__icontains=term)
-            )
-            search_conditions &= term_conditions
+        # Vérifier si la recherche correspond exactement à une ville_init
+        # Si oui, on filtre directement sur derniere_ville_init pour être cohérent avec le filtre
+        exact_ville_init_match = Commande.objects.filter(
+            ville_init__iexact=search_query
+        ).exists()
+        
+        if exact_ville_init_match:
+            # Si la recherche correspond exactement à une ville_init, on filtre directement
+            search_conditions = Q(derniere_ville_init__iexact=search_query)
+        else:
+            # Sinon, on utilise la recherche normale par termes
+            for term in search_terms:
+                term_conditions = (
+                    # Recherche dans les données du client
+                    Q(nom__icontains=term) |
+                    Q(prenom__icontains=term) |
+                    Q(numero_tel__icontains=term) |
+                    Q(email__icontains=term) |
+                    Q(adresse__icontains=term) |
+                    Q(id__icontains=term) |  # Recherche par ID client
+                    Q(derniere_ville_init__icontains=term) |
+                    
+                    # Recherche dans les commandes associées
+                    Q(commandes__id_yz__icontains=term) |
+                    Q(commandes__num_cmd__icontains=term) |
+                    Q(commandes__total_cmd__icontains=term) |
+                    
+                    
+                    # Recherche dans les villes des commandes
+                    Q(commandes__ville__nom__icontains=term) |
+                    Q(commandes__ville_init__icontains=term) |
+                    Q(commandes__ville__region__nom_region__icontains=term) |
+                    
+                    # Recherche dans les états des commandes
+                    Q(commandes__etats__enum_etat__libelle__icontains=term) |
+                    
+                    # Recherche dans les produits des commandes
+                    Q(commandes__produit_init__icontains=term)
+                )
+                search_conditions &= term_conditions
         
         # Recherche globale si un seul terme (pour retrouver "Dupont Jean" avec "Jean Dupont")
-        if len(search_terms) == 1:
+        if not exact_ville_init_match and len(search_terms) == 1:
             global_term = search_query.strip()
             search_conditions |= (
                 Q(nom__icontains=global_term) |
@@ -82,24 +97,46 @@ def liste_clients(request):
         
         clients = clients.filter(search_conditions).distinct()
 
-    # Filtres spécifiques
+    # Filtres spécifiques - indépendants les uns des autres
     if ville_filter:
         try:
             # On récupère l'objet Ville pour pouvoir utiliser son nom dans la recherche
             ville_obj = Ville.objects.get(id=ville_filter)
             
-            # On filtre sur les clients qui ont des commandes avec
-            # SOIT la bonne FK vers Ville, SOIT le bon nom de ville dans ville_init
-            clients = clients.filter(
-                Q(commandes__ville_id=ville_filter) |
-                Q(commandes__ville_init__iexact=ville_obj.nom)
-            ).distinct()
+            # Récupérer les IDs des clients qui ont au moins une commande avec cette ville
+            client_ids_with_ville = Commande.objects.filter(
+                Q(ville_id=ville_filter) |
+                Q(ville_init__iexact=ville_obj.nom)
+            ).values_list('client_id', flat=True).distinct()
+            
+            # Filtrer les clients par ces IDs
+            clients = clients.filter(id__in=client_ids_with_ville)
         except Ville.DoesNotExist:
             # Si l'ID de la ville fourni n'est pas valide, on ignore simplement le filtre
             pass
     
+    # Filtre par ville initiale - indépendant des autres filtres
+    if ville_init_filter:
+        # Récupérer les IDs des clients qui ont au moins une commande avec cette ville_init
+        client_ids_with_ville_init = Commande.objects.filter(
+            ville_init__iexact=ville_init_filter
+        ).values_list('client_id', flat=True).distinct()
+        
+        # Filtrer les clients par ces IDs
+        clients = clients.filter(id__in=client_ids_with_ville_init)
+        
+        # Assurons-nous également que la dernière ville_init correspond au filtre
+        # pour que l'affichage soit cohérent avec la valeur affichée dans le tableau
+        clients = clients.filter(derniere_ville_init=ville_init_filter)
+    
     if region_filter:
-        clients = clients.filter(commandes__ville__region_id=region_filter).distinct()
+        # Récupérer les IDs des clients qui ont au moins une commande dans cette région
+        client_ids_with_region = Commande.objects.filter(
+            ville__region_id=region_filter
+        ).values_list('client_id', flat=True).distinct()
+        
+        # Filtrer les clients par ces IDs
+        clients = clients.filter(id__in=client_ids_with_region)
     
     # Triez par date de création par défaut
     clients = clients.order_by('-date_creation')
@@ -138,6 +175,9 @@ def liste_clients(request):
     villes = Ville.objects.all().order_by('nom')
     regions = Region.objects.all().order_by('nom_region')
     
+    # Récupérer les villes uniques du champ ville_init pour le filtre
+    villes_init = Commande.objects.exclude(ville_init__isnull=True).exclude(ville_init='').values_list('ville_init', flat=True).distinct().order_by('ville_init')
+    
     # Calculer les pourcentages
     pourcentage_avec_commandes = round((clients_avec_commandes / total_clients * 100), 1) if total_clients > 0 else 0
     pourcentage_sans_commandes = round((clients_sans_commandes / total_clients * 100), 1) if total_clients > 0 else 0
@@ -146,8 +186,10 @@ def liste_clients(request):
         'page_obj': page_obj,
         'search_query': search_query,
         'ville_filter': ville_filter,
+        'ville_init_filter': ville_init_filter,
         'region_filter': region_filter,
         'villes': villes,
+        'villes_init': villes_init,
         'regions': regions,
         'total_clients': total_clients,
         'clients_avec_commandes': clients_avec_commandes,

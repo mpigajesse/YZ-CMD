@@ -24,29 +24,50 @@ def liste_commandes(request):
     commandes = Commande.objects.select_related('client', 'ville').prefetch_related('etats__enum_etat')
     search_query = request.GET.get('search', '')
     ville_filter = request.GET.get('ville_filter', '')
+    ville_init_filter = request.GET.get('ville_init_filter', '')
+    region_filter = request.GET.get('region_filter', '')
     etat_filter = request.GET.get('etat_filter', '')
     
     # Recherche par texte général
     if search_query:
-        commandes = commandes.filter(
-            Q(num_cmd__icontains=search_query) |
-            Q(id_yz__icontains=search_query) |
-            Q(client__nom__icontains=search_query) |
-            Q(client__prenom__icontains=search_query) |
-            Q(client__numero_tel__icontains=search_query) |
-            Q(produit_init__icontains=search_query) |
-            # Recherche par ville
-            Q(ville__nom__icontains=search_query) |
-            Q(ville_init__icontains=search_query) |
-            # Recherche par état de commande
-            Q(etats__enum_etat__libelle__icontains=search_query) |
-            # Recherche par adresse
-            Q(adresse__icontains=search_query)
-        ).distinct()
+        # Vérifier si la recherche correspond exactement à une ville_init
+        exact_ville_init_match = Commande.objects.filter(
+            ville_init__iexact=search_query
+        ).exists()
+        
+        if exact_ville_init_match:
+            # Si la recherche correspond exactement à une ville_init, on filtre directement
+            commandes = commandes.filter(ville_init__iexact=search_query)
+        else:
+            commandes = commandes.filter(
+                Q(num_cmd__icontains=search_query) |
+                Q(id_yz__icontains=search_query) |
+                Q(client__nom__icontains=search_query) |
+                Q(client__prenom__icontains=search_query) |
+                Q(client__numero_tel__icontains=search_query) |
+                Q(produit_init__icontains=search_query) |
+                # Recherche par ville (dans les deux champs)
+                Q(ville__nom__icontains=search_query) |
+                Q(ville_init__icontains=search_query) |
+                # Recherche par région
+                Q(ville__region__nom_region__icontains=search_query) |
+                # Recherche par état de commande
+                Q(etats__enum_etat__libelle__icontains=search_query) |
+                # Recherche par adresse
+                Q(adresse__icontains=search_query)
+            ).distinct()
     
-    # Filtre par ville spécifique
+    # Filtre par ville du système
     if ville_filter:
         commandes = commandes.filter(ville_id=ville_filter)
+    
+    # Filtre par ville initiale (du fichier) - indépendant des autres filtres
+    if ville_init_filter:
+        commandes = commandes.filter(ville_init__iexact=ville_init_filter)
+    
+    # Filtre par région
+    if region_filter:
+        commandes = commandes.filter(ville__region_id=region_filter)
     
     # Filtre par état spécifique
     if etat_filter:
@@ -94,16 +115,24 @@ def liste_commandes(request):
     operateurs = Operateur.objects.filter(actif=True)
     
     # Récupérer les listes pour les filtres
-    from parametre.models import Ville
+    from parametre.models import Ville, Region
     villes = Ville.objects.all().order_by('nom')
+    regions = Region.objects.all().order_by('nom_region')
     etats = EnumEtatCmd.objects.all().order_by('ordre', 'libelle')
+    
+    # Récupérer les villes uniques du champ ville_init
+    villes_init = Commande.objects.exclude(ville_init__isnull=True).exclude(ville_init='').values_list('ville_init', flat=True).distinct().order_by('ville_init')
 
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
         'ville_filter': ville_filter,
+        'ville_init_filter': ville_init_filter,
+        'region_filter': region_filter,
         'etat_filter': etat_filter,
         'villes': villes,
+        'villes_init': villes_init,
+        'regions': regions,
         'etats': etats,
         'total_commandes': Commande.objects.count(),
         'commandes_non_affectees': commandes_non_affectees,
