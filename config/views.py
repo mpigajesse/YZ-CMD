@@ -211,7 +211,7 @@ def corriger_clients_ajax(request):
         return JsonResponse({
             'success': False,
             'error': str(e)
-        })
+        }) 
 
 def custom_logout(request):
     logout(request)
