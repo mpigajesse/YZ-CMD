@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .dashboard_360 import views as views_360
 
 app_name = 'app_admin'
 
@@ -8,7 +9,6 @@ urlpatterns = [
     path('operateurs/', views.liste_operateurs, name='liste_operateurs'),
     path('operateurs/creer/', views.creer_operateur, name='creer_operateur'),
     path('operateurs/detail/<int:pk>/', views.detail_operateur, name='detail_operateur'),
-    path('synchronisation/', views.synchronisation, name='synchronisation'),
     
 
     path('regions/', views.liste_regions, name='liste_regions'),
@@ -30,4 +30,9 @@ urlpatterns = [
     path('profile/', views.admin_profile, name='profile'),
     path('profile/modifier/', views.modifier_admin_profile, name='modifier_profile'),
     path('profile/changer-mot-de-passe/', views.changer_mot_de_passe_admin, name='changer_mot_de_passe'),
+    
+    # Vue 360
+    path('vue360/', views_360.page_360, name='page_360'),
+    path('export-csv/', views_360.export_all_data_csv, name='export_all_data_csv'),
+    path('export-excel/', views_360.export_all_data_excel, name='export_all_data_excel'),
 ] 

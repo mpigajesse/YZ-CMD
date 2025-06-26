@@ -244,7 +244,7 @@
 
         <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div class="flex-1">
-                <p class="text-gray-700 mb-2">Sélectionnez les commandes dont vous souhaitez imprimer les étiquettes.</p>
+                <p class="text-gray-700 mb-2">Liste des commandes préparées disponibles pour consultation.</p>
                 {% if search_query %}
                     <div class="flex items-center text-sm text-gray-600">
                         <i class="fas fa-search mr-2"></i>
@@ -264,9 +264,6 @@
                         <i class="fas fa-search"></i>
                     </button>
                 </form>
-                <button id="printSelectedBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    <i class="fas fa-print mr-2"></i> Imprimer sélectionnées
-            </button>
             </div>
         </div>
         
@@ -274,9 +271,6 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead style="background-color: var(--preparation-primary);">
                     <tr>
-                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                            <input type="checkbox" id="selectAll" class="rounded text-blue-600 focus:ring-blue-500">
-                        </th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
@@ -286,15 +280,13 @@
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Adresse</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Préparée</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
                         <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for commande in commandes_preparees %}
                         <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                                <input type="checkbox" value="{{ commande.id }}" class="commande-checkbox rounded text-blue-600 focus:ring-blue-500" data-commande-id="{{ commande.id }}">
-                            </td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ commande.id_yz }}</td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
                             <!-- Colonne Client -->
@@ -346,14 +338,38 @@
                                 <div class="text-sm text-gray-900">{{ commande.date_preparation|date:"d/m/Y" }}</div>
                                 <div class="text-xs text-gray-500">{{ commande.date_preparation|date:"H:i" }}</div>
                         </td>
+                            <!-- Colonne État -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% with etat_actuel=commande.etat_actuel %}
+                                    {% if etat_actuel.enum_etat.libelle == 'Préparée' %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            <i class="fas fa-check mr-1"></i>
+                                            Préparée
+                                        </span>
+                                    {% elif etat_actuel.enum_etat.libelle == 'En cours de livraison' %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            <i class="fas fa-truck mr-1"></i>
+                                            En livraison
+                                        </span>
+                                    {% elif etat_actuel.enum_etat.libelle == 'Livrée' %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                            <i class="fas fa-check-double mr-1"></i>
+                                            Livrée
+                                        </span>
+                                    {% else %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                            {{ etat_actuel.enum_etat.libelle }}
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                        </td>
                             <!-- Colonne Actions -->
                         <td class="px-4 py-4 whitespace-nowrap text-center">
                                 <div class="flex space-x-2 justify-center">
-                                    <button onclick="printSingleLabel({{ commande.id }})" 
-                                            class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        <i class="fas fa-print mr-1"></i>
-                                        Imprimer
-                                    </button>
+                                    <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-600">
+                                        <i class="fas fa-eye mr-1"></i>
+                                        Consultation
+                                    </span>
                                 </div>
                         </td>
                     </tr>
@@ -362,7 +378,7 @@
                             <td colspan="11" class="px-4 py-8 text-center text-gray-500">
                                 <i class="fas fa-inbox text-4xl mb-4 text-gray-300"></i>
                                 <p class="text-lg font-medium">Aucune commande préparée</p>
-                                <p class="text-sm">Les commandes préparées apparaîtront ici pour impression d'étiquettes.</p>
+                                <p class="text-sm">Les commandes préparées apparaîtront ici pour consultation.</p>
                         </td>
                     </tr>
                     {% endfor %}
@@ -372,377 +388,24 @@
     </div>
 </div>
 
-<!-- Aperçu d'étiquette (caché, utilisé pour l'impression) -->
-<div id="labelPreview" class="hidden">
-    <div class="compact-label">
-        <div class="label-header">
-            <span id="preview-number">N° 193454</span>
-            <span id="preview-date">5/2/2025</span>
-        </div>
-        <div class="label-body">
-            <div class="info-line">
-                <i class="fas fa-user"></i>
-                <span id="preview-client">KHALIF MALIKA</span>
-            </div>
-            <div class="separator"></div>
-            <div class="info-line">
-                <i class="fas fa-phone-alt"></i>
-                <span id="preview-phone">07 16 76 42 17</span>
-            </div>
-            <div class="separator"></div>
-            <div class="info-line">
-                <i class="fas fa-map-marker-alt"></i>
-                <span id="preview-address">DAR LAMAN BLOC C HAY MOHEMMADI</span>
-            </div>
-            <div class="separator"></div>
-            <div class="info-line">
-                <i class="fas fa-city"></i>
-                <span id="preview-city">CASABLANCA</span>
-            </div>
-            <div class="products-section-container">
-                <div class="products-section">
-                    SDL FEM YZ335 NOIR , P38 + SDL FEM YZ 335 NOIR , P39
-                </div>
-            </div>
-        </div>
-        <div class="label-footer">
-            <span id="preview-total">560 DH</span>
-            <span id="preview-city-footer">CASABLANCA</span>
-        </div>
-        <div class="label-brand">
-            <span class="brand-name">YOOZAK</span>
-            <div style="text-align: right; line-height: 1.1;">
-                <div>www.yoozak.com</div>
-                <div>06 34 21 56 39 / 47</div>
-            </div>
-        </div>
-    </div>
-</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Gestion de la sélection globale
-    const selectAllCheckbox = document.getElementById('selectAll');
-    const commandeCheckboxes = document.querySelectorAll('.commande-checkbox');
-    
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-            commandeCheckboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
-            });
-        });
-    }
-    
-    // Mise à jour du checkbox "tout sélectionner"
-    commandeCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const totalCheckboxes = commandeCheckboxes.length;
-            const checkedCheckboxes = document.querySelectorAll('.commande-checkbox:checked').length;
-            
-            if (selectAllCheckbox) {
-                selectAllCheckbox.checked = totalCheckboxes === checkedCheckboxes;
-                selectAllCheckbox.indeterminate = checkedCheckboxes > 0 && checkedCheckboxes < totalCheckboxes;
-            }
-        });
+    // Animation d'entrée pour les éléments
+    const cards = document.querySelectorAll('.preparation-card, .group');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s ease-out';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
     });
-    
-    // Impression multiple
-    const printSelectedButton = document.getElementById('printSelectedBtn');
-    if (printSelectedButton) {
-        printSelectedButton.addEventListener('click', function() {
-            const checkedBoxes = document.querySelectorAll('.commande-checkbox:checked');
-            if (checkedBoxes.length === 0) {
-                alert("Veuillez sélectionner au moins une commande à imprimer.");
-                return;
-            }
-
-            printMultipleLabels(checkedBoxes);
-        });
-    }
 });
-
-// Fonction pour imprimer une seule étiquette
-function printSingleLabel(commandeId) {
-    // Récupérer les données de la commande depuis la ligne du tableau
-    const checkbox = document.querySelector(`input[data-commande-id="${commandeId}"]`);
-    if (checkbox) {
-        printMultipleLabels([checkbox]);
-    }
-}
-
-// Fonction pour imprimer plusieurs étiquettes sur une seule page
-async function printMultipleLabels(checkboxes) {
-    const apiUrlBase = '{{ api_produits_url_base }}';
-    // Afficher un indicateur de chargement
-    const loadingDiv = document.createElement('div');
-    loadingDiv.innerHTML = `
-        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; justify-content: center; align-items: center;">
-            <div style="background: white; padding: 20px; border-radius: 8px; text-align: center;">
-                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                <p>Préparation des étiquettes...</p>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(loadingDiv);
-    
-    let labelsHtml = '';
-    
-    // Traiter chaque commande
-    for (let i = 0; i < checkboxes.length; i++) {
-        const checkbox = checkboxes[i];
-                const row = checkbox.closest('tr');
-        const cells = row.querySelectorAll('td');
-        
-        // Extraire les données de la ligne
-        const commandeId = checkbox.value;
-        const idYz = cells[1].textContent.trim();
-        const numExt = cells[2].textContent.trim();
-        const clientName = cells[3].querySelector('.text-sm.font-medium').textContent.trim();
-        const telephone = cells[4].textContent.trim();
-        const villeClient = cells[5].textContent.trim();
-        const villeLivraison = cells[6].querySelector('.text-sm.font-medium') ? 
-                              cells[6].querySelector('.text-sm.font-medium').textContent.trim() : 
-                              cells[6].textContent.trim();
-        const adresse = cells[7].textContent.trim();
-        const total = cells[8].textContent.trim();
-        
-        // Récupérer les vrais produits via AJAX
-        let produits = "PRODUITS DE LA COMMANDE " + idYz;
-        try {
-            // Construire l'URL correcte en remplaçant le placeholder numérique
-            const apiUrl = apiUrlBase.replace('99999999', commandeId);
-
-            const response = await fetch(apiUrl, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    produits = data.produits;
-                }
-            }
-        } catch (error) {
-            console.log('Erreur lors de la récupération des produits:', error);
-            // On garde la valeur par défaut
-        }
-        
-        // Créer l'étiquette compacte
-        labelsHtml += `
-            <div class="compact-label">
-                <div class="label-header">
-                    <span>N° ${idYz}</span>
-                    <span>${new Date().toLocaleDateString('fr-FR')}</span>
-                        </div>
-                <div class="label-body">
-                    <div class="info-line">
-                        <i class="fas fa-user"></i>
-                        <span style="font-weight: bold;">${clientName.toUpperCase()}</span>
-                            </div>
-                    <div class="separator"></div>
-                    <div class="info-line">
-                        <i class="fas fa-phone-alt"></i>
-                        <span>${telephone !== 'Non renseigné' ? telephone : '-- -- -- -- --'}</span>
-                            </div>
-                    <div class="separator"></div>
-                    <div class="info-line">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <span>${adresse !== 'Non spécifiée' ? adresse.toUpperCase() : 'ADRESSE À RENSEIGNER'}</span>
-                            </div>
-                    <div class="separator"></div>
-                    <div class="info-line">
-                        <i class="fas fa-city"></i>
-                        <span style="font-weight: bold;">${villeLivraison.toUpperCase()}</span>
-                            </div>
-                        </div>
-                <div class="products-section-container">
-                    <div class="products-section">
-                        ${produits}
-                    </div>
-                        </div>
-                <div class="label-footer">
-                    <span>${total}</span>
-                    <span>${villeLivraison.toUpperCase()}</span>
-                        </div>
-                <div class="label-brand">
-                    <span class="brand-name">YOOZAK</span>
-                    <div style="text-align: right; line-height: 1.1;">
-                        <div>www.yoozak.com</div>
-                        <div>06 34 21 56 39 / 47</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-    }
-    
-    // Supprimer l'indicateur de chargement
-    document.body.removeChild(loadingDiv);
-
-    // Créer la fenêtre d'impression
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-            <title>Impression Étiquettes - ${checkboxes.length} commande(s)</title>
-            <meta charset="UTF-8">
-                    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-                    <style>
-                            body {
-                    font-family: Arial, sans-serif;
-                                margin: 0;
-                    padding: 5mm;
-                    background: white;
-                    -webkit-print-color-adjust: exact !important;
-                    color-adjust: exact !important;
-                }
-                
-                .labels-container {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 5mm;
-                    width: 100%;
-                }
-                
-                .compact-label {
-                    width: 90mm;
-                    height: 60mm;
-                    border: 2px solid black;
-                    font-family: Arial, sans-serif;
-                    font-size: 10px;
-                    display: flex;
-                    flex-direction: column;
-                    background: white;
-                    page-break-inside: avoid;
-                    margin: 0;
-                }
-                
-                .compact-label * {
-                    -webkit-print-color-adjust: exact !important;
-                    color-adjust: exact !important;
-                }
-                
-                .label-header {
-                    background-color: black !important;
-                    color: white !important;
-                    padding: 2mm;
-                            display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    font-weight: bold;
-                    font-size: 11px;
-                }
-                
-                .label-body {
-                    padding: 2mm;
-                    flex-grow: 1;
-                            display: flex;
-                            flex-direction: column;
-                    justify-content: space-between;
-                }
-                
-                .info-line {
-                    display: flex;
-                    align-items: center;
-                    margin-bottom: 1mm;
-                    font-size: 9px;
-                }
-                
-                .info-line i {
-                    width: 3mm;
-                    margin-right: 2mm;
-                    font-size: 8px;
-                }
-                
-                .separator {
-                    border-bottom: 1px dashed #666 !important;
-                    margin: 1mm 0;
-                }
-                
-                .products-section-container {
-                    border-top: 1.5px solid black !important;
-                    border-bottom: 1.5px solid black !important;
-                    padding: 2mm 0;
-                    margin: 2mm 0;
-                }
-
-                .products-section {
-                    padding: 1mm 2mm;
-                    font-size: 10px;
-                    font-weight: bold;
-                    text-align: left;
-                    min-height: 12mm;
-                    max-height: 24mm;
-                    overflow-y: auto;
-                }
-                
-                .label-footer {
-                    background-color: black !important;
-                    color: white !important;
-                    padding: 2mm;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    font-weight: bold;
-                    font-size: 11px;
-                }
-                
-                .label-brand {
-                    background-color: #f9f9f9 !important;
-                    padding: 1mm 2mm;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    font-size: 7px;
-                }
-                
-                .brand-name {
-                    font-weight: bold;
-                    font-size: 9px;
-                    font-family: serif;
-                }
-                
-                @media print {
-                    body { margin: 0; padding: 5mm; }
-                    .labels-container { 
-                        display: grid !important; 
-                        grid-template-columns: repeat(2, 1fr) !important; 
-                        gap: 5mm !important; 
-                    }
-                        }
-                    </style>
-                </head>
-                <body>
-            <div class="labels-container">
-                ${labelsHtml}
-            </div>
-                </body>
-                </html>
-            `);
-    
-            printWindow.document.close();
-    
-    // Attendre le chargement et imprimer
-    printWindow.onload = function() {
-            printWindow.focus();
-        setTimeout(function() {
-            printWindow.print();
-            printWindow.onafterprint = function() {
-                printWindow.close();
-            };
-        }, 500);
-    };
-}
-
-// Fonction pour obtenir le token CSRF
-function getCsrfToken() {
-    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-           document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-}
 </script>
 {% endblock %} 

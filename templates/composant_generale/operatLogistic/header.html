@@ -1,7 +1,7 @@
 <header class="bg-white shadow-md px-6 py-4 border-b" style="border-color: var(--logistic-border-accent);">
     <div class="flex items-center justify-between">
-        <!-- Menu hamburger pour mobile -->
-        <button id="menu-toggle" class="p-2 rounded-lg transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-opacity-50" style="hover:background-color: #8B5A2B; focus:ring-color: #4B352A; background-color: #f7d9c4;">
+        <!-- Menu hamburger pour masquer/afficher la sidebar -->
+        <button id="menu-toggle" class="p-2 rounded-lg transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-opacity-50" style="hover:background-color: #8B5A2B; focus:ring-color: #4B352A; background-color: #f7d9c4;" title="Masquer/Afficher la sidebar">
             <div class="space-y-1.5">
                 <span id="hamburger-line-1" class="block w-6 h-0.5 transition-all duration-300 transform origin-center" style="background-color: #4B352A;"></span>
                 <span id="hamburger-line-2" class="block w-6 h-0.5 mt-1.5 transition-all duration-300 transform origin-center" style="background-color: #4B352A;"></span>
@@ -14,7 +14,18 @@
         </div>
         
         <div class="flex items-center space-x-4">
-            <span class="text-gray-700">{{ user.get_full_name|default:user.username }}</span>
+            <div class="text-right">
+                <p class="text-gray-700 font-medium">{{ user.get_full_name|default:user.username }}</p>
+                <p class="text-xs text-gray-500">
+                    {% if user.profil_operateur %}
+                        {{ user.profil_operateur.mail }}
+                    {% elif user.email %}
+                        {{ user.email }}
+                    {% else %}
+                        Email non défini
+                    {% endif %}
+                </p>
+            </div>
             <form method="post" action="{% url 'logout' %}" class="inline">
                 {% csrf_token %}
                 <button type="submit" class="text-red-600 hover:text-red-800 transition-colors">
@@ -25,155 +36,29 @@
     </div>
 </header>
 
-<!-- Styles et animations CSS -->
+<!-- Styles essentiels pour le menu hamburger uniquement -->
 <style>
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fadeIn {
-    animation: fadeIn 0.6s ease-out;
-}
-
-/* Animation pour le dropdown */
-.dropdown-enter {
-    opacity: 1;
-    transform: scale(1);
-}
-
-.dropdown-leave {
-    opacity: 0;
-    transform: scale(0.95);
-}
-
 /* Animation pour le menu hamburger */
-.hamburger-active #hamburger-line-1 {
+body.sidebar-collapsed #hamburger-line-1 {
     transform: rotate(45deg) translate(6px, 6px);
 }
 
-.hamburger-active #hamburger-line-2 {
+body.sidebar-collapsed #hamburger-line-2 {
     opacity: 0;
     transform: scale(0);
 }
 
-.hamburger-active #hamburger-line-3 {
+body.sidebar-collapsed #hamburger-line-3 {
     transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* État normal (sidebar ouverte) */
+body.sidebar-open #hamburger-line-1,
+body.sidebar-open #hamburger-line-2,
+body.sidebar-open #hamburger-line-3 {
+    transform: none;
+    opacity: 1;
 }
 </style>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const userMenuButton = document.getElementById('user-menu-button');
-    const userMenu = document.getElementById('user-menu');
-    const chevronIcon = document.getElementById('chevron-icon');
-    const progressBar = document.getElementById('progress-bar');
-    const menuToggle = document.getElementById('menu-toggle');
-    const sidebar = document.getElementById('sidebar');
-    let isSidebarOpen = true;
-    
-    // Animation de la barre de progression au chargement (seulement si l'élément existe)
-    if (progressBar) {
-        setTimeout(() => {
-            progressBar.style.width = '100%';
-            setTimeout(() => {
-                progressBar.style.opacity = '0';
-            }, 1000);
-        }, 100);
-    }
-    
-    // Toggle de la sidebar avec animation du hamburger (seulement si les éléments existent)
-    if (menuToggle && sidebar) {
-        menuToggle.addEventListener('click', function() {
-            isSidebarOpen = !isSidebarOpen;
-            
-            if (isSidebarOpen) {
-                // Ouvrir la sidebar
-                sidebar.style.transform = 'translateX(0)';
-                sidebar.style.width = '256px';
-                menuToggle.classList.remove('hamburger-active');
-            } else {
-                // Fermer la sidebar
-                sidebar.style.transform = 'translateX(-100%)';
-                sidebar.style.width = '0px';
-                menuToggle.classList.add('hamburger-active');
-            }
-        });
-    }
-    
-    // Toggle du menu utilisateur avec animation (seulement si les éléments existent)
-    if (userMenuButton && userMenu) {
-        userMenuButton.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const isHidden = userMenu.classList.contains('hidden');
-            
-            if (isHidden) {
-                // Afficher le menu
-                userMenu.classList.remove('hidden');
-                setTimeout(() => {
-                    userMenu.classList.add('dropdown-enter');
-                    userMenu.classList.remove('opacity-0', 'scale-95');
-                }, 10);
-                if (chevronIcon) chevronIcon.style.transform = 'rotate(180deg)';
-            } else {
-                // Masquer le menu
-                userMenu.classList.add('opacity-0', 'scale-95');
-                userMenu.classList.remove('dropdown-enter');
-                setTimeout(() => {
-                    userMenu.classList.add('hidden');
-                }, 300);
-                if (chevronIcon) chevronIcon.style.transform = 'rotate(0deg)';
-            }
-        });
-    }
-    
-    // Fermer le menu si on clique ailleurs (seulement si les éléments existent)
-    if (userMenuButton && userMenu) {
-        document.addEventListener('click', function(event) {
-            if (!userMenuButton.contains(event.target)) {
-                userMenu.classList.add('opacity-0', 'scale-95');
-                userMenu.classList.remove('dropdown-enter');
-                setTimeout(() => {
-                    userMenu.classList.add('hidden');
-                }, 300);
-                if (chevronIcon) chevronIcon.style.transform = 'rotate(0deg)';
-            }
-        });
-    }
-    
-    // Animation de pulsation pour les icônes importantes
-    setInterval(() => {
-        const bellIcon = document.querySelector('.fa-bell');
-        if (bellIcon) {
-            bellIcon.parentElement.classList.add('animate-pulse');
-            setTimeout(() => {
-                bellIcon.parentElement.classList.remove('animate-pulse');
-            }, 2000);
-        }
-    }, 10000);
-    
-    // Responsive : fermer la sidebar sur mobile (seulement si les éléments existent)
-    function checkScreenSize() {
-        if (sidebar && menuToggle) {
-            if (window.innerWidth < 1024) { // lg breakpoint
-                if (isSidebarOpen) {
-                    sidebar.style.transform = 'translateX(-100%)';
-                    menuToggle.classList.add('hamburger-active');
-                    isSidebarOpen = false;
-                }
-            } else {
-                if (!isSidebarOpen) {
-                    sidebar.style.transform = 'translateX(0)';
-                    sidebar.style.width = '256px';
-                    menuToggle.classList.remove('hamburger-active');
-                    isSidebarOpen = true;
-                }
-            }
-        }
-    }
-    
-    // Vérifier la taille d'écran au chargement et au redimensionnement
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-});
-</script> 
+ 

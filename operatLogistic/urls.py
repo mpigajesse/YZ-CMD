@@ -17,4 +17,9 @@ urlpatterns = [
     path('profile/changer-mot-de-passe/', views.changer_mot_de_passe_logistique, name='changer_mot_de_passe'),
     path('commande/<int:commande_id>/livrer/', views.marquer_livree, name='marquer_livree'),
     path('commande/<int:commande_id>/probleme/', views.signaler_probleme, name='signaler_probleme'),
+    # URLs d'exportation
+    path('export/toutes-regions/excel/', views.export_all_regions_excel, name='export_all_regions_excel'),
+    path('export/toutes-regions/csv/', views.export_all_regions_csv, name='export_all_regions_csv'),
+    path('export/region/<str:nom_region>/excel/', views.export_region_excel, name='export_region_excel'),
+    path('export/region/<str:nom_region>/csv/', views.export_region_csv, name='export_region_csv'),
 ] 

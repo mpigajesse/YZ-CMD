@@ -269,34 +269,65 @@
 
     <!-- Section 5: Actions de Préparation -->
     {% if etat_preparation and not etat_preparation.date_fin %}
-    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
-        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
-            <i class="fas fa-clipboard-list mr-2"></i>Actions de Préparation
-        </h2>
-        
-        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
-            <div class="flex items-center">
-                <i class="fas fa-info-circle text-blue-600 mr-3 text-xl"></i>
-                <div>
-                    <h3 class="font-semibold text-blue-800">Commande en cours de préparation</h3>
-                    <p class="text-sm text-blue-600">Marquez la commande comme préparée une fois tous les articles rassemblés et emballés.</p>
+        {% if etat_preparation.enum_etat.libelle == 'À imprimer' %}
+        <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+            <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+                <i class="fas fa-print mr-2"></i>Impression et Préparation
+            </h2>
+            
+            <div class="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-6">
+                <div class="flex items-center">
+                    <i class="fas fa-print text-orange-600 mr-3 text-xl"></i>
+                    <div>
+                        <h3 class="font-semibold text-orange-800">Étape 1 : Impression</h3>
+                        <p class="text-sm text-orange-600">Imprimez d'abord l'étiquette de préparation, puis cliquez sur "Commencer la Préparation".</p>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <form method="POST" class="flex flex-col sm:flex-row gap-4">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="marquer_preparee">
-            <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
-                <i class="fas fa-check-double mr-2"></i>
-                Marquer comme Préparée
-            </button>
-            <a href="{% url 'Prepacommande:liste_prepa' %}" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Retour à la liste
-            </a>
-        </form>
-    </div>
+            <form method="POST" class="flex flex-col sm:flex-row gap-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="commencer_preparation">
+                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
+                    <i class="fas fa-play mr-2"></i>
+                    Commencer la Préparation
+                </button>
+                <a href="{% url 'Prepacommande:liste_prepa' %}" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Retour à la liste
+                </a>
+            </form>
+        </div>
+        {% elif etat_preparation.enum_etat.libelle == 'En préparation' %}
+        <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+            <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+                <i class="fas fa-clipboard-list mr-2"></i>Finaliser la Préparation
+            </h2>
+            
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+                <div class="flex items-center">
+                    <i class="fas fa-cog fa-spin text-blue-600 mr-3 text-xl"></i>
+                    <div>
+                        <h3 class="font-semibold text-blue-800">Étape 2 : Préparation en cours</h3>
+                        <p class="text-sm text-blue-600">Rassemblez tous les articles et emballez-les, puis marquez la commande comme préparée.</p>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" class="flex flex-col sm:flex-row gap-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="marquer_preparee">
+                <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
+                    <i class="fas fa-check-double mr-2"></i>
+                    Marquer comme Préparée
+                </button>
+                <a href="{% url 'Prepacommande:liste_prepa' %}" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Retour à la liste
+                </a>
+            </form>
+        </div>
+        {% endif %}
     {% elif etat_preparation.date_fin %}
     <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
         <div class="bg-green-50 p-4 rounded-lg border border-green-200">

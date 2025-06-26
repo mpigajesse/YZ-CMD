@@ -15,14 +15,14 @@
     <nav class="mt-4 flex-1 overflow-y-auto">
         <!-- Gestion de Commandes Dropdown -->
         <div class="mb-2">
-            <div class="flex items-center justify-between px-4 py-2 cursor-pointer toggle-dropdown" data-target="#commandes-menu" style="color: var(--logistic-text-light); opacity: 0.8; border-color: var(--logistic-border-accent);">
+            <div id="dropdown-commandes" class="flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-opacity-20 hover:bg-white transition-all duration-200" style="color: var(--logistic-text-light); opacity: 0.8; border-color: var(--logistic-border-accent);">
                 <div class="flex items-center">
                     <i class="fas fa-box-open mr-2 flex-shrink-0"></i>
                     <span class="transition-all duration-300 opacity-100 whitespace-nowrap">GESTION DE COMMANDES</span>
                 </div>
-                <i class="fas fa-chevron-down text-sm transition-transform duration-300"></i>
+                <i id="chevron-commandes" class="fas fa-chevron-down text-sm transition-all duration-300 ease-in-out"></i>
             </div>
-            <ul id="commandes-menu" class="ml-2 hidden">
+            <ul id="menu-commandes" class="ml-2 hidden transition-all duration-300 ease-in-out">
                 <li>
                     <a href="{% url 'operatLogistic:home' %}" class="flex items-center px-4 py-3 transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:shadow-lg" style="color: var(--logistic-text-light); hover:background-color: var(--logistic-hover-bg); hover:border-color: var(--logistic-border-accent);">
                         <i class="fas fa-home text-lg mr-3 transition-transform duration-200 flex-shrink-0" style="color: var(--logistic-text-light); opacity: 0.8;"></i>
@@ -46,14 +46,14 @@
         
         <!-- Parametres Dropdown -->
         <div class="mb-2">
-            <div class="flex items-center justify-between px-4 py-2 cursor-pointer toggle-dropdown" data-target="#parametres-menu" style="color: var(--logistic-text-light); opacity: 0.8; border-color: var(--logistic-border-accent);">
+            <div id="dropdown-parametres" class="flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-opacity-20 hover:bg-white transition-all duration-200" style="color: var(--logistic-text-light); opacity: 0.8; border-color: var(--logistic-border-accent);">
                 <div class="flex items-center">
                     <i class="fas fa-cog mr-2 flex-shrink-0"></i>
                     <span class="transition-all duration-300 opacity-100 whitespace-nowrap">PARAMÈTRES</span>
                 </div>
-                <i class="fas fa-chevron-down text-sm transition-transform duration-300"></i>
+                <i id="chevron-parametres" class="fas fa-chevron-down text-sm transition-all duration-300 ease-in-out"></i>
             </div>
-            <ul id="parametres-menu" class="ml-2 hidden">
+            <ul id="menu-parametres" class="ml-2 hidden transition-all duration-300 ease-in-out">
                 <li>
                     <a href="{% url 'operatLogistic:profile' %}" class="flex items-center px-4 py-2 transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:shadow-lg" style="color: var(--logistic-text-light); hover:background-color: var(--logistic-hover-bg); hover:border-color: var(--logistic-border-accent);">
                         <i class="fas fa-user-cog mr-3 transition-transform duration-200 flex-shrink-0" style="color: var(--logistic-text-light); opacity: 0.8;"></i>
@@ -76,5 +76,78 @@
     </div>
 </div>
 
-<!-- JavaScript pour la sidebar responsive (déplacé dans base.html) -->
-<!-- Les scripts ici ne sont plus nécessaires, ils sont dans base.html -->
+<!-- Script ultra-simple et direct -->
+<script>
+(function() {
+    'use strict';
+    
+    console.log('🔧 Sidebar script direct loading...');
+    
+    function initDropdowns() {
+        console.log('🔧 Setting up direct dropdowns...');
+        
+        // Dropdown Commandes
+        const dropdownCommandes = document.getElementById('dropdown-commandes');
+        const menuCommandes = document.getElementById('menu-commandes');
+        const chevronCommandes = document.getElementById('chevron-commandes');
+        
+        if (dropdownCommandes && menuCommandes && chevronCommandes) {
+            dropdownCommandes.onclick = function(e) {
+                e.preventDefault();
+                console.log('✅ COMMANDES clicked');
+                
+                if (menuCommandes.classList.contains('hidden')) {
+                    menuCommandes.classList.remove('hidden');
+                    menuCommandes.style.display = 'block';
+                    chevronCommandes.style.transform = 'rotate(180deg)';
+                    console.log('✅ COMMANDES opened');
+                } else {
+                    menuCommandes.classList.add('hidden');
+                    menuCommandes.style.display = 'none';
+                    chevronCommandes.style.transform = 'rotate(0deg)';
+                    console.log('✅ COMMANDES closed');
+                }
+            };
+        }
+        
+        // Dropdown Parametres
+        const dropdownParametres = document.getElementById('dropdown-parametres');
+        const menuParametres = document.getElementById('menu-parametres');
+        const chevronParametres = document.getElementById('chevron-parametres');
+        
+        if (dropdownParametres && menuParametres && chevronParametres) {
+            dropdownParametres.onclick = function(e) {
+                e.preventDefault();
+                console.log('✅ PARAMETRES clicked');
+                
+                if (menuParametres.classList.contains('hidden')) {
+                    menuParametres.classList.remove('hidden');
+                    menuParametres.style.display = 'block';
+                    chevronParametres.style.transform = 'rotate(180deg)';
+                    console.log('✅ PARAMETRES opened');
+                } else {
+                    menuParametres.classList.add('hidden');
+                    menuParametres.style.display = 'none';
+                    chevronParametres.style.transform = 'rotate(0deg)';
+                    console.log('✅ PARAMETRES closed');
+                }
+            };
+        }
+        
+        console.log('🚀 Direct dropdowns ready!');
+    }
+    
+    // Multiple méthodes d'initialisation
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDropdowns);
+    } else {
+        initDropdowns();
+    }
+    
+    // Fallback
+    setTimeout(initDropdowns, 100);
+    setTimeout(initDropdowns, 500);
+    setTimeout(initDropdowns, 1000);
+    
+})();
+</script>

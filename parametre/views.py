@@ -16,7 +16,12 @@ from django.contrib.auth import update_session_auth_hash # Required for password
 
 @login_required
 def dashboard(request):
-    """Page d'accueil de l'interface administrateur"""
+    """Page d'accueil de l'interface administrateur - Redirige vers le dashboard KPIs"""
+    # Rediriger directement vers le dashboard KPIs pour les administrateurs
+    if request.user.is_staff or hasattr(request.user, 'profil_operateur') and request.user.profil_operateur.type_operateur == 'ADMIN':
+        return redirect('/kpis/')
+    
+    # Fallback vers l'ancien dashboard pour les autres types d'utilisateurs
     # Statistiques pour le dashboard
     stats = {
         'total_articles': Article.objects.count(),
