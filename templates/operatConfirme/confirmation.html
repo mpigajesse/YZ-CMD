@@ -670,8 +670,52 @@ function lancerCommande(commandeId) {
 
 // Confirmation individuelle
 function confirmerCommande(commandeId) {
-    window.currentCommandeId = commandeId;
-    showConfirmationModalSimple();
+    fetch(`/operateur-confirme/commandes/${commandeId}/confirmer-ajax/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            'commentaire': 'Commande confirmée depuis la page confirmation'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Afficher une notification de succès
+            Swal.fire({
+                icon: 'success',
+                title: 'Succès !',
+                text: 'La commande a été confirmée avec succès.',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                // Recharger la page après la confirmation
+                location.reload();
+            });
+        } else {
+            // Afficher une notification d'erreur
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: data.message,
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#4B352A'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        // Afficher une notification d'erreur générique
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur',
+            text: 'Une erreur est survenue lors de la confirmation de la commande.',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#4B352A'
+        });
+    });
 }
 
 // Annulation individuelle

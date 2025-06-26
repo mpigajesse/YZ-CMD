@@ -50,34 +50,34 @@ def liste_clients(request):
         else:
             # Sinon, on utilise la recherche normale par termes
             for term in search_terms:
-                term_conditions = (
-                    # Recherche dans les données du client
-                    Q(nom__icontains=term) |
-                    Q(prenom__icontains=term) |
-                    Q(numero_tel__icontains=term) |
-                    Q(email__icontains=term) |
-                    Q(adresse__icontains=term) |
-                    Q(id__icontains=term) |  # Recherche par ID client
+                term_conditions |= (
+                # Recherche dans les données du client
+                Q(nom__icontains=term) |
+                Q(prenom__icontains=term) |
+                Q(numero_tel__icontains=term) |
+                Q(email__icontains=term) |
+                Q(adresse__icontains=term) |
+                Q(id__icontains=term) |  # Recherche par ID client
                     Q(derniere_ville_init__icontains=term) |
+                
+                # Recherche dans les commandes associées
+                Q(commandes__id_yz__icontains=term) |
+                Q(commandes__num_cmd__icontains=term) |
+                Q(commandes__total_cmd__icontains=term) |
                     
-                    # Recherche dans les commandes associées
-                    Q(commandes__id_yz__icontains=term) |
-                    Q(commandes__num_cmd__icontains=term) |
-                    Q(commandes__total_cmd__icontains=term) |
-                    
-                    
-                    # Recherche dans les villes des commandes
-                    Q(commandes__ville__nom__icontains=term) |
-                    Q(commandes__ville_init__icontains=term) |
+                
+                # Recherche dans les villes des commandes
+                Q(commandes__ville__nom__icontains=term) |
+                Q(commandes__ville_init__icontains=term) |
                     Q(commandes__ville__region__nom_region__icontains=term) |
-                    
-                    # Recherche dans les états des commandes
-                    Q(commandes__etats__enum_etat__libelle__icontains=term) |
-                    
-                    # Recherche dans les produits des commandes
-                    Q(commandes__produit_init__icontains=term)
-                )
-                search_conditions &= term_conditions
+                
+                # Recherche dans les états des commandes
+                Q(commandes__etats__enum_etat__libelle__icontains=term) |
+                
+                # Recherche dans les produits des commandes
+                Q(commandes__produit_init__icontains=term)
+            )
+            search_conditions &= term_conditions
         
         # Recherche globale si un seul terme (pour retrouver "Dupont Jean" avec "Jean Dupont")
         if not exact_ville_init_match and len(search_terms) == 1:

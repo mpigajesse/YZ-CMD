@@ -188,7 +188,7 @@ def liste_commandes(request):
 @login_required
 def confirmer_commande_ajax(request, commande_id):
     """Confirme une commande spécifique via AJAX depuis la page de confirmation"""
-    from commande.models import Commande, EtatCommande, EnumEtatCmd
+    from commande.models import Commande, EtatCommande, EnumEtatCmd, Operation
     from article.models import Article
     from django.http import JsonResponse
     from django.utils import timezone
@@ -219,6 +219,21 @@ def confirmer_commande_ajax(request, commande_id):
         # Vérifier que la commande n'est pas déjà confirmée
         if etat_actuel.enum_etat.libelle == 'Confirmée':
             return JsonResponse({'success': False, 'message': 'Cette commande est déjà confirmée.'})
+            
+        # Vérifier qu'au moins une opération a été effectuée
+        operations_effectuees = Operation.objects.filter(
+            commande=commande,
+            operateur=operateur,
+            type_operation__in=[
+                'APPEL', 'Appel Whatsapp', 'Message Whatsapp', 'Vocal Whatsapp', 'ENVOI_SMS'
+            ]
+        ).exists()
+        
+        if not operations_effectuees:
+            return JsonResponse({
+                'success': False, 
+                'message': 'Vous devez effectuer au moins une opération (appel, message, etc.) avant de confirmer la commande.'
+            })
         
         # Utiliser une transaction pour la confirmation et la décrémentation du stock
         with transaction.atomic():
