@@ -44,9 +44,11 @@ class YoozakKPIManager {
       refreshBtn.addEventListener('click', () => this.refreshCurrentTab());
     }
   }
-
   async loadInitialData() {
     console.log('📊 Chargement des données initiales...');
+
+    // Attendre un délai pour s'assurer que tous les éléments DOM sont rendus
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Détecter l'onglet actif au chargement de la page
     const activeTabButton = document.querySelector('.kpi-tab-button.active');
@@ -114,17 +116,13 @@ class YoozakKPIManager {
     this.updateKPICard('ca-mois', data.kpis_principaux.ca_mois);
     this.updateKPICard('commandes-jour', data.kpis_principaux.commandes_jour);
     this.updateKPICard('stock-critique', data.kpis_principaux.stock_critique);
-    this.updateKPICard('taux-conversion', data.kpis_principaux.taux_conversion);
-
-    // Mettre à jour les KPIs secondaires
-    this.updateKPICard('clients-fideles', data.kpis_secondaires.clients_fideles);
+    this.updateKPICard('taux-conversion', data.kpis_principaux.taux_conversion);    // Mettre à jour les KPIs secondaires
     this.updateKPICard('panier-moyen', data.kpis_secondaires.panier_moyen);
     this.updateKPICard('delai-livraison', data.kpis_secondaires.delai_livraison);
     this.updateKPICard('satisfaction', data.kpis_secondaires.satisfaction);
     this.updateKPICard('support-24-7', data.kpis_secondaires.support_24_7);
     this.updateKPICard('stock-total', data.kpis_secondaires.stock_total);
   }
-
   updateKPICard(cardId, kpiData) {
     console.log(`🔄 Mise à jour KPI: ${cardId}`, kpiData);
     const card = document.querySelector(`[data-kpi="${cardId}"]`);
@@ -133,11 +131,22 @@ class YoozakKPIManager {
       return;
     }
 
+    // S'assurer que toutes les données nécessaires sont présentes
+    if (!kpiData || kpiData.valeur_formatee === undefined) {
+      console.warn(`❌ Données KPI incomplètes pour ${cardId}:`, kpiData);
+      return;
+    }
+
     // Mettre à jour la valeur principale
     const valueElement = card.querySelector('.kpi-value');
     if (valueElement) {
-      valueElement.textContent = kpiData.valeur_formatee;
-      console.log(`✅ Valeur mise à jour pour ${cardId}: ${kpiData.valeur_formatee}`);
+      // Effacer d'abord le contenu pour éviter l'affichage partiel
+      valueElement.textContent = '';
+      // Puis définir la nouvelle valeur
+      setTimeout(() => {
+        valueElement.textContent = kpiData.valeur_formatee;
+        console.log(`✅ Valeur mise à jour pour ${cardId}: ${kpiData.valeur_formatee}`);
+      }, 10);
     } else {
       console.warn(`❌ Élément .kpi-value introuvable dans ${cardId}`);
     }
@@ -307,7 +316,6 @@ class YoozakKPIManager {
         console.log('Actualisation non disponible pour cet onglet');
     }
   }
-
   switchTab(tabName) {
     this.activeTab = tabName;
     console.log('📑 Changement d\'onglet:', tabName);
@@ -317,18 +325,13 @@ class YoozakKPIManager {
     switch (tabName) {
       case 'vue-generale':
         this.loadVueGeneraleData();
+        break; case 'ventes':
+        // Lors du changement d'onglet vers Ventes, charger TOUTES les données
+        console.log('📊 Chargement de l\'onglet Ventes...');
+        this.loadVentesData(); // Charge KPIs + graphiques
         break;
-      case 'ventes':
-        // CORRECTION : Lors du changement d'onglet vers Ventes,
-        // on charge seulement les graphiques car les KPIs sont déjà présents
-        // (ils ont été chargés lors du premier accès)
-        if (this.chartsLoaded.has('ventes-graphs')) {
-          // Si déjà chargé, ne rien faire
-          console.log('✅ Données Ventes déjà chargées');
-        } else {
-          // Premier accès à l'onglet Ventes : charger graphiques seulement
-          this.loadVentesGraphsOnly();
-        }
+      case 'clients':
+        this.loadClientsData();
         break;
       default:
         console.log('Onglet non encore implémenté:', tabName);
@@ -863,10 +866,8 @@ class YoozakKPIManager {
   updateVentesKPIs(data) {
     console.log('🔄 Mise à jour des KPIs Ventes...', data);
 
-    try {
-      // KPIs principaux
+    try {      // KPIs principaux
       if (data.kpis_principaux) {
-        console.log('-------------- 📊 Mise à jour KPIs principaux Ventes --------------');
         this.updateKPICard('ca_total', data.kpis_principaux.ca_periode);
         this.updateKPICard('panier_moyen', data.kpis_principaux.panier_moyen);
         this.updateKPICard('nb_commandes', data.kpis_principaux.nb_commandes);
@@ -908,6 +909,247 @@ class YoozakKPIManager {
     } catch (error) {
       console.error('❌ Erreur mise à jour KPIs Ventes:', error);
     }
+  }
+  // ===== MÉTHODES CLIENTS =====
+  async loadClientsData() {
+    console.log('👥 Chargement des données Clients...');
+
+    try {
+      this.showClientsLoading();
+
+      const response = await fetch(this.apiEndpoint + 'clients/');
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.message || 'Erreur API');
+      }      // Vérifier si les données sont vides
+      if (data.empty) {
+        this.showClientsEmpty();
+        return;
+      }// Mettre à jour l'interface avec les données
+      this.updateClientsKPIs(data);
+      this.updateClientsAnalyses(data);
+      this.showClientsContent();
+
+      console.log('✅ Données Clients chargées avec succès');
+
+    } catch (error) {
+      console.error('❌ Erreur chargement Clients:', error);
+      this.showErrorState('clients', 'Erreur lors du chargement des données clients');
+    }
+  }
+
+  updateClientsKPIs(data) {
+    console.log('🔄 Mise à jour des KPIs Clients...', data);
+
+    try {
+      // KPIs principaux
+      if (data.kpis_principaux) {
+        // Nouveaux Clients
+        const nouveauxClients = data.kpis_principaux.nouveaux_clients;
+        this.updateElement('[data-kpi="nouveaux_clients"]', nouveauxClients.valeur_formatee);
+        this.updateElement('[data-kpi-unite="nouveaux_clients"]', nouveauxClients.unite);
+        this.updateElement('[data-kpi-sub="nouveaux_clients"]', nouveauxClients.sub_value);
+        this.updateTrend('[data-kpi-trend="nouveaux_clients"]', nouveauxClients.tendance);
+
+        // Clients Actifs
+        const clientsActifs = data.kpis_principaux.clients_actifs;
+        this.updateElement('[data-kpi="clients_actifs"]', clientsActifs.valeur_formatee);
+        this.updateElement('[data-kpi-unite="clients_actifs"]', clientsActifs.unite);
+        this.updateElement('[data-kpi-sub="clients_actifs"]', clientsActifs.sub_value);
+        this.updateTrend('[data-kpi-trend="clients_actifs"]', clientsActifs.tendance);
+
+        // Taux Retour
+        const tauxRetour = data.kpis_principaux.taux_retour;
+        this.updateElement('[data-kpi="taux_retour"]', tauxRetour.valeur_formatee);
+        this.updateElement('[data-kpi-unite="taux_retour"]', tauxRetour.unite);
+        this.updateElement('[data-kpi-sub="taux_retour"]', tauxRetour.sub_value);
+        this.updateTrend('[data-kpi-trend="taux_retour"]', tauxRetour.tendance, true); // Inverse pour retours
+
+        // Satisfaction
+        const satisfaction = data.kpis_principaux.satisfaction;
+        this.updateElement('[data-kpi="satisfaction"]', satisfaction.valeur_formatee);
+        this.updateElement('[data-kpi-unite="satisfaction"]', satisfaction.unite);
+        this.updateElement('[data-kpi-sub="satisfaction"]', satisfaction.sub_value);
+        this.updateTrend('[data-kpi-trend="satisfaction"]', satisfaction.tendance);
+      }
+
+      console.log('✅ KPIs Clients mis à jour avec succès');
+    } catch (error) {
+      console.error('❌ Erreur mise à jour KPIs Clients:', error);
+    }
+  }
+
+  updateClientsAnalyses(data) {
+    console.log('🔄 Mise à jour analyses Clients...', data);
+
+    try {
+      // Top Clients VIP
+      if (data.analyses_detaillees && data.analyses_detaillees.top_clients_vip) {
+        const topClientsList = document.getElementById('top-clients-list');
+        const topClientsEmpty = document.getElementById('top-clients-empty');
+
+        if (data.analyses_detaillees.top_clients_vip.length > 0) {
+          topClientsList.innerHTML = '';
+          topClientsEmpty.style.display = 'none';
+
+          data.analyses_detaillees.top_clients_vip.forEach((client, index) => {
+            const colors = ['yellow', 'blue', 'green', 'purple', 'indigo'];
+            const color = colors[index % colors.length];
+
+            const clientDiv = document.createElement('div');
+            clientDiv.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
+            clientDiv.innerHTML = `
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-${color}-100 text-${color}-600 rounded-full flex items-center justify-center text-sm font-bold">
+                  ${index + 1}
+                </div>
+                <span class="font-medium">${client.nom}</span>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-${color}-600">${client.ca_total_format}</div>
+                <div class="text-xs text-gray-500">${client.nb_commandes} commandes</div>
+              </div>
+            `;
+            topClientsList.appendChild(clientDiv);
+          });
+        } else {
+          topClientsList.innerHTML = '';
+          topClientsEmpty.style.display = 'block';
+        }
+      }      // Performance mensuelle
+      if (data.analyses_detaillees && data.analyses_detaillees.performance_mensuelle) {
+        const perf = data.analyses_detaillees.performance_mensuelle;
+        this.updateElement('[data-perf="commandes_mois"]', `${perf.commandes_mois} commandes`);
+        this.updateElement('[data-perf="ca_par_client"]', `${perf.ca_par_client} DH`);
+      }
+
+      // Segmentation comportementale
+      if (data.analyses_detaillees && data.analyses_detaillees.segmentation) {
+        const segmentation = data.analyses_detaillees.segmentation;
+        this.updateElement('[data-segment="acheteurs_reguliers"]', `${segmentation.acheteurs_reguliers}%`);
+        this.updateElement('[data-segment="nouveaux_testeurs"]', `${segmentation.nouveaux_testeurs}%`);
+        this.updateElement('[data-segment="clients_occasionnels"]', `${segmentation.clients_occasionnels}%`);
+        this.updateElement('[data-segment="vip_premium"]', `${segmentation.vip_premium}%`);
+      }
+
+      // Statistiques globales
+      if (data.stats_globales) {
+        this.updateElement('[data-stats="total_clients"]', data.stats_globales.total_clients.toLocaleString());
+        this.updateElement('[data-stats="taux_activite"]', `${data.stats_globales.taux_activite}%`);
+        this.updateElement('[data-stats="panier_moyen_clients"]', `${data.stats_globales.panier_moyen_clients.toLocaleString()} DH`);
+      }
+
+      console.log('✅ Analyses Clients mises à jour avec succès');
+    } catch (error) {
+      console.error('❌ Erreur mise à jour analyses Clients:', error);
+    }
+  }
+
+  // Méthodes utilitaires pour les états d'affichage
+  showLoadingState(section) {
+    const loading = document.getElementById(`${section}-loading`);
+    const content = document.getElementById(`${section}-content`);
+    const emptyState = document.getElementById(`${section}-empty-state`);
+
+    if (loading) loading.style.display = 'block';
+    if (content) content.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
+  }
+
+  showContentState(section) {
+    const loading = document.getElementById(`${section}-loading`);
+    const content = document.getElementById(`${section}-content`);
+    const emptyState = document.getElementById(`${section}-empty-state`);
+
+    if (loading) loading.style.display = 'none';
+    if (content) content.style.display = 'block';
+    if (emptyState) emptyState.style.display = 'none';
+  }
+
+  showEmptyState(section) {
+    const loading = document.getElementById(`${section}-loading`);
+    const content = document.getElementById(`${section}-content`);
+    const emptyState = document.getElementById(`${section}-empty-state`);
+
+    if (loading) loading.style.display = 'none';
+    if (content) content.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'block';
+  }
+
+  showErrorState(section, message) {
+    console.error(`Erreur section ${section}:`, message);
+    // Pour le moment, on affiche l'état vide en cas d'erreur
+    this.showEmptyState(section);
+  }
+
+  updateElement(selector, value) {
+    const element = document.querySelector(selector);
+    if (element) {
+      element.textContent = value;
+    }
+  }
+
+  updateTrend(selector, value, inverse = false) {
+    const element = document.querySelector(selector);
+    if (element) {
+      const icon = element.querySelector('i');
+      const span = element.querySelector('span');
+
+      if (icon && span) {
+        // Déterminer la direction (inverse pour taux de retour où baisse = bien)
+        const isPositive = inverse ? value < 0 : value > 0;
+        const isNegative = inverse ? value > 0 : value < 0;
+
+        // Mettre à jour l'icône
+        icon.className = isPositive ? 'fas fa-arrow-up text-green-600' :
+          isNegative ? 'fas fa-arrow-down text-red-600' :
+            'fas fa-minus text-gray-400';
+
+        // Mettre à jour la valeur
+        span.textContent = Math.abs(value);
+        span.className = isPositive ? 'text-green-600' :
+          isNegative ? 'text-red-600' :
+            'text-gray-400';
+      }
+    }
+  }
+
+  // Fonctions spécialisées pour l'affichage des clients (évite conflit d'ID)
+  showClientsLoading() {
+    const loading = document.getElementById('clients-loading');
+    const content = document.getElementById('clients-main-content');
+    const emptyState = document.getElementById('clients-empty-state');
+
+    if (loading) loading.style.display = 'block';
+    if (content) content.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
+  }
+
+  showClientsEmpty() {
+    const loading = document.getElementById('clients-loading');
+    const content = document.getElementById('clients-main-content');
+    const emptyState = document.getElementById('clients-empty-state');
+
+    if (loading) loading.style.display = 'none';
+    if (content) content.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'block';
+  }
+
+  // Fonction spécialisée pour l'affichage des clients (évite conflit d'ID)
+  showClientsContent() {
+    const loading = document.getElementById('clients-loading');
+    const content = document.getElementById('clients-main-content');
+    const emptyState = document.getElementById('clients-empty-state');
+
+    if (loading) loading.style.display = 'none';
+    if (content) content.style.display = 'block';
+    if (emptyState) emptyState.style.display = 'none';
   }
 }
 

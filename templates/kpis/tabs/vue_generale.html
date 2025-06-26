@@ -11,18 +11,8 @@
 <div class="mb-8">
   <div class="flex items-center justify-between mb-6">
     <div>
-      <h2 class="text-2xl font-bold text-gray-900">🏠 Vue d'Ensemble</h2>
+      <h2 class="text-2xl font-bold text-gray-900">Vue d'Ensemble</h2>
       <p class="text-gray-600">Les 4 indicateurs critiques pour le pilotage quotidien de Yoozak</p>
-    </div>
-    <div class="flex items-center gap-3 text-sm text-gray-500">
-      <div class="flex items-center gap-1">
-        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-        <span>Dernière MAJ: <span class="last-update-time">--:--</span></span>
-      </div>
-      <button data-action="refresh" class="flex items-center gap-1 px-3 py-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200">
-        <i class="fas fa-sync-alt text-xs"></i>
-        <span>Actualiser</span>
-      </button>
     </div>
   </div>
 
@@ -35,11 +25,9 @@
     <!-- KPI 2: Commandes du Jour -->
     <div data-kpi="commandes-jour">
       {% include 'kpis/components/kpi_card.html' with title='Commandes' subtitle="Aujourd'hui" value='--' unit='commandes' icon='fas fa-shopping-cart' color='green' trend='--' trend_label='vs hier' sub_value='Chargement...' status='loading' %}
-    </div>
-
-    <!-- KPI 3: Stock Critique Pointures -->
+    </div> <!-- KPI 3: Stock Critique Articles Populaires -->
     <div data-kpi="stock-critique">
-      {% include 'kpis/components/kpi_card.html' with title='Stock Critique' subtitle='Pointures 38-42' value='--' unit='articles' icon='fas fa-exclamation-triangle' color='orange' trend='--' trend_label='seuil critique' sub_value='Chargement...' status='loading' %}
+      {% include 'kpis/components/kpi_card.html' with title='Stock Critique' subtitle='Articles populaires' value='--' unit='articles' icon='fas fa-exclamation-triangle' color='orange' trend='--' trend_label='risque rupture' sub_value='Chargement...' status='loading' %}
     </div>
 
     <!-- KPI 4: Taux Conversion Téléphonique -->
@@ -55,10 +43,7 @@
     <i class="fas fa-tachometer-alt text-gray-600"></i>
     Indicateurs Synthétiques
   </h3>
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-    <div data-kpi="clients-fideles">
-      {% include 'kpis/components/kpi_card.html' with title='Clients Fidèles' value='--' unit='clients' size='small' color='blue' trend='--' %}
-    </div>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
     <div data-kpi="panier-moyen">
       {% include 'kpis/components/kpi_card.html' with title='Panier Moyen' value='--' unit='DH' size='small' color='green' trend='--' %}
     </div>
@@ -69,7 +54,7 @@
       {% include 'kpis/components/kpi_card.html' with title='Satisfaction' value='--' unit='/5' size='small' color='yellow' trend='--' %}
     </div>
     <div data-kpi="support-24-7">
-      {% include 'kpis/components/kpi_card.html' with title='Support 24/7' value='--' unit='min' size='small' color='green' trend='--' %}
+      {% include 'kpis/components/kpi_card.html' with title='Taux Livraison' value='--' unit='%' size='small' color='green' trend='--' %}
     </div>
     <div data-kpi="stock-total">
       {% include 'kpis/components/kpi_card.html' with title='Stock Total' value='--' unit='articles' size='small' color='blue' trend='--' %}
@@ -84,299 +69,489 @@
     <div class="flex items-center justify-between mb-4">
       <div>
         <h3 class="text-lg font-semibold text-gray-900">📈 Evolution du Chiffre d'Affaires</h3>
-        <p class="text-sm text-gray-600">Tendance sur 12 mois glissants</p>
       </div>
       <div class="flex items-center gap-2">
-        <select class="text-sm border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-blue-500">
-          <option value="12months">12 mois</option>
-          <option value="6months">6 mois</option>
-          <option value="3months">3 mois</option>
-        </select>
-        <button class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"><i class="fas fa-expand"></i></button>
+        <!-- Sélecteur de période style moderne -->
+        <div class="flex items-center bg-gray-100 rounded-lg p-1" id="ca-period-selector-wrapper">
+          <button data-period="7j" class="ca-period-btn px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 text-gray-600 hover:text-gray-800">7j</button>
+          <button data-period="30j" class="ca-period-btn px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 bg-blue-600 text-white shadow-sm">30j</button>
+          <button data-period="90j" class="ca-period-btn px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 text-gray-600 hover:text-gray-800">90j</button>
+        </div>
       </div>
     </div>
 
     <!-- Canvas pour Chart.js -->
     <div class="relative h-64">
       <canvas id="ca-evolution-chart" class="w-full h-full"></canvas>
-    </div>
-
-    <!-- Légende/Résumé -->
-    <div class="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+    </div> <!-- Légende/Résumé - Données dynamiques -->
+    <div class="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-gray-100" id="ca-evolution-summary">
       <div class="text-center">
-        <div class="text-2xl font-bold text-blue-600">1.25M</div>
+        <div class="text-2xl font-bold text-blue-600" id="ca-ce-mois">--</div>
         <div class="text-sm text-gray-600">Ce mois</div>
       </div>
       <div class="text-center">
-        <div class="text-2xl font-bold text-green-600">+15.2%</div>
-        <div class="text-sm text-gray-600">Croissance</div>
+        <div class="text-2xl font-bold text-green-600" id="ca-croissance">--%</div>
+        <div class="text-sm text-gray-600">Tendance</div>
       </div>
       <div class="text-center">
-        <div class="text-2xl font-bold text-purple-600">12.8M</div>
-        <div class="text-sm text-gray-600">Année en cours</div>
+        <div class="text-2xl font-bold text-purple-600" id="ca-annee">--</div>
+        <div class="text-sm text-gray-600">30 derniers jours</div>
       </div>
     </div>
   </div>
-
-  <!-- Répartition Géographique (Carte Maroc) -->
+  <!-- Performance par Région (Données Dynamiques) -->
   <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
     <div class="flex items-center justify-between mb-4">
       <div>
         <h3 class="text-lg font-semibold text-gray-900">🌍 Performance par Région</h3>
-        <p class="text-sm text-gray-600">Répartition CA - Maroc</p>
+        <p class="text-sm text-gray-600">Répartition CA - 30 derniers jours</p>
       </div>
       <div class="flex items-center gap-2">
-        <button class="text-sm text-blue-600 hover:text-blue-800"><i class="fas fa-map"></i> Vue carte</button>
-        <button class="text-sm text-gray-500 hover:text-gray-700"><i class="fas fa-chart-pie"></i> Vue graphique</button>
+        <div class="text-sm text-gray-500" id="regions-stats">
+          <i class="fas fa-chart-pie text-blue-500"></i>
+          <span>Chargement...</span>
+        </div>
       </div>
     </div>
 
-    <!-- Placeholder pour carte interactive Maroc -->
-    <div class="relative h-64 bg-gradient-to-br from-blue-50 to-green-50 rounded-lg flex items-center justify-center">
-      <div class="text-center">
-        <i class="fas fa-map-marked-alt text-4xl text-blue-400 mb-2"></i>
-        <p class="text-gray-600">Carte interactive du Maroc</p>
-        <p class="text-sm text-gray-500">Intégration en cours...</p>
+    <!-- Graphique en barres pour les régions -->
+    <div class="relative h-64 mb-4" id="regions-chart-container">
+      <div class="h-full flex items-center justify-center text-gray-500">
+        <div class="text-center">
+          <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+          <p>Chargement des données...</p>
+        </div>
       </div>
     </div>
 
-    <!-- Top Régions -->
-    <div class="mt-4 pt-4 border-t border-gray-100">
+    <!-- Top Régions avec données dynamiques -->
+    <div class="pt-4 border-t border-gray-100" id="regions-list">
       <div class="space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <span class="text-sm font-medium">Casablanca-Settat</span>
-          </div>
-          <div class="text-sm font-semibold text-gray-900">385K DH (31%)</div>
-        </div>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span class="text-sm font-medium">Rabat-Salé-Kénitra</span>
-          </div>
-          <div class="text-sm font-semibold text-gray-900">268K DH (21%)</div>
-        </div>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 bg-orange-500 rounded-full"></div>
-            <span class="text-sm font-medium">Marrakech-Safi</span>
-          </div>
-          <div class="text-sm font-semibold text-gray-900">187K DH (15%)</div>
+        <!-- Les données seront chargées dynamiquement -->
+        <div class="text-center text-gray-500">
+          <i class="fas fa-spinner fa-spin"></i>
+          Chargement des régions...
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Alertes et Activité Récente -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <!-- Alertes Importantes -->
-  <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-    <div class="flex items-center gap-2 mb-4">
-      <i class="fas fa-bell text-orange-500"></i>
-      <h3 class="text-lg font-semibold text-gray-900">🚨 Alertes</h3>
-    </div>
+<!-- Section supprimée: Alertes, Activité et Équipe Active (données statiques) -->
+<!-- Ces sections seront implémentées plus tard avec des données dynamiques -->
 
-    <div class="space-y-3">
-      <!-- Alerte Stock -->
-      <div class="flex items-start gap-3 p-3 bg-orange-50 rounded-lg border-l-4 border-orange-400">
-        <i class="fas fa-exclamation-triangle text-orange-500 mt-1"></i>
-        <div>
-          <div class="font-medium text-orange-800">Stock Critique</div>
-          <div class="text-sm text-orange-600">Sandales femme P39 - Plus que 3 unités</div>
-          <div class="text-xs text-orange-500 mt-1">Il y a 15 min</div>
-        </div>
-      </div>
-
-      <!-- Alerte Commande -->
-      <div class="flex items-start gap-3 p-3 bg-red-50 rounded-lg border-l-4 border-red-400">
-        <i class="fas fa-clock text-red-500 mt-1"></i>
-        <div>
-          <div class="font-medium text-red-800">Retard Livraison</div>
-          <div class="text-sm text-red-600">5 commandes Casablanca en retard</div>
-          <div class="text-xs text-red-500 mt-1">Il y a 32 min</div>
-        </div>
-      </div>
-
-      <!-- Alerte Positive -->
-      <div class="flex items-start gap-3 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
-        <i class="fas fa-trophy text-green-500 mt-1"></i>
-        <div>
-          <div class="font-medium text-green-800">Objectif Atteint</div>
-          <div class="text-sm text-green-600">Objectif mensuel dépassé de 15%</div>
-          <div class="text-xs text-green-500 mt-1">Il y a 1h</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="mt-4 pt-4 border-t border-gray-100">
-      <a href="#" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
-        Voir toutes les alertes
-        <i class="fas fa-chevron-right text-xs"></i>
-      </a>
-    </div>
-  </div>
-
-  <!-- Activité Récente -->
-  <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-    <div class="flex items-center gap-2 mb-4">
-      <i class="fas fa-history text-blue-500"></i>
-      <h3 class="text-lg font-semibold text-gray-900">⚡ Activité</h3>
-    </div>
-
-    <div class="space-y-3">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-          <i class="fas fa-check text-green-600 text-sm"></i>
-        </div>
-        <div class="flex-1">
-          <div class="text-sm font-medium">Commande #1247 confirmée</div>
-          <div class="text-xs text-gray-500">Chaussures Homme - Casablanca</div>
-        </div>
-        <div class="text-xs text-gray-400">2 min</div>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-          <i class="fas fa-phone text-blue-600 text-sm"></i>
-        </div>
-        <div class="flex-1">
-          <div class="text-sm font-medium">Appel client - Suivi</div>
-          <div class="text-xs text-gray-500">Fatima A. - Rabat</div>
-        </div>
-        <div class="text-xs text-gray-400">5 min</div>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-          <i class="fas fa-truck text-purple-600 text-sm"></i>
-        </div>
-        <div class="flex-1">
-          <div class="text-sm font-medium">Livraison expédiée</div>
-          <div class="text-xs text-gray-500">Commande #1245 - Marrakech</div>
-        </div>
-        <div class="text-xs text-gray-400">12 min</div>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
-          <i class="fas fa-box text-yellow-600 text-sm"></i>
-        </div>
-        <div class="flex-1">
-          <div class="text-sm font-medium">Stock mis à jour</div>
-          <div class="text-xs text-gray-500">Baskets Homme P41</div>
-        </div>
-        <div class="text-xs text-gray-400">18 min</div>
-      </div>
-    </div>
-
-    <div class="mt-4 pt-4 border-t border-gray-100">
-      <a href="#" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
-        Voir historique complet
-        <i class="fas fa-chevron-right text-xs"></i>
-      </a>
-    </div>
-  </div>
-
-  <!-- Opérateurs Actifs -->
-  <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-    <div class="flex items-center gap-2 mb-4">
-      <i class="fas fa-users text-green-500"></i>
-      <h3 class="text-lg font-semibold text-gray-900">👥 Équipe Active</h3>
-    </div>
-
-    <div class="space-y-4">
-      <!-- Opérateur 1 -->
-      <div class="flex items-center gap-3">
-        <div class="relative">
-          <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">SA</div>
-          <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-        </div>
-        <div class="flex-1">
-          <div class="font-medium text-gray-900">Sarah A.</div>
-          <div class="text-xs text-gray-500">Confirmation • 12 appels</div>
-        </div>
-        <div class="text-sm font-semibold text-green-600">85%</div>
-      </div>
-
-      <!-- Opérateur 2 -->
-      <div class="flex items-center gap-3">
-        <div class="relative">
-          <div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold">MB</div>
-          <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-        </div>
-        <div class="flex-1">
-          <div class="font-medium text-gray-900">Mohamed B.</div>
-          <div class="text-xs text-gray-500">Logistique • 8 commandes</div>
-        </div>
-        <div class="text-sm font-semibold text-blue-600">92%</div>
-      </div>
-
-      <!-- Opérateur 3 -->
-      <div class="flex items-center gap-3">
-        <div class="relative">
-          <div class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold">FK</div>
-          <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-orange-500 rounded-full border-2 border-white"></div>
-        </div>
-        <div class="flex-1">
-          <div class="font-medium text-gray-900">Fatima K.</div>
-          <div class="text-xs text-gray-500">Confirmation • En pause</div>
-        </div>
-        <div class="text-sm font-semibold text-gray-400">--</div>
-      </div>
-    </div>
-
-    <div class="mt-4 pt-4 border-t border-gray-100">
-      <div class="flex items-center justify-between text-sm">
-        <span class="text-gray-600">Opérateurs actifs</span>
-        <span class="font-semibold text-gray-900">7/12</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Script pour initialiser les graphiques -->
+<!-- Script pour initialiser les graphiques avec données réelles -->
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    // Graphique Evolution CA
-    const ctx = document.getElementById('ca-evolution-chart')
-    if (ctx && typeof Chart !== 'undefined') {
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
-          datasets: [
-            {
-              label: 'CA (DH)',
-              data: [850000, 920000, 1100000, 1050000, 1180000, 1220000, 1350000, 1280000, 1450000, 1380000, 1520000, 1250000],
-              borderColor: '#3b82f6',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              tension: 0.4,
-              fill: true
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                callback: function (value) {
-                  return value / 1000 + 'K DH'
-                }
-              }
-            }
+    // Variables globales pour le graphique
+    let caEvolutionChart = null
+    // Initialiser le graphique Evolution CA avec données réelles
+    function initEvolutionCAChart() {
+      loadEvolutionData('30j')
+    }
+  
+    // Mettre à jour le résumé avec les données réelles
+    function updateEvolutionSummary(data) {
+      const resume = data.resume
+  
+      // CA du mois en cours (approximation basée sur les 30 derniers jours)
+      const caMois = resume.ca_total
+      document.getElementById('ca-ce-mois').textContent = formatCurrency(caMois)
+  
+      // Tendance
+      const tendance = resume.tendance || 0
+      const tendanceElement = document.getElementById('ca-croissance')
+      tendanceElement.textContent = (tendance >= 0 ? '+' : '') + tendance.toFixed(1) + '%'
+      tendanceElement.className = `text-2xl font-bold ${tendance >= 0 ? 'text-green-600' : 'text-red-600'}`
+  
+      // CA des 30 derniers jours
+      document.getElementById('ca-annee').textContent = formatCurrency(caMois)
+    }
+  
+    // Afficher une erreur si les données ne peuvent pas être chargées
+    function showEvolutionError() {
+      const ctx = document.getElementById('ca-evolution-chart')
+      if (ctx) {
+        const parent = ctx.parentElement
+        parent.innerHTML = `
+                                                          <div class="h-64 flex items-center justify-center text-gray-500">
+                                                            <div class="text-center">
+                                                              <i class="fas fa-chart-line text-4xl mb-2"></i>
+                                                              <p>Données en cours de chargement...</p>
+                                                              <p class="text-sm">ou aucune donnée disponible</p>
+                                                            </div>
+                                                          </div>
+                                                        `
+      }
+  
+      // Valeurs par défaut pour le résumé
+      document.getElementById('ca-ce-mois').textContent = '0 DH'
+      document.getElementById('ca-croissance').textContent = '0%'
+      document.getElementById('ca-annee').textContent = '0 DH'
+    }
+  
+    // Fonction utilitaire pour formater les montants
+    function formatCurrency(amount) {
+      if (amount >= 1000000) {
+        return (amount / 1000000).toFixed(1) + 'M DH'
+      } else if (amount >= 1000) {
+        return (amount / 1000).toFixed(0) + 'K DH'
+      }
+      return amount.toLocaleString() + ' DH'
+    }
+  
+    // Initialiser le graphique
+    initEvolutionCAChart()
+  
+    // Gérer le changement de période avec les nouveaux boutons
+    const periodButtons = document.querySelectorAll('.ca-period-btn')
+    if (periodButtons.length > 0) {
+      periodButtons.forEach((button) => {
+        button.addEventListener('click', function () {
+          const newPeriod = this.dataset.period
+  
+          // Mettre à jour l'état visuel des boutons
+          periodButtons.forEach((btn) => {
+            btn.classList.remove('bg-blue-600', 'text-white', 'shadow-sm')
+            btn.classList.add('text-gray-600', 'hover:text-gray-800')
+          })
+  
+          // Activer le bouton sélectionné
+          this.classList.add('bg-blue-600', 'text-white', 'shadow-sm')
+          this.classList.remove('text-gray-600', 'hover:text-gray-800')
+  
+          // Détruire l'ancien graphique
+          if (caEvolutionChart) {
+            caEvolutionChart.destroy()
           }
-        }
+  
+          // Recharger avec la nouvelle période
+          loadEvolutionData(newPeriod)
+        })
       })
     }
+  
+    // Fonction pour charger les données avec une période spécifique
+    function loadEvolutionData(period = '30j') {
+      const ctx = document.getElementById('ca-evolution-chart')
+      if (!ctx || typeof Chart === 'undefined') {
+        console.warn('Chart.js non disponible ou canvas non trouvé')
+        return
+      }
+  
+      // Afficher un indicateur de chargement
+      const parent = ctx.parentElement
+      const originalContent = parent.innerHTML
+      parent.innerHTML = `
+                                                        <div class="h-64 flex items-center justify-center text-gray-500">
+                                                          <div class="text-center">
+                                                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                                            <p>Chargement des données...</p>
+                                                          </div>
+                                                        </div>
+                                                      `
+  
+      fetch(`/kpis/api/evolution-ca/?period=${period}`)
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.success) {
+            // Restaurer le canvas
+            parent.innerHTML = '<canvas id="ca-evolution-chart" class="w-full h-full"></canvas>'
+            const newCtx = document.getElementById('ca-evolution-chart')
+  
+            // Préparer les données pour Chart.js
+            const labels = data.evolution.map((d) => d.date_formatee)
+            const values = data.evolution.map((d) => d.ca)
+  
+            // Créer le nouveau graphique
+            caEvolutionChart = new Chart(newCtx, {
+              type: 'line',
+              data: {
+                labels: labels,
+                datasets: [
+                  {
+                    label: 'CA Quotidien (DH)',
+                    data: values,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#3b82f6',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function (context) {
+                        return `CA: ${context.parsed.y.toLocaleString()} DH`
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      callback: function (value) {
+                        if (value >= 1000000) {
+                          return (value / 1000000).toFixed(1) + 'M DH'
+                        } else if (value >= 1000) {
+                          return (value / 1000).toFixed(0) + 'K DH'
+                        }
+                        return value + ' DH'
+                      }
+                    }
+                  },
+                  x: {
+                    ticks: {
+                      maxTicksLimit: 10
+                    }
+                  }
+                }
+              }
+            })
+  
+            // Mettre à jour le résumé
+            updateEvolutionSummary(data)
+          } else {
+            console.error('Erreur API Evolution CA:', data.message)
+            parent.innerHTML = originalContent
+            showEvolutionError()
+          }
+        })
+        .catch((error) => {
+          console.error('Erreur réseau Evolution CA:', error)
+          parent.innerHTML = originalContent
+          showEvolutionError()
+        })
+    }
+  
+    // Initialiser les données des régions
+    loadRegionsData()
   })
+  
+  // === FONCTION POUR CHARGER LES DONNÉES DES RÉGIONS ===
+  function loadRegionsData(period = '30j') {
+    fetch(`/kpis/api/performance-regions/?period=${period}`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          if (data.empty || !data.regions || data.regions.length === 0) {
+            showRegionsEmpty()
+          } else {
+            updateRegionsChart(data.regions)
+            updateRegionsList(data.regions)
+            updateRegionsStats(data.stats)
+          }
+        } else {
+          showRegionsError()
+        }
+      })
+      .catch((error) => {
+        console.error('Erreur lors du chargement des régions:', error)
+        showRegionsError()
+      })
+  }
+  function updateRegionsChart(regions) {
+    const container = document.getElementById('regions-chart-container')
+    if (!container || !regions.length) return
+  
+    // Créer un graphique en barres simple avec HTML/CSS
+    const maxCA = Math.max(...regions.map((r) => r.ca_total))
+  
+    // Créer le conteneur principal
+    const chartDiv = document.createElement('div')
+    chartDiv.className = 'space-y-3'
+  
+    regions.forEach((region) => {
+      const percentage = (region.ca_total / maxCA) * 100
+  
+      // Créer la ligne de région
+      const regionRow = document.createElement('div')
+      regionRow.className = 'flex items-center gap-3'
+  
+      // Nom de la région
+      const nameDiv = document.createElement('div')
+      nameDiv.className = 'w-20 text-xs font-medium text-gray-600 text-right'
+      nameDiv.textContent = region.nom_region
+  
+      // Barre de progression
+      const progressContainer = document.createElement('div')
+      progressContainer.className = 'flex-1 relative'
+  
+      const progressBg = document.createElement('div')
+      progressBg.className = 'w-full bg-gray-200 rounded-full h-6'
+  
+      const progressBar = document.createElement('div')
+      progressBar.className = 'h-6 rounded-full flex items-center justify-end pr-2 text-white text-xs font-bold'
+      progressBar.style.width = percentage + '%'
+      progressBar.style.backgroundColor = region.couleur
+      progressBar.textContent = region.pourcentage + '%'
+  
+      progressBg.appendChild(progressBar)
+      progressContainer.appendChild(progressBg)
+  
+      // Montant
+      const amountDiv = document.createElement('div')
+      amountDiv.className = 'w-16 text-xs font-semibold text-gray-900 text-right'
+      amountDiv.textContent = region.ca_total_format
+  
+      regionRow.appendChild(nameDiv)
+      regionRow.appendChild(progressContainer)
+      regionRow.appendChild(amountDiv)
+  
+      chartDiv.appendChild(regionRow)
+    })
+  
+    container.innerHTML = ''
+    container.appendChild(chartDiv)
+  }
+  
+  function updateRegionsList(regions) {
+    const listContainer = document.getElementById('regions-list')
+    if (!listContainer || !regions.length) return
+  
+    // Créer le conteneur principal
+    const listDiv = document.createElement('div')
+    listDiv.className = 'space-y-3'
+  
+    regions.forEach((region) => {
+      // Créer la carte de région
+      const regionCard = document.createElement('div')
+      regionCard.className = 'flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors'
+  
+      // Partie gauche (couleur + info)
+      const leftDiv = document.createElement('div')
+      leftDiv.className = 'flex items-center gap-3'
+  
+      const colorDot = document.createElement('div')
+      colorDot.className = 'w-4 h-4 rounded-full'
+      colorDot.style.backgroundColor = region.couleur
+  
+      const infoDiv = document.createElement('div')
+  
+      const nameSpan = document.createElement('span')
+      nameSpan.className = 'text-sm font-medium text-gray-900'
+      nameSpan.textContent = region.nom_region
+  
+      const commandesDiv = document.createElement('div')
+      commandesDiv.className = 'text-xs text-gray-500'
+      commandesDiv.textContent = region.nb_commandes + ' commandes'
+  
+      infoDiv.appendChild(nameSpan)
+      infoDiv.appendChild(commandesDiv)
+  
+      leftDiv.appendChild(colorDot)
+      leftDiv.appendChild(infoDiv)
+  
+      // Partie droite (montants)
+      const rightDiv = document.createElement('div')
+      rightDiv.className = 'text-right'
+  
+      const amountDiv = document.createElement('div')
+      amountDiv.className = 'text-sm font-semibold text-gray-900'
+      amountDiv.textContent = region.ca_total_format
+  
+      const percentDiv = document.createElement('div')
+      percentDiv.className = 'text-xs text-gray-500'
+      percentDiv.textContent = region.pourcentage + '%'
+  
+      rightDiv.appendChild(amountDiv)
+      rightDiv.appendChild(percentDiv)
+  
+      regionCard.appendChild(leftDiv)
+      regionCard.appendChild(rightDiv)
+  
+      listDiv.appendChild(regionCard)
+    })
+  
+    listContainer.innerHTML = ''
+    listContainer.appendChild(listDiv)
+  }
+  
+  function updateRegionsStats(stats) {
+    const statsElement = document.getElementById('regions-stats')
+    if (statsElement && stats) {
+      statsElement.innerHTML = ''
+  
+      const icon = document.createElement('i')
+      icon.className = 'fas fa-chart-pie text-blue-500'
+  
+      const span = document.createElement('span')
+      span.textContent = stats.total_regions + ' régions • ' + stats.ca_total_format
+  
+      statsElement.appendChild(icon)
+      statsElement.appendChild(span)
+    }
+  }
+  function showRegionsError() {
+    const container = document.getElementById('regions-chart-container')
+    const listContainer = document.getElementById('regions-list')
+  
+    if (container) {
+      container.innerHTML = `
+                              <div class="h-full flex items-center justify-center text-gray-500">
+                                <div class="text-center">
+                                  <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                                  <p>Erreur de chargement</p>
+                                  <p class="text-sm">Impossible de charger les données des régions</p>
+                                </div>
+                              </div>
+                            `
+    }
+  
+    if (listContainer) {
+      listContainer.innerHTML = `
+                              <div class="text-center text-gray-500 p-4">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Données non disponibles
+                              </div>
+                            `
+    }
+  }
+  
+  function showRegionsEmpty() {
+    const container = document.getElementById('regions-chart-container')
+    const listContainer = document.getElementById('regions-list')
+    const statsElement = document.getElementById('regions-stats')
+  
+    if (container) {
+      container.innerHTML = `
+                              <div class="h-full flex items-center justify-center text-gray-400">
+                                <div class="text-center">
+                                  <i class="fas fa-chart-bar text-4xl mb-3"></i>
+                                  <p class="text-lg font-medium">Aucune donnée disponible</p>
+                                  <p class="text-sm">Les statistiques régionales apparaîtront ici dès qu'il y aura des commandes.</p>
+                                </div>
+                              </div>
+                            `
+    }
+  
+    if (listContainer) {
+      listContainer.innerHTML = `
+                              <div class="text-center text-gray-400 p-6">
+                                <i class="fas fa-map-marked-alt text-3xl mb-3"></i>
+                                <p class="font-medium">Aucune région trouvée</p>
+                                <p class="text-sm">Les données apparaîtront dès que des commandes seront passées.</p>
+                              </div>
+                            `
+    }
+  
+    if (statsElement) {
+      statsElement.innerHTML = `
+                              <i class="fas fa-chart-pie text-gray-400"></i>
+                              <span class="text-gray-400">0 régions • 0 DH</span>
+                            `
+    }
+  }
 </script>

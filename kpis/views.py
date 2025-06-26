@@ -1,21 +1,66 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Count, Avg, Q, F
+from django.db.models import Sum, Count, Avg, Q, F, Min
 from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
+from functools import wraps
 
 from commande.models import Commande, Panier, EtatCommande, Operation
 from article.models import Article
 from client.models import Client
 from parametre.models import Operateur
+from .models import KPIConfiguration  # Assurez-vous d'importer votre modèle de configuration
 
+def api_login_required(view_func):
+    """Décorateur qui renvoie du JSON au lieu de rediriger pour les APIs"""
+    @wraps(view_func)
+    def wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'success': False,
+                'message': 'Authentification requise',
+                'error': 'non_authentifie'
+            }, status=401)
+        return view_func(request, *args, **kwargs)
+    return wrapped_view
+
+def get_integer_fields():
+    """Retourne la liste des champs qui doivent être des entiers"""
+    integer_fields = [
+        'delai_livraison_defaut',
+        'fidelisation_commandes_min', 
+        'fidelisation_periode_jours',
+        'periode_analyse_standard',
+        'delai_livraison_alerte',
+        'stock_critique_seuil',
+        'stock_ventes_minimum',
+        'periode_analyse_defaut'  # Ajouté pour les selects
+    ]
+    return integer_fields
+
+def validate_integer_value(nom_parametre, valeur):
+    """Valide qu'une valeur est un entier pour les champs qui le requièrent"""
+    integer_fields = get_integer_fields()
+    
+    if nom_parametre in integer_fields:
+        # Vérifier que c'est un entier
+        if not isinstance(valeur, int) and not (isinstance(valeur, float) and valeur.is_integer()):
+            return False, f"Ce champ doit être un nombre entier (pas de décimales)"
+        
+        # Convertir en entier si c'est un float qui représente un entier
+        if isinstance(valeur, float) and valeur.is_integer():
+            valeur = int(valeur)
+    
+    return True, valeur
+
+@login_required
 def dashboard_home(request):
     """Page principale du dashboard KPIs"""
-    return render(request, 'composant_generale/admin/home.html')
+    return render(request, 'kpis/dashboard.html')
 
-# @login_required  # Temporairement désactivé pour test
+@login_required
 def vue_generale_data(request):
     """API pour les données de l'onglet Vue Générale"""
     try:
@@ -23,6 +68,7 @@ def vue_generale_data(request):
         aujourd_hui = timezone.now().date()
         debut_mois = aujourd_hui.replace(day=1)
         mois_precedent = (debut_mois - timedelta(days=1)).replace(day=1)
+        debut_30j = aujourd_hui - timedelta(days=30)  # Défini ici pour être utilisé partout
         
         # === KPI 1: Chiffre d'Affaires du Mois ===
         ca_mois_actuel = Commande.objects.filter(
@@ -61,29 +107,54 @@ def vue_generale_data(request):
         
         difference_commandes = commandes_jour - commandes_hier
         
-        # === KPI 3: Stock Critique (pointures populaires 38-42) ===
-        seuil_critique = 10  # Stock critique si < 10 unités
-        articles_critiques = Article.objects.filter(
-            pointure__in=['38', '39', '40', '41', '42'],
-            qte_disponible__lt=seuil_critique,
-            actif=True
+        # === KPI 3: Stock Critique (Articles Populaires en Rupture) ===
+        # Stratégie intelligente : identifier les articles les plus vendus avec stock faible
+        
+        # 1. Identifier les articles avec de bonnes ventes sur les 30 derniers jours
+        articles_populaires = Article.objects.annotate(
+            ventes_recentes=Count(
+                'paniers__commande',
+                filter=Q(
+                    paniers__commande__date_cmd__gte=debut_30j,
+                    paniers__commande__date_cmd__lte=aujourd_hui
+                ) & ~Q(
+                    paniers__commande__etats__enum_etat__libelle__iexact='Annulée'
+                )
+            )
+        ).filter(
+            actif=True,
+            ventes_recentes__gte=2  # Au moins 2 ventes dans les 30 derniers jours
+        )
+        
+        # 2. Parmi ces articles populaires, identifier ceux en stock critique
+        seuil_critique = 5  # Stock critique si < 5 unités pour un article populaire
+        articles_critiques = articles_populaires.filter(
+            qte_disponible__lt=seuil_critique
         ).count()
         
-        # Total articles pointures populaires
-        total_articles_populaires = Article.objects.filter(
-            pointure__in=['38', '39', '40', '41', '42'],
-            actif=True
-        ).count()
+        # Total des articles populaires (pour calculer le pourcentage)
+        total_articles_populaires = articles_populaires.count()
         
-        # === KPI 4: Taux de Conversion Téléphonique ===
+        # 3. Calcul de la tendance basée sur le pourcentage d'articles critiques
+        if total_articles_populaires > 0:
+            pourcentage_critique = (articles_critiques / total_articles_populaires) * 100
+            # Logique business : moins de 10% = bon, 10-25% = attention, plus de 25% = critique
+            if pourcentage_critique < 10:
+                tendance_stock = -1  # Amélioration (moins d'articles critiques)
+            elif pourcentage_critique > 25:
+                tendance_stock = 2   # Dégradation (beaucoup d'articles critiques)
+            else:
+                tendance_stock = 0   # Stable
+        else:
+            tendance_stock = 0
+            pourcentage_critique = 0          # === KPI 4: Taux de Conversion Téléphonique ===
         # Opérations de confirmation des 30 derniers jours
-        debut_30j = aujourd_hui - timedelta(days=30)
         operations_total = Operation.objects.filter(
             date_operation__gte=debut_30j,
             type_operation__in=['APPEL', 'Appel Whatsapp']
         ).count()
         
-        # Commandes confirmées (ayant eu état "Confirmée")
+        # Commandes confirmées suite à appels (ayant eu état "Confirmée")
         commandes_confirmees = Commande.objects.filter(
             date_cmd__gte=debut_30j,
             etats__enum_etat__libelle__iexact='Confirmée'
@@ -94,13 +165,25 @@ def vue_generale_data(request):
         else:
             taux_conversion = 0
         
-        # === KPIs Secondaires ===
-        # Clients Fidèles (3+ commandes)
-        clients_fideles = Client.objects.annotate(
-            nb_commandes=Count('commandes')
-        ).filter(nb_commandes__gte=3).count()
+        # Calcul tendance taux conversion (vs période précédente)
+        debut_periode_precedente = debut_30j - timedelta(days=30)
+        operations_precedentes = Operation.objects.filter(
+            date_operation__gte=debut_periode_precedente,
+            date_operation__lt=debut_30j,
+            type_operation__in=['APPEL', 'Appel Whatsapp']
+        ).count()
         
-        # Panier Moyen (30 derniers jours)
+        commandes_confirmees_precedentes = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j,
+            etats__enum_etat__libelle__iexact='Confirmée'
+        ).distinct().count()
+        
+        if operations_precedentes > 0:
+            taux_conversion_precedent = (commandes_confirmees_precedentes / operations_precedentes) * 100
+            tendance_conversion = taux_conversion - taux_conversion_precedent
+        else:
+            tendance_conversion = 0        # === KPIs Secondaires ===        # Panier Moyen (30 derniers jours)
         panier_moyen = Commande.objects.filter(
             date_cmd__gte=debut_30j
         ).exclude(
@@ -108,33 +191,214 @@ def vue_generale_data(request):
             etats__date_fin__isnull=True
         ).aggregate(moyenne=Avg('total_cmd'))['moyenne'] or 0
         
-        # Délai Livraison Moyen
-        # Calculé sur commandes livrées récemment
-        delai_moyen = 2.8  # Valeur par défaut, calcul complexe à implémenter
+        # Panier moyen période précédente pour calculer la tendance
+        panier_moyen_precedent = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j
+        ).exclude(
+            etats__enum_etat__libelle__iexact='Annulée',
+            etats__date_fin__isnull=True
+        ).aggregate(moyenne=Avg('total_cmd'))['moyenne'] or 0
         
-        # Satisfaction Client (valeur fixe pour l'instant)
-        satisfaction = 4.6
+        # Tendance panier moyen
+        if panier_moyen_precedent > 0:
+            tendance_panier = ((panier_moyen - panier_moyen_precedent) / panier_moyen_precedent) * 100
+        else:
+            tendance_panier = 100 if panier_moyen > 0 else 0
+          # === Délai Livraison Moyen (basé sur les vraies données) ===
+        # Calculer le délai moyen pour les commandes livrées récemment
         
-        # Support 24/7 (temps de réponse moyen)
-        support_reponse = 12  # minutes
+        # 1. Récupérer les commandes livrées avec leur date de livraison
+        commandes_livrees_avec_delai = Commande.objects.filter(
+            date_cmd__gte=debut_30j,  # Commandes des 30 derniers jours
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).annotate(
+            date_livraison=Min(
+                'etats__date_debut',
+                filter=Q(etats__enum_etat__libelle__iexact='Livrée')
+            )
+        ).filter(
+            date_livraison__isnull=False  # S'assurer qu'on a une date de livraison
+        )
         
-        # Stock Total
+        # 2. Calculer le délai pour chaque commande
+        delais = []
+        for commande in commandes_livrees_avec_delai:
+            if commande.date_livraison:
+                # Convertir date_cmd en datetime pour le calcul
+                date_cmd_dt = timezone.make_aware(
+                    datetime.combine(commande.date_cmd, datetime.min.time())
+                )
+                delai_jours = (commande.date_livraison - date_cmd_dt).days
+                if delai_jours >= 0:  # Éviter les délais négatifs (données incohérentes)
+                    delais.append(delai_jours)
+        
+        # 3. Calculer la moyenne des délais
+        if delais:
+            delai_moyen = sum(delais) / len(delais)
+            nb_livraisons = len(delais)
+              # Calcul de la tendance (vs période précédente)
+            commandes_precedentes = Commande.objects.filter(
+                date_cmd__gte=debut_periode_precedente,
+                date_cmd__lt=debut_30j,
+                etats__enum_etat__libelle__iexact='Livrée'
+            ).annotate(
+                date_livraison=Min(
+                    'etats__date_debut',
+                    filter=Q(etats__enum_etat__libelle__iexact='Livrée')
+                )
+            ).filter(date_livraison__isnull=False)
+            
+            delais_precedents = []
+            for cmd in commandes_precedentes:
+                if cmd.date_livraison:
+                    date_cmd_dt = timezone.make_aware(
+                        datetime.combine(cmd.date_cmd, datetime.min.time())
+                    )
+                    delai = (cmd.date_livraison - date_cmd_dt).days
+                    if delai >= 0:
+                        delais_precedents.append(delai)
+            
+            if delais_precedents:
+                delai_moyen_precedent = sum(delais_precedents) / len(delais_precedents)
+                tendance_delai = delai_moyen - delai_moyen_precedent
+            else:
+                tendance_delai = 0
+        else:
+            # Aucune donnée disponible : utiliser une valeur par défaut réaliste
+            delai_moyen = 3.0  # 3 jours par défaut pour le e-commerce
+            nb_livraisons = 0
+            tendance_delai = 0
+          # === Satisfaction Client (basée sur le taux de retour) ===
+        # Commandes livrées avec succès
+        commandes_livrees = Commande.objects.filter(
+            date_cmd__gte=debut_30j,
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).distinct().count()
+        
+        # Commandes retournées (signe d'insatisfaction)
+        commandes_retournees = Commande.objects.filter(
+            date_cmd__gte=debut_30j,
+            etats__enum_etat__libelle__iexact='Retournée'
+        ).distinct().count()
+          # Calcul satisfaction intelligente (sur 5)
+        if commandes_livrees > 0:
+            taux_retour = (commandes_retournees / commandes_livrees) * 100
+            # Satisfaction basée sur le taux de retour avec une échelle plus réaliste
+            # Formule : Satisfaction = 5 - (taux_retour * facteur_impact)
+            # Échelle e-commerce réaliste :
+            # 0-5% retours = Excellent (4.5-5.0)
+            # 5-10% retours = Très bon (4.0-4.5) 
+            # 10-15% retours = Bon (3.25-4.0)
+            # 15-25% retours = Moyen (2.5-3.25)
+            # >25% retours = Mauvais (<2.5)
+            facteur_impact = 0.15  # Chaque % de retour enlève 0.15 point (plus strict)
+            satisfaction = max(1.0, 5.0 - (taux_retour * facteur_impact))
+            
+            # Calcul tendance (vs période précédente)
+            commandes_livrees_precedentes = Commande.objects.filter(
+                date_cmd__gte=debut_periode_precedente,
+                date_cmd__lt=debut_30j,
+                etats__enum_etat__libelle__iexact='Livrée'
+            ).distinct().count()
+            
+            commandes_retournees_precedentes = Commande.objects.filter(
+                date_cmd__gte=debut_periode_precedente,
+                date_cmd__lt=debut_30j,
+                etats__enum_etat__libelle__iexact='Retournée'
+            ).distinct().count()
+            
+            if commandes_livrees_precedentes > 0:
+                taux_retour_precedent = (commandes_retournees_precedentes / commandes_livrees_precedentes) * 100
+                satisfaction_precedente = max(1.0, 5.0 - (taux_retour_precedent * facteur_impact))
+                tendance_satisfaction = satisfaction - satisfaction_precedente
+            else:
+                tendance_satisfaction = 0
+        else:
+            satisfaction = 5.0  # Aucune donnée = parfait par défaut
+            taux_retour = 0
+            tendance_satisfaction = 0
+          # Taux de Livraison (commandes livrées / commandes confirmées)
+        commandes_confirmees_30j_total = Commande.objects.filter(
+            date_cmd__gte=debut_30j,
+            etats__enum_etat__libelle__iexact='Confirmée'
+        ).distinct().count()
+        
+        commandes_livrees_30j = Commande.objects.filter(
+            date_cmd__gte=debut_30j,
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).distinct().count()
+        
+        if commandes_confirmees_30j_total > 0:
+            taux_livraison = (commandes_livrees_30j / commandes_confirmees_30j_total) * 100
+        else:
+            taux_livraison = 0
+        
+        # Taux de livraison période précédente
+        commandes_confirmees_precedent_total = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j,
+            etats__enum_etat__libelle__iexact='Confirmée'
+        ).distinct().count()
+        
+        commandes_livrees_precedent = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j,
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).distinct().count()
+        
+        if commandes_confirmees_precedent_total > 0:
+            taux_livraison_precedent = (commandes_livrees_precedent / commandes_confirmees_precedent_total) * 100
+            tendance_taux_livraison = taux_livraison - taux_livraison_precedent
+        else:
+            tendance_taux_livraison = taux_livraison if taux_livraison > 0 else 0          # Stock Total
         stock_total = Article.objects.filter(actif=True).aggregate(
             total=Sum('qte_disponible')
         )['total'] or 0
+        
+        # Calculer la tendance du stock total basée sur les ventes récentes
+        # Logique simple : comparer les quantités vendues récemment vs période précédente
+        try:
+            # Quantités vendues des 30 derniers jours
+            qty_vendue_30j = Panier.objects.filter(
+                commande__date_cmd__gte=debut_30j,
+                commande__date_cmd__lte=aujourd_hui
+            ).exclude(
+                commande__etats__enum_etat__libelle__iexact='Annulée'
+            ).aggregate(total=Sum('quantite'))['total'] or 0
+            
+            # Quantités vendues période précédente
+            qty_vendue_precedente = Panier.objects.filter(
+                commande__date_cmd__gte=debut_periode_precedente,
+                commande__date_cmd__lt=debut_30j
+            ).exclude(
+                commande__etats__enum_etat__libelle__iexact='Annulée'
+            ).aggregate(total=Sum('quantite'))['total'] or 0
+            
+            # Plus de ventes récentes = stock diminue plus vite (tendance négative)
+            # Moins de ventes récentes = stock se maintient mieux (tendance positive)
+            if qty_vendue_precedente > 0:
+                ratio_ventes = qty_vendue_30j / qty_vendue_precedente
+                # Si ratio > 1 : plus de ventes = tendance négative (stock baisse)
+                # Si ratio < 1 : moins de ventes = tendance positive (stock se maintient)
+                tendance_stock_total = (1 - ratio_ventes) * 10  # Facteur modéré
+            else:
+                # Pas de ventes précédentes : si ventes actuelles, tendance négative
+                tendance_stock_total = -5 if qty_vendue_30j > 0 else 0
+        except:
+            tendance_stock_total = 0
         
         # Réponse JSON
         data = {
             'success': True,
             'timestamp': timezone.now().isoformat(),
-            'kpis_principaux': {
-                'ca_mois': {
+            'kpis_principaux': {                'ca_mois': {
                     'valeur': float(ca_mois_actuel),
                     'valeur_formatee': f"{ca_mois_actuel:,.0f}",
                     'tendance': round(tendance_ca, 1),
                     'unite': 'DH',
                     'label': "Chiffre d'Affaires",
-                    'sub_value': f"vs mois dernier"
+                    'sub_value': f"vs mois dernier ({ca_mois_precedent:,.0f} DH)"
                 },
                 'commandes_jour': {
                     'valeur': commandes_jour,
@@ -142,72 +406,65 @@ def vue_generale_data(request):
                     'tendance': difference_commandes,
                     'unite': 'commandes',
                     'label': 'Commandes du Jour',
-                    'sub_value': f"vs hier"
-                },
-                'stock_critique': {
+                    'sub_value': f"vs hier ({commandes_hier} commandes)"
+                },                'stock_critique': {
                     'valeur': articles_critiques,
                     'valeur_formatee': str(articles_critiques),
                     'total_articles': total_articles_populaires,
-                    'tendance': -3,  # Amélioration par rapport à la semaine dernière
+                    'pourcentage_critique': round(pourcentage_critique, 1),
+                    'tendance': tendance_stock,
                     'unite': 'articles',
                     'label': 'Stock Critique',
-                    'status': 'critical' if articles_critiques > 5 else 'warning' if articles_critiques > 0 else 'good',
-                    'sub_value': f"seuil critique"
+                    'status': 'critical' if articles_critiques > 3 else 'warning' if articles_critiques > 0 else 'good',
+                    'sub_value': f"sur {total_articles_populaires} articles populaires ({pourcentage_critique:.1f}%)"
                 },
                 'taux_conversion': {
                     'valeur': round(taux_conversion, 1),
                     'valeur_formatee': f"{taux_conversion:.1f}",
-                    'tendance': 2.1,  # Valeur fixe pour l'instant
+                    'tendance': round(tendance_conversion, 1),
                     'unite': '%',
                     'label': 'Taux Conversion',
-                    'sub_value': f"des visiteurs"
-                }
-            },
+                    'sub_value': f"{commandes_confirmees}/{operations_total} appels confirmés"
+                }},
             'kpis_secondaires': {
-                'clients_fideles': {
-                    'valeur': clients_fideles,
-                    'valeur_formatee': f"{clients_fideles:,}",
-                    'tendance': 12,
-                    'unite': 'clients',
-                    'label': 'Clients Fidèles',
-                    'sub_value': '+2+ commandes'
-                },
-                'panier_moyen': {
+                    'panier_moyen': {
                     'valeur': float(panier_moyen) if panier_moyen else 0,
                     'valeur_formatee': f"{panier_moyen:.0f}" if panier_moyen else "0",
-                    'tendance': 3.5,
+                    'tendance': round(tendance_panier, 1),
                     'unite': 'DH',
                     'label': 'Panier Moyen',
                     'sub_value': 'ce mois'
-                },
-                'delai_livraison': {
-                    'valeur': delai_moyen,
-                    'valeur_formatee': str(delai_moyen),
-                    'tendance': -0.3,
+                },'delai_livraison': {
+                    'valeur': round(delai_moyen, 1),
+                    'valeur_formatee': f"{delai_moyen:.1f}",
+                    'tendance': round(tendance_delai, 1),
+                    'nb_livraisons': nb_livraisons,
                     'unite': 'jours',
                     'label': 'Délai Livraison',
-                    'sub_value': 'moyenne'
-                },
-                'satisfaction': {
-                    'valeur': satisfaction,
-                    'valeur_formatee': str(satisfaction),
-                    'tendance': 0.2,
+                    'status': 'excellent' if delai_moyen <= 2 else 'good' if delai_moyen <= 3 else 'warning' if delai_moyen <= 5 else 'critical',
+                    'sub_value': f"moyenne sur {nb_livraisons} livraisons"
+                },'satisfaction': {
+                    'valeur': round(satisfaction, 1),
+                    'valeur_formatee': f"{satisfaction:.1f}",
+                    'tendance': round(tendance_satisfaction, 2),
+                    'taux_retour': round(taux_retour, 1),
+                    'commandes_livrees': commandes_livrees,
+                    'commandes_retournees': commandes_retournees,
                     'unite': '/5',
                     'label': 'Satisfaction',
-                    'sub_value': 'client moyen'
-                },
-                'support_24_7': {
-                    'valeur': support_reponse,
-                    'valeur_formatee': str(support_reponse),
-                    'tendance': -2,
-                    'unite': 'min',
-                    'label': 'Support 24/7',
-                    'sub_value': 'temps réponse'
-                },
-                'stock_total': {
+                    'status': 'excellent' if satisfaction >= 4.5 else 'good' if satisfaction >= 4.0 else 'warning' if satisfaction >= 3.0 else 'critical',
+                    'sub_value': f"{taux_retour:.1f}% de retours ({commandes_retournees}/{commandes_livrees})"
+                },                'support_24_7': {
+                    'valeur': round(taux_livraison, 1),
+                    'valeur_formatee': f"{taux_livraison:.1f}",
+                    'tendance': round(tendance_taux_livraison, 1),
+                    'unite': '%',
+                    'label': 'Taux Livraison',
+                    'sub_value': f'{commandes_livrees_30j}/{commandes_confirmees_30j_total} livrées'
+                },'stock_total': {
                     'valeur': stock_total,
                     'valeur_formatee': f"{stock_total:,}",
-                    'tendance': 125,
+                    'tendance': round(tendance_stock_total, 1),
                     'unite': 'articles',
                     'label': 'Stock Total',
                     'sub_value': 'disponibles'
@@ -224,6 +481,7 @@ def vue_generale_data(request):
             'message': 'Erreur lors du chargement des données KPIs'
         }, status=500)
 
+@login_required
 def ventes_data(request):
     """API pour les données de l'onglet Ventes - E-commerce téléphonique Yoozak"""
     try:
@@ -232,7 +490,6 @@ def ventes_data(request):
         debut_mois = aujourd_hui.replace(day=1)
         mois_precedent = (debut_mois - timedelta(days=1)).replace(day=1)
         debut_30j = aujourd_hui - timedelta(days=30)
-        
         # === KPI 1: CA par Période ===
         # CA des 30 derniers jours
         ca_30j = Commande.objects.filter(
@@ -281,8 +538,7 @@ def ventes_data(request):
             tendance_panier = ((panier_moyen_30j - panier_moyen_precedent) / panier_moyen_precedent) * 100
         else:
             tendance_panier = 100 if panier_moyen_30j > 0 else 0
-        
-        # === KPI 3: Taux de Confirmation ===
+          # === KPI 3: Taux de Confirmation ===
         commandes_total_30j = Commande.objects.filter(date_cmd__gte=debut_30j).count()
         commandes_confirmees_30j = Commande.objects.filter(
             date_cmd__gte=debut_30j,
@@ -293,6 +549,23 @@ def ventes_data(request):
             taux_confirmation = (commandes_confirmees_30j / commandes_total_30j) * 100
         else:
             taux_confirmation = 0
+        
+        # Taux de confirmation période précédente
+        commandes_total_precedent = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j
+        ).count()
+        commandes_confirmees_precedent = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j,
+            etats__enum_etat__libelle__iexact='Confirmée'
+        ).distinct().count()
+        
+        if commandes_total_precedent > 0:
+            taux_confirmation_precedent = (commandes_confirmees_precedent / commandes_total_precedent) * 100
+            tendance_taux_confirmation = taux_confirmation - taux_confirmation_precedent
+        else:
+            tendance_taux_confirmation = taux_confirmation if taux_confirmation > 0 else 0
         
         # === KPI 4: Nombre de Commandes ===
         nb_commandes_30j = Commande.objects.filter(
@@ -340,7 +613,7 @@ def ventes_data(request):
         # Répartition Géographique (Top 5 villes)
         ventes_par_ville = (Commande.objects
             .filter(date_cmd__gte=debut_30j)
-            .exclude(etats__enum_etat__libelle__iexact='Annulée')
+            .exclude(etats__enum_etat__iexact='Annulée')
             .values('ville__nom', 'ville__region__nom_region')
             .annotate(
                 ca_total=Sum('total_cmd'),
@@ -391,11 +664,10 @@ def ventes_data(request):
                     'unite': 'DH',
                     'label': 'Panier Moyen',
                     'sub_value': f"Commandes validées"
-                },
-                'taux_confirmation': {
+                },                'taux_confirmation': {
                     'valeur': round(taux_confirmation, 1),
                     'valeur_formatee': f"{taux_confirmation:.1f}",
-                    'tendance': 5.2,  # Valeur fixe pour l'instant
+                    'tendance': round(tendance_taux_confirmation, 1),
                     'unite': '%',
                     'label': 'Taux Confirmation',
                     'sub_value': f"{commandes_confirmees_30j}/{commandes_total_30j} confirmées"
@@ -446,6 +718,7 @@ def ventes_data(request):
             'message': 'Erreur lors du chargement des données Ventes'
         }, status=500)
 
+@login_required
 def evolution_ca_data(request):
     """API pour l'évolution du CA sur une période donnée"""
     try:
@@ -480,51 +753,50 @@ def evolution_ca_data(request):
             else:
                 date_obj = date_str
             ca_par_jour[date_obj] = float(cmd['ca_jour'] or 0)
-        
-        # Remplir tous les jours de la période
+          # Remplir tous les jours de la période avec les données réelles uniquement
         date_courante = debut_date.date()
         while date_courante <= fin_date.date():
-            ca_jour = ca_par_jour.get(date_courante, 0)
+            ca_jour = ca_par_jour.get(date_courante, 0)  # 0 si pas de ventes ce jour-là
             
             evolution_data.append({
                 'date': date_courante.strftime('%Y-%m-%d'),
                 'date_formatee': date_courante.strftime('%d/%m'),
                 'ca': ca_jour,
-                'ca_formate': f"{ca_jour:,.0f} DH"
+                'ca_formate': f"{ca_jour:,.0f} DH" if ca_jour > 0 else "0 DH"
             })
             
             date_courante += timedelta(days=1)
-        
-        # Données de test si pas assez de données réelles
-        if len([d for d in evolution_data if d['ca'] > 0]) < 3:
-            import random
-            base_ca = 15000
-            for i, day_data in enumerate(evolution_data):
-                # Variation réaliste : weekend plus bas, milieu de semaine plus haut
-                jour_semaine = (debut_date.date() + timedelta(days=i)).weekday()
-                facteur_weekend = 0.6 if jour_semaine in [5, 6] else 1.0
-                
-                variation = random.uniform(0.7, 1.4)
-                ca_simule = base_ca * facteur_weekend * variation
-                
-                day_data['ca'] = ca_simule
-                day_data['ca_formate'] = f"{ca_simule:,.0f} DH"
-        
-        # Calculs de tendance
+          # Calculs de tendance basés sur les données réelles uniquement
         ca_total = sum(d['ca'] for d in evolution_data)
         ca_moyen = ca_total / len(evolution_data) if evolution_data else 0
         
-        # Tendance (comparaison première/dernière semaine)
+        # Tendance : comparaison entre la première et la dernière semaine (si suffisamment de données)
+        tendance = 0
         if len(evolution_data) >= 14:
+            # Comparer première et dernière semaine
             premiere_semaine = evolution_data[:7]
             derniere_semaine = evolution_data[-7:]
             
             ca_debut = sum(d['ca'] for d in premiere_semaine) / 7
             ca_fin = sum(d['ca'] for d in derniere_semaine) / 7
             
-            tendance = ((ca_fin - ca_debut) / ca_debut * 100) if ca_debut > 0 else 0
-        else:
-            tendance = 0
+            if ca_debut > 0:
+                tendance = ((ca_fin - ca_debut) / ca_debut * 100)
+        elif len(evolution_data) >= 7:
+            # Si moins de 14 jours, comparer première et dernière moitié
+            milieu = len(evolution_data) // 2
+            premiere_moitie = evolution_data[:milieu]
+            derniere_moitie = evolution_data[milieu:]
+            
+            ca_debut = sum(d['ca'] for d in premiere_moitie) / len(premiere_moitie) if premiere_moitie else 0
+            ca_fin = sum(d['ca'] for d in derniere_moitie) / len(derniere_moitie) if derniere_moitie else 0
+            
+            if ca_debut > 0:
+                tendance = ((ca_fin - ca_debut) / ca_debut * 100)
+          # Statistiques supplémentaires pour l'analyse
+        jours_avec_ventes = len([d for d in evolution_data if d['ca'] > 0])
+        ca_max_jour = max([d['ca'] for d in evolution_data]) if evolution_data else 0
+        ca_min_jour = min([d['ca'] for d in evolution_data if d['ca'] > 0]) if jours_avec_ventes > 0 else 0
         
         response_data = {
             'success': True,
@@ -533,8 +805,12 @@ def evolution_ca_data(request):
             'resume': {
                 'ca_total': ca_total,
                 'ca_moyen': ca_moyen,
-                'tendance': tendance,
-                'nb_jours': nb_jours
+                'ca_max_jour': ca_max_jour,
+                'ca_min_jour': ca_min_jour,
+                'tendance': round(tendance, 2),
+                'nb_jours': nb_jours,
+                'jours_avec_ventes': jours_avec_ventes,
+                'taux_activite': round((jours_avec_ventes / nb_jours * 100), 1) if nb_jours > 0 else 0
             },
             'timestamp': timezone.now().isoformat()
         }
@@ -548,6 +824,7 @@ def evolution_ca_data(request):
             'message': 'Erreur lors du calcul de l\'évolution du CA'
         }, status=500)
 
+@login_required
 def top_modeles_data(request):
     """API pour les données du top modèles par CA"""
     try:
@@ -585,8 +862,7 @@ def top_modeles_data(request):
             ca_total__isnull=False,
             ca_total__gt=0
         ).order_by('-ca_total')[:limite]
-        
-        # Préparation des données
+          # Préparation des données (uniquement les données réelles)
         modeles_data = []
         couleurs = [
             '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
@@ -603,32 +879,6 @@ def top_modeles_data(request):
                 'prix_moyen': float(article.ca_total / article.nb_ventes) if article.nb_ventes > 0 else 0,
                 'couleur': couleurs[i % len(couleurs)]
             })
-        
-        # Données simulées si pas assez de vraies données
-        if len(modeles_data) < 5:
-            modeles_simulation = [
-                {'nom': 'Classic Leather Boot', 'ca': 25000, 'ventes': 45},
-                {'nom': 'Summer Sandal Pro', 'ca': 18500, 'ventes': 62},
-                {'nom': 'Sport Runner Elite', 'ca': 15200, 'ventes': 38},
-                {'nom': 'Casual Comfort Walk', 'ca': 12800, 'ventes': 41},
-                {'nom': 'Urban Style Sneaker', 'ca': 11400, 'ventes': 29},
-                {'nom': 'Premium Business Shoe', 'ca': 9800, 'ventes': 22},
-                {'nom': 'Adventure Hiking Boot', 'ca': 8600, 'ventes': 19}
-            ]
-            
-            for i, modele in enumerate(modeles_simulation):
-                if len(modeles_data) >= limite:
-                    break
-                    
-                modeles_data.append({
-                    'nom': modele['nom'],
-                    'reference': f'REF-{1000+i}',
-                    'ca': modele['ca'],
-                    'ca_formate': f"{modele['ca']:,.0f} DH",
-                    'nb_ventes': modele['ventes'],
-                    'prix_moyen': modele['ca'] / modele['ventes'],
-                    'couleur': couleurs[i % len(couleurs)]
-                })
         
         # Statistiques
         ca_total = sum(m['ca'] for m in modeles_data)
@@ -653,4 +903,560 @@ def top_modeles_data(request):
             'success': False,
             'error': str(e),
             'message': 'Erreur lors du chargement du top modèles'
+        }, status=500)
+
+@login_required
+def performance_regions_data(request):
+    """API pour les données de performance par région"""
+    try:
+        # Période de référence (30 derniers jours par défaut)
+        periode = request.GET.get('period', '30j')
+        aujourd_hui = timezone.now().date()
+        
+        if periode == '7j':
+            debut_periode = aujourd_hui - timedelta(days=7)
+        elif periode == '90j':
+            debut_periode = aujourd_hui - timedelta(days=90)
+        else:  # 30j par défaut
+            debut_periode = aujourd_hui - timedelta(days=30)
+        
+        # Récupérer les données par région
+        regions_data = Commande.objects.filter(
+            date_cmd__gte=debut_periode,
+            date_cmd__lte=aujourd_hui,
+            ville__isnull=False,
+            ville__region__isnull=False
+        ).exclude(
+            etats__enum_etat__libelle__iexact='Annulée',
+            etats__date_fin__isnull=True
+        ).values(
+            'ville__region__nom_region'
+        ).annotate(
+            ca_total=Sum('total_cmd'),
+            nb_commandes=Count('id'),
+            ca_moyen=Avg('total_cmd')
+        ).order_by('-ca_total')
+          # Calculer le total général pour les pourcentages
+        total_ca_general = sum(region['ca_total'] or 0 for region in regions_data)
+        
+        # Gérer le cas où il n'y a pas de données
+        if not regions_data:
+            return JsonResponse({
+                'success': True,
+                'regions': [],
+                'stats': {
+                    'total_regions': 0,
+                    'ca_total_general': 0,
+                    'ca_total_format': '0 DH',
+                    'nb_commandes_total': 0,
+                    'ca_moyen_general': 0
+                },
+                'periode': periode,
+                'message': 'Aucune donnée disponible pour cette période',
+                'empty': True
+            })
+        
+        # Formater les données pour le frontend
+        regions_formattees = []
+        
+        for i, region in enumerate(regions_data):
+            ca_total = region['ca_total'] or 0
+            pourcentage = (ca_total / total_ca_general * 100) if total_ca_general > 0 else 0
+            
+            # Couleurs pour différencier les régions
+            couleurs = [
+                '#3b82f6',  # Bleu
+                '#10b981',  # Vert
+                '#f59e0b',  # Orange
+                '#ef4444',  # Rouge
+                '#8b5cf6',  # Violet
+                '#06b6d4',  # Cyan
+                '#84cc16',  # Lime
+                '#f97316',  # Orange foncé
+            ]
+            
+            regions_formattees.append({
+                'nom_region': region['ville__region__nom_region'],
+                'ca_total': float(ca_total),
+                'ca_total_format': f"{ca_total/1000:.0f}K DH" if ca_total >= 1000 else f"{ca_total:.0f} DH",
+                'nb_commandes': region['nb_commandes'],
+                'ca_moyen': float(region['ca_moyen'] or 0),
+                'pourcentage': round(pourcentage, 1),
+                'couleur': couleurs[i % len(couleurs)]
+            })
+        
+        # Limiter aux 5 premières régions pour l'affichage
+        top_regions = regions_formattees[:5]
+        
+        # Calculer les statistiques globales
+        stats_globales = {
+            'total_regions': len(regions_formattees),
+            'ca_total_general': float(total_ca_general),
+            'ca_total_format': f"{total_ca_general/1000000:.1f}M DH" if total_ca_general >= 1000000 else f"{total_ca_general/1000:.0f}K DH",
+            'nb_commandes_total': sum(region['nb_commandes'] for region in regions_formattees),
+            'ca_moyen_general': float(total_ca_general / len(regions_formattees)) if regions_formattees else 0
+        }
+        
+        response_data = {
+            'success': True,
+            'regions': top_regions,
+            'stats': stats_globales,
+            'periode': periode,
+            'message': f'Données chargées pour {len(top_regions)} régions'
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'message': 'Erreur lors du chargement des performances par région'
+        }, status=500)
+
+@login_required
+def clients_data(request):
+    """API pour les données de l'onglet Clients - Analyse comportementale Yoozak"""
+    try:
+        # Dates de référence
+        aujourd_hui = timezone.now().date()
+        debut_mois = aujourd_hui.replace(day=1)
+        mois_precedent = (debut_mois - timedelta(days=1)).replace(day=1)
+        debut_30j = aujourd_hui - timedelta(days=30)
+        
+        # === KPI 1: Nouveaux Clients ===
+        nouveaux_clients_mois = Client.objects.filter(
+            date_creation__date__gte=debut_mois,
+            date_creation__date__lte=aujourd_hui
+        ).count()
+        
+        # Nouveaux clients mois précédent
+        fin_mois_precedent = debut_mois - timedelta(days=1)
+        nouveaux_clients_precedent = Client.objects.filter(
+            date_creation__date__gte=mois_precedent,
+            date_creation__date__lte=fin_mois_precedent
+        ).count()
+        
+        difference_nouveaux = nouveaux_clients_mois - nouveaux_clients_precedent
+        
+        # Moyenne journalière
+        jours_ecoules = (aujourd_hui - debut_mois).days + 1
+        moyenne_jour = nouveaux_clients_mois / jours_ecoules if jours_ecoules > 0 else 0
+        
+        # === KPI 2: Clients Actifs (30 derniers jours) ===
+        # Clients qui ont passé au moins une commande
+        clients_actifs_ids = Commande.objects.filter(
+            date_cmd__gte=debut_30j
+        ).values_list('client_id', flat=True).distinct()
+        
+        clients_actifs_30j = len(set(clients_actifs_ids))
+        
+        # Clients actifs période précédente
+        debut_periode_precedente = debut_30j - timedelta(days=30)
+        clients_actifs_precedent_ids = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j
+        ).values_list('client_id', flat=True).distinct()
+        
+        clients_actifs_precedent = len(set(clients_actifs_precedent_ids))
+        difference_actifs = clients_actifs_30j - clients_actifs_precedent
+        
+        # Pourcentage du total
+        total_clients = Client.objects.count()
+        pourcentage_actifs = (clients_actifs_30j / total_clients * 100) if total_clients > 0 else 0
+        
+        # === KPI 3: Taux de Retour ===
+        # Simplifié - basé sur les commandes des 30 derniers jours
+        commandes_30j = Commande.objects.filter(date_cmd__gte=debut_30j).count()
+        
+        # Estimation basée sur les motifs d'annulation (retours)
+        commandes_retournees = Commande.objects.filter(
+            date_cmd__gte=debut_30j,
+            motif_annulation__isnull=False
+        ).count()
+        
+        taux_retour = (commandes_retournees / commandes_30j * 100) if commandes_30j > 0 else 0
+        
+        # Taux retour période précédente
+        commandes_precedent = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j
+        ).count()
+        
+        retours_precedent = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j,
+            motif_annulation__isnull=False
+        ).count()
+        
+        taux_retour_precedent = (retours_precedent / commandes_precedent * 100) if commandes_precedent > 0 else 0
+        tendance_retour = taux_retour - taux_retour_precedent
+        
+        # === KPI 4: Satisfaction Client ===
+        # Calculé basé sur le taux de retour inversé et les commandes répétées
+        commandes_clients_multiples = 0
+        for client_id in clients_actifs_ids:
+            nb_commandes = Commande.objects.filter(
+                client_id=client_id,
+                date_cmd__gte=debut_30j
+            ).count()
+            if nb_commandes > 1:
+                commandes_clients_multiples += 1
+        
+        # Score satisfaction basé sur fidélisation et retours
+        taux_fidelisation = (commandes_clients_multiples / clients_actifs_30j * 100) if clients_actifs_30j > 0 else 0
+        score_satisfaction = min(5.0, max(1.0, 5.0 - (taux_retour / 20) + (taux_fidelisation / 100)))
+        
+        pourcentage_satisfaits = max(0, 100 - taux_retour * 2)
+        
+        # === ANALYSES DÉTAILLÉES ===
+        
+        # Top Clients VIP (par CA) - simplifié
+        top_clients_data = []
+        commandes_avec_ca = Commande.objects.filter(
+            date_cmd__gte=debut_30j
+        ).values('client_id').annotate(
+            ca_total=Sum('total_cmd'),
+            nb_commandes=Count('id')
+        ).order_by('-ca_total')[:5]
+        
+        for client_data in commandes_avec_ca:
+            try:
+                client = Client.objects.get(id=client_data['client_id'])
+                top_clients_data.append({
+                    'nom': f"{client.prenom} {client.nom[0]}." if client.nom else "Client anonyme",
+                    'ca_total': float(client_data['ca_total']) if client_data['ca_total'] else 0,
+                    'ca_total_format': f"{client_data['ca_total']:,.0f} DH" if client_data['ca_total'] else "0 DH",
+                    'nb_commandes': client_data['nb_commandes']
+                })
+            except Client.DoesNotExist:
+                continue
+          # Performance mensuelle
+        # Commandes du mois en cours
+        commandes_mois_actuel = Commande.objects.filter(
+            date_cmd__gte=debut_mois,
+            date_cmd__lte=aujourd_hui
+        ).count()
+        
+        # CA moyen par client actif
+        if clients_actifs_30j > 0 and len(top_clients_data) > 0:
+            ca_total_clients_actifs = sum(client['ca_total'] for client in top_clients_data)
+            ca_moyen_par_client = ca_total_clients_actifs / clients_actifs_30j
+        else:
+            ca_moyen_par_client = 0
+        
+        # Segmentation comportementale simplifiée
+        clients_reguliers = sum(1 for client_id in clients_actifs_ids 
+                              if Commande.objects.filter(client_id=client_id, date_cmd__gte=debut_30j).count() >= 3)
+        
+        clients_nouveaux_testeurs = Client.objects.filter(
+            date_creation__date__gte=debut_30j
+        ).filter(
+            id__in=clients_actifs_ids
+        ).count()
+        
+        clients_occasionnels = sum(1 for client_id in clients_actifs_ids 
+                                 if Commande.objects.filter(client_id=client_id, date_cmd__gte=debut_30j).count() == 2)
+        
+        clients_vip = len(top_clients_data)
+        total_clients_analyse = clients_actifs_30j
+        
+        # Réponse JSON structurée
+        data = {
+            'success': True,
+            'timestamp': timezone.now().isoformat(),
+            'kpis_principaux': {
+                'nouveaux_clients': {
+                    'valeur': nouveaux_clients_mois,
+                    'valeur_formatee': str(nouveaux_clients_mois),
+                    'tendance': difference_nouveaux,
+                    'unite': 'clients',
+                    'label': 'Nouveaux Clients',
+                    'sub_value': f"{moyenne_jour:.1f} nouveaux/jour"
+                },
+                'clients_actifs': {
+                    'valeur': clients_actifs_30j,
+                    'valeur_formatee': f"{clients_actifs_30j:,}",
+                    'tendance': difference_actifs,
+                    'unite': 'clients',
+                    'label': 'Clients Actifs',
+                    'sub_value': f"{pourcentage_actifs:.1f}% du total clients"
+                },
+                'taux_retour': {
+                    'valeur': round(taux_retour, 1),
+                    'valeur_formatee': f"{taux_retour:.1f}",
+                    'tendance': round(tendance_retour, 1),
+                    'unite': '%',
+                    'label': 'Taux Retour',
+                    'sub_value': f"{commandes_retournees}/{commandes_30j} retournées",
+                    'status': 'good' if taux_retour < 5 else 'warning' if taux_retour < 10 else 'critical'
+                },                'satisfaction': {
+                    'valeur': round(score_satisfaction, 1),
+                    'valeur_formatee': f"{score_satisfaction:.1f}",
+                    'tendance': round(-tendance_retour, 1),  # Inverse du taux retour
+                    'unite': '/5',
+                    'label': 'Satisfaction',
+                    'sub_value': f"{pourcentage_satisfaits:.1f}% satisfaits",
+                    'status': 'excellent' if score_satisfaction >= 4.5 else 'good' if score_satisfaction >= 4.0 else 'warning' if score_satisfaction >= 3.0 else 'critical'
+                },
+                'fidelisation': {
+                    'valeur': round(taux_fidelisation, 1),
+                    'valeur_formatee': f"{taux_fidelisation:.1f}",
+                    'tendance': round(difference_actifs / clients_actifs_precedent * 100 if clients_actifs_precedent > 0 else 0, 1),
+                    'unite': '%',
+                    'label': 'Fidélisation',
+                    'sub_value': f"{commandes_clients_multiples}/{clients_actifs_30j} clients fidèles"
+                }
+            },
+            'analyses_detaillees': {
+                'top_clients_vip': top_clients_data,
+                'performance_mensuelle': {
+                    'commandes_mois': commandes_mois_actuel,
+                    'ca_par_client': round(ca_moyen_par_client, 2)
+                },
+                'segmentation': {
+                    'acheteurs_reguliers': round((clients_reguliers / total_clients_analyse * 100), 1) if total_clients_analyse > 0 else 0,
+                    'nouveaux_testeurs': round((clients_nouveaux_testeurs / total_clients_analyse * 100), 1) if total_clients_analyse > 0 else 0,
+                    'clients_occasionnels': round((clients_occasionnels / total_clients_analyse * 100), 1) if total_clients_analyse > 0 else 0,
+                    'vip_premium': round((clients_vip / total_clients_analyse * 100), 1) if total_clients_analyse > 0 else 0
+                }
+            },
+            'stats_globales': {
+                'total_clients': total_clients,
+                'clients_actifs_30j': clients_actifs_30j,
+                'taux_activite': round((clients_actifs_30j / total_clients * 100), 1) if total_clients > 0 else 0,
+                'commandes_total_30j': commandes_30j,
+                'panier_moyen_clients': round((sum(client['ca_total'] for client in top_clients_data) / clients_actifs_30j), 2) if clients_actifs_30j > 0 else 0
+            },
+            'empty': total_clients == 0
+        }
+        
+        return JsonResponse(data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'message': 'Erreur lors du chargement des données Clients',
+            'empty': True
+        }, status=500)
+
+@login_required
+@login_required
+def documentation(request):
+    """Page de documentation KPIs"""
+    return render(request, 'kpis/documentation.html')
+
+@api_login_required
+def get_configurations(request):
+    """API pour récupérer toutes les configurations KPIs"""
+    try:
+        configs = KPIConfiguration.objects.all().order_by('categorie', 'nom_parametre')
+        
+        # Mapping des vraies catégories vers les catégories attendues par le frontend
+        category_mapping = {
+            'seuil': 'seuils',
+            'objectif': 'seuils',
+            'formule': 'calcul',
+            'periode': 'calcul',
+            'calcul': 'calcul',  # Ajout de la catégorie manquante
+            'affichage': 'affichage',
+            'interface': 'affichage',
+        }
+        
+        # Organiser par catégorie mappée
+        data = {
+            'seuils': [],
+            'calcul': [],
+            'affichage': []
+        }
+        
+        for config in configs:
+            config_data = {
+                'id': config.id,
+                'nom_parametre': config.nom_parametre,
+                'valeur': config.valeur,
+                'description': config.description,
+                'unite': config.unite,
+                'valeur_min': config.valeur_min,
+                'valeur_max': config.valeur_max,
+            }
+            # Mapper la catégorie réelle vers la catégorie frontend
+            mapped_category = category_mapping.get(config.categorie, 'calcul')
+            if mapped_category in data:
+                data[mapped_category].append(config_data)
+        
+        return JsonResponse({
+            'success': True,
+            'configurations': data,
+            'integer_fields': get_integer_fields(),  # Ajouter les champs entiers
+            'message': 'Configurations chargées avec succès'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'message': 'Erreur lors du chargement des configurations'
+        }, status=500)
+
+@api_login_required
+def save_configurations(request):
+    """API pour sauvegarder les configurations KPIs"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        configurations = data.get('configurations', [])
+        
+        if not configurations:
+            return JsonResponse({
+                'success': False,
+                'message': 'Aucune configuration à sauvegarder'
+            }, status=400)
+        
+        updated_count = 0
+        errors = []
+        field_errors = {}  # Erreurs spécifiques par champ
+        
+        for config_data in configurations:
+            try:
+                config_id = config_data.get('id')
+                valeur_raw = config_data.get('valeur', '')
+                # Validation numérique
+                try:
+                    nouvelle_valeur = float(valeur_raw) if valeur_raw != '' else 0.0
+                except (ValueError, TypeError):
+                    field_errors[str(config_id)] = "Valeur non numérique. Veuillez saisir un nombre."
+                    continue
+                
+                if config_id:
+                    config = KPIConfiguration.objects.get(id=config_id)
+                    
+                    # Validation spécifique pour les champs entiers
+                    is_valid_integer, validated_value = validate_integer_value(config.nom_parametre, nouvelle_valeur)
+                    if not is_valid_integer:
+                        field_errors[str(config_id)] = validated_value  # validated_value contient le message d'erreur
+                        continue
+                    
+                    # Utiliser la valeur validée (peut avoir été convertie en entier)
+                    nouvelle_valeur = validated_value
+                    config = KPIConfiguration.objects.get(id=config_id)
+                    
+                    # Valider les limites
+                    if config.valeur_min is not None and nouvelle_valeur < config.valeur_min:
+                        field_errors[str(config_id)] = f"Valeur trop faible (minimum: {config.valeur_min})"
+                        continue
+                    
+                    if config.valeur_max is not None and nouvelle_valeur > config.valeur_max:
+                        field_errors[str(config_id)] = f"Valeur trop élevée (maximum: {config.valeur_max})"
+                        continue
+                    
+                    # Validations métier spécifiques
+                    if config.nom_parametre == 'seuil_critique_stock' and nouvelle_valeur < 0:
+                        field_errors[str(config_id)] = "Le seuil de stock critique ne peut pas être négatif"
+                        continue
+                        
+                    if config.nom_parametre == 'taux_conversion_cible' and (nouvelle_valeur < 0 or nouvelle_valeur > 100):
+                        field_errors[str(config_id)] = "Le taux de conversion doit être entre 0 et 100%"
+                        continue
+                        
+                    if config.nom_parametre in ['delai_livraison_cible', 'periode_analyse_defaut'] and nouvelle_valeur <= 0:
+                        field_errors[str(config_id)] = "Cette valeur doit être strictement positive"
+                        continue
+                    
+                    # Mettre à jour
+                    config.valeur = nouvelle_valeur
+                    config.modifie_par = request.user
+                    config.save()
+                    updated_count += 1
+                    
+            except KPIConfiguration.DoesNotExist:
+                errors.append(f"Configuration {config_id} introuvable")
+            except ValueError as e:
+                if config_id:
+                    field_errors[str(config_id)] = "Valeur numérique invalide"
+                else:
+                    errors.append(f"Valeur invalide: {str(e)}")
+        
+        # S'il y a des erreurs de validation sur des champs spécifiques
+        if field_errors:
+            return JsonResponse({
+                'success': False,
+                'message': f"Erreurs de validation détectées sur {len(field_errors)} champ(s)",
+                'field_errors': field_errors,
+                'errors': errors,
+                'updated_count': updated_count
+            }, status=400)
+        
+        # S'il y a des erreurs générales seulement
+        if errors:
+            return JsonResponse({
+                'success': False,
+                'message': f"{updated_count} configurations sauvegardées, {len(errors)} erreurs",
+                'errors': errors
+            }, status=400)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f"{updated_count} configurations sauvegardées avec succès",
+            'updated_count': updated_count
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Format JSON invalide'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'message': 'Erreur lors de la sauvegarde'
+        }, status=500)
+
+@api_login_required
+def reset_configurations(request):
+    """API pour restaurer les configurations par défaut"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        # Valeurs par défaut
+        defaults = {
+            'stock_critique_seuil': 5.0,
+            'taux_conversion_objectif': 70.0,
+            'delai_livraison_defaut': 3.0,
+            'periode_analyse_defaut': 30.0,
+            'article_populaire_seuil': 2.0,
+            'client_fidele_seuil': 2.0,
+            'rafraichissement_auto': 5.0,
+            'afficher_tendances': 1.0,
+            'activer_animations': 1.0,
+        }
+        
+        reset_count = 0
+        for nom_param, valeur_defaut in defaults.items():
+            try:
+                config = KPIConfiguration.objects.get(nom_parametre=nom_param)
+                config.valeur = valeur_defaut
+                config.modifie_par = request.user
+                config.save()
+                reset_count += 1
+            except KPIConfiguration.DoesNotExist:
+                continue
+        
+        return JsonResponse({
+            'success': True,
+            'message': f"{reset_count} configurations restaurées aux valeurs par défaut",
+            'reset_count': reset_count
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'message': 'Erreur lors de la restauration'
         }, status=500)

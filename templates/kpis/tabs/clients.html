@@ -5,109 +5,161 @@
   <!-- En-tête -->
   <div class="flex items-center justify-between">
     <div>
-      <h2 class="text-2xl font-bold text-gray-900">👥 Analyse Clients</h2>
+      <h2 class="text-2xl font-bold text-gray-900">Analyse Clients</h2>
       <p class="text-gray-600">Comportement, fidélisation et satisfaction client</p>
     </div>
   </div>
 
-  <!-- KPIs Clients Principaux -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-    {% include 'kpis/components/kpi_card.html' with title='Nouveaux Clients' subtitle='Ce mois' value='284' unit='clients' icon='fas fa-user-plus' color='green' trend='+23' trend_label='vs mois dernier' sub_value='9.5 nouveaux/jour' %}
-
-    {% include 'kpis/components/kpi_card.html' with title='Clients Actifs' subtitle='30 derniers jours' value='1,845' unit='clients' icon='fas fa-users' color='blue' trend='+12' trend_label='vs période précédente' sub_value='68% du total clients' %}
-
-    {% include 'kpis/components/kpi_card.html' with title='Clients Fidèles' subtitle='3+ commandes' value='1,045' unit='clients' icon='fas fa-heart' color='purple' trend='+8' trend_label='vs mois dernier' sub_value='56.7% de fidélisation' %}
-
-    {% include 'kpis/components/kpi_card.html' with title='Taux Retour' subtitle='Échange pointure' value='3.2' unit='%' icon='fas fa-exchange-alt' color='orange' trend='-0.8' trend_label='amélioration' sub_value='Principalement 38-40' status='good' %}
-
-    {% include 'kpis/components/kpi_card.html' with title='Satisfaction' subtitle='Score moyen' value='4.6' unit='/5' icon='fas fa-star' color='yellow' trend='+0.2' trend_label='vs mois dernier' sub_value='92% satisfaits' status='excellent' %}
-  </div>
-
-  <!-- Analyse Détaillée Clients -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Répartition Géographique -->
-    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <i class="fas fa-map-marked-alt text-blue-600"></i>
-        Top Régions Clients
-      </h3>
-      <div class="space-y-3">
-        <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-          <span class="font-medium">Casablanca-Settat</span>
-          <span class="text-blue-600 font-bold">485 clients (26.3%)</span>
-        </div>
-        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-          <span class="font-medium">Rabat-Salé-Kénitra</span>
-          <span class="text-green-600 font-bold">312 clients (16.9%)</span>
-        </div>
-        <div class="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-          <span class="font-medium">Marrakech-Safi</span>
-          <span class="text-purple-600 font-bold">278 clients (15.1%)</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Préférences Pointures -->
-    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <i class="fas fa-shoe-prints text-purple-600"></i>
-        Préférences Pointures
-      </h3>
-      <div class="grid grid-cols-2 gap-3">
-        <div class="text-center p-3 bg-orange-50 rounded-lg">
-          <div class="text-2xl font-bold text-orange-600">39</div>
-          <div class="text-sm text-gray-600">Pointure la + demandée</div>
-        </div>
-        <div class="text-center p-3 bg-red-50 rounded-lg">
-          <div class="text-2xl font-bold text-red-600">42</div>
-          <div class="text-sm text-gray-600">Plus de retours</div>
-        </div>
-        <div class="text-center p-3 bg-green-50 rounded-lg">
-          <div class="text-2xl font-bold text-green-600">38-40</div>
-          <div class="text-sm text-gray-600">Zone premium</div>
-        </div>
-        <div class="text-center p-3 bg-blue-50 rounded-lg">
-          <div class="text-2xl font-bold text-blue-600">85%</div>
-          <div class="text-sm text-gray-600">Satisfaction taille</div>
-        </div>
+  <!-- Message d'état pour cas vide -->
+  <div id="clients-empty-state" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+    <div class="flex flex-col items-center gap-4">
+      <i class="fas fa-users text-blue-400 text-4xl"></i>
+      <div>
+        <h3 class="text-lg font-semibold text-blue-900">Aucun client enregistré</h3>
+        <p class="text-blue-700">Les données clients apparaîtront ici une fois que vous aurez des clients dans la base.</p>
       </div>
     </div>
   </div>
 
-  <!-- Top Clients & Segmentation -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Top Clients VIP -->
-    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <i class="fas fa-crown text-yellow-600"></i>
-        Clients VIP (Top 5)
-      </h3>
-      <div class="space-y-3">
+  <!-- Indicateur de chargement -->
+  <div id="clients-loading" class="text-center py-8">
+    <div class="inline-flex items-center gap-2 text-gray-600">
+      <i class="fas fa-spinner fa-spin"></i>
+      <span>Chargement des données clients...</span>
+    </div>
+  </div>
+  <!-- Contenu principal (masqué initialement) -->
+  <div id="clients-main-content" class="hidden space-y-6">
+    <!-- KPIs Clients Principaux -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <!-- Nouveaux Clients -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
         <div class="flex items-center justify-between">
-          <span class="text-sm">Fatima B.</span>
-          <span class="font-bold text-yellow-600">12,450 DH</span>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-user-plus text-green-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">Nouveaux Clients</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="nouveaux_clients" class="text-3xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="nouveaux_clients" class="text-sm text-gray-600">clients</span>
+            </div>
+            <p data-kpi-sub="nouveaux_clients" class="text-xs text-gray-500 mt-1">Ce mois</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="nouveaux_clients" class="inline-flex items-center gap-1 text-sm font-medium">
+              <i class="fas fa-arrow-up text-green-600"></i>
+              <span class="text-green-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">vs mois dernier</div>
+          </div>
         </div>
+      </div>
+
+      <!-- Clients Actifs -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
         <div class="flex items-center justify-between">
-          <span class="text-sm">Ahmed M.</span>
-          <span class="font-bold text-yellow-600">9,850 DH</span>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-users text-blue-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">Clients Actifs</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="clients_actifs" class="text-3xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="clients_actifs" class="text-sm text-gray-600">clients</span>
+            </div>
+            <p data-kpi-sub="clients_actifs" class="text-xs text-gray-500 mt-1">30 derniers jours</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="clients_actifs" class="inline-flex items-center gap-1 text-sm font-medium">
+              <i class="fas fa-arrow-up text-green-600"></i>
+              <span class="text-green-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">vs période précédente</div>
+          </div>
         </div>
+      </div>
+
+      <!-- Taux Retour -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
         <div class="flex items-center justify-between">
-          <span class="text-sm">Khadija L.</span>
-          <span class="font-bold text-yellow-600">8,900 DH</span>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-exchange-alt text-orange-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">Taux Retour</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="taux_retour" class="text-3xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="taux_retour" class="text-sm text-gray-600">%</span>
+            </div>
+            <p data-kpi-sub="taux_retour" class="text-xs text-gray-500 mt-1">Échanges/retours</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="taux_retour" class="inline-flex items-center gap-1 text-sm font-medium">
+              <i class="fas fa-arrow-down text-green-600"></i>
+              <span class="text-green-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">amélioration</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Satisfaction -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-star text-yellow-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">Satisfaction</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="satisfaction" class="text-3xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="satisfaction" class="text-sm text-gray-600">/5</span>
+            </div>
+            <p data-kpi-sub="satisfaction" class="text-xs text-gray-500 mt-1">Score moyen</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="satisfaction" class="inline-flex items-center gap-1 text-sm font-medium">
+              <i class="fas fa-arrow-up text-green-600"></i>
+              <span class="text-green-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">vs mois dernier</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Patterns d'achat -->
-    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <i class="fas fa-chart-pie text-green-600"></i>
-        Patterns d'Achat
-      </h3>
-      <div class="space-y-3">
-        {% include 'kpis/components/kpi_card.html' with title='Commande Matin' value='45' unit='%' size='small' color='blue' %}
-        {% include 'kpis/components/kpi_card.html' with title='Weekend' value='32' unit='%' size='small' color='green' %}
-        {% include 'kpis/components/kpi_card.html' with title='Mobile' value='78' unit='%' size='small' color='purple' %}
+    <!-- Analyse Détaillée Clients -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Top Clients VIP -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <i class="fas fa-crown text-yellow-600"></i>
+          Top Clients VIP
+        </h3>
+        <div id="top-clients-list" class="space-y-3">
+          <!-- Chargé dynamiquement -->
+        </div>
+        <div id="top-clients-empty" class="hidden text-center py-4 text-gray-500">
+          <i class="fas fa-crown text-gray-300 text-2xl mb-2"></i>
+          <p class="text-sm">Aucun client VIP pour le moment</p>
+        </div>
+      </div> <!-- Performance Mensuelle -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <i class="fas fa-calendar-alt text-green-600"></i>
+          Performance Mensuelle
+        </h3>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+            <span class="font-medium">Commandes ce mois</span>
+            <span data-perf="commandes_mois" class="text-blue-600 font-bold">- commandes</span>
+          </div>
+          <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+            <span class="font-medium">CA moyen/client</span>
+            <span data-perf="ca_par_client" class="text-green-600 font-bold">- DH</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -115,24 +167,50 @@
     <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
       <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
         <i class="fas fa-users-cog text-purple-600"></i>
-        Segmentation
+        Segmentation Comportementale
       </h3>
-      <div class="space-y-2">
-        <div class="flex justify-between items-center">
-          <span class="text-sm">Acheteurs Réguliers</span>
-          <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">42%</span>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="text-center p-4 bg-green-50 rounded-lg">
+          <div data-segment="acheteurs_reguliers" class="text-2xl font-bold text-green-600">-</div>
+          <div class="text-sm text-gray-600">Acheteurs Réguliers</div>
+          <div class="text-xs text-gray-500 mt-1">3+ commandes</div>
         </div>
-        <div class="flex justify-between items-center">
-          <span class="text-sm">Nouveaux Testeurs</span>
-          <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">28%</span>
+        <div class="text-center p-4 bg-blue-50 rounded-lg">
+          <div data-segment="nouveaux_testeurs" class="text-2xl font-bold text-blue-600">-</div>
+          <div class="text-sm text-gray-600">Nouveaux Testeurs</div>
+          <div class="text-xs text-gray-500 mt-1">1ère commande</div>
         </div>
-        <div class="flex justify-between items-center">
-          <span class="text-sm">Clients Occasionnels</span>
-          <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">22%</span>
+        <div class="text-center p-4 bg-orange-50 rounded-lg">
+          <div data-segment="clients_occasionnels" class="text-2xl font-bold text-orange-600">-</div>
+          <div class="text-sm text-gray-600">Clients Occasionnels</div>
+          <div class="text-xs text-gray-500 mt-1">2 commandes</div>
         </div>
-        <div class="flex justify-between items-center">
-          <span class="text-sm">VIP Premium</span>
-          <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">8%</span>
+        <div class="text-center p-4 bg-purple-50 rounded-lg">
+          <div data-segment="vip_premium" class="text-2xl font-bold text-purple-600">-</div>
+          <div class="text-sm text-gray-600">VIP Premium</div>
+          <div class="text-xs text-gray-500 mt-1">Top CA</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistiques Globales -->
+    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-chart-bar text-indigo-600"></i>
+        Statistiques Globales
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="text-center">
+          <div data-stats="total_clients" class="text-3xl font-bold text-indigo-600">-</div>
+          <div class="text-sm text-gray-600">Total Clients</div>
+        </div>
+        <div class="text-center">
+          <div data-stats="taux_activite" class="text-3xl font-bold text-green-600">-%</div>
+          <div class="text-sm text-gray-600">Taux d'Activité</div>
+        </div>
+        <div class="text-center">
+          <div data-stats="panier_moyen_clients" class="text-3xl font-bold text-yellow-600">- DH</div>
+          <div class="text-sm text-gray-600">Panier Moyen Clients</div>
         </div>
       </div>
     </div>

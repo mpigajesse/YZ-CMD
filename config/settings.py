@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-beulebpje4!9xvoqg(@rn7$j0rt2)n2%8z=!euaw%t3&3j_z8*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
 
 
 # Application definition
@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'operatLogistic',
     'synchronisation',
     'Prepacommande',
+    'kpis',
     
 ]
 
@@ -212,4 +213,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 
-NPM_BIN_PATH = "/usr/local/share/nvm/versions/node/v22.16.0/bin/npm"  # Chemin vers l'exécutable npm
+NPM_BIN_PATH = "C:/Program Files/nodejs/npm.cmd"  # Chemin vers l'exécutable npm

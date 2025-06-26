@@ -39,10 +39,21 @@
 <!-- Container principal avec gestion responsive -->
 <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
     
-    <!-- Système de Filtres Persistants -->
-    <div class="sticky top-0 z-20 mb-6">
-        {% include 'kpis/components/filters.html' %}
+    <!-- Header du Dashboard avec bouton Configuration -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Dashboard KPIs</h1>
+            <p class="text-gray-600">Indicateurs de performance en temps réel</p>
+        </div>
+        <a href="{% url 'kpis:documentation' %}" class="flex items-center justify-center w-10 h-10 bg-gray-50 hover:bg-blue-50 text-gray-600 hover:text-blue-600 border border-gray-200 hover:border-blue-200 rounded-full transition-all duration-300 transform hover:scale-110" title="Configuration des KPIs">
+            <i class="fas fa-cog text-lg"></i>
+        </a>
     </div>
+    
+    <!-- Système de Filtres Persistants -->
+    {% comment %} <div class="sticky top-0 z-20 mb-6">
+        {% include 'kpis/components/filters.html' %}
+    </div> {% endcomment %}
 
     <!-- Navigation par Onglets et Contenu KPIs -->
     <div class="space-y-6">
@@ -89,7 +100,7 @@
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
 <!-- Scripts spécialisés KPIs -->
-<script src="{% static 'js/kpis/filters.js' %}"></script>
+{% comment %} <script src="{% static 'js/kpis/filters.js' %}"></script> {% endcomment %}
 <script src="{% static 'js/kpis/charts.js' %}"></script>
 <script src="{% static 'js/kpis/dashboard.js' %}"></script>
 
@@ -139,8 +150,10 @@ class YoozakKPIDashboard {
             this.showErrorMessage('Erreur lors du chargement du dashboard');
         }
     }
-    
-    initializeFilters() {
+      initializeFilters() {
+        // Filtres temporairement désactivés
+        console.log('🎯 Filtres désactivés temporairement');
+        /*
         // Restaurer les filtres depuis le localStorage
         const savedFilters = localStorage.getItem('yoozak-kpi-filters');
         if (savedFilters) {
@@ -156,20 +169,80 @@ class YoozakKPIDashboard {
         document.addEventListener('filterChanged', (e) => {
             this.handleFilterChange(e.detail);
         });
+        */
     }
-    
-    initializeTabs() {
+      initializeTabs() {
         // Restaurer l'onglet actif depuis l'URL ou localStorage
         const urlHash = window.location.hash.substring(1);
         const savedTab = localStorage.getItem('yoozak-kpi-active-tab');
         
         this.activeTab = urlHash || savedTab || 'vue-generale';
         
+        // Gérer les clics sur les onglets
+        document.querySelectorAll('.kpi-tab-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const tabName = button.getAttribute('data-tab');
+                this.switchToTab(tabName);
+            });
+        });
+        
         // Écouter les changements d'onglets
         document.addEventListener('tabChanged', (e) => {
             this.activeTab = e.detail.tab;
             localStorage.setItem('yoozak-kpi-active-tab', this.activeTab);
             this.refreshActiveTabData();
+        });
+    }
+    
+    switchToTab(tabName) {
+        if (tabName === this.activeTab) return;
+        
+        console.log('🔄 Changement d\'onglet vers:', tabName);
+        
+        // Mettre à jour l'interface
+        this.updateTabUI(tabName);
+        
+        // Déclencher le chargement des données via le bon gestionnaire
+        if (window.yoozakKPI) {
+            window.yoozakKPI.switchTab(tabName);
+        }
+        
+        // Sauvegarder l'état
+        this.activeTab = tabName;
+        localStorage.setItem('yoozak-kpi-active-tab', tabName);
+        
+        // Émettre l'événement
+        this.emit('tabChanged', { tab: tabName });
+    }
+    
+    updateTabUI(activeTabName) {
+        // Mettre à jour les boutons
+        document.querySelectorAll('.kpi-tab-button').forEach(button => {
+            const isActive = button.getAttribute('data-tab') === activeTabName;
+            
+            if (isActive) {
+                button.classList.add('active', 'border-blue-600', 'text-blue-600');
+                button.classList.remove('border-transparent', 'text-gray-500');
+                button.setAttribute('aria-selected', 'true');
+                button.setAttribute('tabindex', '0');
+            } else {
+                button.classList.remove('active', 'border-blue-600', 'text-blue-600');
+                button.classList.add('border-transparent', 'text-gray-500');
+                button.setAttribute('aria-selected', 'false');
+                button.setAttribute('tabindex', '-1');
+            }
+        });
+        
+        // Mettre à jour les panneaux
+        document.querySelectorAll('.kpi-tab-panel').forEach(panel => {
+            if (panel.id === `${activeTabName}-content`) {
+                panel.classList.remove('hidden');
+                panel.classList.add('active');
+            } else {
+                panel.classList.add('hidden');
+                panel.classList.remove('active');
+            }
         });
     }
     
@@ -293,10 +366,16 @@ class YoozakKPIDashboard {
             this.charts.set('ca-evolution', true);
         }
     }
-    
-    async loadSalesCharts() {
-        // Graphiques pour l'onglet ventes
-        console.log('📈 Chargement des graphiques de vente');
+      async loadSalesCharts() {
+        // Graphiques pour l'onglet ventes - Charger TOUT (KPIs + Graphiques) 
+        console.log('📈 Chargement complet des données de vente...');
+        
+        // Déléguer au gestionnaire spécialisé
+        if (window.yoozakKPI) {
+            await window.yoozakKPI.loadVentesData();
+        } else {
+            console.warn('⚠️ YoozakKPIManager non disponible pour charger les données Ventes');
+        }
     }
     
     async refreshActiveTabData() {
