@@ -1242,6 +1242,7 @@ def clients_data(request):
         }, status=500)
 
 @login_required
+@login_required
 def documentation(request):
     """Page de documentation KPIs"""
     return render(request, 'kpis/documentation.html')
@@ -1251,17 +1252,6 @@ def get_configurations(request):
     """API pour récupérer toutes les configurations KPIs"""
     try:
         configs = KPIConfiguration.objects.all().order_by('categorie', 'nom_parametre')
-        
-        # Si aucune configuration en base, retourner les valeurs par défaut
-        if not configs.exists():
-            default_configs = get_default_configurations()
-            return JsonResponse({
-                'success': True,
-                'configurations': default_configs,
-                'integer_fields': get_integer_fields(),
-                'message': 'Configurations par défaut chargées (base de données vide)',
-                'is_default': True
-            })
         
         # Mapping des vraies catégories vers les catégories attendues par le frontend
         category_mapping = {
@@ -1300,15 +1290,7 @@ def get_configurations(request):
             'success': True,
             'configurations': data,
             'integer_fields': get_integer_fields(),  # Ajouter les champs entiers
-            'message': 'Configurations chargées avec succès',
-            'is_default': False
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e),
-            'message': 'Erreur lors du chargement des configurations'
+            'message': 'Configurations chargées avec succès'
         })
         
     except Exception as e:
@@ -1329,17 +1311,6 @@ def save_configurations(request):
         data = json.loads(request.body)
         configurations = data.get('configurations', [])
         
-        # Si aucune configuration en base de données, initialiser avec les valeurs par défaut
-        if not KPIConfiguration.objects.exists():
-            created_count = create_default_configurations_in_db(request.user)
-            if created_count > 0:
-                return JsonResponse({
-                    'success': True,
-                    'message': f"{created_count} configurations par défaut créées en base de données",
-                    'created_count': created_count,
-                    'initialized': True
-                })
-        
         if not configurations:
             return JsonResponse({
                 'success': False,
@@ -1347,7 +1318,6 @@ def save_configurations(request):
             }, status=400)
         
         updated_count = 0
-        created_count = 0
         errors = []
         field_errors = {}  # Erreurs spécifiques par champ
         
@@ -1363,51 +1333,7 @@ def save_configurations(request):
                     continue
                 
                 if config_id:
-                    # Gérer les configurations par défaut (IDs qui commencent par "default_")
-                    if str(config_id).startswith('default_'):
-                        # Pour les configurations par défaut, créer une nouvelle entrée en base
-                        nom_parametre = config_data.get('nom_parametre')
-                        description = config_data.get('description', '')
-                        unite = config_data.get('unite', '')
-                        valeur_min = config_data.get('valeur_min')
-                        valeur_max = config_data.get('valeur_max')
-                        
-                        # Déterminer la catégorie
-                        if 'seuil' in nom_parametre or 'objectif' in nom_parametre or 'alerte' in nom_parametre:
-                            categorie = 'seuil'
-                        elif 'afficher' in nom_parametre or 'theme' in nom_parametre or 'auto' in nom_parametre:
-                            categorie = 'affichage'
-                        else:
-                            categorie = 'calcul'
-                        
-                        # Validation spécifique pour les champs entiers
-                        is_valid_integer, validated_value = validate_integer_value(nom_parametre, nouvelle_valeur)
-                        if not is_valid_integer:
-                            field_errors[str(config_id)] = validated_value
-                            continue
-                        nouvelle_valeur = validated_value
-                        
-                        # Créer la nouvelle configuration
-                        KPIConfiguration.objects.create(
-                            nom_parametre=nom_parametre,
-                            valeur=nouvelle_valeur,
-                            description=description,
-                            unite=unite,
-                            valeur_min=valeur_min,
-                            valeur_max=valeur_max,
-                            categorie=categorie,
-                            cree_par=request.user,
-                            modifie_par=request.user
-                        )
-                        created_count += 1
-                        continue
-                    
-                    # Logique existante pour les configurations en base
-                    try:
-                        config = KPIConfiguration.objects.get(id=config_id)
-                    except KPIConfiguration.DoesNotExist:
-                        errors.append(f"Configuration {config_id} introuvable")
-                        continue
+                    config = KPIConfiguration.objects.get(id=config_id)
                     
                     # Validation spécifique pour les champs entiers
                     is_valid_integer, validated_value = validate_integer_value(config.nom_parametre, nouvelle_valeur)
@@ -1417,6 +1343,7 @@ def save_configurations(request):
                     
                     # Utiliser la valeur validée (peut avoir été convertie en entier)
                     nouvelle_valeur = validated_value
+                    config = KPIConfiguration.objects.get(id=config_id)
                     
                     # Valider les limites
                     if config.valeur_min is not None and nouvelle_valeur < config.valeur_min:
@@ -1461,33 +1388,21 @@ def save_configurations(request):
                 'message': f"Erreurs de validation détectées sur {len(field_errors)} champ(s)",
                 'field_errors': field_errors,
                 'errors': errors,
-                'updated_count': updated_count,
-                'created_count': created_count
+                'updated_count': updated_count
             }, status=400)
         
         # S'il y a des erreurs générales seulement
         if errors:
             return JsonResponse({
                 'success': False,
-                'message': f"{updated_count} configurations sauvegardées, {created_count} créées, {len(errors)} erreurs",
-                'errors': errors,
-                'updated_count': updated_count,
-                'created_count': created_count
+                'message': f"{updated_count} configurations sauvegardées, {len(errors)} erreurs",
+                'errors': errors
             }, status=400)
-        
-        total_operations = updated_count + created_count
-        message_parts = []
-        if created_count > 0:
-            message_parts.append(f"{created_count} configurations créées")
-        if updated_count > 0:
-            message_parts.append(f"{updated_count} configurations mises à jour")
         
         return JsonResponse({
             'success': True,
-            'message': " et ".join(message_parts) + " avec succès" if message_parts else "Aucune modification effectuée",
-            'updated_count': updated_count,
-            'created_count': created_count,
-            'total_operations': total_operations
+            'message': f"{updated_count} configurations sauvegardées avec succès",
+            'updated_count': updated_count
         })
         
     except json.JSONDecodeError:
@@ -1545,180 +1460,3 @@ def reset_configurations(request):
             'error': str(e),
             'message': 'Erreur lors de la restauration'
         }, status=500)
-
-def get_default_configurations():
-    """Retourne les configurations par défaut complètes pour initialiser l'interface"""
-    return {
-        'seuils': [
-            {
-                'id': 'default_1',
-                'nom_parametre': 'stock_critique_seuil',
-                'valeur': 5,
-                'description': 'Seuil en-dessous duquel un stock est considéré comme critique',
-                'unite': 'unités',
-                'valeur_min': 1,
-                'valeur_max': 100,
-                'type': 'number'
-            },
-            {
-                'id': 'default_2', 
-                'nom_parametre': 'taux_conversion_min',
-                'valeur': 60,
-                'description': 'Taux de conversion minimum acceptable pour les appels',
-                'unite': '%',
-                'valeur_min': 0,
-                'valeur_max': 100,
-                'type': 'number'
-            },
-            {
-                'id': 'default_3',
-                'nom_parametre': 'delai_livraison_alerte',
-                'valeur': 5,
-                'description': 'Délai de livraison déclenchant une alerte',
-                'unite': 'jours',
-                'valeur_min': 1,
-                'valeur_max': 30,
-                'type': 'number'
-            },
-            {
-                'id': 'default_4',
-                'nom_parametre': 'ca_objectif_mensuel',
-                'valeur': 100000,
-                'description': 'Objectif de chiffre d\'affaires mensuel',
-                'unite': 'DH',
-                'valeur_min': 1000,
-                'valeur_max': 1000000,
-                'type': 'number'
-            }
-        ],
-        'calcul': [
-            {
-                'id': 'default_5',
-                'nom_parametre': 'periode_analyse_defaut',
-                'valeur': 30,
-                'description': 'Période d\'analyse par défaut pour les KPIs',
-                'unite': 'jours',
-                'valeur_min': 7,
-                'valeur_max': 365,
-                'type': 'select',
-                'options': [
-                    {'value': 7, 'label': '7 jours'},
-                    {'value': 15, 'label': '15 jours'},
-                    {'value': 30, 'label': '30 jours'},
-                    {'value': 60, 'label': '60 jours'},
-                    {'value': 90, 'label': '90 jours'}
-                ]
-            },
-            {
-                'id': 'default_6',
-                'nom_parametre': 'fidelisation_commandes_min',
-                'valeur': 2,
-                'description': 'Nombre minimum de commandes pour être considéré comme client fidèle',
-                'unite': 'commandes',
-                'valeur_min': 1,
-                'valeur_max': 10,
-                'type': 'number'
-            },
-            {
-                'id': 'default_7',
-                'nom_parametre': 'fidelisation_periode_jours',
-                'valeur': 30,
-                'description': 'Période en jours pour calculer la fidélisation',
-                'unite': 'jours',
-                'valeur_min': 7,
-                'valeur_max': 365,
-                'type': 'number'
-            },
-            {
-                'id': 'default_8',
-                'nom_parametre': 'stock_ventes_minimum',
-                'valeur': 2,
-                'description': 'Nombre minimum de ventes pour qu\'un article soit considéré comme populaire',
-                'unite': 'ventes',
-                'valeur_min': 1,
-                'valeur_max': 20,
-                'type': 'number'
-            }
-        ],
-        'affichage': [
-            {
-                'id': 'default_9',
-                'nom_parametre': 'afficher_tendances',
-                'valeur': True,
-                'description': 'Afficher les flèches de tendance sur les KPIs',
-                'unite': '',
-                'valeur_min': None,
-                'valeur_max': None,
-                'type': 'checkbox'
-            },
-            {
-                'id': 'default_10',
-                'nom_parametre': 'afficher_pourcentages',
-                'valeur': True,
-                'description': 'Afficher les valeurs en pourcentage quand c\'est pertinent',
-                'unite': '',
-                'valeur_min': None,
-                'valeur_max': None,
-                'type': 'checkbox'
-            },
-            {
-                'id': 'default_11',
-                'nom_parametre': 'theme_couleur',
-                'valeur': 'bleu',
-                'description': 'Thème de couleur pour les graphiques',
-                'unite': '',
-                'valeur_min': None,
-                'valeur_max': None,
-                'type': 'select',
-                'options': [
-                    {'value': 'bleu', 'label': 'Bleu (par défaut)'},
-                    {'value': 'vert', 'label': 'Vert'},
-                    {'value': 'orange', 'label': 'Orange'},
-                    {'value': 'violet', 'label': 'Violet'}
-                ]
-            },
-            {
-                'id': 'default_12',
-                'nom_parametre': 'auto_refresh',
-                'valeur': True,
-                'description': 'Actualisation automatique des données toutes les 5 minutes',
-                'unite': '',
-                'valeur_min': None,
-                'valeur_max': None,
-                'type': 'checkbox'
-            }
-        ]
-    }
-
-def create_default_configurations_in_db(user):
-    """Crée les configurations par défaut en base de données"""
-    default_configs = get_default_configurations()
-    created_count = 0
-    
-    # Mappage des catégories frontend vers base de données
-    category_reverse_mapping = {
-        'seuils': 'seuil',
-        'calcul': 'calcul', 
-        'affichage': 'affichage'
-    }
-    
-    for category, configs in default_configs.items():
-        db_category = category_reverse_mapping.get(category, 'calcul')
-        
-        for config in configs:
-            # Vérifier si la configuration existe déjà
-            if not KPIConfiguration.objects.filter(nom_parametre=config['nom_parametre']).exists():
-                KPIConfiguration.objects.create(
-                    nom_parametre=config['nom_parametre'],
-                    valeur=config['valeur'],
-                    description=config['description'],
-                    unite=config['unite'],
-                    valeur_min=config['valeur_min'],
-                    valeur_max=config['valeur_max'],
-                    categorie=db_category,
-                    cree_par=user,
-                    modifie_par=user
-                )
-                created_count += 1
-    
-    return created_count

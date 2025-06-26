@@ -102,6 +102,114 @@
     let integerFields = [] // Liste des champs qui doivent être des entiers
     let isDirty = false
     
+    // Configurations par défaut (utilisées si la DB est vide)
+    const defaultConfigurations = {
+      seuils: [
+        {
+          nom_parametre: 'stock_critique_seuil',
+          libelle: 'Seuil Stock Critique',
+          description: "Nombre minimum d'unités en stock pour déclencher une alerte",
+          valeur: 5,
+          type_parametre: 'INTEGER',
+          unite: 'unités'
+        },
+        {
+          nom_parametre: 'delai_livraison_alerte',
+          libelle: 'Délai Livraison Alerte',
+          description: 'Délai maximum acceptable pour une livraison (en jours)',
+          valeur: 5,
+          type_parametre: 'INTEGER',
+          unite: 'jours'
+        },
+        {
+          nom_parametre: 'taux_conversion_minimum',
+          libelle: 'Taux Conversion Minimum',
+          description: 'Seuil minimal acceptable pour le taux de conversion téléphonique',
+          valeur: 50.0,
+          type_parametre: 'DECIMAL',
+          unite: '%'
+        },
+        {
+          nom_parametre: 'satisfaction_minimum',
+          libelle: 'Score Satisfaction Minimum',
+          description: 'Score minimum acceptable pour la satisfaction client',
+          valeur: 3.5,
+          type_parametre: 'DECIMAL',
+          unite: '/5'
+        }
+      ],
+      calcul: [
+        {
+          nom_parametre: 'periode_analyse_defaut',
+          libelle: "Période d'Analyse par Défaut",
+          description: 'Période de référence utilisée pour calculer les KPIs',
+          valeur: '30j',
+          type_parametre: 'SELECT',
+          options: ['7j', '30j', '90j'],
+          labels: ['7 jours', '30 jours', '90 jours']
+        },
+        {
+          nom_parametre: 'fidelisation_commandes_min',
+          libelle: 'Commandes Min. Fidélisation',
+          description: 'Nombre minimum de commandes pour considérer un client comme fidèle',
+          valeur: 2,
+          type_parametre: 'INTEGER',
+          unite: 'commandes'
+        },
+        {
+          nom_parametre: 'stock_ventes_minimum',
+          libelle: 'Ventes Min. Popularité',
+          description: 'Nombre minimum de ventes pour considérer un article comme populaire',
+          valeur: 2,
+          type_parametre: 'INTEGER',
+          unite: 'ventes'
+        },
+        {
+          nom_parametre: 'delai_livraison_defaut',
+          libelle: 'Délai Livraison Standard',
+          description: 'Délai de livraison par défaut utilisé dans les calculs',
+          valeur: 3,
+          type_parametre: 'INTEGER',
+          unite: 'jours'
+        }
+      ],
+      affichage: [
+        {
+          nom_parametre: 'afficher_tendances',
+          libelle: 'Afficher Tendances',
+          description: 'Afficher les flèches de tendance sur les cartes KPIs',
+          valeur: true,
+          type_parametre: 'BOOLEAN'
+        },
+        {
+          nom_parametre: 'actualisation_auto',
+          libelle: 'Actualisation Automatique',
+          description: 'Actualiser automatiquement les données toutes les 5 minutes',
+          valeur: true,
+          type_parametre: 'BOOLEAN'
+        },
+        {
+          nom_parametre: 'afficher_details_hover',
+          libelle: 'Détails au Survol',
+          description: 'Afficher des informations détaillées au survol des cartes',
+          valeur: true,
+          type_parametre: 'BOOLEAN'
+        },
+        {
+          nom_parametre: 'format_nombres',
+          libelle: 'Format des Nombres',
+          description: "Format d'affichage des valeurs numériques",
+          valeur: 'francais',
+          type_parametre: 'SELECT',
+          options: ['francais', 'international', 'compact'],
+          labels: ['Français (1 234,56)', 'International (1,234.56)', 'Compact (1.2K)']
+        }
+      ]
+    }
+    
+    // Champs qui doivent être des entiers (mise à jour)
+    const defaultIntegerFields = ['stock_critique_seuil', 'delai_livraison_alerte', 'fidelisation_commandes_min', 'stock_ventes_minimum', 'delai_livraison_defaut', 'periode_analyse_defaut']
+    
     // Les configurations seront chargées quand l'onglet sera activé
     document.addEventListener('DOMContentLoaded', function () {
       console.log('📄 Page chargée - Chargement automatique des configurations')
@@ -143,19 +251,38 @@
           })
     
           if (totalConfigs === 0) {
-            console.warn('⚠️ Aucune configuration trouvée!')
-            showNotification('Aucune configuration trouvée en base de données', 'warning')
+            console.warn('⚠️ Aucune configuration trouvée en BD - Utilisation des valeurs par défaut')
+            showNotification('BD vide - Chargement des configurations par défaut', 'info')
+    
+            // Utiliser les configurations par défaut
+            configurations = defaultConfigurations
+            integerFields = defaultIntegerFields
+    
+            console.log('🔧 Configurations par défaut chargées:', configurations)
+            console.log('🔢 Champs entiers par défaut:', integerFields)
+    
+            renderConfigurationForm()
           } else {
             renderConfigurationForm()
             showNotification('Configurations chargées avec succès', 'success')
           }
         } else {
           console.error('❌ Erreur API:', data.message)
-          showNotification('Erreur lors du chargement: ' + data.message, 'error')
+          showNotification('Erreur API - Chargement des configurations par défaut', 'warning')
+    
+          // En cas d'erreur API, utiliser les configurations par défaut
+          configurations = defaultConfigurations
+          integerFields = defaultIntegerFields
+          renderConfigurationForm()
         }
       } catch (error) {
         console.error('❌ Erreur:', error)
-        showNotification('Erreur de connexion lors du chargement: ' + error.message, 'error')
+        showNotification('Erreur de connexion - Chargement des configurations par défaut', 'warning')
+    
+        // En cas d'erreur de connexion, utiliser les configurations par défaut
+        configurations = defaultConfigurations
+        integerFields = defaultIntegerFields
+        renderConfigurationForm()
       } finally {
         showLoading(false)
       }
@@ -337,12 +464,14 @@
     function generateConfigField(config, colorClass) {
       console.log(`🔧 Génération du champ: ${config.nom_parametre} = ${config.valeur} (${typeof config.valeur})`)
     
-      const isBoolean = config.valeur_min === 0 && config.valeur_max === 1
-      const isSelect = config.nom_parametre === 'periode_analyse_defaut' || config.nom_parametre === 'rafraichissement_auto'
+      // Détection améliorée du type de champ
+      const isBoolean = config.type_parametre === 'BOOLEAN' || (config.valeur_min === 0 && config.valeur_max === 1) || typeof config.valeur === 'boolean'
+    
+      const isSelect = config.type_parametre === 'SELECT' || config.options || config.nom_parametre === 'periode_analyse_defaut' || config.nom_parametre === 'rafraichissement_auto' || config.nom_parametre === 'format_nombres'
     
       const div = document.createElement('div')
       div.className = 'bg-white p-4 rounded border'
-      div.setAttribute('data-field-id', config.id)
+      div.setAttribute('data-field-id', config.id || config.nom_parametre)
     
       if (isBoolean) {
         const label = document.createElement('label')
@@ -350,8 +479,8 @@
     
         const input = document.createElement('input')
         input.type = 'checkbox'
-        input.id = 'config_' + config.id
-        input.setAttribute('data-config-id', config.id)
+        input.id = 'config_' + (config.id || config.nom_parametre)
+        input.setAttribute('data-config-id', config.id || config.nom_parametre)
     
         // Définir l'état de la checkbox selon la valeur
         const isChecked = config.valeur == 1 || config.valeur === true || config.valeur === 'true'
@@ -365,7 +494,7 @@
     
         const span = document.createElement('span')
         span.className = 'text-sm font-medium text-gray-700'
-        span.textContent = config.nom_parametre.replace(/_/g, ' ')
+        span.textContent = config.libelle || config.nom_parametre.replace(/_/g, ' ')
     
         const p = document.createElement('p')
         p.className = 'text-xs text-gray-500 mt-1'
@@ -373,7 +502,7 @@
     
         // Conteneur pour l'erreur de validation
         const errorDiv = document.createElement('div')
-        errorDiv.id = 'error_' + config.id
+        errorDiv.id = 'error_' + (config.id || config.nom_parametre)
         errorDiv.className = 'validation-error mt-1 hidden'
     
         label.appendChild(input)
@@ -384,24 +513,46 @@
       } else if (isSelect) {
         const label = document.createElement('label')
         label.className = 'block text-sm font-medium text-gray-700 mb-2'
-        label.textContent = config.nom_parametre.replace(/_/g, ' ') + (config.unite ? ' (' + config.unite + ')' : '')
+        label.textContent = (config.libelle || config.nom_parametre.replace(/_/g, ' ')) + (config.unite ? ' (' + config.unite + ')' : '')
     
         const select = document.createElement('select')
-        select.id = 'config_' + config.id
-        select.setAttribute('data-config-id', config.id)
+        select.id = 'config_' + (config.id || config.nom_parametre)
+        select.setAttribute('data-config-id', config.id || config.nom_parametre)
         select.className = 'w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-' + colorClass + '-500 focus:border-' + colorClass + '-500'
     
         let options = []
-        if (config.nom_parametre === 'periode_analyse_defaut') {
-          options = [7, 15, 30, 60, 90].map((val) => ({ value: val, label: val + ' jours' }))
-        } else if (config.nom_parametre === 'rafraichissement_auto') {
-          options = [
-            { value: 1, label: '1 minute' },
-            { value: 2, label: '2 minutes' },
-            { value: 5, label: '5 minutes' },
-            { value: 10, label: '10 minutes' },
-            { value: 0, label: 'Désactivé' }
-          ]
+    
+        // Utiliser les options définies dans la configuration ou les options par défaut
+        if (config.options && config.labels) {
+          options = config.options.map((value, index) => ({
+            value: value,
+            label: config.labels[index] || value
+          }))
+        } else if (config.options) {
+          options = config.options.map((value) => ({ value: value, label: value }))
+        } else {
+          // Options par défaut pour compatibilité
+          if (config.nom_parametre === 'periode_analyse_defaut') {
+            options = [
+              { value: '7j', label: '7 jours' },
+              { value: '30j', label: '30 jours' },
+              { value: '90j', label: '90 jours' }
+            ]
+          } else if (config.nom_parametre === 'rafraichissement_auto') {
+            options = [
+              { value: 1, label: '1 minute' },
+              { value: 2, label: '2 minutes' },
+              { value: 5, label: '5 minutes' },
+              { value: 10, label: '10 minutes' },
+              { value: 0, label: 'Désactivé' }
+            ]
+          } else if (config.nom_parametre === 'format_nombres') {
+            options = [
+              { value: 'francais', label: 'Français (1 234,56)' },
+              { value: 'international', label: 'International (1,234.56)' },
+              { value: 'compact', label: 'Compact (1.2K)' }
+            ]
+          }
         }
     
         options.forEach((opt) => {
@@ -409,11 +560,8 @@
           option.value = opt.value
           option.textContent = opt.label
     
-          // Comparaison plus flexible pour la sélection
-          const currentValue = parseFloat(config.valeur)
-          const optionValue = parseFloat(opt.value)
-    
-          if (currentValue === optionValue) {
+          // Comparaison pour la sélection
+          if (String(config.valeur) === String(opt.value)) {
             option.selected = true // Pour l'élément JS
             option.setAttribute('selected', 'selected') // Pour l'HTML
             console.log(`🎯 Option sélectionnée pour ${config.nom_parametre}: ${opt.label} (valeur: ${opt.value})`)
@@ -438,18 +586,19 @@
         // Champs numériques (input number)
         const label = document.createElement('label')
         label.className = 'block text-sm font-medium text-gray-700 mb-2'
-        label.textContent = config.nom_parametre.replace(/_/g, ' ') + (config.unite ? ' (' + config.unite + ')' : '')
+        label.textContent = (config.libelle || config.nom_parametre.replace(/_/g, ' ')) + (config.unite ? ' (' + config.unite + ')' : '')
     
         const input = document.createElement('input')
         input.type = 'number'
-        input.id = 'config_' + config.id
-        input.setAttribute('data-config-id', config.id)
+        input.id = 'config_' + (config.id || config.nom_parametre)
+        input.setAttribute('data-config-id', config.id || config.nom_parametre)
     
         // Vérifier si c'est un champ entier
-        const isIntegerField = integerFields.includes(config.nom_parametre)
+        const isIntegerField = integerFields.includes(config.nom_parametre) || config.type_parametre === 'INTEGER'
         console.log(`🔍 Configuration du champ ${config.nom_parametre}:`, {
           valeur: config.valeur,
           type: typeof config.valeur,
+          type_parametre: config.type_parametre,
           isInteger: isIntegerField
         })
     
@@ -485,7 +634,7 @@
           }
         }
     
-        // Définir les limites min/max
+        // Définir les limites min/max (si définies)
         if (config.valeur_min !== null && config.valeur_min !== undefined) {
           input.min = config.valeur_min.toString()
         }
@@ -501,7 +650,7 @@
     
         // Conteneur pour l'erreur de validation
         const errorDiv = document.createElement('div')
-        errorDiv.id = 'error_' + config.id
+        errorDiv.id = 'error_' + (config.id || config.nom_parametre)
         errorDiv.className = 'validation-error mt-1 hidden'
     
         div.appendChild(label)
