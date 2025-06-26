@@ -2017,3 +2017,65 @@ def affecter_preparation_multiple(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@login_required
+def api_panier_commande(request, commande_id):
+    """API pour récupérer le contenu du panier d'une commande"""
+    from django.http import JsonResponse
+    from parametre.models import Operateur
+    
+    # Vérifier que l'utilisateur est autorisé (admin ou opérateur)
+    try:
+        operateur = Operateur.objects.get(user=request.user)
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    if request.method == 'GET':
+        try:
+            # Récupérer la commande avec ses paniers
+            commande = get_object_or_404(
+                Commande.objects.select_related('client', 'ville').prefetch_related(
+                    'paniers__article'
+                ),
+                pk=commande_id
+            )
+            
+            # Préparer les données pour le template
+            paniers = commande.paniers.all()
+            total_articles = sum(panier.quantite for panier in paniers)
+            total_montant = sum(panier.sous_total for panier in paniers)
+            frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+            total_final = total_montant + frais_livraison
+            
+            # Construire la liste des articles pour le JSON
+            articles_data = []
+            for panier in paniers:
+                articles_data.append({
+                    'nom': str(panier.article.nom),
+                    'reference': str(panier.article.reference) if panier.article.reference else 'N/A',
+                    'description': str(panier.article.description) if panier.article.description else '',
+                    'prix_unitaire': float(panier.article.prix_unitaire),
+                    'quantite': panier.quantite,
+                    'sous_total': float(panier.sous_total)
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'commande': {
+                    'id_yz': commande.id_yz,
+                    'client_nom': str(commande.client.get_full_name),
+                    'total_articles': total_articles,
+                    'total_montant': float(total_montant),
+                    'frais_livraison': float(frais_livraison),
+                    'total_final': float(total_final)
+                },
+                'articles': articles_data
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Erreur lors de la récupération du panier: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
