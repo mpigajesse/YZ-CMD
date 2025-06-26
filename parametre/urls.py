@@ -31,6 +31,10 @@ urlpatterns = [
     path('profile/modifier/', views.modifier_admin_profile, name='modifier_profile'),
     path('profile/changer-mot-de-passe/', views.changer_mot_de_passe_admin, name='changer_mot_de_passe'),
     
+    # Gestion des mots de passe des opérateurs
+    path('operateurs/mots-de-passe/', views.gestion_mots_de_passe, name='gestion_mots_de_passe'),
+    path('operateurs/<int:pk>/modifier-mot-de-passe/', views.modifier_mot_de_passe_operateur, name='modifier_mot_de_passe_operateur'),
+    
     # Vue 360
     path('vue360/', views_360.page_360, name='page_360'),
     path('export-csv/', views_360.export_all_data_csv, name='export_all_data_csv'),

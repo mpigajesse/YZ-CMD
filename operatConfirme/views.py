@@ -188,7 +188,7 @@ def liste_commandes(request):
 @login_required
 def confirmer_commande_ajax(request, commande_id):
     """Confirme une commande spécifique via AJAX depuis la page de confirmation"""
-    from commande.models import Commande, EtatCommande, EnumEtatCmd
+    from commande.models import Commande, EtatCommande, EnumEtatCmd, Operation
     from article.models import Article
     from django.http import JsonResponse
     from django.utils import timezone
@@ -219,6 +219,21 @@ def confirmer_commande_ajax(request, commande_id):
         # Vérifier que la commande n'est pas déjà confirmée
         if etat_actuel.enum_etat.libelle == 'Confirmée':
             return JsonResponse({'success': False, 'message': 'Cette commande est déjà confirmée.'})
+            
+        # Vérifier qu'au moins une opération a été effectuée
+        operations_effectuees = Operation.objects.filter(
+            commande=commande,
+            operateur=operateur,
+            type_operation__in=[
+                'APPEL', 'Appel Whatsapp', 'Message Whatsapp', 'Vocal Whatsapp', 'ENVOI_SMS'
+            ]
+        ).exists()
+        
+        if not operations_effectuees:
+            return JsonResponse({
+                'success': False, 
+                'message': 'Vous devez effectuer au moins une opération (appel, message, etc.) avant de confirmer la commande.'
+            })
         
         # Utiliser une transaction pour la confirmation et la décrémentation du stock
         with transaction.atomic():
@@ -643,21 +658,8 @@ def modifier_profile_confirme(request):
 
 @login_required
 def changer_mot_de_passe_confirme(request):
-    """Page de changement de mot de passe pour l'opérateur de confirmation"""
-    if request.method == 'POST':
-        form = PasswordChangeForm(request.user, request.POST)
-        if form.is_valid():
-            user = form.save()
-            update_session_auth_hash(request, user)  # Important! Pour garder l'utilisateur connecté
-            messages.success(request, 'Votre mot de passe a été mis à jour avec succès !')
-            return redirect('operatConfirme:profile')
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{field.capitalize()}: {error}")
-    else:
-        form = PasswordChangeForm(request.user)
-    return render(request, 'operatConfirme/changer_mot_de_passe.html', {'form': form})
+    """Page de changement de mot de passe pour l'opérateur de confirmation - Désactivée"""
+    return redirect('operatConfirme:profile')
 
 @login_required
 def detail_commande(request, commande_id):
@@ -2043,7 +2045,6 @@ def creer_commande(request):
                         email=nouveau_email if nouveau_email else None,
                         is_active=True
                     )
-                    # On ne met plus de message ici, on le composera à la fin
 
                 ville = get_object_or_404(Ville, pk=ville_id)
 
@@ -2053,7 +2054,8 @@ def creer_commande(request):
                     ville=ville,
                     adresse=adresse,
                     total_cmd=0,  # Le total sera recalculé côté serveur
-                    is_upsell=is_upsell
+                    is_upsell=is_upsell,
+                    origine='OC'  # Définir l'origine comme Opérateur Confirmation
                 )
 
                 # Traiter le panier et calculer le total

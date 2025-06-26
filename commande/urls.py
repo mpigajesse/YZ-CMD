@@ -25,6 +25,7 @@ urlpatterns = [
     path('confirmees/', views.commandes_confirmees, name='confirmees'),
     path('preparees/', views.commandes_preparees, name='preparees'),
     path('suivi-confirmations/', views.suivi_confirmations, name='suivi_confirmations'),
+    path('suivi-preparations/', views.suivi_preparations, name='suivi_preparations'),
     path('affecter-preparation/<int:commande_id>/', views.affecter_preparation, name='affecter_preparation'),
     path('affecter-preparation-multiple/', views.affecter_preparation_multiple, name='affecter_preparation_multiple'),
     path('affecter-livraison/<int:commande_id>/', views.affecter_livraison, name='affecter_livraison'),
@@ -41,4 +42,6 @@ urlpatterns = [
     path('maintenance-etats/', views.nettoyer_etats_doublons, name='maintenance_etats'),
     # Paniers
     path('paniers/', views.liste_paniers, name='paniers'),
+    # API
+    path('api/commande/<int:commande_id>/panier/', views.api_panier_commande, name='api_panier_commande'),
 ]

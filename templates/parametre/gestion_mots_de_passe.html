@@ -1,0 +1,206 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Gestion des Mots de Passe - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #023535, #034a4a);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-key mr-3" style="color: #66cccc;"></i>
+                Gestion des Mots de Passe
+            </h1>
+            <p style="color: #99dddd;">Gérer les mots de passe de tous les opérateurs</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'app_admin:liste_operateurs' %}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-users mr-2"></i>Liste Opérateurs
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtres de recherche -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-6" style="border-color: #66cccc;">
+        <h2 class="text-xl font-bold mb-4" style="color: #023535;">Filtres de Recherche</h2>
+        <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label for="search" class="block text-sm font-semibold mb-2" style="color: #023535;">Rechercher :</label>
+                <input type="text" name="search" id="search" value="{{ search|default:'' }}" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200"
+                       placeholder="Nom, prénom ou email...">
+            </div>
+            <div>
+                <label for="type" class="block text-sm font-semibold mb-2" style="color: #023535;">Type d'opérateur :</label>
+                <select name="type" id="type" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
+                    <option value="">Tous les types</option>
+                    {% for choice in types_operateur %}
+                        <option value="{{ choice.0 }}" {% if type_filter == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 rounded-lg font-medium transition-colors shadow-sm">
+                    <i class="fas fa-search mr-2"></i>Filtrer
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Liste des opérateurs -->
+    <div class="bg-white rounded-xl shadow-lg border overflow-hidden" style="border-color: #66cccc;">
+        <div class="p-6 border-b" style="border-color: #e5e5e5;">
+            <h2 class="text-2xl font-bold" style="color: #023535;">Opérateurs ({{ page_obj.paginator.count }})</h2>
+        </div>
+
+        {% if page_obj %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead style="background-color: #f8f9fa;">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-sm font-semibold" style="color: #023535;">Opérateur</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold" style="color: #023535;">Email</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold" style="color: #023535;">Type</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold" style="color: #023535;">Dernière modif. MDP</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold" style="color: #023535;">Statut</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold" style="color: #023535;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for operateur in page_obj %}
+                        <tr class="border-b hover:bg-gray-50 transition-colors" style="border-color: #e5e5e5;">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3" style="background-color: #023535;">
+                                        {{ operateur.prenom|first|upper }}{{ operateur.nom|first|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="font-semibold" style="color: #023535;">{{ operateur.prenom }} {{ operateur.nom }}</div>
+                                        <div class="text-sm text-gray-600">{{ operateur.user.username }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm" style="color: #023535;">{{ operateur.mail }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+                                    {% if operateur.type_operateur == 'CONFIRMATION' %}bg-blue-100 text-blue-800
+                                    {% elif operateur.type_operateur == 'LOGISTIQUE' %}bg-green-100 text-green-800
+                                    {% elif operateur.type_operateur == 'PREPARATION' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ operateur.get_type_operateur_display }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                {% with operateur.historique_mots_de_passe.first as derniere_modif %}
+                                    {% if derniere_modif %}
+                                        <div class="text-sm" style="color: #023535;">{{ derniere_modif.date_modification|date:"d/m/Y" }}</div>
+                                        <div class="text-xs text-gray-500">{{ derniere_modif.date_modification|time:"H:i" }}</div>
+                                        <div class="text-xs text-gray-400">par {{ derniere_modif.administrateur.get_full_name|default:derniere_modif.administrateur.username }}</div>
+                                    {% else %}
+                                        <span class="text-sm text-gray-500 italic">Jamais modifié</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if operateur.actif %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="fas fa-check-circle mr-1"></i>Actif
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        <i class="fas fa-times-circle mr-1"></i>Inactif
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex space-x-2">
+                                    <a href="{% url 'app_admin:modifier_mot_de_passe_operateur' operateur.pk %}" 
+                                       class="inline-flex items-center px-3 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm">
+                                        <i class="fas fa-key mr-1"></i>Mot de passe
+                                    </a>
+                                    <a href="{% url 'app_admin:detail_operateur' operateur.pk %}" 
+                                       class="inline-flex items-center px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm">
+                                        <i class="fas fa-eye mr-1"></i>Détails
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <div class="p-6 border-t" style="border-color: #e5e5e5;">
+                <nav class="flex items-center justify-between">
+                    <div class="flex justify-between flex-1 sm:hidden">
+                        {% if page_obj.has_previous %}
+                            <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" 
+                               class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                                Précédent
+                            </a>
+                        {% endif %}
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" 
+                               class="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                                Suivant
+                            </a>
+                        {% endif %}
+                    </div>
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                Affichage de <span class="font-medium">{{ page_obj.start_index }}</span> à <span class="font-medium">{{ page_obj.end_index }}</span>
+                                sur <span class="font-medium">{{ page_obj.paginator.count }}</span> résultats
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                {% if page_obj.has_previous %}
+                                    <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" 
+                                       class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" 
+                                       class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                {% endif %}
+                                
+                                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+                                </span>
+                                
+                                {% if page_obj.has_next %}
+                                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" 
+                                       class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                    <a href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" 
+                                       class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                {% endif %}
+                            </nav>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+            {% endif %}
+
+        {% else %}
+            <div class="p-8 text-center">
+                <div class="text-gray-500">
+                    <i class="fas fa-users fa-3x mb-4"></i>
+                    <p class="text-xl">Aucun opérateur trouvé</p>
+                    <p class="text-sm">Essayez de modifier vos critères de recherche</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 

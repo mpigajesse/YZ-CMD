@@ -312,34 +312,8 @@ def modifier_profile_view(request):
 
 @login_required
 def changer_mot_de_passe_view(request):
-    if request.method == 'POST':
-        old_password = request.POST.get('old_password')
-        new_password1 = request.POST.get('new_password1')
-        new_password2 = request.POST.get('new_password2')
-
-        if not request.user.check_password(old_password):
-            messages.error(request, "L'ancien mot de passe est incorrect.")
-        elif new_password1 != new_password2:
-            messages.error(request, "Les nouveaux mots de passe ne correspondent pas.")
-        else:
-            request.user.set_password(new_password1)
-            request.user.save()
-            update_session_auth_hash(request, request.user) # Important pour maintenir la session
-            messages.success(request, "Votre mot de passe a été changé avec succès.")
-            return redirect('Prepacommande:profile')
-
-        # Si des erreurs, re-rendu le formulaire avec les messages
-        context = {
-            'page_title': 'Changer Mot de Passe',
-            'page_subtitle': 'Sécurisez votre compte',
-        }
-        return render(request, 'Prepacommande/changer_mot_de_passe.html', context)
-    else:
-        context = {
-            'page_title': 'Changer Mot de Passe',
-            'page_subtitle': 'Sécurisez votre compte',
-        }
-        return render(request, 'Prepacommande/changer_mot_de_passe.html', context)
+    """Page de changement de mot de passe pour l'opérateur de préparation - Désactivée"""
+    return redirect('Prepacommande:profile')
 
 @login_required
 def detail_prepa(request, pk):
@@ -520,9 +494,6 @@ def etiquette_view(request):
         'operateur_profile': operateur_profile,
     }
     return render(request, 'Prepacommande/etiquette.html', context)
-
-@login_required
-
 
 @login_required
 def api_commande_produits(request, commande_id):

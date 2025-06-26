@@ -21,18 +21,60 @@ from datetime import timedelta
 
 @login_required
 def liste_commandes(request):
-    commandes = Commande.objects.all()
+    commandes = Commande.objects.select_related('client', 'ville').prefetch_related('etats__enum_etat')
     search_query = request.GET.get('search', '')
+    ville_filter = request.GET.get('ville_filter', '')
+    ville_init_filter = request.GET.get('ville_init_filter', '')
+    region_filter = request.GET.get('region_filter', '')
+    etat_filter = request.GET.get('etat_filter', '')
     
+    # Recherche par texte général
     if search_query:
+        # Vérifier si la recherche correspond exactement à une ville_init
+        exact_ville_init_match = Commande.objects.filter(
+            ville_init__iexact=search_query
+        ).exists()
+        
+        if exact_ville_init_match:
+            # Si la recherche correspond exactement à une ville_init, on filtre directement
+            commandes = commandes.filter(ville_init__iexact=search_query)
+        else:
+            commandes = commandes.filter(
+                Q(num_cmd__icontains=search_query) |
+                Q(id_yz__icontains=search_query) |
+                Q(client__nom__icontains=search_query) |
+                Q(client__prenom__icontains=search_query) |
+                Q(client__numero_tel__icontains=search_query) |
+                Q(produit_init__icontains=search_query) |
+                # Recherche par ville (dans les deux champs)
+                Q(ville__nom__icontains=search_query) |
+                Q(ville_init__icontains=search_query) |
+                # Recherche par région
+                Q(ville__region__nom_region__icontains=search_query) |
+                # Recherche par état de commande
+                Q(etats__enum_etat__libelle__icontains=search_query) |
+                # Recherche par adresse
+                Q(adresse__icontains=search_query)
+            ).distinct()
+    
+    # Filtre par ville du système
+    if ville_filter:
+        commandes = commandes.filter(ville_id=ville_filter)
+    
+    # Filtre par ville initiale (du fichier) - indépendant des autres filtres
+    if ville_init_filter:
+        commandes = commandes.filter(ville_init__iexact=ville_init_filter)
+    
+    # Filtre par région
+    if region_filter:
+        commandes = commandes.filter(ville__region_id=region_filter)
+    
+    # Filtre par état spécifique
+    if etat_filter:
         commandes = commandes.filter(
-            Q(num_cmd__icontains=search_query) |
-            Q(id_yz__icontains=search_query) |
-            Q(client__nom__icontains=search_query) |
-            Q(client__prenom__icontains=search_query) |
-            Q(client__numero_tel__icontains=search_query) |
-            Q(produit_init__icontains=search_query)
-        )
+            etats__enum_etat_id=etat_filter,
+            etats__date_fin__isnull=True  # État actuel
+        ).distinct()
 
     # Triez par ID YZ croissant (1, 2, 3, ...)
     commandes = commandes.order_by('id_yz')
@@ -71,10 +113,27 @@ def liste_commandes(request):
 
     # Récupérer les opérateurs actifs pour l'affectation
     operateurs = Operateur.objects.filter(actif=True)
+    
+    # Récupérer les listes pour les filtres
+    from parametre.models import Ville, Region
+    villes = Ville.objects.all().order_by('nom')
+    regions = Region.objects.all().order_by('nom_region')
+    etats = EnumEtatCmd.objects.all().order_by('ordre', 'libelle')
+    
+    # Récupérer les villes uniques du champ ville_init
+    villes_init = Commande.objects.exclude(ville_init__isnull=True).exclude(ville_init='').values_list('ville_init', flat=True).distinct().order_by('ville_init')
 
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
+        'ville_filter': ville_filter,
+        'ville_init_filter': ville_init_filter,
+        'region_filter': region_filter,
+        'etat_filter': etat_filter,
+        'villes': villes,
+        'villes_init': villes_init,
+        'regions': regions,
+        'etats': etats,
         'total_commandes': Commande.objects.count(),
         'commandes_non_affectees': commandes_non_affectees,
         'commandes_affectees': commandes_affectees,
@@ -103,34 +162,40 @@ def creer_commande(request):
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                # Récupérer les données de base de la commande
-                num_cmd = request.POST.get('num_cmd')
-                date_cmd = request.POST.get('date_cmd')
-                client_id = request.POST.get('client')
-                ville_id = request.POST.get('ville')
+                # Déterminer le type de client
+                type_client = request.POST.get('type_client')
+                
+                # Gestion du client
+                if type_client == 'nouveau':
+                    # Créer un nouveau client
+                    client = Client.objects.create(
+                        prenom=request.POST.get('nouveau_prenom'),
+                        nom=request.POST.get('nouveau_nom'),
+                        numero_tel=request.POST.get('nouveau_telephone'),
+                        email=request.POST.get('nouveau_email', '')  # Email optionnel
+                    )
+                else:
+                    # Utiliser un client existant
+                    client_id = request.POST.get('client')
+                    if not client_id:
+                        messages.error(request, "Veuillez sélectionner un client.")
+                        return redirect('commande:creer')
+                    client = Client.objects.get(pk=client_id)
+
+                # Récupérer les autres données de la commande
+                ville_id = request.POST.get('ville_livraison')
                 adresse = request.POST.get('adresse')
                 is_upsell = request.POST.get('is_upsell') == 'on'
                 
-                # Vérifier que le numéro de commande n'existe pas déjà (si fourni)
-                if num_cmd and Commande.objects.filter(num_cmd=num_cmd).exists():
-                    messages.error(request, f"Une commande avec le numéro {num_cmd} existe déjà.")
-                    return redirect('commande:creer')
-                
-                # Créer la commande (l'ID YZ sera généré automatiquement)
-                commande_data = {
-                    'date_cmd': date_cmd,
-                    'client_id': client_id,
-                    'ville_id': ville_id,
-                    'adresse': adresse,
-                    'is_upsell': is_upsell,
-                    'total_cmd': 0  # Sera calculé après ajout des articles
-                }
-                
-                # Ajouter num_cmd seulement s'il est fourni, sinon laisser l'ID YZ être généré
-                if num_cmd:
-                    commande_data['num_cmd'] = num_cmd
-                
-                commande = Commande.objects.create(**commande_data)
+                # Créer la commande
+                commande = Commande.objects.create(
+                    client=client,
+                    ville_id=ville_id,
+                    adresse=adresse,
+                    total_cmd=0,  # Sera calculé après ajout des articles
+                    is_upsell=is_upsell,
+                    origine='ADMIN'  # Définir l'origine comme Administrateur
+                )
                 
                 # Traiter les articles du panier
                 total_commande = 0
@@ -138,26 +203,20 @@ def creer_commande(request):
                 
                 while f'article_{article_counter}' in request.POST:
                     article_id = request.POST.get(f'article_{article_counter}')
-                    quantite = request.POST.get(f'quantite_{article_counter}')
-                    sous_total = request.POST.get(f'sous_total_{article_counter}')
-                    
-                    if article_id and quantite and sous_total:
-                        try:
-                            article = Article.objects.get(pk=article_id)
-                            quantite = int(quantite)
-                            sous_total = float(sous_total)
-                            
-                            # Créer l'entrée dans le panier
-                            Panier.objects.create(
-                                commande=commande,
-                                article=article,
-                                quantite=quantite,
-                                sous_total=sous_total
-                            )
-                            
-                            total_commande += sous_total
-                        except (Article.DoesNotExist, ValueError):
-                            pass
+                    if article_id:
+                        article = Article.objects.get(pk=article_id)
+                        quantite = int(request.POST.get(f'quantite_{article_counter}', 1))
+                        
+                        # Créer le panier
+                        Panier.objects.create(
+                            commande=commande,
+                            article=article,
+                            quantite=quantite,
+                            sous_total=quantite * article.prix_unitaire
+                        )
+                        
+                        # Mettre à jour le total
+                        total_commande += quantite * article.prix_unitaire
                     
                     article_counter += 1
                 
@@ -165,24 +224,29 @@ def creer_commande(request):
                 commande.total_cmd = total_commande
                 commande.save()
                 
-                messages.success(request, f"La commande {commande.id_yz} a été créée avec succès.")
+                messages.success(request, "La commande a été créée avec succès.")
                 return redirect('commande:detail', pk=commande.pk)
                 
+        except Client.DoesNotExist:
+            messages.error(request, "Le client sélectionné n'existe pas.")
+        except Article.DoesNotExist:
+            messages.error(request, "Un des articles sélectionnés n'existe pas.")
         except Exception as e:
-            messages.error(request, f"Erreur lors de la création de la commande: {str(e)}")
-            return redirect('commande:creer')
+            messages.error(request, f"Une erreur s'est produite lors de la création de la commande : {str(e)}")
+        
+        return redirect('commande:creer')
     
-    clients = Client.objects.all()
-    villes = Ville.objects.all()
-    articles = Article.objects.all()
-    articles_json = serializers.serialize('json', articles, fields=('nom', 'reference', 'description', 'prix_unitaire', 'qte_disponible', 'categorie', 'couleur', 'pointure', 'image'))
-    
+    # GET request
     context = {
-        'clients': clients,
-        'villes': villes,
-        'articles': articles,
-        'articles_json': articles_json,
+        'clients': Client.objects.all().order_by('nom', 'prenom'),
+        'articles': Article.objects.all().order_by('nom'),
+        'villes': Ville.objects.select_related('region').all().order_by('nom'),
     }
+    
+    # Debug des frais de livraison
+    for ville in context['villes']:
+        print(f"Ville: {ville.nom}, Frais: {ville.frais_livraison}, Région: {ville.region.nom_region if ville.region else 'N/A'}")
+    
     return render(request, 'commande/creer.html', context)
 
 @login_required
@@ -2017,3 +2081,155 @@ def affecter_preparation_multiple(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@login_required
+def api_panier_commande(request, commande_id):
+    """API pour récupérer le contenu du panier d'une commande"""
+    from django.http import JsonResponse
+    from parametre.models import Operateur
+    
+    # Vérifier que l'utilisateur est autorisé (admin ou opérateur)
+    try:
+        operateur = Operateur.objects.get(user=request.user)
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    if request.method == 'GET':
+        try:
+            # Récupérer la commande avec ses paniers
+            commande = get_object_or_404(
+                Commande.objects.select_related('client', 'ville').prefetch_related(
+                    'paniers__article'
+                ),
+                pk=commande_id
+            )
+            
+            # Préparer les données pour le template
+            paniers = commande.paniers.all()
+            total_articles = sum(panier.quantite for panier in paniers)
+            total_montant = sum(panier.sous_total for panier in paniers)
+            frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+            total_final = total_montant + frais_livraison
+            
+            # Construire la liste des articles pour le JSON
+            articles_data = []
+            for panier in paniers:
+                articles_data.append({
+                    'nom': str(panier.article.nom),
+                    'reference': str(panier.article.reference) if panier.article.reference else 'N/A',
+                    'description': str(panier.article.description) if panier.article.description else '',
+                    'prix_unitaire': float(panier.article.prix_unitaire),
+                    'quantite': panier.quantite,
+                    'sous_total': float(panier.sous_total)
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'commande': {
+                    'id_yz': commande.id_yz,
+                    'client_nom': str(commande.client.get_full_name),
+                    'total_articles': total_articles,
+                    'total_montant': float(total_montant),
+                    'frais_livraison': float(frais_livraison),
+                    'total_final': float(total_final)
+                },
+                'articles': articles_data
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Erreur lors de la récupération du panier: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+@login_required
+def suivi_preparations(request):
+    """Vue pour le suivi en temps réel des activités de préparation des commandes"""
+    from django.utils import timezone
+    from datetime import datetime, timedelta
+    
+    # Récupérer toutes les commandes en préparation
+    commandes_preparation = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['À imprimer', 'En préparation'],
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations', 'paniers__article').distinct()
+    
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_preparation = commandes_preparation.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query) |
+            Q(etats__operateur__nom__icontains=search_query) |
+            Q(etats__operateur__prenom__icontains=search_query)
+        ).distinct()
+    
+    # Tri par date de début de préparation (plus récentes en premier)
+    commandes_preparation = commandes_preparation.order_by('-etats__date_debut')
+    
+    # Pagination
+    paginator = Paginator(commandes_preparation, 25)  # 25 commandes par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques
+    today = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+    this_week = today - timedelta(days=7)
+    
+    # Compter par période et par état
+    a_imprimer_count = Commande.objects.filter(
+        etats__enum_etat__libelle='À imprimer',
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    en_preparation_count = Commande.objects.filter(
+        etats__enum_etat__libelle='En préparation',
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    preparees_aujourd_hui = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_debut__date=today
+    ).distinct().count()
+    
+    preparees_semaine = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_debut__date__gte=this_week
+    ).distinct().count()
+    
+    # Montant total des commandes en préparation
+    montant_total = commandes_preparation.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Récupérer les commandes par opérateur de préparation
+    commandes_par_operateur = {}
+    for commande in commandes_preparation:
+        etat_actuel = commande.etats.filter(
+            enum_etat__libelle__in=['À imprimer', 'En préparation'],
+            date_fin__isnull=True
+        ).first()
+        
+        if etat_actuel and etat_actuel.operateur:
+            operateur_nom = f"{etat_actuel.operateur.prenom} {etat_actuel.operateur.nom}"
+            if operateur_nom not in commandes_par_operateur:
+                commandes_par_operateur[operateur_nom] = []
+            commandes_par_operateur[operateur_nom].append(commande)
+    
+    context = {
+        'commandes_preparation': page_obj,
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'a_imprimer_count': a_imprimer_count,
+        'en_preparation_count': en_preparation_count,
+        'preparees_aujourd_hui': preparees_aujourd_hui,
+        'preparees_semaine': preparees_semaine,
+        'montant_total': montant_total,
+        'commandes_par_operateur': sorted(commandes_par_operateur.items()),
+    }
+    
+    return render(request, 'commande/suivi_preparations.html', context)

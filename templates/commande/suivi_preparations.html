@@ -1,0 +1,409 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Suivi des Préparations - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+
+    .btn-action {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-action:hover {
+        background: linear-gradient(135deg, #d97706, #b45309);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .preparation-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .preparation-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .live-indicator {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #1f2937, #374151);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-boxes mr-3 live-indicator" style="color: #f59e0b;"></i>
+                Suivi des Préparations
+            </h1>
+            <p style="color: #d1d5db;">Tableau de bord en temps réel des activités de préparation</p>
+            <div class="flex items-center mt-2 text-sm" style="color: #9ca3af;">
+                <i class="fas fa-circle mr-2 text-yellow-400 live-indicator" style="font-size: 8px;"></i>
+                Suivi en direct • Impression, préparation et finalisation
+            </div>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <div class="text-right">
+                <div class="text-2xl font-bold" style="color: #f59e0b;">{{ commandes_preparation.count|default:0 }}</div>
+                <div class="text-sm opacity-80">Commandes en préparation</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques de suivi -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- À imprimer -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-amber-100 to-amber-200 text-amber-600 transition-all duration-300 group-hover:from-amber-500 group-hover:to-amber-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-print text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">À Imprimer</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-amber-600">{{ a_imprimer_count|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- En préparation -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 transition-all duration-300 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-box-open text-2xl live-indicator"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">En Préparation</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600">{{ en_preparation_count|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Préparées aujourd'hui -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-check-double text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Préparées Aujourd'hui</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ preparees_aujourd_hui|default:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Montant total suivi -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-chart-line text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur en Préparation</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ montant_total|default:0|floatformat:0 }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et actions de suivi -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <form method="get" class="flex-grow flex gap-4">
+                <div class="flex-grow">
+                    <div class="relative">
+                        <input type="text" name="search" value="{{ search_query|default:'' }}" 
+                               class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all" 
+                               placeholder="Rechercher par N° commande, client, opérateur...">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium bg-yellow-600 hover:bg-yellow-700 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fas fa-search mr-2"></i>
+                    Rechercher
+                </button>
+                {% if search_query %}
+                <a href="{% url 'commande:suivi_preparations' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fas fa-times mr-2"></i>
+                    Réinitialiser
+                </a>
+                {% endif %}
+            </form>
+            <div class="flex gap-2">
+                <button onclick="location.reload()" class="px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white font-medium transition-all">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    Actualiser
+                </button>
+                <span class="px-6 py-2 rounded-lg bg-blue-600 text-white font-medium">
+                    <i class="fas fa-boxes mr-2"></i>
+                    Total: {{ commandes_preparation.count|default:0 }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message si aucun résultat -->
+    {% if not commandes_preparation %}
+    <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+        <div class="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center bg-gradient-to-r from-yellow-100 to-yellow-200">
+            <i class="fas fa-boxes text-4xl text-yellow-600"></i>
+        </div>
+        <h3 class="text-2xl font-bold mb-3 text-gray-900">
+            {% if search_query %}
+                Aucune activité trouvée
+            {% else %}
+                Surveillance en cours
+            {% endif %}
+        </h3>
+        <p class="text-gray-600 mb-6">
+            {% if search_query %}
+                Aucune activité de préparation trouvée pour "{{ search_query }}".
+            {% else %}
+                Le système surveille les activités des opérateurs de préparation en temps réel.
+            {% endif %}
+        </p>
+        <a href="{% url 'commande:liste' %}" class="btn-action">
+            <i class="fas fa-list mr-2"></i>
+            Voir toutes les commandes
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Tableau de suivi des préparations -->
+    {% if commandes_preparation %}
+    <div class="overflow-x-auto mb-8 bg-white rounded-xl shadow-lg">
+        <div class="p-4 bg-gray-50 border-b">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-boxes mr-2 text-yellow-600"></i>
+                Activités de Préparation Surveillées
+            </h3>
+            <p class="text-sm text-gray-600 mt-1">Suivi en temps réel des actions des opérateurs de préparation</p>
+        </div>
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-800">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Contact</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Livraison</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Articles</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Montant</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Cmd</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État Suivi</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for commande in commandes_preparation %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ commande.id_yz }}</div>
+                        {% if commande.num_cmd != commande.id_yz|stringformat:"s" %}
+                        <div class="text-xs text-gray-500">{{ commande.num_cmd }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">
+                            {% if commande.client.nom and commande.client.prenom %}
+                                {{ commande.client.prenom }} {{ commande.client.nom }}
+                            {% else %}
+                                Client {{ commande.client.numero_tel }}
+                            {% endif %}
+                        </div>
+                        {% if commande.ville_init %}
+                        <div class="text-xs text-gray-500">Ville client: {{ commande.ville_init }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <a href="tel:{{ commande.client.numero_tel }}" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                            <i class="fas fa-phone mr-1"></i>
+                            {{ commande.client.numero_tel }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                        <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ commande.paniers.count }} article(s)</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-bold text-yellow-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ commande.date_cmd|date:"d/m/Y" }}</div>
+                        <div class="text-xs text-gray-500">{{ commande.date_creation|date:"H:i" }}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        {% for etat in commande.etats.all %}
+                            {% if not etat.date_fin %}
+                                <div>
+                                    {% if etat.enum_etat.libelle == 'À imprimer' %}
+                                    <span class="status-badge bg-amber-100 text-amber-800">
+                                        <i class="fas fa-print mr-1"></i>
+                                        À imprimer
+                                    </span>
+                                    {% elif etat.enum_etat.libelle == 'En préparation' %}
+                                    <span class="status-badge bg-orange-100 text-orange-800">
+                                        <i class="fas fa-box-open mr-1"></i>
+                                        En préparation
+                                    </span>
+                                    {% endif %}
+                                    <div class="text-xs text-gray-500 mt-1">{{ etat.date_debut|date:"d/m/Y H:i" }}</div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        {% for etat in commande.etats.all %}
+                            {% if not etat.date_fin and etat.operateur %}
+                                <div class="text-sm text-gray-900">{{ etat.operateur.nom_complet }}</div>
+                                <div class="text-xs text-yellow-600 mt-1">
+                                    <i class="fas fa-eye mr-1"></i>
+                                    Surveillé
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-center">
+                        <div class="flex justify-center space-x-2">
+                            <a href="{% url 'commande:detail' commande.pk %}" 
+                               class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors">
+                                <i class="fas fa-eye mr-1"></i>
+                                Détails
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="flex justify-center items-center space-x-4 py-4">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+               class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+                <i class="fas fa-chevron-left mr-2"></i>Précédent
+            </a>
+        {% endif %}
+        
+        <span class="text-gray-700">
+            Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+               class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+                Suivant<i class="fas fa-chevron-right ml-2"></i>
+            </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Légende du suivi -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mt-8">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-info-circle mr-2 text-yellow-600"></i>
+            Guide du Suivi de Préparation
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <h4 class="font-semibold text-amber-800 mb-2">
+                    <i class="fas fa-print mr-2"></i>
+                    Phase d'Impression
+                </h4>
+                <p class="text-sm text-amber-700">Commandes affectées aux opérateurs, en attente d'impression d'étiquettes</p>
+            </div>
+            <div class="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <h4 class="font-semibold text-orange-800 mb-2">
+                    <i class="fas fa-box-open mr-2"></i>
+                    Phase de Préparation
+                </h4>
+                <p class="text-sm text-orange-700">Commandes en cours de préparation par les opérateurs</p>
+            </div>
+            <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                <h4 class="font-semibold text-green-800 mb-2">
+                    <i class="fas fa-check-double mr-2"></i>
+                    Finalisation
+                </h4>
+                <p class="text-sm text-green-700">Commandes préparées et prêtes pour la livraison</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Fonction pour actualiser automatiquement la page
+function autoRefresh() {
+    setInterval(function() {
+        if (!document.hidden) {
+            location.reload();
+        }
+    }, 30000); // Actualisation toutes les 30 secondes
+}
+
+// Démarrer l'actualisation automatique
+document.addEventListener('DOMContentLoaded', function() {
+    autoRefresh();
+    
+    // Ajouter un indicateur de dernière mise à jour
+    const indicator = document.createElement('div');
+    indicator.className = 'fixed bottom-4 right-4 bg-yellow-600 text-white px-3 py-1 rounded-lg text-xs';
+    indicator.innerHTML = '<i class="fas fa-sync-alt mr-1"></i>Mise à jour: ' + new Date().toLocaleTimeString();
+    document.body.appendChild(indicator);
+});
+</script>
+{% endblock %} 

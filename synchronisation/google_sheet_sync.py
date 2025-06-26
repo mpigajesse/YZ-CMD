@@ -22,6 +22,7 @@ class GoogleSheetSync:
         self.verbose = verbose  # Contrôle l'affichage des messages détaillés
         self.records_imported = 0
         self.errors = []
+        self.warnings = []
         
         # Nouveaux attributs pour les détails d'exécution
         self.start_time = None
@@ -189,22 +190,9 @@ class GoogleSheetSync:
                     client_obj.adresse = data.get('Adresse', '')
                 client_obj.save()
 
-            # Récupérer ou créer la ville
-            ville_nom = data.get('Ville', '')
-            if ville_nom:
-                # Créer ou récupérer la région par défaut si elle n'existe pas
-                default_region, created_region = Region.objects.get_or_create(nom_region='Non spécifiée')
-                
-                ville_obj, created_ville = Ville.objects.get_or_create(
-                    nom=ville_nom,
-                    defaults={
-                        'frais_livraison': 0.0,
-                        'frequence_livraison': 'Quotidienne',
-                        'region': default_region
-                    }
-                )
-            else:
-                ville_obj = None
+            # Récupérer la ville du fichier sans essayer de la lier à la table Ville
+            ville_nom = data.get('Ville', '').strip()
+            ville_obj = None  # On ne lie plus à un objet Ville
 
             # Gérer le prix de manière sécurisée
             try:
@@ -336,10 +324,9 @@ class GoogleSheetSync:
         if new_address and existing_commande.adresse != new_address:
             return True
         
-        # Vérifier si la ville a changé
-        new_ville = data.get('Ville', '')
-        current_ville = existing_commande.ville.nom if existing_commande.ville else ''
-        if new_ville and current_ville != new_ville:
+        # Vérifier si la ville_init a changé
+        new_ville_nom = data.get('Ville', '').strip()
+        if new_ville_nom and existing_commande.ville_init != new_ville_nom:
             return True
         
         # Vérifier si l'opérateur a changé
@@ -377,25 +364,13 @@ class GoogleSheetSync:
                 changes_made.append(f"Adresse: '{old_address}' → '{new_address}'")
                 updated = True
             
-            # Mettre à jour la ville si nécessaire
-            new_ville_nom = data.get('Ville', '')
-            if new_ville_nom:
-                current_ville_nom = existing_commande.ville.nom if existing_commande.ville else ''
-                if current_ville_nom != new_ville_nom:
-                    # Récupérer ou créer la nouvelle ville
-                    from parametre.models import Region
-                    default_region, _ = Region.objects.get_or_create(nom_region='Non spécifiée')
-                    ville_obj, _ = Ville.objects.get_or_create(
-                        nom=new_ville_nom,
-                        defaults={
-                            'frais_livraison': 0.0,
-                            'frequence_livraison': 'Quotidienne',
-                            'region': default_region
-                        }
-                    )
-                    existing_commande.ville = ville_obj
-                    changes_made.append(f"Ville: '{current_ville_nom}' → '{new_ville_nom}'")
-                    updated = True
+            # Mettre à jour la ville_init si nécessaire
+            new_ville_nom = data.get('Ville', '').strip()
+            if new_ville_nom and existing_commande.ville_init != new_ville_nom:
+                old_ville_init = existing_commande.ville_init
+                existing_commande.ville_init = new_ville_nom
+                changes_made.append(f"Ville: '{old_ville_init}' → '{new_ville_nom}'")
+                updated = True
             
             # Sauvegarder les changements de la commande
             if updated:

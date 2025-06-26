@@ -150,8 +150,10 @@
     {% endif %}
 
     <!-- Barre de recherche -->
-    <div class="bg-white p-4 rounded-lg mb-6 shadow-md border" style="border-color: var(--admin-accent-color);">
-        <form method="GET" class="flex flex-col md:flex-row gap-4">
+    <div class="bg-white p-6 rounded-lg mb-6 shadow-md border" style="border-color: var(--admin-accent-color);">
+        <form method="GET" class="space-y-4">
+            <!-- Ligne 1: Recherche générale et boutons -->
+            <div class="flex flex-col md:flex-row gap-4">
             <div class="relative flex-grow">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
@@ -160,20 +162,69 @@
                        name="search" 
                        class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
                        style="border-color: #99dddd; focus:ring-color: var(--admin-color);"
-                       placeholder="Rechercher par nom, téléphone, email, ID client, ID YZ commande, ville, état..." 
-                       value="{{ search_query|default:'' }}"
-                       title="Recherche flexible : nom, prénom, téléphone, email, adresse, ID client, ID YZ commande, numéro commande, ville, état commande, produit">
+                           placeholder="Rechercher par nom, téléphone, ville, état commande..." 
+                           value="{{ search_query|default:'' }}">
             </div>
             <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
                     style="background-color: var(--admin-color);">
                 <i class="fas fa-search mr-2"></i> Rechercher
             </button>
-            {% if search_query %}
+                {% if search_query or ville_filter or region_filter %}
             <a href="{% url 'client:liste' %}" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
                style="background-color: #EF4444;">
                 <i class="fas fa-times mr-2"></i> Effacer
             </a>
             {% endif %}
+            </div>
+
+            <!-- Ligne 2: Filtres spécifiques -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                <!-- Filtre par Ville -->
+                <div>
+                    <label for="ville_filter" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-map-marker-alt mr-1"></i>Filtrer par ville système
+                    </label>
+                    <select name="ville_filter" id="ville_filter" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                            style="border-color: #99dddd; focus:ring-color: var(--admin-color);">
+                        <option value="">Toutes les villes</option>
+                        {% for ville in villes %}
+                        <option value="{{ ville.id }}" {% if ville_filter == ville.id|stringformat:"s" %}selected{% endif %}>
+                            {{ ville.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Filtre par Ville Initiale -->
+                <div>
+                    <label for="ville_init_filter" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-file-alt mr-1"></i>Filtrer par ville du fichier
+                    </label>
+                    <select name="ville_init_filter" id="ville_init_filter" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                            style="border-color: #99dddd; focus:ring-color: var(--admin-color);">
+                        <option value="">Toutes les villes</option>
+                        {% for ville_init in villes_init %}
+                        <option value="{{ ville_init }}" {% if ville_init_filter == ville_init %}selected{% endif %}>
+                            {{ ville_init }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Filtre par Région -->
+                <div>
+                    <label for="region_filter" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-globe-africa mr-1"></i>Filtrer par région
+                    </label>
+                    <select name="region_filter" id="region_filter" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                            style="border-color: #99dddd; focus:ring-color: var(--admin-color);">
+                        <option value="">Toutes les régions</option>
+                        {% for region in regions %}
+                        <option value="{{ region.id }}" {% if region_filter == region.id|stringformat:"s" %}selected{% endif %}>
+                            {{ region.nom_region }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
         </form>
     </div>
 
@@ -199,29 +250,41 @@
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">
                         <input type="checkbox" id="selectAllClients" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" />
                     </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">ID</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Nom Complet</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Téléphone</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Email</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Nb Commandes</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Client</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Ville Initiale</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Contact</th>
+                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Commandes</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Date Création</th>
+                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for client in page_obj %}
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm border-r border-gray-200">
-                        <input type="checkbox" class="client-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-client-id="{{ client.id }}" />
+                <tr class="hover:bg-gray-50 transition-colors" id="clientRow-{{ client.pk }}">
+                    <td class="px-6 py-4 whitespace-nowrap border-r">
+                        <input type="checkbox" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 client-checkbox" data-client-id="{{ client.pk }}" />
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">{{ client.id }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ client.prenom }} {{ client.nom }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ client.numero_tel }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ client.email|default:"N/A" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium border-r border-gray-200">
+                    <td class="px-6 py-4 whitespace-nowrap border-r">
+                        <div class="font-medium text-gray-900">{{ client.get_full_name }}</div>
+                        <div class="text-sm text-gray-500">ID: {{ client.pk }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r">
+                        {{ client.derniere_ville_init|default:"N/A" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r">
+                        <div><i class="fas fa-phone mr-2 text-gray-400"></i>{{ client.numero_tel }}</div>
+                        {% if client.email %}
+                        <div><i class="fas fa-envelope mr-2 text-gray-400"></i>{{ client.email }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center border-r">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if client.nombre_commandes > 0 %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-800{% endif %}">
                             <i class="fas fa-shopping-cart mr-1"></i>
                             {{ client.nombre_commandes }}
                         </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium border-r border-gray-200">
+                        {{ client.date_creation|date:"d/m/Y" }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <a href="{% url 'client:detail' client.id %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
@@ -241,10 +304,10 @@
         <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-6">
             <div class="flex flex-1 justify-between sm:hidden">
                 {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
                 {% endif %}
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
+                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
                 {% endif %}
             </div>
             <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
@@ -254,29 +317,45 @@
                     </p>
                 </div>
                 <div>
-                    <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <ul class="flex items-center -space-x-px">
                         {% if page_obj.has_previous %}
-                            <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                            <li>
+                                <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
                                 <i class="fas fa-angle-double-left"></i>
                             </a>
-                            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                            </li>
+                            <li>
+                                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
                                 <i class="fas fa-angle-left"></i>
                             </a>
+                            </li>
                         {% endif %}
                         
-                        <span class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 focus:outline-offset-0" style="background-color: #023535; color: white;">
-                            {{ page_obj.number }}
-                        </span>
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li>
+                                    <span class="px-3 py-2 leading-tight text-white border" style="background-color: var(--admin-color); border-color: var(--admin-color);">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li>
+                                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
                         
                         {% if page_obj.has_next %}
-                            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                            <li>
+                                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
                                 <i class="fas fa-angle-right"></i>
                             </a>
-                            <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                            </li>
+                            <li>
+                                <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
                                 <i class="fas fa-angle-double-right"></i>
                             </a>
+                            </li>
                         {% endif %}
-                    </nav>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -395,6 +474,28 @@
         }
 
         updateBulkDeleteClientButton();
+
+        // Auto-submit form when filters change
+        const villeFilter = document.getElementById('ville_filter');
+        if (villeFilter) {
+            villeFilter.addEventListener('change', function() {
+                this.closest('form').submit();
+            });
+        }
+        
+        const villeInitFilter = document.getElementById('ville_init_filter');
+        if (villeInitFilter) {
+            villeInitFilter.addEventListener('change', function() {
+                this.closest('form').submit();
+            });
+        }
+        
+        const regionFilter = document.getElementById('region_filter');
+        if (regionFilter) {
+            regionFilter.addEventListener('change', function() {
+                this.closest('form').submit();
+            });
+        }
     });
 
     // Fonctions de diagnostic et correction

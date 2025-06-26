@@ -448,16 +448,121 @@ function viewDetails(commandeId) {
 
 
 
+// Fonction pour construire le HTML du panier
+function buildCartHTML(data) {
+    const commande = data.commande;
+    const articles = data.articles;
+    
+    let html = `
+        <div class="space-y-4">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="font-semibold text-blue-800">Commande YZ-${commande.id_yz}</h4>
+                        <p class="text-blue-700 text-sm">Client: ${commande.client_nom}</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-lg font-bold text-blue-800">${commande.total_articles} article${commande.total_articles > 1 ? 's' : ''}</div>
+                        <div class="text-sm text-blue-600">Total: ${commande.total_montant.toFixed(2)} DH</div>
+                    </div>
+                </div>
+            </div>`;
+    
+    if (articles.length > 0) {
+        html += `
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Article</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Référence</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix unitaire</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sous-total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">`;
+        
+        articles.forEach(article => {
+            html += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">${article.nom}</div>
+                                ${article.description ? `<div class="text-sm text-gray-500">${article.description}</div>` : ''}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${article.reference}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${article.prix_unitaire.toFixed(2)} DH
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    ${article.quantite}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                ${article.sous_total.toFixed(2)} DH
+                            </td>
+                        </tr>`;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>`;
+    } else {
+        html += `
+            <div class="text-center py-8">
+                <i class="fas fa-shopping-basket text-4xl text-gray-400 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Panier vide</h3>
+                <p class="text-gray-500">Cette commande ne contient aucun article.</p>
+            </div>`;
+    }
+    
+    html += `
+            <div class="bg-gray-50 rounded-lg p-4 mt-4">
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-600">Sous-total articles:</span>
+                        <span class="text-sm font-medium">${commande.total_montant.toFixed(2)} DH</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-600">Frais de livraison:</span>
+                        <span class="text-sm font-medium">${commande.frais_livraison.toFixed(2)} DH</span>
+                    </div>
+                    <hr class="border-gray-300">
+                    <div class="flex justify-between">
+                        <span class="text-lg font-semibold text-gray-900">Total commande:</span>
+                        <span class="text-lg font-bold text-green-600">${commande.total_final.toFixed(2)} DH</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    
+    return html;
+}
+
 function viewCart(commandeId) {
     fetch(`/api/commande/${commandeId}/panier/`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            document.getElementById('cartContent').innerHTML = data.html;
+            if (data.success) {
+                const html = buildCartHTML(data);
+                document.getElementById('cartContent').innerHTML = html;
             document.getElementById('cartModal').classList.remove('hidden');
+            } else {
+                showToast(data.error || 'Erreur lors du chargement du panier', 'error');
+            }
         })
         .catch(error => {
             console.error('Erreur:', error);
-            showToast('Erreur lors du chargement du panier', 'error');
+            showToast('Erreur lors du chargement du panier: ' + error.message, 'error');
         });
 }
 

@@ -46,8 +46,15 @@ class EnumEtatCmd(models.Model):
 
 
 class Commande(models.Model):
+    ORIGINE_CHOICES = [
+        ('OC', 'Opérateur Confirmation'),
+        ('ADMIN', 'Administrateur'),
+        ('SYNC', 'Synchronisation')
+    ]
+    
     num_cmd = models.CharField(max_length=50, unique=True)
-    id_yz = models.PositiveIntegerField(unique=True, null=True, blank=True)  # Auto-incrémentation simple
+    id_yz = models.PositiveIntegerField(unique=True, null=True, blank=True)
+    origine = models.CharField(max_length=10, choices=ORIGINE_CHOICES, default='SYNC')
     date_cmd = models.DateField(default=timezone.now)
     total_cmd = models.FloatField()
     adresse = models.TextField()
@@ -58,7 +65,7 @@ class Commande(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='commandes')
     ville_init = models.CharField(max_length=100, blank=True, null=True)
     ville = models.ForeignKey(Ville, on_delete=models.CASCADE, null=True, blank=True, related_name='commandes')
-    produit_init = models.TextField(blank=True, null=True)  # Champ pour le produit brut du CSV
+    produit_init = models.TextField(blank=True, null=True)
     
     class Meta:
         verbose_name = "Commande"
@@ -77,9 +84,40 @@ class Commande(models.Model):
             )['max_id']
             self.id_yz = (last_id_yz or 0) + 1
         
-        # Si num_cmd n'est pas défini, utiliser l'ID YZ
+        # Générer le numéro de commande selon l'origine si ce n'est pas déjà fait
         if not self.num_cmd:
-            self.num_cmd = str(self.id_yz)
+            if self.origine == 'OC':
+                # Format pour les opérateurs de confirmation: OC-00001
+                prefix = 'OC-'
+                last_oc = Commande.objects.filter(
+                    num_cmd__startswith=prefix
+                ).order_by('-num_cmd').first()
+                
+                if last_oc:
+                    last_number = int(last_oc.num_cmd.split('-')[1])
+                    new_number = last_number + 1
+                else:
+                    new_number = 1
+                
+                self.num_cmd = f"{prefix}{new_number:05d}"
+                
+            elif self.origine == 'ADMIN':
+                # Format pour les administrateurs: ADMIN-00001
+                prefix = 'ADMIN-'
+                last_admin = Commande.objects.filter(
+                    num_cmd__startswith=prefix
+                ).order_by('-num_cmd').first()
+                
+                if last_admin:
+                    last_number = int(last_admin.num_cmd.split('-')[1])
+                    new_number = last_number + 1
+                else:
+                    new_number = 1
+                
+                self.num_cmd = f"{prefix}{new_number:05d}"
+            else:
+                # Pour les commandes synchronisées, utiliser l'ID YZ comme avant
+                self.num_cmd = str(self.id_yz)
         
         super().save(*args, **kwargs)
     

@@ -21,6 +21,9 @@
             <a href="{% url 'app_admin:modifier_operateur' operateur.pk %}" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
                 <i class="fas fa-edit mr-2"></i> Modifier
             </a>
+            <a href="{% url 'app_admin:modifier_mot_de_passe_operateur' operateur.pk %}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-key mr-2"></i> Mot de passe
+            </a>
         </div>
     </div>
 
@@ -124,7 +127,7 @@
         </div>
 
         <h2 class="text-2xl font-bold mb-6 mt-8" style="color: #023535;">Informations du Compte Utilisateur</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
                 <p class="text-sm font-semibold text-gray-600 mb-1">Date de création:</p>
                 <p class="text-lg text-gray-900" style="color: #023535;">{{ operateur.user.date_joined|date:"d M Y H:i" }}</p>
@@ -133,8 +136,82 @@
                 <p class="text-sm font-semibold text-gray-600 mb-1">Dernière connexion:</p>
                 <p class="text-lg text-gray-900" style="color: #023535;">{{ operateur.user.last_login|date:"d M Y H:i"|default:'Jamais' }}</p>
             </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-600 mb-1">Dernière modification MDP:</p>
+                {% if derniere_modification_mdp %}
+                    <p class="text-lg text-gray-900" style="color: #023535;">{{ derniere_modification_mdp.date_modification|date:"d M Y H:i" }}</p>
+                    <p class="text-xs text-gray-500">par {{ derniere_modification_mdp.administrateur.get_full_name|default:derniere_modification_mdp.administrateur.username }}</p>
+                {% else %}
+                    <p class="text-lg text-gray-500">Jamais modifié</p>
+                {% endif %}
+            </div>
         </div>
     </div>
+
+    <!-- Historique des modifications de mots de passe -->
+    {% if historique_mots_de_passe %}
+    <div class="bg-white shadow-lg rounded-lg p-6 mt-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold" style="color: #023535;">
+                <i class="fas fa-history mr-2"></i>Historique des modifications de mots de passe
+            </h2>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 border border-gray-200">
+                <thead class="bg-gray-50" style="background-color: #023535;">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date/Heure</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Administrateur</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Adresse IP</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Commentaire</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for historique in historique_mots_de_passe %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm font-medium text-gray-900">{{ historique.date_modification|date:"d/m/Y" }}</span><br>
+                            <span class="text-xs text-gray-500">{{ historique.date_modification|time:"H:i" }}</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-8 w-8">
+                                    <div class="h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium text-white" style="background-color: #023535;">
+                                        {{ historique.administrateur.first_name|first|default:historique.administrateur.username|first }}{{ historique.administrateur.last_name|first }}
+                                    </div>
+                                </div>
+                                <div class="ml-3">
+                                    <span class="text-sm font-medium text-gray-900">{{ historique.administrateur.get_full_name|default:historique.administrateur.username }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm text-gray-600 font-mono">{{ historique.adresse_ip|default:"N/A" }}</span>
+                        </td>
+                        <td class="px-4 py-4">
+                            <span class="text-sm text-gray-700">{{ historique.commentaire|default:"Aucun commentaire" }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if historique_mots_de_passe|length == 10 %}
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-info-circle text-blue-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700">Seules les 10 dernières modifications sont affichées ici</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
 
     <!-- Statistiques par état -->
     {% if etats_stats %}

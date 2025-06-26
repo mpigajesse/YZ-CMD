@@ -6,6 +6,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from .views import home_redirect, custom_logout
 from . import views
+from commande.views import api_panier_commande
 
 urlpatterns = [
     # Redirection de la page d'accueil vers login de l'application
@@ -26,6 +27,9 @@ urlpatterns = [
     # APIs de diagnostic et correction (admin seulement)
     path('admin/diagnostic-clients/', views.diagnostic_clients_ajax, name='diagnostic_clients_ajax'),
     path('admin/corriger-clients/', views.corriger_clients_ajax, name='corriger_clients_ajax'),
+    
+    # API pour panier commande
+    path('api/commande/<int:commande_id>/panier/', api_panier_commande, name='api_panier_commande'),
 
     # URLs des applications (avec leurs préfixes clairs)
     path('commande/', include('commande.urls')),

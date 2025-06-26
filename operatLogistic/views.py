@@ -616,21 +616,8 @@ def modifier_profile_logistique(request):
 
 @login_required
 def changer_mot_de_passe_logistique(request):
-    """Page de changement de mot de passe pour l'opérateur logistique"""
-    if request.method == 'POST':
-        form = PasswordChangeForm(request.user, request.POST)
-        if form.is_valid():
-            user = form.save()
-            update_session_auth_hash(request, user)  # Important! Pour garder l'utilisateur connecté
-            messages.success(request, 'Votre mot de passe a été mis à jour avec succès !')
-            return redirect('operatLogistic:profile')
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{field.capitalize()}: {error}")
-    else:
-        form = PasswordChangeForm(request.user)
-    return render(request, 'operatLogistic/changer_mot_de_passe.html', {'form': form})
+    """Page de changement de mot de passe pour l'opérateur logistique - Désactivée"""
+    return redirect('operatLogistic:profile')
 
 @login_required
 def marquer_livree(request, commande_id):

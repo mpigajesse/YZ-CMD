@@ -246,13 +246,21 @@
                 {% for commande in page_obj %}
                 <tr class="hover:bg-gray-50 transition-colors">
 
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <a href="{% url 'operatConfirme:detail_commande' commande.pk %}" class="text-sm font-medium hover:underline transition-all" style="color: #4B352A;">
-                            {{ commande.id_yz }}
-                        </a>
-                        {% if commande.num_cmd != commande.id_yz|stringformat:"s" %}
-                        <div class="text-xs text-gray-500">{{ commande.num_cmd }}</div>
-                        {% endif %}
+                    <td class="px-4 py-3">
+                        <div class="flex flex-col">
+                            <div class="font-bold" style="color: #4B352A;">
+                                {% if commande.origine == 'OC' %}
+                                    <span class="text-orange-600">{{ commande.num_cmd }}</span>
+                                {% elif commande.origine == 'ADMIN' %}
+                                    <span class="text-blue-600">{{ commande.num_cmd }}</span>
+                                {% else %}
+                                    <span>{{ commande.num_cmd }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                ID YZ: {{ commande.id_yz }}
+                            </div>
+                        </div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium text-gray-900">
