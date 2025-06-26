@@ -83,3 +83,24 @@ class Operateur(models.Model):
     @property
     def is_admin(self):
         return self.type_operateur == 'ADMIN'
+
+
+class HistoriqueMotDePasse(models.Model):
+    """
+    Modèle pour tracer l'historique des modifications de mots de passe des opérateurs
+    """
+    operateur = models.ForeignKey(Operateur, on_delete=models.CASCADE, related_name='historique_mots_de_passe')
+    administrateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                     help_text="Administrateur qui a modifié le mot de passe")
+    date_modification = models.DateTimeField(default=timezone.now)
+    adresse_ip = models.GenericIPAddressField(null=True, blank=True, help_text="Adresse IP de l'administrateur")
+    commentaire = models.TextField(blank=True, null=True, help_text="Commentaire optionnel sur la modification")
+    
+    class Meta:
+        verbose_name = "Historique Mot de Passe"
+        verbose_name_plural = "Historiques Mots de Passe"
+        ordering = ['-date_modification']
+    
+    def __str__(self):
+        admin_name = self.administrateur.get_full_name() if self.administrateur else "Système"
+        return f"Modification MDP de {self.operateur.nom_complet} par {admin_name} le {self.date_modification.strftime('%d/%m/%Y %H:%M')}"

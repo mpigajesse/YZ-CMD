@@ -6,7 +6,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg, Min, Max, Sum
 from django.contrib.auth.models import User, Group
 from django.contrib import messages
-from .models import Region, Ville, Operateur
+from .models import Region, Ville, Operateur, HistoriqueMotDePasse
 from article.models import Article
 from commande.models import Commande, EtatCommande, EnumEtatCmd
 from django.contrib.messages import success, error
@@ -366,6 +366,14 @@ def detail_operateur(request, pk):
         count=Count('id')
     ).order_by('-count')
     
+    # Historique des modifications de mots de passe
+    historique_mots_de_passe = HistoriqueMotDePasse.objects.filter(
+        operateur=operateur
+    ).select_related('administrateur').order_by('-date_modification')[:10]  # Les 10 dernières modifications
+    
+    # Dernière modification de mot de passe
+    derniere_modification_mdp = historique_mots_de_passe.first() if historique_mots_de_passe.exists() else None
+    
     # Pagination pour les commandes affectées
     paginator = Paginator(commandes_affectees, 10)
     page_number = request.GET.get('page')
@@ -393,6 +401,8 @@ def detail_operateur(request, pk):
         'montant_total_affectees': montant_total_affectees,
         'montant_total_traitees': montant_total_traitees,
         'etats_stats': etats_stats,
+        'historique_mots_de_passe': historique_mots_de_passe,
+        'derniere_modification_mdp': derniere_modification_mdp,
     }
     return render(request, 'parametre/detail_operateur.html', context)
 
@@ -790,3 +800,92 @@ def changer_mot_de_passe_admin(request):
     else:
         form = PasswordChangeForm(request.user)
     return render(request, 'parametre/changer_mot_de_passe_admin.html', {'form': form})
+
+@staff_member_required
+@login_required
+def modifier_mot_de_passe_operateur(request, pk):
+    """Permet à l'admin de modifier le mot de passe d'un opérateur"""
+    operateur = get_object_or_404(Operateur, pk=pk)
+    
+    if request.method == 'POST':
+        nouveau_mot_de_passe = request.POST.get('nouveau_mot_de_passe')
+        confirmer_mot_de_passe = request.POST.get('confirmer_mot_de_passe')
+        
+        # Validation
+        if not nouveau_mot_de_passe:
+            messages.error(request, "Le nouveau mot de passe est obligatoire.")
+            return render(request, 'parametre/modifier_mot_de_passe_operateur.html', {'operateur': operateur})
+        
+        if len(nouveau_mot_de_passe) < 6:
+            messages.error(request, "Le mot de passe doit contenir au moins 6 caractères.")
+            return render(request, 'parametre/modifier_mot_de_passe_operateur.html', {'operateur': operateur})
+        
+        if nouveau_mot_de_passe != confirmer_mot_de_passe:
+            messages.error(request, "Les mots de passe ne correspondent pas.")
+            return render(request, 'parametre/modifier_mot_de_passe_operateur.html', {'operateur': operateur})
+        
+        try:
+            # Changer le mot de passe
+            user = operateur.user
+            user.set_password(nouveau_mot_de_passe)
+            user.save()
+            
+            # Enregistrer dans l'historique
+            def get_client_ip(request):
+                x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+                if x_forwarded_for:
+                    ip = x_forwarded_for.split(',')[0]
+                else:
+                    ip = request.META.get('REMOTE_ADDR')
+                return ip
+            
+            HistoriqueMotDePasse.objects.create(
+                operateur=operateur,
+                administrateur=request.user,
+                adresse_ip=get_client_ip(request),
+                commentaire=f"Mot de passe modifié par l'administrateur {request.user.get_full_name() or request.user.username}"
+            )
+            
+            messages.success(request, f"Le mot de passe de {operateur.prenom} {operateur.nom} a été modifié avec succès.")
+            return redirect('app_admin:detail_operateur', pk=operateur.pk)
+            
+        except Exception as e:
+            messages.error(request, f"Une erreur est survenue lors de la modification du mot de passe : {str(e)}")
+    
+    context = {
+        'operateur': operateur,
+    }
+    return render(request, 'parametre/modifier_mot_de_passe_operateur.html', context)
+
+@staff_member_required
+@login_required
+def gestion_mots_de_passe(request):
+    """Vue pour la gestion globale des mots de passe des opérateurs"""
+    operateurs = Operateur.objects.select_related('user').prefetch_related('historique_mots_de_passe').exclude(type_operateur='ADMIN').order_by('nom', 'prenom')
+    
+    # Recherche
+    search = request.GET.get('search')
+    if search:
+        operateurs = operateurs.filter(
+            Q(nom__icontains=search) | 
+            Q(prenom__icontains=search) |
+            Q(mail__icontains=search)
+        )
+    
+    # Filtrage par type
+    type_filter = request.GET.get('type')
+    if type_filter:
+        operateurs = operateurs.filter(type_operateur=type_filter)
+    
+    # Pagination
+    paginator = Paginator(operateurs, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+        'type_filter': type_filter,
+        'types_operateur': [choice for choice in Operateur.TYPE_OPERATEUR_CHOICES if choice[0] != 'ADMIN'],
+    }
+    return render(request, 'parametre/gestion_mots_de_passe.html', context)
