@@ -15,6 +15,11 @@ def lookup(dictionary, key):
     return dictionary.get(key, {})
 
 @register.filter
+def dict_get(dictionary, key):
+    """Alias de lookup - permet d'accéder à une valeur de dictionnaire avec une clé dynamique"""
+    return dictionary.get(key, '')
+
+@register.filter
 def div(value, arg):
     """Division de deux nombres"""
     try:
