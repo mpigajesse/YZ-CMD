@@ -1,23 +1,34 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, Count, OuterRef, Subquery
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from .models import Client
+from parametre.models import Ville, Region
+from commande.models import Commande
 
 # Create your views here.
 
 @login_required
 def liste_clients(request):
-    from django.db.models import Count
     from synchronisation.models import SyncLog
     
-    # Ajouter l'annotation pour compter les commandes par client
+    # Sous-requête pour trouver la 'ville_init' de la dernière commande de chaque client
+    latest_commande_ville_init = Commande.objects.filter(
+        client=OuterRef('pk')
+    ).order_by('-date_creation').values('ville_init')[:1]
+
+    # Annoter les clients avec la ville de leur dernière commande
     clients = Client.objects.annotate(
-        nombre_commandes=Count('commandes', distinct=True)
+        nombre_commandes=Count('commandes', distinct=True),
+        derniere_ville_init=Subquery(latest_commande_ville_init)
     ).all()
     search_query = request.GET.get('search', '')
+
+    # Filtres
+    ville_filter = request.GET.get('ville_filter', '')
+    region_filter = request.GET.get('region_filter', '')
 
     if search_query:
         # Recherche flexible et variée
@@ -71,6 +82,26 @@ def liste_clients(request):
         
         clients = clients.filter(search_conditions).distinct()
 
+    # Filtres spécifiques
+    if ville_filter:
+        try:
+            # On récupère l'objet Ville pour pouvoir utiliser son nom dans la recherche
+            ville_obj = Ville.objects.get(id=ville_filter)
+            
+            # On filtre sur les clients qui ont des commandes avec
+            # SOIT la bonne FK vers Ville, SOIT le bon nom de ville dans ville_init
+            clients = clients.filter(
+                Q(commandes__ville_id=ville_filter) |
+                Q(commandes__ville_init__iexact=ville_obj.nom)
+            ).distinct()
+        except Ville.DoesNotExist:
+            # Si l'ID de la ville fourni n'est pas valide, on ignore simplement le filtre
+            pass
+    
+    if region_filter:
+        clients = clients.filter(commandes__ville__region_id=region_filter).distinct()
+    
+    # Triez par date de création par défaut
     clients = clients.order_by('-date_creation')
 
     paginator = Paginator(clients, 10)  # 10 clients par page
@@ -103,6 +134,10 @@ def liste_clients(request):
     # Dernière synchronisation
     derniere_sync = SyncLog.objects.filter(status__in=['success', 'partial']).first()
     
+    # Récupérer les listes pour les filtres
+    villes = Ville.objects.all().order_by('nom')
+    regions = Region.objects.all().order_by('nom_region')
+    
     # Calculer les pourcentages
     pourcentage_avec_commandes = round((clients_avec_commandes / total_clients * 100), 1) if total_clients > 0 else 0
     pourcentage_sans_commandes = round((clients_sans_commandes / total_clients * 100), 1) if total_clients > 0 else 0
@@ -110,6 +145,10 @@ def liste_clients(request):
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
+        'ville_filter': ville_filter,
+        'region_filter': region_filter,
+        'villes': villes,
+        'regions': regions,
         'total_clients': total_clients,
         'clients_avec_commandes': clients_avec_commandes,
         'clients_sans_commandes': clients_sans_commandes,

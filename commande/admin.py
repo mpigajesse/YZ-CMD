@@ -25,9 +25,9 @@ class OperationInline(admin.TabularInline):
 
 @admin.register(Commande)
 class CommandeAdmin(admin.ModelAdmin):
-    list_display = ('num_cmd', 'id_yz', 'date_cmd', 'total_cmd', 'etat_actuel_display', 'client', 'produit_init', 'ville', 'is_upsell')
+    list_display = ('num_cmd', 'id_yz', 'date_cmd', 'total_cmd', 'etat_actuel_display', 'client', 'produit_init', 'ville', 'ville_init', 'is_upsell')
     list_filter = ('is_upsell', 'date_cmd', 'ville')
-    search_fields = ('num_cmd', 'id_yz', 'client__numero_tel', 'client__nom', 'client__prenom', 'produit_init')
+    search_fields = ('num_cmd', 'id_yz', 'client__numero_tel', 'client__nom', 'client__prenom', 'produit_init', 'ville_init')
     ordering = ('-date_cmd', '-date_creation')
     inlines = [PanierInline, EtatCommandeInline, OperationInline]
     readonly_fields = ('date_creation', 'date_modification', 'etat_actuel_display')
@@ -45,7 +45,7 @@ class CommandeAdmin(admin.ModelAdmin):
             'fields': ('num_cmd', 'id_yz', 'date_cmd', 'total_cmd', 'is_upsell', 'produit_init')
         }),
         ('Client et livraison', {
-            'fields': ('client', 'ville', 'adresse')
+            'fields': ('client', 'ville', 'ville_init', 'adresse')
         }),
         ('État actuel', {
             'fields': ('etat_actuel_display',)
