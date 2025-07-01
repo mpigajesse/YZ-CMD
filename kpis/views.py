@@ -318,75 +318,53 @@ def vue_generale_data(request):
             satisfaction = 5.0  # Aucune donnée = parfait par défaut
             taux_retour = 0
             tendance_satisfaction = 0
-          # Taux de Livraison (commandes livrées / commandes confirmées)
+          # Taux de Confirmation (commandes confirmées / commandes affectées)
+        commandes_affectees_30j_total = Commande.objects.filter(
+            date_cmd__gte=debut_30j,
+            etats__enum_etat__libelle__iexact='Affectée'
+        ).distinct().count()
+        
         commandes_confirmees_30j_total = Commande.objects.filter(
             date_cmd__gte=debut_30j,
             etats__enum_etat__libelle__iexact='Confirmée'
         ).distinct().count()
         
-        commandes_livrees_30j = Commande.objects.filter(
-            date_cmd__gte=debut_30j,
-            etats__enum_etat__libelle__iexact='Livrée'
+        if commandes_affectees_30j_total > 0:
+            taux_confirmation = (commandes_confirmees_30j_total / commandes_affectees_30j_total) * 100
+        else:
+            taux_confirmation = 0
+        
+        # Taux de confirmation période précédente
+        commandes_affectees_precedent_total = Commande.objects.filter(
+            date_cmd__gte=debut_periode_precedente,
+            date_cmd__lt=debut_30j,
+            etats__enum_etat__libelle__iexact='Affectée'
         ).distinct().count()
         
-        if commandes_confirmees_30j_total > 0:
-            taux_livraison = (commandes_livrees_30j / commandes_confirmees_30j_total) * 100
-        else:
-            taux_livraison = 0
-        
-        # Taux de livraison période précédente
         commandes_confirmees_precedent_total = Commande.objects.filter(
             date_cmd__gte=debut_periode_precedente,
             date_cmd__lt=debut_30j,
             etats__enum_etat__libelle__iexact='Confirmée'
         ).distinct().count()
         
-        commandes_livrees_precedent = Commande.objects.filter(
-            date_cmd__gte=debut_periode_precedente,
-            date_cmd__lt=debut_30j,
-            etats__enum_etat__libelle__iexact='Livrée'
-        ).distinct().count()
-        
-        if commandes_confirmees_precedent_total > 0:
-            taux_livraison_precedent = (commandes_livrees_precedent / commandes_confirmees_precedent_total) * 100
-            tendance_taux_livraison = taux_livraison - taux_livraison_precedent
+        if commandes_affectees_precedent_total > 0:
+            taux_confirmation_precedent = (commandes_confirmees_precedent_total / commandes_affectees_precedent_total) * 100
+            tendance_taux_confirmation = taux_confirmation - taux_confirmation_precedent
         else:
-            tendance_taux_livraison = taux_livraison if taux_livraison > 0 else 0          # Stock Total
-        stock_total = Article.objects.filter(actif=True).aggregate(
-            total=Sum('qte_disponible')
-        )['total'] or 0
+            tendance_taux_confirmation = taux_confirmation if taux_confirmation > 0 else 0
         
-        # Calculer la tendance du stock total basée sur les ventes récentes
-        # Logique simple : comparer les quantités vendues récemment vs période précédente
-        try:
-            # Quantités vendues des 30 derniers jours
-            qty_vendue_30j = Panier.objects.filter(
-                commande__date_cmd__gte=debut_30j,
-                commande__date_cmd__lte=aujourd_hui
-            ).exclude(
-                commande__etats__enum_etat__libelle__iexact='Annulée'
-            ).aggregate(total=Sum('quantite'))['total'] or 0
-            
-            # Quantités vendues période précédente
-            qty_vendue_precedente = Panier.objects.filter(
-                commande__date_cmd__gte=debut_periode_precedente,
-                commande__date_cmd__lt=debut_30j
-            ).exclude(
-                commande__etats__enum_etat__libelle__iexact='Annulée'
-            ).aggregate(total=Sum('quantite'))['total'] or 0
-            
-            # Plus de ventes récentes = stock diminue plus vite (tendance négative)
-            # Moins de ventes récentes = stock se maintient mieux (tendance positive)
-            if qty_vendue_precedente > 0:
-                ratio_ventes = qty_vendue_30j / qty_vendue_precedente
-                # Si ratio > 1 : plus de ventes = tendance négative (stock baisse)
-                # Si ratio < 1 : moins de ventes = tendance positive (stock se maintient)
-                tendance_stock_total = (1 - ratio_ventes) * 10  # Facteur modéré
-            else:
-                # Pas de ventes précédentes : si ventes actuelles, tendance négative
-                tendance_stock_total = -5 if qty_vendue_30j > 0 else 0
-        except:
-            tendance_stock_total = 0
+        # === Données géographiques (Performance par Région) ===
+        # Top 5 villes par CA - 30 derniers jours
+        ventes_par_ville = (Commande.objects
+            .filter(date_cmd__gte=debut_30j)
+            .exclude(etats__enum_etat__libelle__iexact='Annulée')
+            .values('ville__nom', 'ville__region__nom_region')
+            .annotate(
+                ca_total=Sum('total_cmd'),
+                nb_commandes=Count('id')
+            )
+            .order_by('-ca_total')[:5]
+        )
         
         # Réponse JSON
         data = {
@@ -443,32 +421,34 @@ def vue_generale_data(request):
                     'label': 'Délai Livraison',
                     'status': 'excellent' if delai_moyen <= 2 else 'good' if delai_moyen <= 3 else 'warning' if delai_moyen <= 5 else 'critical',
                     'sub_value': f"moyenne sur {nb_livraisons} livraisons"
-                },'satisfaction': {
-                    'valeur': round(satisfaction, 1),
-                    'valeur_formatee': f"{satisfaction:.1f}",
-                    'tendance': round(tendance_satisfaction, 2),
+                },                'taux_retour': {
+                    'valeur': round(taux_retour, 1),
+                    'valeur_formatee': f"{taux_retour:.1f}",
+                    'tendance': round(tendance_satisfaction * -1, 2),  # Inverser la tendance car moins de retour = mieux
                     'taux_retour': round(taux_retour, 1),
                     'commandes_livrees': commandes_livrees,
                     'commandes_retournees': commandes_retournees,
-                    'unite': '/5',
-                    'label': 'Satisfaction',
-                    'status': 'excellent' if satisfaction >= 4.5 else 'good' if satisfaction >= 4.0 else 'warning' if satisfaction >= 3.0 else 'critical',
-                    'sub_value': f"{taux_retour:.1f}% de retours ({commandes_retournees}/{commandes_livrees})"
-                },                'support_24_7': {
-                    'valeur': round(taux_livraison, 1),
-                    'valeur_formatee': f"{taux_livraison:.1f}",
-                    'tendance': round(tendance_taux_livraison, 1),
                     'unite': '%',
-                    'label': 'Taux Livraison',
-                    'sub_value': f'{commandes_livrees_30j}/{commandes_confirmees_30j_total} livrées'
-                },'stock_total': {
-                    'valeur': stock_total,
-                    'valeur_formatee': f"{stock_total:,}",
-                    'tendance': round(tendance_stock_total, 1),
-                    'unite': 'articles',
-                    'label': 'Stock Total',
-                    'sub_value': 'disponibles'
-                }
+                    'label': 'Taux Retour',
+                    'status': 'excellent' if taux_retour <= 5 else 'good' if taux_retour <= 10 else 'warning' if taux_retour <= 15 else 'critical',
+                    'sub_value': f"{commandes_retournees}/{commandes_livrees} retours"
+                },                'taux_confirmation': {
+                    'valeur': round(taux_confirmation, 1),
+                    'valeur_formatee': f"{taux_confirmation:.1f}",
+                    'tendance': round(tendance_taux_confirmation, 1),
+                    'unite': '%',
+                    'label': 'Taux Confirmation',
+                    'status': 'excellent' if taux_confirmation >= 80 else 'good' if taux_confirmation >= 70 else 'warning' if taux_confirmation >= 60 else 'critical',
+                    'sub_value': f'{commandes_confirmees_30j_total}/{commandes_affectees_30j_total} confirmées'
+                },
+                'ventes_geographique': [
+                    {
+                        'ville': ville['ville__nom'] or 'Inconnue',
+                        'region': ville['ville__region__nom_region'] or 'Inconnue',
+                        'ca': float(ville['ca_total']) if ville['ca_total'] else 0,
+                        'commandes': ville['nb_commandes'] or 0
+                    } for ville in ventes_par_ville
+                ]
             }
         }
         
@@ -613,7 +593,7 @@ def ventes_data(request):
         # Répartition Géographique (Top 5 villes)
         ventes_par_ville = (Commande.objects
             .filter(date_cmd__gte=debut_30j)
-            .exclude(etats__enum_etat__iexact='Annulée')
+            .exclude(etats__enum_etat__libelle__iexact='Annulée')
             .values('ville__nom', 'ville__region__nom_region')
             .annotate(
                 ca_total=Sum('total_cmd'),
@@ -1242,10 +1222,14 @@ def clients_data(request):
         }, status=500)
 
 @login_required
-@login_required
 def documentation(request):
     """Page de documentation KPIs"""
     return render(request, 'kpis/documentation.html')
+
+@login_required
+def configurations(request):
+    """Page de configuration des paramètres KPIs"""
+    return render(request, 'kpis/configurations.html')
 
 @api_login_required
 def get_configurations(request):
@@ -1259,7 +1243,7 @@ def get_configurations(request):
             'objectif': 'seuils',
             'formule': 'calcul',
             'periode': 'calcul',
-            'calcul': 'calcul',  # Ajout de la catégorie manquante
+            'calcul': 'calcul',
             'affichage': 'affichage',
             'interface': 'affichage',
         }

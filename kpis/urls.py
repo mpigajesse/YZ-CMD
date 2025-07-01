@@ -9,6 +9,9 @@ urlpatterns = [
     
     # Documentation
     path('documentation/', views.documentation, name='documentation'),
+    
+    # Configuration des paramètres KPIs
+    path('configurations/', views.configurations, name='configurations'),
       # APIs pour données KPIs
     path('api/vue-generale/', views.vue_generale_data, name='vue_generale_data'),
     path('api/ventes/', views.ventes_data, name='ventes_data'),

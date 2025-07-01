@@ -119,9 +119,11 @@ class YoozakKPIManager {
     this.updateKPICard('taux-conversion', data.kpis_principaux.taux_conversion);    // Mettre à jour les KPIs secondaires
     this.updateKPICard('panier-moyen', data.kpis_secondaires.panier_moyen);
     this.updateKPICard('delai-livraison', data.kpis_secondaires.delai_livraison);
-    this.updateKPICard('satisfaction', data.kpis_secondaires.satisfaction);
-    this.updateKPICard('support-24-7', data.kpis_secondaires.support_24_7);
-    this.updateKPICard('stock-total', data.kpis_secondaires.stock_total);
+    this.updateKPICard('taux-retour', data.kpis_secondaires.taux_retour);
+    this.updateKPICard('taux-confirmation', data.kpis_secondaires.taux_confirmation);
+
+    // Mettre à jour le graphique des régions
+    this.updateRegionsChart(data.kpis_secondaires.ventes_geographique);
   }
   updateKPICard(cardId, kpiData) {
     console.log(`🔄 Mise à jour KPI: ${cardId}`, kpiData);
@@ -1150,6 +1152,78 @@ class YoozakKPIManager {
     if (loading) loading.style.display = 'none';
     if (content) content.style.display = 'block';
     if (emptyState) emptyState.style.display = 'none';
+  }
+
+  updateRegionsChart(regionsData) {
+    const container = document.getElementById('regions-chart-container');
+    if (!container || !regionsData || regionsData.length === 0) {
+      if (container) {
+        container.innerHTML = `
+          <div class="h-full flex items-center justify-center text-gray-500">
+            <div class="text-center">
+              <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
+              <p>Aucune donnée de région disponible</p>
+            </div>
+          </div>
+        `;
+      }
+      return;
+    }
+
+    // Calculer le total pour les pourcentages réels
+    const totalCA = regionsData.reduce((sum, region) => sum + region.ca, 0);
+    const maxCA = Math.max(...regionsData.map(region => region.ca));
+
+    // Créer le HTML du graphique - style simple et classique
+    const chartHTML = `
+      <div class="h-full py-2">
+        <div class="space-y-3 h-full flex flex-col justify-around">
+          ${regionsData.map(region => {
+      const percentage = ((region.ca / totalCA) * 100).toFixed(1); // Pourcentage du total
+      const barWidth = Math.max(3, (region.ca / maxCA) * 100); // Largeur visuelle basée sur le maximum
+
+      return `
+              <div class="flex items-center">
+                <!-- Nom de la région -->
+                <div class="w-20 text-sm font-medium text-gray-700 truncate mr-2">
+                  ${region.ville}
+                </div>
+                
+                <!-- Barre de progression -->
+                <div class="flex-1 relative mr-3">
+                  <div class="bg-gray-200 rounded h-4 relative overflow-hidden">
+                    <div class="bg-blue-500 h-full rounded transition-all duration-500 flex items-center justify-end pr-2" 
+                         style="width: ${barWidth}%">
+                      <span class="text-white text-xs font-medium">${percentage}%</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- CA avec nombre de commandes -->
+                <div class="w-20 text-right text-sm text-gray-600">
+                  ${(region.ca / 1000).toFixed(0)}K DH (${region.commandes})
+                </div>
+              </div>
+            `;
+    }).join('')}
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = chartHTML;
+
+    // Mettre à jour les statistiques
+    const statsElement = document.getElementById('regions-stats');
+    if (statsElement) {
+      const totalCommandes = regionsData.reduce((sum, region) => sum + region.commandes, 0);
+
+      statsElement.innerHTML = `
+        <i class="fas fa-chart-bar text-blue-500"></i>
+        <span>${regionsData.length} régions • ${totalCommandes} commandes • ${(totalCA / 1000).toFixed(0)}K DH</span>
+      `;
+    }
+
+    console.log('✅ Graphique des régions mis à jour');
   }
 }
 
