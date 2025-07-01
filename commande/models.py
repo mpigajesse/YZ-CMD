@@ -8,14 +8,29 @@ from parametre.models import Ville, Operateur
 # Create your models here.
 
 class EnumEtatCmd(models.Model):
-    # Choix d'états de commande
+    # Choix d'états de commande complets
     STATUS_CHOICES = [
+        # États initiaux
+        ('recue', 'Reçue'),
         ('non_affectee', 'Non affectée'),
         ('affectee', 'Affectée'),
+        
+        # États de confirmation
         ('en_cours_confirmation', 'En cours de confirmation'),
         ('confirmee', 'Confirmée'),
+        
+        # États problématiques
         ('erronnee', 'Erronée'),
         ('doublon', 'Doublon'),
+        
+        # États de préparation
+        ('en_cours_preparation', 'En cours de préparation'),
+        ('preparee', 'Préparée'),
+        
+        # États de livraison
+        ('en_cours_livraison', 'En cours de livraison'),
+        ('livree', 'Livrée'),
+        ('retournee', 'Retournée'),
     ]
     
     PAYMENT_STATUS_CHOICES = [
@@ -24,6 +39,7 @@ class EnumEtatCmd(models.Model):
         ('paye', 'Payé'),
     ]
     
+    # Anciens choix de livraison conservés pour compatibilité
     DELIVERY_STATUS_CHOICES = [
         ('en_preparation', 'En préparation'),
         ('en_livraison', 'En livraison'),

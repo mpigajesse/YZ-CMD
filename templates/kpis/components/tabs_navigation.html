@@ -64,10 +64,12 @@
       <button class="kpi-tab-button flex items-center gap-2 py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-lg transition-all duration-200" data-tab="operations" role="tab" aria-selected="false" aria-controls="operations-content" tabindex="-1" title="Performance opérationnelle et téléphonique">
         <i class="fas fa-cogs" aria-hidden="true"></i>
         <span>Opérations</span>
-      </button> <!-- Onglet Stocks -->
-      <button class="kpi-tab-button flex items-center gap-2 py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-lg transition-all duration-200" data-tab="chaussures-stocks" role="tab" aria-selected="false" aria-controls="chaussures-stocks-content" tabindex="-1" title="Gestion des stocks et inventaire">
-        <i class="fas fa-boxes" aria-hidden="true"></i>
-        <span>Stocks</span>
+      </button>
+
+      <!-- Onglet Vue Quantitative -->
+      <button class="kpi-tab-button flex items-center gap-2 py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-lg transition-all duration-200" data-tab="vue-quantitative" role="tab" aria-selected="false" aria-controls="vue-quantitative-content" tabindex="-1" title="Suivi quantitatif des états de commandes">
+        <i class="fas fa-chart-bar" aria-hidden="true"></i>
+        <span>Vue Quantitative</span> 
       </button>
     </nav>
   </div>
@@ -94,9 +96,10 @@
   <div id="operations-content" class="kpi-tab-panel hidden" role="tabpanel">
     {% include 'kpis/tabs/operations.html' %}
   </div>
-  <!-- Stocks -->
-  <div id="chaussures-stocks-content" class="kpi-tab-panel hidden" role="tabpanel">
-    {% include 'kpis/tabs/chaussures_stocks.html' %}
+
+  <!-- Vue Quantitative -->
+  <div id="vue-quantitative-content" class="kpi-tab-panel hidden" role="tabpanel">
+    {% include 'kpis/tabs/vue_quantitative.html' %}
   </div>
 </div>
 
@@ -292,98 +295,98 @@
   // CSS pour les animations avancées
   const style = document.createElement('style')
   style.textContent = `
-                          .kpi-tab-button {
-                              position: relative;
-                              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                              overflow: hidden;
-                          }
-                          
-                          .kpi-tab-button::before {
-                              content: '';
-                              position: absolute;
-                              top: 0;
-                              left: -100%;
-                              width: 100%;
-                              height: 100%;
-                              background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
-                              transition: left 0.5s ease;
-                          }
-                          
-                          .kpi-tab-button:hover::before {
-                              left: 100%;
-                          }
-                          
-                          .kpi-tab-button:hover {
-                              transform: translateY(-2px);
-                              box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-                          }
-                          
-                          .kpi-tab-button.active {
-                              background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.1) 100%);
-                              box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
-                          }
-                          
-                          .kpi-tab-button.active::after {
-                              content: '';
-                              position: absolute;
-                              bottom: -2px;
-                              left: 50%;
-                              transform: translateX(-50%);
-                              width: 0;
-                              height: 2px;
-                              background: linear-gradient(90deg, #3b82f6, #1d4ed8);
-                              animation: expandBorder 0.3s ease forwards;
-                          }
-                          
-                          @keyframes expandBorder {
-                              to { width: 100%; }
-                          }
-                          
-                          .kpi-tab-panel {
-                              transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                              transform-origin: top center;
-                          }
-                          
-                          .kpi-tab-panel.hidden {
-                              display: none;
-                              opacity: 0;
-                              transform: translateY(20px) scale(0.95);
-                          }
-                          
-                          .kpi-tab-panel.active {
-                              animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-                          }
-                          
-                          @keyframes slideInUp {
-                              from { 
-                                  opacity: 0; 
-                                  transform: translateY(30px) scale(0.95);
-                              }
-                              to { 
-                                  opacity: 1; 
-                                  transform: translateY(0) scale(1);
-                              }
-                          }
-                          
-                          .kpi-tab-loading {
-                              position: relative;
-                              overflow: hidden;
-                          }
-                          
-                          .kpi-tab-loading::before {
-                              content: '';
-                              position: absolute;
-                              top: 0;
-                              left: -100%;
-                              width: 100%;
-                              height: 2px;
-                              background: linear-gradient(90deg, #3b82f6, #1d4ed8);
-                              animation: loadingBar 1s ease-in-out;
-                          }
-                          
-                          @keyframes loadingBar {
-                              to { left: 100%; }
-                          }
-                      `
+                            .kpi-tab-button {
+                                position: relative;
+                                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                                overflow: hidden;
+                            }
+                            
+                            .kpi-tab-button::before {
+                                content: '';
+                                position: absolute;
+                                top: 0;
+                                left: -100%;
+                                width: 100%;
+                                height: 100%;
+                                background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+                                transition: left 0.5s ease;
+                            }
+                            
+                            .kpi-tab-button:hover::before {
+                                left: 100%;
+                            }
+                            
+                            .kpi-tab-button:hover {
+                                transform: translateY(-2px);
+                                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+                            }
+                            
+                            .kpi-tab-button.active {
+                                background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.1) 100%);
+                                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+                            }
+                            
+                            .kpi-tab-button.active::after {
+                                content: '';
+                                position: absolute;
+                                bottom: -2px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                width: 0;
+                                height: 2px;
+                                background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+                                animation: expandBorder 0.3s ease forwards;
+                            }
+                            
+                            @keyframes expandBorder {
+                                to { width: 100%; }
+                            }
+                            
+                            .kpi-tab-panel {
+                                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                                transform-origin: top center;
+                            }
+                            
+                            .kpi-tab-panel.hidden {
+                                display: none;
+                                opacity: 0;
+                                transform: translateY(20px) scale(0.95);
+                            }
+                            
+                            .kpi-tab-panel.active {
+                                animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                            }
+                            
+                            @keyframes slideInUp {
+                                from { 
+                                    opacity: 0; 
+                                    transform: translateY(30px) scale(0.95);
+                                }
+                                to { 
+                                    opacity: 1; 
+                                    transform: translateY(0) scale(1);
+                                }
+                            }
+                            
+                            .kpi-tab-loading {
+                                position: relative;
+                                overflow: hidden;
+                            }
+                            
+                            .kpi-tab-loading::before {
+                                content: '';
+                                position: absolute;
+                                top: 0;
+                                left: -100%;
+                                width: 100%;
+                                height: 2px;
+                                background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+                                animation: loadingBar 1s ease-in-out;
+                            }
+                            
+                            @keyframes loadingBar {
+                                to { left: 100%; }
+                            }
+                        `
   document.head.appendChild(style)
 </script>

@@ -3,12 +3,11 @@ from . import views
 
 app_name = 'kpis'
 
-urlpatterns = [
-    # Dashboard principal
-    path('', views.dashboard_home, name='dashboard'),
-    
-    # Documentation
+urlpatterns = [# Documentation
     path('documentation/', views.documentation, name='documentation'),
+    
+    # Présentation des paramètres
+    path('presentation-parametres/', views.presentation_parametres, name='presentation_parametres'),
     
     # Configuration des paramètres KPIs
     path('configurations/', views.configurations, name='configurations'),
@@ -19,6 +18,7 @@ urlpatterns = [
     path('api/top-modeles/', views.top_modeles_data, name='top_modeles_data'),
     path('api/performance-regions/', views.performance_regions_data, name='performance_regions_data'),
     path('api/clients/', views.clients_data, name='clients_data'),
+    path('api/vue-quantitative/', views.vue_quantitative_data, name='vue_quantitative_data'),
     
     # APIs pour configuration
     path('api/configurations/', views.get_configurations, name='get_configurations'),

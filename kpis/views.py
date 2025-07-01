@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from functools import wraps
 
-from commande.models import Commande, Panier, EtatCommande, Operation
+from commande.models import Commande, Panier, EtatCommande, Operation, EnumEtatCmd
 from article.models import Article
 from client.models import Client
 from parametre.models import Operateur
@@ -54,11 +54,6 @@ def validate_integer_value(nom_parametre, valeur):
             valeur = int(valeur)
     
     return True, valeur
-
-@login_required
-def dashboard_home(request):
-    """Page principale du dashboard KPIs"""
-    return render(request, 'kpis/dashboard.html')
 
 @login_required
 def vue_generale_data(request):
@@ -1231,11 +1226,134 @@ def configurations(request):
     """Page de configuration des paramètres KPIs"""
     return render(request, 'kpis/configurations.html')
 
+@login_required
+def presentation_parametres(request):
+    """Page de présentation détaillée des paramètres KPIs"""
+    return render(request, 'kpis/presentation_parametres.html')
+
 @api_login_required
 def get_configurations(request):
     """API pour récupérer toutes les configurations KPIs"""
     try:
         configs = KPIConfiguration.objects.all().order_by('categorie', 'nom_parametre')
+        
+        # Configurations par défaut au cas où la BD serait vide
+        default_configs = {
+            'seuils': [
+                {
+                    'id': 'default_stock_critique_seuil',
+                    'nom_parametre': 'stock_critique_seuil',
+                    'valeur': 5.0,
+                    'description': 'Seuil en dessous duquel un article est considéré en stock critique',
+                    'unite': 'unités',
+                    'valeur_min': 0,
+                    'valeur_max': 100
+                },
+                {
+                    'id': 'default_taux_conversion_objectif',
+                    'nom_parametre': 'taux_conversion_objectif',
+                    'valeur': 70.0,
+                    'description': 'Objectif de taux de conversion (confirmations/appels)',
+                    'unite': '%',
+                    'valeur_min': 0,
+                    'valeur_max': 100
+                },
+                {
+                    'id': 'default_delai_livraison_cible',
+                    'nom_parametre': 'delai_livraison_cible',
+                    'valeur': 3.0,
+                    'description': 'Délai de livraison cible en jours',
+                    'unite': 'jours',
+                    'valeur_min': 1,
+                    'valeur_max': 30
+                },
+                {
+                    'id': 'default_satisfaction_minimale',
+                    'nom_parametre': 'satisfaction_minimale',
+                    'valeur': 4.0,
+                    'description': 'Score de satisfaction client minimal acceptable',
+                    'unite': '/5',
+                    'valeur_min': 1,
+                    'valeur_max': 5
+                }
+            ],
+            'calcul': [
+                {
+                    'id': 'default_periode_analyse_defaut',
+                    'nom_parametre': 'periode_analyse_defaut',
+                    'valeur': 30,
+                    'description': 'Période d\'analyse par défaut pour les KPIs',
+                    'unite': 'jours',
+                    'valeur_min': 1,
+                    'valeur_max': 365
+                },
+                {
+                    'id': 'default_article_populaire_seuil',
+                    'nom_parametre': 'article_populaire_seuil',
+                    'valeur': 2,
+                    'description': 'Nombre minimum de ventes pour qu\'un article soit considéré populaire',
+                    'unite': 'ventes',
+                    'valeur_min': 1,
+                    'valeur_max': 50
+                },
+                {
+                    'id': 'default_client_fidele_seuil',
+                    'nom_parametre': 'client_fidele_seuil',
+                    'valeur': 2,
+                    'description': 'Nombre minimum de commandes pour qu\'un client soit considéré fidèle',
+                    'unite': 'commandes',
+                    'valeur_min': 2,
+                    'valeur_max': 10
+                },
+                {
+                    'id': 'default_fidelisation_periode_jours',
+                    'nom_parametre': 'fidelisation_periode_jours',
+                    'valeur': 90,
+                    'description': 'Période en jours pour calculer la fidélisation',
+                    'unite': 'jours',
+                    'valeur_min': 30,
+                    'valeur_max': 365
+                }
+            ],
+            'affichage': [
+                {
+                    'id': 'default_rafraichissement_auto',
+                    'nom_parametre': 'rafraichissement_auto',
+                    'valeur': 5,
+                    'description': 'Intervalle de rafraîchissement automatique des données',
+                    'unite': 'minutes',
+                    'valeur_min': 1,
+                    'valeur_max': 60
+                },
+                {
+                    'id': 'default_afficher_tendances',
+                    'nom_parametre': 'afficher_tendances',
+                    'valeur': 1,
+                    'description': 'Afficher les indicateurs de tendance (1=Oui, 0=Non)',
+                    'unite': 'booléen',
+                    'valeur_min': 0,
+                    'valeur_max': 1
+                },
+                {
+                    'id': 'default_activer_animations',
+                    'nom_parametre': 'activer_animations',
+                    'valeur': 1,
+                    'description': 'Activer les animations dans l\'interface (1=Oui, 0=Non)',
+                    'unite': 'booléen',
+                    'valeur_min': 0,
+                    'valeur_max': 1
+                },
+                {
+                    'id': 'default_decimales_affichage',
+                    'nom_parametre': 'decimales_affichage',
+                    'valeur': 1,
+                    'description': 'Nombre de décimales à afficher pour les valeurs',
+                    'unite': 'décimales',
+                    'valeur_min': 0,
+                    'valeur_max': 3
+                }
+            ]
+        }
         
         # Mapping des vraies catégories vers les catégories attendues par le frontend
         category_mapping = {
@@ -1247,6 +1365,16 @@ def get_configurations(request):
             'affichage': 'affichage',
             'interface': 'affichage',
         }
+        
+        # Si aucune configuration en BD, utiliser les valeurs par défaut
+        if not configs.exists():
+            return JsonResponse({
+                'success': True,
+                'configurations': default_configs,
+                'integer_fields': get_integer_fields(),
+                'message': 'Configurations par défaut chargées (BD vide)',
+                'is_default': True
+            })
         
         # Organiser par catégorie mappée
         data = {
@@ -1273,8 +1401,9 @@ def get_configurations(request):
         return JsonResponse({
             'success': True,
             'configurations': data,
-            'integer_fields': get_integer_fields(),  # Ajouter les champs entiers
-            'message': 'Configurations chargées avec succès'
+            'integer_fields': get_integer_fields(),
+            'message': 'Configurations chargées avec succès',
+            'is_default': False
         })
         
     except Exception as e:
@@ -1443,4 +1572,165 @@ def reset_configurations(request):
             'success': False,
             'error': str(e),
             'message': 'Erreur lors de la restauration'
+        }, status=500)
+
+@login_required
+def vue_quantitative_data(request):
+    """API pour les données de l'onglet Vue Quantitative"""
+    try:
+        # Obtenir la date actuelle et la période demandée
+        aujourd_hui = timezone.now().date()
+        period = request.GET.get('period', 'aujourd_hui')  # Par défaut aujourd'hui
+        
+        # Calculer la date de début selon la période
+        if period == 'aujourd_hui':
+            date_debut = aujourd_hui
+            date_fin = aujourd_hui
+            jours = 1
+        elif period == 'ce_mois':
+            # Premier jour du mois actuel jusqu'à aujourd'hui
+            date_debut = aujourd_hui.replace(day=1)
+            date_fin = aujourd_hui
+            jours = (date_fin - date_debut).days + 1
+        elif period == 'cette_annee':
+            # Premier jour de l'année actuelle jusqu'à aujourd'hui
+            date_debut = aujourd_hui.replace(month=1, day=1)
+            date_fin = aujourd_hui
+            jours = (date_fin - date_debut).days + 1
+        elif period.startswith('custom:'):
+            # Période personnalisée format: custom:YYYY-MM-DD:YYYY-MM-DD
+            try:
+                parts = period.split(':')
+                if len(parts) == 3:
+                    from datetime import datetime
+                    date_debut = datetime.strptime(parts[1], '%Y-%m-%d').date()
+                    date_fin = datetime.strptime(parts[2], '%Y-%m-%d').date()
+                    jours = (date_fin - date_debut).days + 1
+                else:
+                    raise ValueError("Format de période personnalisée invalide")
+            except (ValueError, IndexError) as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Format de période personnalisée invalide: {str(e)}',
+                    'error': 'invalid_custom_period'
+                }, status=400)
+        else:
+            # Fallback vers l'ancien système pour compatibilité
+            period_days = {
+                '7j': 7,
+                '30j': 30,
+                '90j': 90,
+                '180j': 180,
+                '365j': 365
+            }
+            
+            jours = period_days.get(period, 30)  # Défaut à 30 jours si période inconnue
+            date_debut = aujourd_hui - timedelta(days=jours)
+            date_fin = aujourd_hui
+        
+        # Récupérer toutes les commandes dans la période avec leur état actuel (dernier état non terminé)
+        # On utilise une sous-requête pour obtenir l'état le plus récent pour chaque commande
+        commandes_avec_etat = Commande.objects.filter(
+            date_cmd__gte=date_debut,  # Filtrer par période
+            date_cmd__lte=date_fin,
+            etats__date_fin__isnull=True  # États actuels (non terminés)
+        ).select_related('etats__enum_etat').values(
+            'id',
+            'num_cmd',
+            'etats__enum_etat__libelle'
+        )
+        
+        # Initialiser les compteurs pour tous les états requis
+        etats_compteurs = {
+            'recue': 0,
+            'affectee': 0, 
+            'non_affectee': 0,
+            'erronnee': 0,
+            'doublon': 0,
+            'en_cours_confirmation': 0,
+            'confirmee': 0,
+            'en_cours_preparation': 0,
+            'preparee': 0,  # État intermédiaire à identifier
+            'en_cours_livraison': 0,
+            'livree': 0,
+            'retournee': 0
+        }
+        
+        # Mapping des libellés de la base vers nos clés standardisées
+        mapping_etats = {
+            'Non affectée': 'non_affectee',
+            'Affectée': 'affectee',
+            'En cours de confirmation': 'en_cours_confirmation',
+            'Confirmée': 'confirmee',
+            'Erronée': 'erronnee',
+            'Doublon': 'doublon',
+            'En préparation': 'en_cours_preparation',
+            'En livraison': 'en_cours_livraison',
+            'Livrée': 'livree',
+            'Retournée': 'retournee',
+            'Reçue': 'recue',  # Si cet état existe
+            'Préparée': 'preparee'  # Si cet état existe
+        }
+        
+        # Compter les commandes par état
+        for commande in commandes_avec_etat:
+            libelle_etat = commande['etats__enum_etat__libelle']
+            if libelle_etat in mapping_etats:
+                cle_etat = mapping_etats[libelle_etat]
+                etats_compteurs[cle_etat] += 1
+        
+        # Pour les commandes sans état défini dans la période, les considérer comme "reçues"
+        commandes_sans_etat = Commande.objects.filter(
+            date_cmd__gte=date_debut,
+            date_cmd__lte=date_fin,
+            etats__isnull=True
+        ).count()
+        
+        etats_compteurs['recue'] += commandes_sans_etat
+        
+        # Calculer le total des commandes
+        total_commandes = sum(etats_compteurs.values())
+        
+        # Note: jours est déjà calculé plus haut dans la fonction
+        
+        # Ajouter des statistiques supplémentaires
+        stats_supplementaires = {
+            'commandes_en_cours': (
+                etats_compteurs['affectee'] + 
+                etats_compteurs['en_cours_confirmation'] + 
+                etats_compteurs['en_cours_preparation'] + 
+                etats_compteurs['en_cours_livraison']
+            ),
+            'commandes_problematiques': (
+                etats_compteurs['erronnee'] + 
+                etats_compteurs['doublon'] + 
+                etats_compteurs['retournee']
+            ),
+            'commandes_completees': etats_compteurs['livree']
+        }
+        
+        # Données de réponse
+        response_data = {
+            'success': True,
+            'data': {
+                'etats_commandes': etats_compteurs,
+                'stats_supplementaires': stats_supplementaires,
+                'total_commandes': total_commandes,
+                'periode': {
+                    'libelle': period,
+                    'jours': jours,
+                    'date_debut': date_debut.isoformat(),
+                    'date_fin': date_fin.isoformat()
+                },
+                'derniere_maj': timezone.now().isoformat()
+            }
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors du calcul des états de commandes : {str(e)}',
+            'error': 'erreur_calcul_etats'
         }, status=500)

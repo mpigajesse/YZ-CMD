@@ -1,0 +1,723 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}
+  Paramètres KPI - Yoozak
+{% endblock %}
+
+{% block page_title %}
+  📋 Guide des Paramètres KPI
+{% endblock %}
+
+{% block page_subtitle %}
+  Configuration des seuils et paramètres du dashboard
+{% endblock %}
+
+{% block extra_css %}
+  <style>
+    .param-card {
+      @apply bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300 border-l-4;
+    }
+    .param-card.seuils { @apply border-orange-500; }
+    .param-card.calcul { @apply border-blue-500; }
+    .param-card.affichage { @apply border-green-500; }
+    
+    .type-badge {
+      @apply inline-flex items-center px-2 py-1 rounded text-xs font-mono bg-gray-100 text-gray-800;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-8">
+    <a href="{% url 'kpis:configurations' %}" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all">
+      <i class="fas fa-arrow-left"></i>
+      <span>Retour aux Configurations</span>
+    </a>
+    
+    <a href="{% url 'kpis:dashboard' %}" class="flex items-center gap-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all">
+      <i class="fas fa-chart-line"></i>
+      <span>Dashboard KPIs</span>
+    </a>
+  </div>
+
+  <!-- Introduction -->
+  <div class="bg-blue-600 text-white rounded-lg p-8 mb-8">
+    <h1 class="text-2xl font-bold mb-2">📋 Paramètres KPI Configurables</h1>
+    <p class="text-blue-100">
+      Guide des principaux paramètres pour personnaliser vos indicateurs de performance.
+    </p>
+  </div>
+
+  <!-- Seuils et Objectifs -->
+  <section class="mb-12">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+      <span class="text-orange-500 mr-3">🎯</span>
+      Seuils et Objectifs
+    </h2>
+    
+    <div class="grid gap-6">
+      <div class="param-card seuils">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Stock Critique</h3>
+          <span class="type-badge">Entier</span>
+        </div>
+        <p class="text-gray-600 mb-3">Seuil en dessous duquel un article est considéré en stock critique</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 5 unités • Plage: 0-100</span>
+        </div>
+      </div>
+
+      <div class="param-card seuils">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Taux de Conversion Objectif</h3>
+          <span class="type-badge">Décimal</span>
+        </div>
+        <p class="text-gray-600 mb-3">Objectif de taux de conversion (confirmations/appels)</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 70% • Plage: 0-100%</span>
+        </div>
+      </div>
+
+      <div class="param-card seuils">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Délai Livraison Cible</h3>
+          <span class="type-badge">Décimal</span>
+        </div>
+        <p class="text-gray-600 mb-3">Délai de livraison cible en jours</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 3 jours • Plage: 1-30 jours</span>
+        </div>
+      </div>
+
+      <div class="param-card seuils">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Satisfaction Minimale</h3>
+          <span class="type-badge">Décimal</span>
+        </div>
+        <p class="text-gray-600 mb-3">Score de satisfaction client minimal acceptable</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 4.0/5 • Plage: 1-5</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Paramètres de Calcul -->
+  <section class="mb-12">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+      <span class="text-blue-500 mr-3">⚙️</span>
+      Paramètres de Calcul
+    </h2>
+    
+    <div class="grid gap-6">
+      <div class="param-card calcul">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Période d'Analyse</h3>
+          <span class="type-badge">Entier</span>
+        </div>
+        <p class="text-gray-600 mb-3">Période d'analyse par défaut pour les KPIs</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 30 jours • Plage: 1-365 jours</span>
+        </div>
+      </div>
+
+      <div class="param-card calcul">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Article Populaire</h3>
+          <span class="type-badge">Entier</span>
+        </div>
+        <p class="text-gray-600 mb-3">Nombre minimum de ventes pour qu'un article soit considéré populaire</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 2 ventes • Plage: 1-50</span>
+        </div>
+      </div>
+
+      <div class="param-card calcul">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Client Fidèle</h3>
+          <span class="type-badge">Entier</span>
+        </div>
+        <p class="text-gray-600 mb-3">Nombre minimum de commandes pour qu'un client soit considéré fidèle</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 2 commandes • Plage: 2-10</span>
+        </div>
+      </div>
+
+      <div class="param-card calcul">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Période Fidélisation</h3>
+          <span class="type-badge">Entier</span>
+        </div>
+        <p class="text-gray-600 mb-3">Période en jours pour calculer la fidélisation</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 90 jours • Plage: 30-365 jours</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Paramètres d'Affichage -->
+  <section class="mb-12">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+      <span class="text-green-500 mr-3">🖥️</span>
+      Paramètres d'Affichage
+    </h2>
+    
+    <div class="grid gap-6">
+      <div class="param-card affichage">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Rafraîchissement Auto</h3>
+          <span class="type-badge">Entier</span>
+        </div>
+        <p class="text-gray-600 mb-3">Intervalle de rafraîchissement automatique des données</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 5 minutes • Plage: 1-60 minutes</span>
+        </div>
+      </div>
+
+      <div class="param-card affichage">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Afficher Tendances</h3>
+          <span class="type-badge">Booléen</span>
+        </div>
+        <p class="text-gray-600 mb-3">Afficher les indicateurs de tendance (flèches)</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: Activé (1) • Valeurs: 0 ou 1</span>
+        </div>
+      </div>
+
+      <div class="param-card affichage">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Animations</h3>
+          <span class="type-badge">Booléen</span>
+        </div>
+        <p class="text-gray-600 mb-3">Activer les animations dans l'interface</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: Activé (1) • Valeurs: 0 ou 1</span>
+        </div>
+      </div>
+
+      <div class="param-card affichage">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">Décimales</h3>
+          <span class="type-badge">Entier</span>
+        </div>
+        <p class="text-gray-600 mb-3">Nombre de décimales à afficher</p>
+        <div class="text-sm text-gray-500">
+          <span class="font-medium">Défaut: 1 • Plage: 0-3 décimales</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Informations importantes -->
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-8">
+    <h3 class="text-lg font-semibold text-amber-900 mb-3">
+      <i class="fas fa-info-circle mr-2"></i>
+      Points Important
+    </h3>
+    <ul class="space-y-2 text-amber-800">
+      <li class="flex items-start">
+        <i class="fas fa-check text-amber-600 mr-2 mt-1"></i>
+        <span>Les modifications prennent effet immédiatement après sauvegarde</span>
+      </li>
+      <li class="flex items-start">
+        <i class="fas fa-check text-amber-600 mr-2 mt-1"></i>
+        <span>Les valeurs par défaut sont optimisées pour l'e-commerce</span>
+      </li>
+      <li class="flex items-start">
+        <i class="fas fa-check text-amber-600 mr-2 mt-1"></i>
+        <span>Utilisez "Restaurer par défaut" en cas de problème</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Footer -->
+  <div class="text-center text-gray-500 text-sm">
+    <p>YZ-CMD KPI Dashboard • Version 1.0 • Juillet 2025</p>
+  </div>
+</div>
+{% endblock %}
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">delai_livraison_cible</h3>
+                <span class="type-badge type-decimal">Décimal</span>
+              </div>
+              <p class="text-gray-600 mb-3">Délai de livraison cible en jours</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">3.0</code></span>
+                  <span class="text-gray-500">Plage: 1-30 jours</span>
+                </div>
+                <span class="impact-badge impact-important">Impact Important</span>
+              </div>
+            </div>
+
+            <div class="param-card seuils">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">satisfaction_minimale</h3>
+                <span class="type-badge type-decimal">Décimal</span>
+              </div>
+              <p class="text-gray-600 mb-3">Score de satisfaction client minimal acceptable</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">4.0</code></span>
+                  <span class="text-gray-500">Plage: 1-5 /5</span>
+                </div>
+                <span class="impact-badge impact-important">Impact Important</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Seuils d'Alerte -->
+        <section id="seuils-alerte" class="mb-12">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <span class="text-red-500 mr-3">🚨</span>
+            Seuils d'Alerte et Performance
+          </h2>
+          <p class="text-gray-600 mb-6">Ces paramètres définissent les seuils qui déterminent les statuts (excellent/bon/warning/critique) des KPIs.</p>
+
+          <div class="grid gap-6">
+            <!-- Délais de livraison -->
+            <div class="bg-gray-50 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">📦 Seuils Délai Livraison</h3>
+              <div class="grid gap-4">
+                <div class="param-card alerte">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold">delai_livraison_excellent</h4>
+                    <span class="type-badge type-decimal">Décimal</span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2">Seuil délai livraison considéré comme excellent</p>
+                  <div class="text-sm">
+                    <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">2.0</code> jours</span>
+                  </div>
+                </div>
+
+                <div class="param-card alerte">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold">delai_livraison_bon</h4>
+                    <span class="type-badge type-decimal">Décimal</span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2">Seuil délai livraison considéré comme bon</p>
+                  <div class="text-sm">
+                    <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">3.0</code> jours</span>
+                  </div>
+                </div>
+
+                <div class="param-card alerte">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold">delai_livraison_warning</h4>
+                    <span class="type-badge type-decimal">Décimal</span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2">Seuil délai livraison en alerte</p>
+                  <div class="text-sm">
+                    <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">5.0</code> jours</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Taux de retour -->
+            <div class="bg-gray-50 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">↩️ Seuils Taux Retour</h3>
+              <div class="grid gap-4">
+                <div class="param-card alerte">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold">taux_retour_excellent</h4>
+                    <span class="type-badge type-decimal">Décimal</span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2">Seuil taux retour considéré comme excellent</p>
+                  <div class="text-sm">
+                    <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">5.0</code> %</span>
+                  </div>
+                </div>
+
+                <div class="param-card alerte">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold">taux_retour_bon</h4>
+                    <span class="type-badge type-decimal">Décimal</span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2">Seuil taux retour considéré comme bon</p>
+                  <div class="text-sm">
+                    <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">10.0</code> %</span>
+                  </div>
+                </div>
+
+                <div class="param-card alerte">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold">taux_retour_warning</h4>
+                    <span class="type-badge type-decimal">Décimal</span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2">Seuil taux retour en alerte</p>
+                  <div class="text-sm">
+                    <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">15.0</code> %</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Taux de confirmation -->
+            <div class="bg-gray-50 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">✅ Seuils Taux Confirmation</h3>
+              <div class="grid gap-4">
+                <div class="param-card alerte">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold">taux_confirmation_excellent</h4>
+                    <span class="type-badge type-decimal">Décimal</span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2">Seuil taux confirmation considéré comme excellent</p>
+                  <div class="text-sm">
+                    <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">80.0</code> %</span>
+                  </div>
+                </div>
+
+                <div class="param-card alerte">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold">taux_confirmation_bon</h4>
+                    <span class="type-badge type-decimal">Décimal</span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2">Seuil taux confirmation considéré comme bon</p>
+                  <div class="text-sm">
+                    <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">70.0</code> %</span>
+                  </div>
+                </div>
+
+                <div class="param-card alerte">
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold">taux_confirmation_warning</h4>
+                    <span class="type-badge type-decimal">Décimal</span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2">Seuil taux confirmation en alerte</p>
+                  <div class="text-sm">
+                    <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">60.0</code> %</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Paramètres de Calcul Base -->
+        <section id="calcul-base" class="mb-12">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <span class="text-blue-500 mr-3">⚙️</span>
+            Paramètres de Calcul de Base
+          </h2>
+          <p class="text-gray-600 mb-6">Ces paramètres influencent les algorithmes de calcul des KPIs et les critères d'analyse.</p>
+
+          <div class="grid gap-6">
+            <div class="param-card calcul">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">periode_analyse_defaut</h3>
+                <span class="type-badge type-entier">Entier</span>
+              </div>
+              <p class="text-gray-600 mb-3">Période d'analyse par défaut pour les KPIs</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">30</code></span>
+                  <span class="text-gray-500">Plage: 1-365 jours</span>
+                </div>
+                <span class="impact-badge impact-critique">Impact Critique</span>
+              </div>
+            </div>
+
+            <div class="param-card calcul">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">article_populaire_seuil</h3>
+                <span class="type-badge type-entier">Entier</span>
+              </div>
+              <p class="text-gray-600 mb-3">Nombre minimum de ventes pour qu'un article soit considéré populaire</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">2</code></span>
+                  <span class="text-gray-500">Plage: 1-50 ventes</span>
+                </div>
+                <span class="impact-badge impact-important">Impact Important</span>
+              </div>
+            </div>
+
+            <div class="param-card calcul">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">client_fidele_seuil</h3>
+                <span class="type-badge type-entier">Entier</span>
+              </div>
+              <p class="text-gray-600 mb-3">Nombre minimum de commandes pour qu'un client soit considéré fidèle</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">2</code></span>
+                  <span class="text-gray-500">Plage: 2-10 commandes</span>
+                </div>
+                <span class="impact-badge impact-important">Impact Important</span>
+              </div>
+            </div>
+
+            <div class="param-card calcul">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">fidelisation_periode_jours</h3>
+                <span class="type-badge type-entier">Entier</span>
+              </div>
+              <p class="text-gray-600 mb-3">Période en jours pour calculer la fidélisation</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">90</code></span>
+                  <span class="text-gray-500">Plage: 30-365 jours</span>
+                </div>
+                <span class="impact-badge impact-moyen">Impact Moyen</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Paramètres de Calcul Avancés -->
+        <section id="calcul-avance" class="mb-12">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <span class="text-purple-500 mr-3">⚡</span>
+            Paramètres de Calcul Avancés
+          </h2>
+          <p class="text-gray-600 mb-6">Ces paramètres influencent les formules et algorithmes avancés de calcul des KPIs.</p>
+
+          <div class="grid gap-6">
+            <div class="param-card avance">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">facteur_impact_retour_satisfaction</h3>
+                <span class="type-badge type-decimal">Décimal</span>
+              </div>
+              <p class="text-gray-600 mb-3">Facteur d'impact du taux retour sur le score de satisfaction</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">0.15</code></span>
+                  <span class="text-gray-500">Plage: 0.1-0.5 coefficient</span>
+                </div>
+                <span class="impact-badge impact-important">Impact Important</span>
+              </div>
+            </div>
+
+            <div class="param-card avance">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">client_regulier_commandes_min</h3>
+                <span class="type-badge type-entier">Entier</span>
+              </div>
+              <p class="text-gray-600 mb-3">Nombre minimum de commandes pour être considéré comme client régulier</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">3</code></span>
+                  <span class="text-gray-500">Plage: 2-10 commandes</span>
+                </div>
+                <span class="impact-badge impact-moyen">Impact Moyen</span>
+              </div>
+            </div>
+
+            <div class="param-card avance">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">periode_comparaison_jours</h3>
+                <span class="type-badge type-entier">Entier</span>
+              </div>
+              <p class="text-gray-600 mb-3">Période en jours pour la comparaison des tendances</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">30</code></span>
+                  <span class="text-gray-500">Plage: 7-90 jours</span>
+                </div>
+                <span class="impact-badge impact-moyen">Impact Moyen</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Paramètres d'Affichage -->
+        <section id="affichage" class="mb-12">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <span class="text-green-500 mr-3">🖥️</span>
+            Paramètres d'Affichage
+          </h2>
+          <p class="text-gray-600 mb-6">Ces paramètres contrôlent l'interface utilisateur et l'expérience visuelle du dashboard.</p>
+
+          <div class="grid gap-6">
+            <div class="param-card affichage">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">rafraichissement_auto</h3>
+                <span class="type-badge type-entier">Entier</span>
+              </div>
+              <p class="text-gray-600 mb-3">Intervalle de rafraîchissement automatique des données</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">5</code></span>
+                  <span class="text-gray-500">Plage: 1-60 minutes</span>
+                </div>
+                <span class="impact-badge impact-faible">Impact Faible</span>
+              </div>
+            </div>
+
+            <div class="param-card affichage">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">afficher_tendances</h3>
+                <span class="type-badge type-boolean">Booléen</span>
+              </div>
+              <p class="text-gray-600 mb-3">Afficher les indicateurs de tendance (1=Oui, 0=Non)</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">1</code></span>
+                  <span class="text-gray-500">0-1 booléen</span>
+                </div>
+                <span class="impact-badge impact-faible">Impact Faible</span>
+              </div>
+            </div>
+
+            <div class="param-card affichage">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">activer_animations</h3>
+                <span class="type-badge type-boolean">Booléen</span>
+              </div>
+              <p class="text-gray-600 mb-3">Activer les animations dans l'interface (1=Oui, 0=Non)</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">1</code></span>
+                  <span class="text-gray-500">0-1 booléen</span>
+                </div>
+                <span class="impact-badge impact-faible">Impact Faible</span>
+              </div>
+            </div>
+
+            <div class="param-card affichage">
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">decimales_affichage</h3>
+                <span class="type-badge type-entier">Entier</span>
+              </div>
+              <p class="text-gray-600 mb-3">Nombre de décimales à afficher pour les valeurs</p>
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                  <span class="font-medium">Défaut: <code class="bg-gray-100 px-2 py-1 rounded">1</code></span>
+                  <span class="text-gray-500">Plage: 0-3 décimales</span>
+                </div>
+                <span class="impact-badge impact-faible">Impact Faible</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Recommandations d'implémentation -->
+        <section id="implementation" class="mb-12">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <span class="text-indigo-500 mr-3">🔧</span>
+            Recommandations d'Implémentation
+          </h2>
+
+          <div class="grid gap-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-blue-900 mb-4">📋 Phase 1 - Seuils Critiques</h3>
+              <ul class="space-y-2 text-blue-800">
+                <li class="flex items-center">
+                  <i class="fas fa-check-circle mr-2"></i> Implémenter les seuils de performance (excellent/bon/warning)
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-check-circle mr-2"></i> Ajouter le facteur d'impact satisfaction
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-check-circle mr-2"></i> Configurer les limites de stock critique
+                </li>
+              </ul>
+            </div>
+
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-orange-900 mb-4">⚙️ Phase 2 - Optimisation Calculs</h3>
+              <ul class="space-y-2 text-orange-800">
+                <li class="flex items-center">
+                  <i class="fas fa-cog mr-2"></i> Paramétrer les critères de segmentation clients
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-cog mr-2"></i> Rendre configurables les périodes d'analyse
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-cog mr-2"></i> Ajuster les limites d'affichage
+                </li>
+              </ul>
+            </div>
+
+            <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-green-900 mb-4">🎨 Phase 3 - Interface et UX</h3>
+              <ul class="space-y-2 text-green-800">
+                <li class="flex items-center">
+                  <i class="fas fa-palette mr-2"></i> Personnaliser les couleurs graphiques
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-palette mr-2"></i> Configurer les formats d'affichage (K, M)
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-palette mr-2"></i> Optimiser les animations et transitions
+                </li>
+              </ul>
+            </div>
+
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-purple-900 mb-4">🚀 Phase 4 - Fonctionnalités Avancées</h3>
+              <ul class="space-y-2 text-purple-800">
+                <li class="flex items-center">
+                  <i class="fas fa-rocket mr-2"></i> Paramètres de cycles temporels
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-rocket mr-2"></i> Configurations visuelles avancées
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-rocket mr-2"></i> Intégration avec les préférences utilisateur
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- Footer -->
+        <div class="bg-gray-50 rounded-lg p-6 text-center">
+          <p class="text-gray-600">
+            <strong>Dernière mise à jour :</strong> Juillet 2025 •
+            <strong>Système :</strong> YZ-CMD KPI Dashboard •
+            <strong>Version :</strong> 1.0
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Script pour la navigation dans la table des matières
+    document.addEventListener('DOMContentLoaded', function () {
+      const tocLinks = document.querySelectorAll('.toc-link')
+      const sections = document.querySelectorAll('section[id]')
+    
+      // Gestion du scroll pour la navigation active
+      function updateActiveSection() {
+        let currentSection = ''
+        sections.forEach((section) => {
+          const rect = section.getBoundingClientRect()
+          if (rect.top <= 100) {
+            currentSection = section.id
+          }
+        })
+    
+        tocLinks.forEach((link) => {
+          link.classList.remove('active')
+          if (link.getAttribute('href') === '#' + currentSection) {
+            link.classList.add('active')
+          }
+        })
+      }
+    
+      // Smooth scroll pour les liens
+      tocLinks.forEach((link) => {
+        link.addEventListener('click', function (e) {
+          e.preventDefault()
+          const targetId = this.getAttribute('href').substring(1)
+          const targetSection = document.getElementById(targetId)
+          if (targetSection) {
+            targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        })
+      })
+    
+      window.addEventListener('scroll', updateActiveSection)
+      updateActiveSection() // Initial call
+    })
+  </script>
+{% endblock %}
