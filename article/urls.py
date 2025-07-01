@@ -18,4 +18,12 @@ urlpatterns = [
     # Gestion du stock
     path('stock-faible/', views.stock_faible, name='stock_faible'),
     path('rupture-stock/', views.rupture_stock, name='rupture_stock'),
+    
+    # Gestion des promotions
+    path('promotions/', views.liste_promotions, name='liste_promotions'),
+    path('promotions/detail/<int:id>/', views.detail_promotion, name='detail_promotion'),
+    path('promotions/creer/', views.creer_promotion, name='creer_promotion'),
+    path('promotions/modifier/<int:id>/', views.modifier_promotion, name='modifier_promotion'),
+    path('promotions/supprimer/<int:id>/', views.supprimer_promotion, name='supprimer_promotion'),
+    path('promotions/activer-desactiver/<int:id>/', views.activer_desactiver_promotion, name='activer_desactiver_promotion'),
 ] 
