@@ -6,6 +6,36 @@ from django.contrib import messages
 import datetime
 from django.urls import reverse
 from parametre.models import Operateur # Import d'Operateur pour Operateur.DoesNotExist
+import logging
+
+logger = logging.getLogger(__name__)
+
+class CSRFDebugMiddleware:
+    """Middleware pour déboguer les problèmes CSRF"""
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Déboguer les problèmes CSRF uniquement en mode DEBUG
+        if settings.DEBUG and request.method == 'POST':
+            csrf_cookie = request.COOKIES.get('yz_csrf_token', None)
+            csrf_token = request.META.get('HTTP_X_CSRFTOKEN', None)
+            csrf_post = request.POST.get('csrfmiddlewaretoken', None)
+            
+            logger.info(f"[CSRF Debug] URL: {request.path}")
+            logger.info(f"[CSRF Debug] Cookie: {csrf_cookie}")
+            logger.info(f"[CSRF Debug] Header: {csrf_token}")
+            logger.info(f"[CSRF Debug] POST: {csrf_post}")
+            logger.info(f"[CSRF Debug] Cookies: {list(request.COOKIES.keys())}")
+            
+            # Vérifier si le token CSRF est présent dans le formulaire
+            if request.path == '/login/' and request.method == 'POST' and not csrf_post:
+                logger.warning("[CSRF Debug] Formulaire de connexion sans token CSRF")
+                # Ajouter un message pour informer l'utilisateur
+                messages.warning(request, "Problème de sécurité CSRF détecté. Veuillez rafraîchir la page et réessayer.")
+        
+        response = self.get_response(request)
+        return response
 
 class SessionTimeoutMiddleware:
     def __init__(self, get_response):
@@ -46,6 +76,7 @@ class UserTypeValidationMiddleware:
             '/logout/',
             '/password_reset/', # Si vous avez des URLs de réinitialisation de mot de passe
             '/__reload__/', # Pour le middleware de rechargement automatique en développement
+            '/api/csrf/', # Pour les routes CSRF
         )
         self.universal_allowed_exact_paths = (
             # Ajoutez ici des chemins exacts si nécessaire, par exemple une page d'accueil publique

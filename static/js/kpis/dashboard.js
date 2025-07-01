@@ -305,25 +305,27 @@ class YoozakKPIManager {
     }
   }
   switchTab(tabName) {
-    this.activeTab = tabName;
-    console.log('📑 Changement d\'onglet:', tabName);
+    if (tabName === this.activeTab) {
+      console.log('🔄 Onglet déjà actif:', tabName);
+      return;
+    }
 
+    console.log('🔄 Changement d\'onglet vers:', tabName);
+    this.activeTab = tabName;
+
+    // Mettre à jour l'interface utilisateur
     this.updateTabUI(tabName);
 
-    switch (tabName) {
-      case 'vue-generale':
-        this.loadVueGeneraleData();
-        break; case 'ventes':
-        // Lors du changement d'onglet vers Ventes, charger TOUTES les données
-        console.log('📊 Chargement de l\'onglet Ventes...');
-        this.loadVentesData(); // Charge KPIs + graphiques
-        break;
-      case 'clients':
-        this.loadClientsData();
-        break;
-      default:
-        console.log('Onglet non encore implémenté:', tabName);
-    }
+    // Émettre un événement pour informer les autres composants
+    const tabChangeEvent = new CustomEvent('tabChanged', {
+      detail: {
+        tab: tabName
+      }
+    });
+    document.dispatchEvent(tabChangeEvent);
+
+    // Charger les données appropriées pour le nouvel onglet
+    this.loadDataForTab(tabName);
   }
 
   updateTabUI(activeTabName) {
@@ -905,7 +907,18 @@ class YoozakKPIManager {
     try {
       this.showClientsLoading();
 
-      const response = await fetch(this.apiEndpoint + 'clients/');
+      // Ajouter un timeout pour éviter les blocages
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes max
+      
+      const response = await fetch(this.apiEndpoint + 'clients/', {
+        signal: controller.signal,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      clearTimeout(timeoutId); // Annuler le timeout si la requête réussit
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -915,11 +928,15 @@ class YoozakKPIManager {
 
       if (!data.success) {
         throw new Error(data.message || 'Erreur API');
-      }      // Vérifier si les données sont vides
+      }
+      
+      // Vérifier si les données sont vides
       if (data.empty) {
         this.showClientsEmpty();
         return;
-      }// Mettre à jour l'interface avec les données
+      }
+      
+      // Mettre à jour l'interface avec les données
       this.updateClientsKPIs(data);
       this.updateClientsAnalyses(data);
       this.showClientsContent();
@@ -928,7 +945,16 @@ class YoozakKPIManager {
 
     } catch (error) {
       console.error('❌ Erreur chargement Clients:', error);
-      this.showErrorState('clients', 'Erreur lors du chargement des données clients');
+      
+      // Gestion spécifique des erreurs de timeout
+      if (error.name === 'AbortError') {
+        this.showErrorState('clients', 'Le chargement des données clients a pris trop de temps. Veuillez réessayer.');
+      } else {
+        this.showErrorState('clients', 'Erreur lors du chargement des données clients');
+      }
+      
+      // Afficher l'état vide pour éviter une interface bloquée
+      this.showClientsEmpty();
     }
   }
 
@@ -1131,7 +1157,39 @@ class YoozakKPIManager {
 
   // Fonction spécialisée pour l'affichage des clients (évite conflit d'ID)
   showClientsContent() {
-    this.showContentState('clients');
+    const loading = document.getElementById('clients-loading');
+    const content = document.getElementById('clients-main-content');
+    const emptyState = document.getElementById('clients-empty-state');
+
+    if (loading) loading.style.display = 'none';
+    if (content) content.style.display = 'block';
+    if (emptyState) emptyState.style.display = 'none';
+    
+    // Initialiser les graphiques clients une fois que le contenu est visible
+    if (window.kpiCharts) {
+      // Utiliser setTimeout pour s'assurer que le DOM est bien mis à jour avant de créer les graphiques
+      setTimeout(() => {
+        window.kpiCharts.loadClientCharts();
+      }, 100);
+    }
+  }
+
+  loadDataForTab(tabName) {
+    switch (tabName) {
+      case 'vue-generale':
+        this.loadVueGeneraleData();
+        break;
+      case 'ventes':
+        // Lors du changement d'onglet vers Ventes, charger TOUTES les données
+        console.log('📊 Chargement de l\'onglet Ventes...');
+        this.loadVentesData(); // Charge KPIs + graphiques
+        break;
+      case 'clients':
+        this.loadClientsData();
+        break;
+      default:
+        console.log('Onglet non encore implémenté:', tabName);
+    }
   }
 }
 

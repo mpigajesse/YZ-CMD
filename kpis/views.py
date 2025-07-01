@@ -994,15 +994,27 @@ def clients_data(request):
         debut_mois = aujourd_hui.replace(day=1)
         mois_precedent = (debut_mois - timedelta(days=1)).replace(day=1)
         debut_30j = aujourd_hui - timedelta(days=30)
+        debut_periode_precedente = debut_30j - timedelta(days=30)
+        fin_mois_precedent = debut_mois - timedelta(days=1)
+        
+        # Récupérer le nombre total de clients une seule fois
+        total_clients = Client.objects.count()
+        
+        # Vérifier s'il y a des clients avant de continuer
+        if total_clients == 0:
+            return JsonResponse({
+                'success': True,
+                'timestamp': timezone.now().isoformat(),
+                'empty': True
+            })
         
         # === KPI 1: Nouveaux Clients ===
+        # Optimisation: Utiliser annotate et Count pour éviter les requêtes multiples
         nouveaux_clients_mois = Client.objects.filter(
             date_creation__date__gte=debut_mois,
             date_creation__date__lte=aujourd_hui
         ).count()
         
-        # Nouveaux clients mois précédent
-        fin_mois_precedent = debut_mois - timedelta(days=1)
         nouveaux_clients_precedent = Client.objects.filter(
             date_creation__date__gte=mois_precedent,
             date_creation__date__lte=fin_mois_precedent
@@ -1010,79 +1022,69 @@ def clients_data(request):
         
         difference_nouveaux = nouveaux_clients_mois - nouveaux_clients_precedent
         
-        # Moyenne journalière
         jours_ecoules = (aujourd_hui - debut_mois).days + 1
         moyenne_jour = nouveaux_clients_mois / jours_ecoules if jours_ecoules > 0 else 0
         
         # === KPI 2: Clients Actifs (30 derniers jours) ===
-        # Clients qui ont passé au moins une commande
-        clients_actifs_ids = Commande.objects.filter(
+        # Optimisation: Utiliser des requêtes préfabriquées pour éviter les boucles
+        clients_actifs_ids = set(Commande.objects.filter(
             date_cmd__gte=debut_30j
-        ).values_list('client_id', flat=True).distinct()
+        ).values_list('client_id', flat=True).distinct())
         
-        clients_actifs_30j = len(set(clients_actifs_ids))
+        clients_actifs_30j = len(clients_actifs_ids)
         
-        # Clients actifs période précédente
-        debut_periode_precedente = debut_30j - timedelta(days=30)
-        clients_actifs_precedent_ids = Commande.objects.filter(
+        clients_actifs_precedent_ids = set(Commande.objects.filter(
             date_cmd__gte=debut_periode_precedente,
             date_cmd__lt=debut_30j
-        ).values_list('client_id', flat=True).distinct()
+        ).values_list('client_id', flat=True).distinct())
         
-        clients_actifs_precedent = len(set(clients_actifs_precedent_ids))
+        clients_actifs_precedent = len(clients_actifs_precedent_ids)
         difference_actifs = clients_actifs_30j - clients_actifs_precedent
         
-        # Pourcentage du total
-        total_clients = Client.objects.count()
         pourcentage_actifs = (clients_actifs_30j / total_clients * 100) if total_clients > 0 else 0
         
         # === KPI 3: Taux de Retour ===
-        # Simplifié - basé sur les commandes des 30 derniers jours
-        commandes_30j = Commande.objects.filter(date_cmd__gte=debut_30j).count()
-        
-        # Estimation basée sur les motifs d'annulation (retours)
-        commandes_retournees = Commande.objects.filter(
+        # Optimisation: Utiliser des requêtes agrégées
+        commandes_30j_count = Commande.objects.filter(date_cmd__gte=debut_30j).count()
+        commandes_retournees_count = Commande.objects.filter(
             date_cmd__gte=debut_30j,
             motif_annulation__isnull=False
         ).count()
         
-        taux_retour = (commandes_retournees / commandes_30j * 100) if commandes_30j > 0 else 0
+        taux_retour = (commandes_retournees_count / commandes_30j_count * 100) if commandes_30j_count > 0 else 0
         
-        # Taux retour période précédente
-        commandes_precedent = Commande.objects.filter(
+        commandes_precedent_count = Commande.objects.filter(
             date_cmd__gte=debut_periode_precedente,
             date_cmd__lt=debut_30j
         ).count()
         
-        retours_precedent = Commande.objects.filter(
+        retours_precedent_count = Commande.objects.filter(
             date_cmd__gte=debut_periode_precedente,
             date_cmd__lt=debut_30j,
             motif_annulation__isnull=False
         ).count()
         
-        taux_retour_precedent = (retours_precedent / commandes_precedent * 100) if commandes_precedent > 0 else 0
+        taux_retour_precedent = (retours_precedent_count / commandes_precedent_count * 100) if commandes_precedent_count > 0 else 0
         tendance_retour = taux_retour - taux_retour_precedent
         
         # === KPI 4: Satisfaction Client ===
-        # Calculé basé sur le taux de retour inversé et les commandes répétées
-        commandes_clients_multiples = 0
-        for client_id in clients_actifs_ids:
-            nb_commandes = Commande.objects.filter(
-                client_id=client_id,
-                date_cmd__gte=debut_30j
-            ).count()
-            if nb_commandes > 1:
-                commandes_clients_multiples += 1
+        # Optimisation: Utiliser des requêtes agrégées pour éviter les boucles
+        commandes_par_client = Commande.objects.filter(
+            client_id__in=clients_actifs_ids,
+            date_cmd__gte=debut_30j
+        ).values('client_id').annotate(
+            nb_commandes=Count('id')
+        )
         
-        # Score satisfaction basé sur fidélisation et retours
+        commandes_clients_multiples = sum(1 for item in commandes_par_client if item['nb_commandes'] > 1)
+        
         taux_fidelisation = (commandes_clients_multiples / clients_actifs_30j * 100) if clients_actifs_30j > 0 else 0
         score_satisfaction = min(5.0, max(1.0, 5.0 - (taux_retour / 20) + (taux_fidelisation / 100)))
         
         pourcentage_satisfaits = max(0, 100 - taux_retour * 2)
         
         # === ANALYSES DÉTAILLÉES ===
-        
-        # Top Clients VIP (par CA) - simplifié
+        # Top Clients VIP (par CA) - optimisé
         top_clients_data = []
         commandes_avec_ca = Commande.objects.filter(
             date_cmd__gte=debut_30j
@@ -1091,44 +1093,48 @@ def clients_data(request):
             nb_commandes=Count('id')
         ).order_by('-ca_total')[:5]
         
+        # Récupérer tous les clients concernés en une seule requête
+        client_ids = [item['client_id'] for item in commandes_avec_ca]
+        clients_map = {client.id: client for client in Client.objects.filter(id__in=client_ids)}
+        
         for client_data in commandes_avec_ca:
-            try:
-                client = Client.objects.get(id=client_data['client_id'])
+            client_id = client_data['client_id']
+            if client_id in clients_map:
+                client = clients_map[client_id]
                 top_clients_data.append({
                     'nom': f"{client.prenom} {client.nom[0]}." if client.nom else "Client anonyme",
                     'ca_total': float(client_data['ca_total']) if client_data['ca_total'] else 0,
                     'ca_total_format': f"{client_data['ca_total']:,.0f} DH" if client_data['ca_total'] else "0 DH",
                     'nb_commandes': client_data['nb_commandes']
                 })
-            except Client.DoesNotExist:
-                continue
-          # Performance mensuelle
-        # Commandes du mois en cours
+        
+        # Performance mensuelle
         commandes_mois_actuel = Commande.objects.filter(
             date_cmd__gte=debut_mois,
             date_cmd__lte=aujourd_hui
         ).count()
         
         # CA moyen par client actif
-        if clients_actifs_30j > 0 and len(top_clients_data) > 0:
-            ca_total_clients_actifs = sum(client['ca_total'] for client in top_clients_data)
-            ca_moyen_par_client = ca_total_clients_actifs / clients_actifs_30j
-        else:
-            ca_moyen_par_client = 0
+        ca_total_clients_actifs = sum(client['ca_total'] for client in top_clients_data)
+        ca_moyen_par_client = ca_total_clients_actifs / clients_actifs_30j if clients_actifs_30j > 0 else 0
         
-        # Segmentation comportementale simplifiée
-        clients_reguliers = sum(1 for client_id in clients_actifs_ids 
-                              if Commande.objects.filter(client_id=client_id, date_cmd__gte=debut_30j).count() >= 3)
+        # Segmentation comportementale optimisée
+        segmentation_data = {}
+        for item in commandes_par_client:
+            nb_commandes = item['nb_commandes']
+            if nb_commandes >= 3:
+                segmentation_data['reguliers'] = segmentation_data.get('reguliers', 0) + 1
+            elif nb_commandes == 2:
+                segmentation_data['occasionnels'] = segmentation_data.get('occasionnels', 0) + 1
         
+        # Nouveaux testeurs (clients créés récemment avec au moins une commande)
         clients_nouveaux_testeurs = Client.objects.filter(
-            date_creation__date__gte=debut_30j
-        ).filter(
+            date_creation__date__gte=debut_30j,
             id__in=clients_actifs_ids
         ).count()
         
-        clients_occasionnels = sum(1 for client_id in clients_actifs_ids 
-                                 if Commande.objects.filter(client_id=client_id, date_cmd__gte=debut_30j).count() == 2)
-        
+        clients_reguliers = segmentation_data.get('reguliers', 0)
+        clients_occasionnels = segmentation_data.get('occasionnels', 0)
         clients_vip = len(top_clients_data)
         total_clients_analyse = clients_actifs_30j
         
@@ -1159,7 +1165,7 @@ def clients_data(request):
                     'tendance': round(tendance_retour, 1),
                     'unite': '%',
                     'label': 'Taux Retour',
-                    'sub_value': f"{commandes_retournees}/{commandes_30j} retournées",
+                    'sub_value': f"{commandes_retournees_count}/{commandes_30j_count} retournées",
                     'status': 'good' if taux_retour < 5 else 'warning' if taux_retour < 10 else 'critical'
                 },
                 'satisfaction': {
@@ -1171,7 +1177,8 @@ def clients_data(request):
                     'sub_value': f"{pourcentage_satisfaits:.1f}% satisfaits",
                     'status': 'excellent' if score_satisfaction >= 4.5 else 'good' if score_satisfaction >= 4.0 else 'warning'
                 }
-            },            'analyses_detaillees': {
+            },
+            'analyses_detaillees': {
                 'top_clients_vip': top_clients_data,
                 'performance_mensuelle': {
                     'commandes_mois': commandes_mois_actuel,
@@ -1188,8 +1195,8 @@ def clients_data(request):
                 'total_clients': total_clients,
                 'clients_actifs_30j': clients_actifs_30j,
                 'taux_activite': round((clients_actifs_30j / total_clients * 100), 1) if total_clients > 0 else 0,
-                'commandes_total_30j': commandes_30j,
-                'panier_moyen_clients': round((sum(client['ca_total'] for client in top_clients_data) / clients_actifs_30j), 2) if clients_actifs_30j > 0 else 0
+                'commandes_total_30j': commandes_30j_count,
+                'panier_moyen_clients': round(ca_moyen_par_client, 2)
             },
             'empty': total_clients == 0
         }

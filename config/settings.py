@@ -81,6 +81,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'config.middleware.SessionTimeoutMiddleware',
     'config.middleware.UserTypeValidationMiddleware',
+    'config.middleware.CSRFDebugMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_browser_reload.middleware.BrowserReloadMiddleware',
 ]
@@ -109,6 +110,17 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+"""
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+"""
+
+# Configuration PostgreSQL (commentée)
 
 DATABASES = {
     'default': {
@@ -120,6 +132,7 @@ DATABASES = {
         'PORT': config('DB_PORT', default='5432'),
     }
 }
+
 
 
 # Password validation
@@ -212,9 +225,19 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
     'http://192.168.216.128:8000',
     'http://192.168.216.*:8000',
-    
+    # Ajout de toutes les origines possibles pour le développement local
+    'http://localhost',
+    'http://127.0.0.1',
+    'http://[::1]',
+    'http://localhost:*',
+    'http://127.0.0.1:*',
 ]
-CSRF_USE_SESSIONS = True # Ajout pour stocker le jeton CSRF dans la session
+# Désactiver l'utilisation des sessions pour le CSRF token en développement
+CSRF_USE_SESSIONS = False
+# Augmenter la durée de vie du cookie CSRF
+CSRF_COOKIE_AGE = 31449600  # 1 an en secondes
+# Définir un nom personnalisé pour le cookie CSRF
+CSRF_COOKIE_NAME = 'yz_csrf_token'
 
 # Configuration Google Sheets
 GOOGLE_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'credentials.json')
@@ -228,6 +251,46 @@ LOGIN_REDIRECT_URL = '/home/'
 LOGIN_URL = '/login/'
 LOGOUT_REDIRECT_URL = '/login/'
 
+# Configuration du logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'debug.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'config.middleware': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

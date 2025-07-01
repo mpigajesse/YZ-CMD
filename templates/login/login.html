@@ -283,6 +283,7 @@
                 <p class="title">Connexion</p>
                 <form method="post" action="{% url 'login' %}" id="loginForm">
                     {% csrf_token %}
+                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                     {% if form.errors %}
                         <div class="alert alert-danger" style="background-color: #fee; border: 1px solid #fcc; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
                             <p style="color: #c00; margin: 0;">Nom d'utilisateur ou mot de passe incorrect.</p>
@@ -329,10 +330,63 @@
 
             console.log('Login form loaded');
 
+            // Fonction pour obtenir un cookie par son nom
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+            // Mettre à jour le token CSRF dans le formulaire
+            function updateCsrfToken() {
+                const csrftoken = getCookie('yz_csrf_token');
+                if (csrftoken) {
+                    console.log('CSRF token trouvé dans les cookies');
+                    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                    if (csrfInput) {
+                        csrfInput.value = csrftoken;
+                        console.log('CSRF token mis à jour dans le formulaire');
+                    } else {
+                        console.log('Champ CSRF non trouvé dans le formulaire');
+                    }
+                } else {
+                    console.log('CSRF token non trouvé dans les cookies');
+                    // Appeler l'API pour obtenir un nouveau token CSRF
+                    fetch('/api/csrf/token/')
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Nouveau CSRF token obtenu:', data.csrfToken);
+                            const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                            if (csrfInput) {
+                                csrfInput.value = data.csrfToken;
+                                console.log('CSRF token mis à jour dans le formulaire');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erreur lors de l\'obtention du CSRF token:', error);
+                        });
+                }
+            }
+
+            // Mettre à jour le token CSRF au chargement
+            updateCsrfToken();
+
             form.addEventListener('submit', function(e) {
                 console.log('Form submission attempted');
                 console.log('Username:', username.value);
                 console.log('Password length:', password.value.length);
+                
+                // Mettre à jour le token CSRF avant soumission
+                updateCsrfToken();
                 
                 // Vérifier que les champs ne sont pas vides
                 if (!username.value.trim()) {
@@ -358,6 +412,15 @@
             // Test au clic du bouton
             submitBtn.addEventListener('click', function(e) {
                 console.log('Submit button clicked');
+                // Vérifier l'état du CSRF
+                fetch('/api/csrf/status/')
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('État CSRF:', data);
+                    })
+                    .catch(error => {
+                        console.error('Erreur lors de la vérification du CSRF:', error);
+                    });
             });
         });
     </script>

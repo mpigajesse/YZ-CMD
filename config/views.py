@@ -2,8 +2,8 @@ from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.urls import reverse, NoReverseMatch
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 from parametre.models import Operateur
 import json
@@ -11,6 +11,7 @@ import subprocess
 import os
 from django.contrib.auth import logout
 from django.contrib import messages
+from django.middleware.csrf import get_token
 
 @login_required
 def home_redirect(request):
@@ -214,6 +215,26 @@ def corriger_clients_ajax(request):
         }) 
 
 def custom_logout(request):
+    # Utiliser la déconnexion standard de Django qui gère le CSRF correctement
     logout(request)
     messages.info(request, "Vous avez été déconnecté avec succès.")
-    return redirect('login') 
+    return redirect('login')
+
+@ensure_csrf_cookie
+def get_csrf_token_view(request):
+    """Vue pour obtenir un token CSRF frais"""
+    token = get_token(request)
+    return JsonResponse({'csrfToken': token})
+
+@csrf_exempt
+def check_csrf_status(request):
+    """Vue pour vérifier l'état du CSRF"""
+    csrf_cookie = request.COOKIES.get('yz_csrf_token', None)
+    session_csrf = request.session.get('_csrftoken', None)
+    
+    return JsonResponse({
+        'csrf_cookie_exists': csrf_cookie is not None,
+        'csrf_cookie_name': 'yz_csrf_token',
+        'session_csrf_exists': session_csrf is not None,
+        'cookies': list(request.COOKIES.keys()),
+    }) 

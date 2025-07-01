@@ -4,7 +4,7 @@ from django.views.generic import RedirectView
 from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import home_redirect, custom_logout
+from .views import home_redirect, custom_logout, get_csrf_token_view, check_csrf_status
 from . import views
 from commande.views import api_panier_commande
 
@@ -23,6 +23,10 @@ urlpatterns = [
     path('logout/', custom_logout, name='logout'),
     path('home/', home_redirect, name='app_home'),
     path('clear-middleware/', views.clear_middleware_messages, name='clear_middleware'),
+    
+    # Routes pour la gestion CSRF
+    path('api/csrf/token/', get_csrf_token_view, name='get_csrf_token'),
+    path('api/csrf/status/', check_csrf_status, name='check_csrf_status'),
     
     # APIs de diagnostic et correction (admin seulement)
     path('admin/diagnostic-clients/', views.diagnostic_clients_ajax, name='diagnostic_clients_ajax'),

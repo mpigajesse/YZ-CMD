@@ -289,6 +289,12 @@ class KPICharts {
   }
 
   loadGeneralCharts() {
+    // Vérifier si le graphique existe déjà et le détruire
+    if (this.charts.has('ca-evolution-chart')) {
+      this.charts.get('ca-evolution-chart').destroy();
+      this.charts.delete('ca-evolution-chart');
+    }
+    
     // Graphique évolution CA
     const caChart = this.createLineChart('ca-evolution-chart', this.getSampleCAData(), {
       plugins: {
@@ -311,21 +317,194 @@ class KPICharts {
   loadSalesCharts() {
     // Graphiques pour l'onglet ventes (à implémenter)
     console.log('📈 Chargement des graphiques de vente');
+    
+    // Détruire les graphiques existants avant d'en créer de nouveaux
+    ['sales-chart-1', 'sales-chart-2'].forEach(chartId => {
+      if (this.charts.has(chartId)) {
+        this.charts.get(chartId).destroy();
+        this.charts.delete(chartId);
+      }
+    });
   }
 
   loadClientCharts() {
-    // Graphiques pour l'onglet clients (à implémenter)
+    // Graphiques pour l'onglet clients
     console.log('👥 Chargement des graphiques clients');
+    
+    // Détruire les graphiques existants avant d'en créer de nouveaux
+    ['client-evolution-chart', 'client-segmentation-chart'].forEach(chartId => {
+      if (this.charts.has(chartId)) {
+        this.charts.get(chartId).destroy();
+        this.charts.delete(chartId);
+      }
+    });
+    
+    // Vérifier si les éléments canvas existent
+    const evolutionCanvas = document.getElementById('client-evolution-chart');
+    const segmentationCanvas = document.getElementById('client-segmentation-chart');
+    
+    if (evolutionCanvas) {
+      this.createClientEvolutionChart();
+    }
+    
+    if (segmentationCanvas) {
+      this.createClientSegmentationChart();
+    }
+  }
+  
+  createClientEvolutionChart() {
+    // Données d'exemple pour l'évolution du nombre de clients
+    const data = {
+      labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+      datasets: [{
+        label: 'Nouveaux Clients',
+        data: [45, 52, 38, 65, 72, 58, 80, 95, 110, 87, 95, 102],
+        borderColor: this.colors.primary,
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }, {
+        label: 'Clients Actifs',
+        data: [120, 135, 150, 165, 180, 195, 210, 225, 240, 255, 270, 285],
+        borderColor: this.colors.secondary,
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        tension: 0.4,
+        borderDash: [5, 5],
+        fill: false,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    };
+    
+    this.createLineChart('client-evolution-chart', data, {
+      plugins: {
+        legend: {
+          display: true
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Nombre de clients'
+          }
+        }
+      }
+    });
+  }
+  
+  createClientSegmentationChart() {
+    // Essayer d'obtenir les données de segmentation réelles depuis le DOM
+    let segmentData = [];
+    let segmentLabels = [];
+    
+    try {
+      // Récupérer les données depuis les éléments HTML
+      const acheteurs = document.querySelector('[data-segment="acheteurs_reguliers"]');
+      const nouveaux = document.querySelector('[data-segment="nouveaux_testeurs"]');
+      const occasionnels = document.querySelector('[data-segment="clients_occasionnels"]');
+      const vip = document.querySelector('[data-segment="vip_premium"]');
+      
+      if (acheteurs && nouveaux && occasionnels && vip) {
+        // Extraire les valeurs numériques (retirer le symbole %)
+        const getValue = el => parseFloat(el.textContent.replace('%', '')) || 0;
+        
+        segmentData = [
+          getValue(acheteurs),
+          getValue(nouveaux),
+          getValue(occasionnels),
+          getValue(vip)
+        ];
+        
+        segmentLabels = [
+          'Acheteurs Réguliers',
+          'Nouveaux Testeurs',
+          'Clients Occasionnels',
+          'VIP Premium'
+        ];
+      }
+    } catch (e) {
+      console.warn('Erreur lors de la récupération des données de segmentation:', e);
+      // Utiliser des données par défaut en cas d'erreur
+      segmentData = [35, 40, 15, 10];
+      segmentLabels = [
+        'Acheteurs Réguliers',
+        'Nouveaux Testeurs',
+        'Clients Occasionnels',
+        'VIP Premium'
+      ];
+    }
+    
+    // Si aucune donnée valide n'a été trouvée, utiliser les données par défaut
+    if (segmentData.length === 0 || segmentData.every(val => val === 0)) {
+      segmentData = [35, 40, 15, 10];
+    }
+    
+    // Données pour le graphique
+    const data = {
+      labels: segmentLabels,
+      datasets: [{
+        label: 'Répartition des clients',
+        data: segmentData,
+        backgroundColor: [
+          this.colors.secondary,
+          this.colors.primary,
+          this.colors.accent,
+          this.colors.purple
+        ],
+        borderColor: [
+          this.colors.secondary,
+          this.colors.primary,
+          this.colors.accent,
+          this.colors.purple
+        ],
+        borderWidth: 1
+      }]
+    };
+    
+    this.createPieChart('client-segmentation-chart', data, {
+      plugins: {
+        legend: {
+          position: 'right'
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `${context.label}: ${context.raw}%`;
+            }
+          }
+        }
+      }
+    });
   }
 
   loadOperationsCharts() {
     // Graphiques pour l'onglet opérations (à implémenter)
     console.log('⚙️ Chargement des graphiques opérationnels');
+    
+    // Détruire les graphiques existants avant d'en créer de nouveaux
+    ['operations-chart-1', 'operations-chart-2'].forEach(chartId => {
+      if (this.charts.has(chartId)) {
+        this.charts.get(chartId).destroy();
+        this.charts.delete(chartId);
+      }
+    });
   }
 
   loadStockCharts() {
     // Graphiques pour l'onglet stocks (à implémenter)
     console.log('📦 Chargement des graphiques de stock');
+    
+    // Détruire les graphiques existants avant d'en créer de nouveaux
+    ['stock-chart-1', 'stock-chart-2'].forEach(chartId => {
+      if (this.charts.has(chartId)) {
+        this.charts.get(chartId).destroy();
+        this.charts.delete(chartId);
+      }
+    });
   }
 
   destroyTabCharts(newTab) {
