@@ -1,0 +1,869 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}
+  Documentation KPIs - Yoozak
+{% endblock %}
+
+{% block page_title %}
+  📚 Documentation KPIs
+{% endblock %}
+{% block page_subtitle %}
+  Guide d'utilisation du Dashboard Yoozak
+{% endblock %}
+
+{% block extra_head %}
+  <meta name="csrf-token" content="{{ csrf_token }}" />
+{% endblock %}
+
+{% block extra_css %}
+  <style>
+    .kpi-card {
+      @apply bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300;
+    }
+    .kpi-icon {
+      @apply w-12 h-12 rounded-full flex items-center justify-center text-white text-xl mb-4;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="max-w-7xl mx-auto">
+    <!-- Header avec navigation -->
+    <div class="flex items-center justify-between mb-8">
+      <a href="{% url 'app_admin:home' %}" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all">
+        <i class="fas fa-arrow-left"></i>
+        <span>Retour</span>
+      </a>
+    </div>
+
+    <!-- Configuration des KPIs -->
+    <div class="bg-white rounded-lg shadow-lg p-8">
+      <h2 class="text-2xl font-bold text-gray-900 mb-6">⚙️ Configuration des Paramètres</h2>
+      <p class="text-gray-600 mb-6">Personnalisez les seuils et paramètres de calcul selon vos besoins métier.</p>
+
+      <!-- Bouton de test temporaire -->
+      <div class="mb-6 p-4 bg-yellow-100 border border-yellow-300 rounded-lg">
+        <h4 class="font-semibold text-yellow-800 mb-2">🧪 Debug Mode</h4>
+        <button onclick="testLoadConfigurations()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mr-2">Test Charger Configurations</button>
+        <button onclick="diagnoseDOMContent()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 mr-2">Diagnostic DOM</button>
+        <button onclick="console.clear()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Clear Console</button>
+        <div id="debug-status" class="mt-2 text-sm text-gray-700"></div>
+      </div> <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" id="config-form">
+        <!-- Seuils d'Alerte -->
+        <div class="bg-gray-50 rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-4 text-orange-600">🚨 Seuils d'Alerte</h3>
+          <div class="space-y-4" id="seuils-container">
+            <!-- Sera peuplé dynamiquement -->
+          </div>
+        </div>
+
+        <!-- Paramètres de Calcul -->
+        <div class="bg-gray-50 rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-4 text-blue-600">🧮 Paramètres de Calcul</h3>
+          <div class="space-y-4" id="calcul-container">
+            <!-- Sera peuplé dynamiquement -->
+          </div>
+        </div>
+
+        <!-- Préférences d'Affichage -->
+        <div class="bg-gray-50 rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-4 text-green-600">🎨 Préférences d'Affichage</h3>
+          <div class="space-y-4" id="affichage-container">
+            <!-- Sera peuplé dynamiquement -->
+          </div>
+        </div>
+      </div> <!-- Boutons d'action -->
+      <div class="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+        <button id="btn-reset" onclick="resetConfigurations()" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all">
+          <i class="fas fa-undo"></i>
+          <span>Restaurer par défaut</span>
+        </button>
+
+        <div class="flex gap-3">
+          <button id="btn-preview" onclick="previewChanges()" class="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-all">
+            <i class="fas fa-eye"></i>
+            <span>Aperçu</span>
+          </button>
+          <button id="btn-save" onclick="saveConfigurations()" class="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all">
+            <i class="fas fa-save"></i>
+            <span>Sauvegarder</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages de notification -->
+      <div id="notification-container" class="mt-4"></div>
+    </div>
+  </div>
+  <script>
+    // Variables globales
+    let configurations = {}
+    let integerFields = [] // Liste des champs qui doivent être des entiers
+    let isDirty = false
+    
+    // Les configurations seront chargées quand l'onglet sera activé
+    document.addEventListener('DOMContentLoaded', function () {
+      console.log('📄 Page chargée - Chargement automatique des configurations')
+      console.log('🔍 Vérification des fonctions disponibles:')
+      console.log('   - loadConfigurations:', typeof loadConfigurations)
+      console.log('   - renderConfigurationForm:', typeof renderConfigurationForm)
+      console.log('   - generateConfigField:', typeof generateConfigField)
+    
+      // Charger automatiquement les configurations
+      console.log('🚀 Chargement automatique des configurations...')
+      loadConfigurations()
+    }) // Charger les configurations depuis l'API
+    async function loadConfigurations() {
+      console.log('🚀 === DÉBUT loadConfigurations() ===')
+      try {
+        showLoading(true)
+        console.log('🔄 Chargement des configurations...')
+        const response = await fetch('/kpis/api/configurations/')
+    
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+    
+        const data = await response.json()
+        console.log('📊 Réponse API complète:', data)
+    
+        if (data.success) {
+          configurations = data.configurations
+          integerFields = data.integer_fields || []
+    
+          console.log('✅ Configurations chargées:', configurations)
+          console.log('🔢 Champs entiers:', integerFields)
+    
+          // Vérifier si on a des données
+          let totalConfigs = 0
+          Object.keys(configurations).forEach((cat) => {
+            totalConfigs += configurations[cat].length
+            console.log(`📁 ${cat}: ${configurations[cat].length} configurations`)
+          })
+    
+          if (totalConfigs === 0) {
+            console.warn('⚠️ Aucune configuration trouvée!')
+            showNotification('Aucune configuration trouvée en base de données', 'warning')
+          } else {
+            renderConfigurationForm()
+            showNotification('Configurations chargées avec succès', 'success')
+          }
+        } else {
+          console.error('❌ Erreur API:', data.message)
+          showNotification('Erreur lors du chargement: ' + data.message, 'error')
+        }
+      } catch (error) {
+        console.error('❌ Erreur:', error)
+        showNotification('Erreur de connexion lors du chargement: ' + error.message, 'error')
+      } finally {
+        showLoading(false)
+      }
+    }
+    
+    // Fonction de test pour debug
+    function testLoadConfigurations() {
+      console.log('🧪 === TEST MANUEL loadConfigurations() ===')
+      const statusDiv = document.getElementById('debug-status')
+      statusDiv.innerHTML = 'Test en cours...'
+    
+      // Test étape par étape
+      console.log('1. Vérification que la fonction existe:', typeof loadConfigurations)
+      console.log('2. Appel direct de loadConfigurations()')
+    
+      try {
+        loadConfigurations()
+          .then(() => {
+            statusDiv.innerHTML = '✅ Test terminé - Vérifiez la console'
+          })
+          .catch((error) => {
+            statusDiv.innerHTML = '❌ Erreur: ' + error.message
+            console.error('❌ Erreur test:', error)
+          })
+      } catch (error) {
+        statusDiv.innerHTML = '❌ Erreur sync: ' + error.message
+        console.error('❌ Erreur sync:', error)
+      }
+    }
+    
+    // Fonction de diagnostic pour vérifier le DOM
+    function diagnoseDOMContent() {
+      console.log('🔍 === DIAGNOSTIC DOM ===')
+    
+      const containers = ['seuils-container', 'calcul-container', 'affichage-container']
+      containers.forEach((containerId) => {
+        const container = document.getElementById(containerId)
+        console.log(`📁 Container ${containerId}:`)
+        console.log(`   Existe: ${container !== null}`)
+    
+        if (container) {
+          console.log(`   innerHTML length: ${container.innerHTML.length}`)
+          console.log(`   Enfants: ${container.children.length}`)
+    
+          const inputs = container.querySelectorAll('input')
+          const selects = container.querySelectorAll('select')
+    
+          console.log(`   Inputs trouvés: ${inputs.length}`)
+          console.log(`   Selects trouvés: ${selects.length}`)
+    
+          // Vérifier les valeurs des 2 premiers inputs
+          inputs.forEach((input, i) => {
+            if (i < 2) {
+              console.log(`   Input ${i + 1}: id=${input.id}, value="${input.value}", type=${input.type}, checked=${input.checked}`)
+            }
+          })
+    
+          // Aperçu du contenu HTML (si pas trop long)
+          if (container.innerHTML.length > 0 && container.innerHTML.length < 500) {
+            console.log(`   HTML preview:`, container.innerHTML.substring(0, 200))
+          }
+        }
+      })
+    } // Générer le formulaire de configuration
+    function renderConfigurationForm() {
+      console.log('🎨 Génération du formulaire de configuration...')
+      console.log('📊 Configurations disponibles:', configurations)
+    
+      // DEBUG: Afficher les données reçues en détail
+      console.log('🔍 DEBUGGING - Vérification des données:')
+      Object.keys(configurations).forEach((cat) => {
+        console.log(`   📁 ${cat}: ${configurations[cat].length} items`)
+        if (configurations[cat].length > 0) {
+          configurations[cat].forEach((config, i) => {
+            if (i < 2) {
+              // Afficher les 2 premiers
+              console.log(`      ${i + 1}. ${config.nom_parametre} = ${config.valeur} (${typeof config.valeur})`)
+            }
+          })
+        }
+      })
+    
+      const categories = {
+        seuils: {
+          container: 'seuils-container',
+          colorClass: 'orange'
+        },
+        calcul: {
+          container: 'calcul-container',
+          colorClass: 'blue'
+        },
+        affichage: {
+          container: 'affichage-container',
+          colorClass: 'green'
+        }
+      }
+    
+      let totalFieldsGenerated = 0
+    
+      Object.keys(categories).forEach((categoryKey) => {
+        const container = document.getElementById(categories[categoryKey].container)
+        const colorClass = categories[categoryKey].colorClass
+    
+        console.log(`📁 Traitement catégorie: ${categoryKey}`)
+        console.log(`   Container trouvé:`, container !== null)
+        console.log(`   Container ID attendu: ${categories[categoryKey].container}`)
+        console.log(`   Données disponibles:`, configurations[categoryKey] !== undefined)
+    
+        if (!container) {
+          console.error(`❌ Container non trouvé pour ${categoryKey}! ID recherché: ${categories[categoryKey].container}`)
+          return
+        }
+    
+        if (configurations[categoryKey]) {
+          console.log(`   Nombre d'items: ${configurations[categoryKey].length}`)
+    
+          if (configurations[categoryKey].length > 0) {
+            console.log(`   🔧 Génération HTML pour ${categoryKey}...`)
+            const html = configurations[categoryKey]
+              .map((config, index) => {
+                console.log(`      ${index + 1}. Génération champ: ${config.nom_parametre} = ${config.valeur}`)
+                return generateConfigField(config, colorClass)
+              })
+              .join('')
+            console.log(`   ✅ HTML généré pour ${categoryKey} (${html.length} caractères)`)
+    
+            // DEBUG: Afficher un extrait du HTML généré
+            const htmlPreview = html.substring(0, 200) + (html.length > 200 ? '...' : '')
+            console.log(`   📝 Aperçu HTML: ${htmlPreview}`)
+    
+            console.log(`   🔄 Insertion du HTML dans le container...`)
+            container.innerHTML = html
+            console.log(`   ✅ HTML inséré! Container innerHTML length: ${container.innerHTML.length}`)
+    
+            totalFieldsGenerated += configurations[categoryKey].length
+    
+            // Vérifier que les champs ont bien été créés
+            const createdFields = container.querySelectorAll('input, select')
+            console.log(`   🎯 Champs créés dans ${categoryKey}: ${createdFields.length}`)
+            createdFields.forEach((field, i) => {
+              if (i < 2) {
+                // Vérifier les 2 premiers champs en détail
+                console.log(`      Champ ${i + 1}: type=${field.type}, value="${field.value}", checked=${field.checked}, id=${field.id}`)
+    
+                // Vérification spéciale pour les inputs numériques
+                if (field.type === 'number' && !field.value) {
+                  console.warn(`      ⚠️ Champ numérique vide! Vérifier la génération.`)
+                }
+              }
+            })
+          } else {
+            container.innerHTML = '<div class="text-gray-500 italic p-4">Aucune configuration dans cette catégorie</div>'
+            console.log(`   ⚠️ Aucune configuration dans ${categoryKey}`)
+          }
+        } else {
+          // Afficher un message si pas de données
+          container.innerHTML = '<div class="text-gray-500 italic p-4">Catégorie non trouvée dans les données</div>'
+          console.error(`   ❌ Catégorie ${categoryKey} non trouvée dans les données API`)
+        }
+      })
+    
+      console.log(`🔢 Total de champs générés: ${totalFieldsGenerated}`)
+    
+      if (totalFieldsGenerated === 0) {
+        console.error('❌ AUCUN CHAMP GÉNÉRÉ! Vérifiez:')
+        console.error('   1. Les conteneurs HTML existent')
+        console.error('   2. Les données API sont correctes')
+        console.error('   3. Le mapping des catégories')
+        console.error('   4. La fonction generateConfigField fonctionne')
+        showNotification('Aucun champ de configuration généré. Vérifiez les données.', 'warning')
+      } else {
+        console.log(`✅ Formulaire généré avec succès: ${totalFieldsGenerated} champs`)
+      }
+    
+      // Ajouter les listeners pour détecter les changements
+      addChangeListeners()
+      console.log('✅ Formulaire généré')
+    } // Générer un champ de configuration
+    function generateConfigField(config, colorClass) {
+      console.log(`🔧 Génération du champ: ${config.nom_parametre} = ${config.valeur} (${typeof config.valeur})`)
+    
+      const isBoolean = config.valeur_min === 0 && config.valeur_max === 1
+      const isSelect = config.nom_parametre === 'periode_analyse_defaut' || config.nom_parametre === 'rafraichissement_auto'
+    
+      const div = document.createElement('div')
+      div.className = 'bg-white p-4 rounded border'
+      div.setAttribute('data-field-id', config.id)
+    
+      if (isBoolean) {
+        const label = document.createElement('label')
+        label.className = 'flex items-center'
+    
+        const input = document.createElement('input')
+        input.type = 'checkbox'
+        input.id = 'config_' + config.id
+        input.setAttribute('data-config-id', config.id)
+    
+        // Définir l'état de la checkbox selon la valeur
+        const isChecked = config.valeur == 1 || config.valeur === true || config.valeur === 'true'
+        input.checked = isChecked // Pour l'élément JS
+        if (isChecked) {
+          input.setAttribute('checked', 'checked') // Pour l'HTML
+        }
+        console.log(`${isChecked ? '☑️' : '☐'} Checkbox ${config.nom_parametre}: ${config.valeur} -> ${isChecked ? 'cochée' : 'non cochée'}`)
+    
+        input.className = 'mr-2 text-' + colorClass + '-600 focus:ring-' + colorClass + '-500'
+    
+        const span = document.createElement('span')
+        span.className = 'text-sm font-medium text-gray-700'
+        span.textContent = config.nom_parametre.replace(/_/g, ' ')
+    
+        const p = document.createElement('p')
+        p.className = 'text-xs text-gray-500 mt-1'
+        p.textContent = config.description
+    
+        // Conteneur pour l'erreur de validation
+        const errorDiv = document.createElement('div')
+        errorDiv.id = 'error_' + config.id
+        errorDiv.className = 'validation-error mt-1 hidden'
+    
+        label.appendChild(input)
+        label.appendChild(span)
+        div.appendChild(label)
+        div.appendChild(p)
+        div.appendChild(errorDiv)
+      } else if (isSelect) {
+        const label = document.createElement('label')
+        label.className = 'block text-sm font-medium text-gray-700 mb-2'
+        label.textContent = config.nom_parametre.replace(/_/g, ' ') + (config.unite ? ' (' + config.unite + ')' : '')
+    
+        const select = document.createElement('select')
+        select.id = 'config_' + config.id
+        select.setAttribute('data-config-id', config.id)
+        select.className = 'w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-' + colorClass + '-500 focus:border-' + colorClass + '-500'
+    
+        let options = []
+        if (config.nom_parametre === 'periode_analyse_defaut') {
+          options = [7, 15, 30, 60, 90].map((val) => ({ value: val, label: val + ' jours' }))
+        } else if (config.nom_parametre === 'rafraichissement_auto') {
+          options = [
+            { value: 1, label: '1 minute' },
+            { value: 2, label: '2 minutes' },
+            { value: 5, label: '5 minutes' },
+            { value: 10, label: '10 minutes' },
+            { value: 0, label: 'Désactivé' }
+          ]
+        }
+    
+        options.forEach((opt) => {
+          const option = document.createElement('option')
+          option.value = opt.value
+          option.textContent = opt.label
+    
+          // Comparaison plus flexible pour la sélection
+          const currentValue = parseFloat(config.valeur)
+          const optionValue = parseFloat(opt.value)
+    
+          if (currentValue === optionValue) {
+            option.selected = true // Pour l'élément JS
+            option.setAttribute('selected', 'selected') // Pour l'HTML
+            console.log(`🎯 Option sélectionnée pour ${config.nom_parametre}: ${opt.label} (valeur: ${opt.value})`)
+          }
+          select.appendChild(option)
+        })
+    
+        const p = document.createElement('p')
+        p.className = 'text-xs text-gray-500 mt-1'
+        p.textContent = config.description
+    
+        // Conteneur pour l'erreur de validation
+        const errorDiv = document.createElement('div')
+        errorDiv.id = 'error_' + config.id
+        errorDiv.className = 'validation-error mt-1 hidden'
+    
+        div.appendChild(label)
+        div.appendChild(select)
+        div.appendChild(p)
+        div.appendChild(errorDiv)
+      } else {
+        // Champs numériques (input number)
+        const label = document.createElement('label')
+        label.className = 'block text-sm font-medium text-gray-700 mb-2'
+        label.textContent = config.nom_parametre.replace(/_/g, ' ') + (config.unite ? ' (' + config.unite + ')' : '')
+    
+        const input = document.createElement('input')
+        input.type = 'number'
+        input.id = 'config_' + config.id
+        input.setAttribute('data-config-id', config.id)
+    
+        // Vérifier si c'est un champ entier
+        const isIntegerField = integerFields.includes(config.nom_parametre)
+        console.log(`🔍 Configuration du champ ${config.nom_parametre}:`, {
+          valeur: config.valeur,
+          type: typeof config.valeur,
+          isInteger: isIntegerField
+        })
+    
+        if (isIntegerField) {
+          input.step = '1' // Pas de 1 pour les entiers
+          input.setAttribute('data-integer', 'true') // Marquer comme entier
+    
+          // Convertir en entier si possible
+          const numValue = parseFloat(config.valeur)
+          if (!isNaN(numValue)) {
+            const intValue = Math.floor(numValue).toString()
+            input.value = intValue // Pour l'élément JS
+            input.setAttribute('value', intValue) // Pour l'HTML
+            console.log(`🔢 Champ entier ${config.nom_parametre}: ${config.valeur} -> ${intValue}`)
+          } else {
+            input.value = '0'
+            input.setAttribute('value', '0')
+            console.log(`⚠️ Champ entier ${config.nom_parametre}: valeur non numérique, défaut à 0`)
+          }
+        } else {
+          input.step = '0.1' // Décimales autorisées pour les autres
+    
+          const numValue = parseFloat(config.valeur)
+          if (!isNaN(numValue)) {
+            const strValue = numValue.toString()
+            input.value = strValue // Pour l'élément JS
+            input.setAttribute('value', strValue) // Pour l'HTML
+            console.log(`📊 Champ décimal ${config.nom_parametre}: ${config.valeur} -> ${strValue}`)
+          } else {
+            input.value = '0'
+            input.setAttribute('value', '0')
+            console.log(`⚠️ Champ décimal ${config.nom_parametre}: valeur non numérique, défaut à 0`)
+          }
+        }
+    
+        // Définir les limites min/max
+        if (config.valeur_min !== null && config.valeur_min !== undefined) {
+          input.min = config.valeur_min.toString()
+        }
+        if (config.valeur_max !== null && config.valeur_max !== undefined) {
+          input.max = config.valeur_max.toString()
+        }
+    
+        input.className = 'w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-' + colorClass + '-500 focus:border-' + colorClass + '-500'
+    
+        const p = document.createElement('p')
+        p.className = 'text-xs text-gray-500 mt-1'
+        p.textContent = config.description
+    
+        // Conteneur pour l'erreur de validation
+        const errorDiv = document.createElement('div')
+        errorDiv.id = 'error_' + config.id
+        errorDiv.className = 'validation-error mt-1 hidden'
+    
+        div.appendChild(label)
+        div.appendChild(input)
+        div.appendChild(p)
+        div.appendChild(errorDiv)
+      }
+    
+      return div.outerHTML
+    }
+    // Ajouter les listeners de changement
+    function addChangeListeners() {
+      document.querySelectorAll('[data-config-id]').forEach((input) => {
+        input.addEventListener('change', () => {
+          isDirty = true
+          updateSaveButtonState()
+          // Nettoyer l'erreur de validation pour ce champ
+          clearFieldError(input.dataset.configId)
+        })
+    
+        // Nettoyer l'erreur aussi quand l'utilisateur tape (pour les inputs numériques)
+        if (input.type === 'number') {
+          input.addEventListener('input', () => {
+            clearFieldError(input.dataset.configId)
+          })
+        }
+      })
+    }
+    
+    // Fonction pour nettoyer l'erreur d'un champ spécifique
+    function clearFieldError(configId) {
+      const errorDiv = document.getElementById('error_' + configId)
+      const inputElement = document.getElementById('config_' + configId)
+    
+      if (errorDiv && inputElement) {
+        errorDiv.classList.add('hidden')
+        errorDiv.textContent = ''
+        inputElement.classList.remove('border-red-500', 'focus:ring-red-500', 'focus:border-red-500')
+      }
+    }
+    
+    // Mettre à jour l'état du bouton sauvegarder
+    function updateSaveButtonState() {
+      const saveBtn = document.getElementById('btn-save')
+      if (isDirty) {
+        saveBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700')
+        saveBtn.classList.remove('bg-green-600', 'hover:bg-green-700')
+        saveBtn.innerHTML = '<i class="fas fa-save"></i><span>Sauvegarder *</span>'
+      } else {
+        saveBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700')
+        saveBtn.classList.add('bg-green-600', 'hover:bg-green-700')
+        saveBtn.innerHTML = '<i class="fas fa-save"></i><span>Sauvegarder</span>'
+      }
+    }
+    // Fonction pour nettoyer les erreurs de validation
+    function clearValidationErrors() {
+      document.querySelectorAll('.validation-error').forEach((errorDiv) => {
+        errorDiv.classList.add('hidden')
+        errorDiv.textContent = ''
+      })
+      // Remettre les bordures normales
+      document.querySelectorAll('[data-config-id]').forEach((input) => {
+        input.classList.remove('border-red-500', 'focus:ring-red-500', 'focus:border-red-500')
+      })
+    }
+    
+    // Fonction pour afficher une erreur sur un champ spécifique
+    function showFieldError(configId, errorMessage) {
+      const errorDiv = document.getElementById('error_' + configId)
+      const inputElement = document.getElementById('config_' + configId)
+    
+      if (errorDiv && inputElement) {
+        // Afficher l'erreur
+        errorDiv.textContent = errorMessage
+        errorDiv.classList.remove('hidden')
+        errorDiv.className = 'text-xs text-red-600 mt-1 bg-red-50 p-2 rounded border border-red-200'
+    
+        // Mettre en surbrillance le champ en erreur
+        inputElement.classList.add('border-red-500', 'focus:ring-red-500', 'focus:border-red-500')
+    
+        // Faire défiler vers le premier champ en erreur
+        inputElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    
+        // Focus sur le champ
+        setTimeout(() => {
+          inputElement.focus()
+        }, 500)
+      }
+    }
+    
+    // Sauvegarder les configurations
+    async function saveConfigurations() {
+      if (!isDirty) {
+        showNotification('Aucune modification à sauvegarder', 'info')
+        return
+      }
+    
+      // Nettoyer les erreurs précédentes
+      clearValidationErrors()
+    
+      try {
+        showLoading(true)
+    
+        // Vérifier le token CSRF
+        const csrfToken = getCookie('csrftoken')
+        if (!csrfToken) {
+          showNotification('❌ Token CSRF manquant. Veuillez recharger la page.', 'error')
+          return
+        }
+        console.log('🔐 Token CSRF trouvé:', csrfToken.substring(0, 10) + '...') // Collecter les valeurs actuelles
+        const updatedConfigs = []
+        document.querySelectorAll('[data-config-id]').forEach((input) => {
+          const configId = input.dataset.configId
+          let value
+    
+          if (input.type === 'checkbox') {
+            value = input.checked ? 1 : 0
+          } else {
+            // Vérifier si c'est un champ entier
+            const isIntegerField = input.hasAttribute('data-integer')
+            if (isIntegerField) {
+              // Convertir en entier pour les champs entiers
+              value = parseInt(input.value) || 0
+            } else {
+              // Laisser en décimal pour les autres champs
+              value = parseFloat(input.value) || 0
+            }
+          }
+          updatedConfigs.push({
+            id: parseInt(configId),
+            valeur: value
+          })
+        })
+    
+        const response = await fetch('/kpis/api/configurations/save/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+          },
+          body: JSON.stringify({
+            configurations: updatedConfigs
+          })
+        })
+    
+        console.log('📡 Réponse serveur:', response.status, response.statusText)
+    
+        // Vérifier si la réponse est bien du JSON
+        const contentType = response.headers.get('content-type')
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('❌ Réponse non-JSON:', contentType)
+          const textResponse = await response.text()
+          console.error('📄 Contenu de la réponse:', textResponse.substring(0, 500))
+          showNotification('❌ Erreur serveur: réponse non-JSON reçue', 'error')
+          return
+        }
+    
+        const data = await response.json()
+        if (data.success) {
+          isDirty = false
+          updateSaveButtonState()
+          showNotification('✅ ' + data.message, 'success')
+          // Recharger pour avoir les données fraîches
+          await loadConfigurations()
+        } else {
+          // Affichage des erreurs de validation
+          if (data.field_errors && Object.keys(data.field_errors).length > 0) {
+            // Erreurs spécifiques par champ
+            let firstErrorField = null
+            Object.entries(data.field_errors).forEach(([configId, errorMessage]) => {
+              showFieldError(configId, errorMessage)
+              if (!firstErrorField) firstErrorField = configId
+            })
+            showNotification('❌ Veuillez corriger les erreurs de validation', 'error')
+          } else {
+            // Erreur générale
+            showNotification('❌ ' + data.message, 'error')
+          }
+    
+          // Erreurs additionnelles (liste)
+          if (data.errors && data.errors.length > 0) {
+            data.errors.forEach((error) => {
+              showNotification('⚠️ ' + error, 'warning')
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Erreur:', error)
+        showNotification('❌ Erreur de connexion lors de la sauvegarde', 'error')
+      } finally {
+        showLoading(false)
+      }
+    }
+    
+    // Restaurer les configurations par défaut
+    async function resetConfigurations() {
+      if (!confirm('Êtes-vous sûr de vouloir restaurer toutes les configurations par défaut ?\\nCette action ne peut pas être annulée.')) {
+        return
+      }
+      try {
+        showLoading(true)
+    
+        // Vérifier le token CSRF
+        const csrfToken = getCookie('csrftoken')
+        if (!csrfToken) {
+          showNotification('❌ Token CSRF manquant. Veuillez recharger la page.', 'error')
+          return
+        }
+    
+        const response = await fetch('/kpis/api/configurations/reset/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          }
+        })
+    
+        const data = await response.json()
+        if (data.success) {
+          isDirty = false
+          updateSaveButtonState()
+          showNotification('✅ ' + data.message, 'success')
+          // Recharger les configurations
+          await loadConfigurations()
+        } else {
+          showNotification('❌ ' + data.message, 'error')
+        }
+      } catch (error) {
+        console.error('Erreur:', error)
+        showNotification('❌ Erreur de connexion lors de la restauration', 'error')
+      } finally {
+        showLoading(false)
+      }
+    }
+    
+    // Aperçu des changements
+    function previewChanges() {
+      if (!isDirty) {
+        showNotification('Aucune modification à prévisualiser', 'info')
+        return
+      }
+    
+      let changes = []
+      document.querySelectorAll('[data-config-id]').forEach((input) => {
+        const configId = input.dataset.configId
+    
+        // Trouver la configuration originale
+        let originalConfig = null
+        Object.values(configurations).forEach((category) => {
+          category.forEach((config) => {
+            if (config.id == configId) {
+              originalConfig = config
+            }
+          })
+        })
+    
+        if (originalConfig) {
+          let currentValue
+          if (input.type === 'checkbox') {
+            currentValue = input.checked ? 1 : 0
+          } else {
+            currentValue = parseFloat(input.value) || 0
+          }
+    
+          if (currentValue != originalConfig.valeur) {
+            changes.push({
+              nom: originalConfig.nom_parametre.replace(/_/g, ' '),
+              ancienne: originalConfig.valeur,
+              nouvelle: currentValue,
+              unite: originalConfig.unite || ''
+            })
+          }
+        }
+      })
+    
+      if (changes.length === 0) {
+        showNotification('Aucune modification détectée', 'info')
+        return
+      }
+      let message = 'Modifications à appliquer (' + changes.length + '):\\n\\n'
+      changes.forEach((change) => {
+        message += '• ' + change.nom + ': ' + change.ancienne + change.unite + ' → ' + change.nouvelle + change.unite + '\\n'
+      })
+    
+      alert(message)
+    }
+    
+    // Afficher/masquer le loading
+    function showLoading(show) {
+      const buttons = ['btn-save', 'btn-reset', 'btn-preview']
+      buttons.forEach((btnId) => {
+        const btn = document.getElementById(btnId)
+        if (btn) {
+          btn.disabled = show
+          if (show) {
+            btn.style.opacity = '0.6'
+            btn.style.cursor = 'not-allowed'
+          } else {
+            btn.style.opacity = '1'
+            btn.style.cursor = 'pointer'
+          }
+        }
+      })
+    }
+    
+    // Afficher une notification
+    function showNotification(message, type = 'info') {
+      const container = document.getElementById('notification-container')
+    
+      const colors = {
+        success: 'bg-green-50 border-green-200 text-green-800',
+        error: 'bg-red-50 border-red-200 text-red-800',
+        warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+        info: 'bg-blue-50 border-blue-200 text-blue-800'
+      }
+    
+      const notification = document.createElement('div')
+      notification.className = colors[type] + ' border rounded-lg p-4 mb-2 transition-all duration-300'
+      notification.innerHTML = '<div class="flex items-start justify-between">' + '<span class="text-sm">' + message + '</span>' + '<button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-500 hover:text-gray-700">' + '<i class="fas fa-times text-xs"></i>' + '</button>' + '</div>'
+    
+      container.appendChild(notification)
+    
+      // Auto-suppression après 5 secondes pour les messages de succès
+      if (type === 'success' || type === 'info') {
+        setTimeout(() => {
+          if (notification.parentElement) {
+            notification.remove()
+          }
+        }, 5000)
+      }
+    }
+    // Fonction utilitaire pour récupérer le token CSRF
+    function getCookie(name) {
+      let cookieValue = null
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';')
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim()
+          if (cookie.substring(0, name.length + 1) === name + '=') {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1))
+            break
+          }
+        }
+      }
+    
+      // Fallback: essayer de récupérer depuis les métadonnées
+      if (!cookieValue && name === 'csrftoken') {
+        const metaTag = document.querySelector('meta[name="csrf-token"]')
+        if (metaTag) {
+          cookieValue = metaTag.getAttribute('content')
+        }
+      }
+    
+      return cookieValue
+    }
+    
+    // Prévenir la fermeture avec modifications non sauvegardées
+    window.addEventListener('beforeunload', function (e) {
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = 'Vous avez des modifications non sauvegardées. Êtes-vous sûr de vouloir quitter ?'
+      }
+    })
+  </script>
+{% endblock %}
