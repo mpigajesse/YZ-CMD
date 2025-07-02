@@ -135,6 +135,35 @@ class GoogleSheetSync:
         self.errors.append(f"Format de date non reconnu: {date_str}")
         return timezone.now().date()
     
+    @staticmethod
+    def clean_phone_number(phone_str):
+        """Nettoie et valide un numéro de téléphone"""
+        if not phone_str:
+            return ''
+        
+        # Convertir en string et nettoyer
+        phone = str(phone_str).strip()
+        
+        # Supprimer les caractères non numériques courants (espaces, tirets, points, parenthèses)
+        import re
+        phone = re.sub(r'[\s\-\.\(\)\+]', '', phone)
+        
+        # Limiter à 30 caractères maximum (limite du modèle Client)
+        if len(phone) > 30:
+            phone = phone[:30]
+        
+        return phone
+    
+    def _clean_phone_number(self, phone_str):
+        """Nettoie et valide un numéro de téléphone avec logging des warnings"""
+        phone = self.clean_phone_number(phone_str)
+        
+        # Log warning si le numéro a été tronqué
+        if phone_str and len(str(phone_str).strip()) > 30:
+            self.warnings.append(f"Numéro de téléphone tronqué: {phone_str} -> {phone}")
+        
+        return phone
+    
     def process_row(self, row_data, headers):
         """Traite une ligne de données - nouvelles commandes uniquement, évite les doublons"""
         try:
@@ -171,7 +200,8 @@ class GoogleSheetSync:
                     return True
             
             # Récupérer ou créer le client
-            client_phone = data.get('Téléphone', '')
+            client_phone_raw = data.get('Téléphone', '')
+            client_phone = self._clean_phone_number(client_phone_raw)
             client_nom_prenom = data.get('Client', '').split(' ', 1) # Tente de séparer nom et prénom
             client_nom = client_nom_prenom[0] if client_nom_prenom else ''
             client_prenom = client_nom_prenom[1] if len(client_nom_prenom) > 1 else ''
@@ -249,7 +279,7 @@ class GoogleSheetSync:
                 # Si on ne peut pas parser le produit, créer une entrée générique
                 try:
                     # Créer un article générique basé sur le produit initial
-                    article_nom = product_str[:50] if product_str else "Article synchronisé"
+                    article_nom = (product_str[:30] if product_str else "Article synchronisé") + f" #{commande.id_yz}"
                     article_ref = f"SYNC_{commande.id_yz}"  # Utiliser l'ID YZ pour la référence
                     
                     article_obj, created = Article.objects.get_or_create(
@@ -258,8 +288,8 @@ class GoogleSheetSync:
                             'nom': article_nom,
                             'description': f"Article synchronisé depuis Google Sheets: {product_str}",
                             'prix_unitaire': total_cmd_price,
-                            'couleur': 'Non spécifiée',
-                            'pointure': 'Unique',
+                            'couleur': f"Sync-{commande.id_yz}",
+                            'pointure': '40',  # Utiliser une valeur de pointure valide (entre 30 et 50)
                             'categorie': 'Non spécifiée',
                             'qte_disponible': 0,
                         }
@@ -397,7 +427,8 @@ class GoogleSheetSync:
                     print(f"📊 État mis à jour pour commande existante ID YZ {existing_commande.id_yz}: {current_status} → {new_status}")
             
             # Mettre à jour les informations du client si nécessaire
-            client_phone = data.get('Téléphone', '')
+            client_phone_raw = data.get('Téléphone', '')
+            client_phone = self._clean_phone_number(client_phone_raw)
             if client_phone and existing_commande.client:
                 client_obj = existing_commande.client
                 client_nom_prenom = data.get('Client', '').split(' ', 1)
@@ -743,7 +774,8 @@ def sync_google_sheet_data(config_id):
                     statut_csv = row_data.get('Statut')
                     operateur_name = row_data.get('Opérateur')
                     client_full_name = row_data.get('Client') # e.g., "Housni", "نعيمة أماسو"
-                    client_tel = str(row_data.get('Téléphone')).replace('-', '') # Clean phone number
+                    client_tel_raw = row_data.get('Téléphone', '')
+                    client_tel = GoogleSheetSync.clean_phone_number(client_tel_raw)
                     adresse = row_data.get('Adresse')
                     ville_name = row_data.get('Ville')
                     produit_str = row_data.get('Produit')
