@@ -42,6 +42,31 @@
             #content-overlay { display: none; position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 99; }
             body.sidebar-open #content-overlay { display: block; }
         }
+
+        /* Notifications SweetAlert2 personnalisées - avec haute spécificité */
+        body .swal2-toast.swal2-success {
+            background-color: #2f855a !important;
+            color: white !important;
+        }
+        body .swal2-toast.swal2-error {
+            background-color: #c53030 !important;
+            color: white !important;
+        }
+        body .swal2-toast.swal2-warning {
+            background-color: #dd6b20 !important;
+            color: white !important;
+        }
+        body .swal2-toast.swal2-info {
+            background-color: #2b6cb0 !important;
+            color: white !important;
+        }
+        body .swal2-toast .swal2-title {
+            color: white !important;
+        }
+        body .swal2-toast .swal2-icon.swal2-success .swal2-success-line-tip,
+        body .swal2-toast .swal2-icon.swal2-success .swal2-success-line-long {
+            stroke: white !important;
+        }
     </style>
     {% endblock %}
 </head>
@@ -72,6 +97,28 @@
     {% block extra_js %}
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Afficher les messages Django avec SweetAlert2
+        {% if messages %}
+            {% for message in messages %}
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3500,
+                    timerProgressBar: true,
+                    icon: '{{ message.tags }}',
+                    title: '{{ message }}',
+                    customClass: {
+                        popup: 'swal2-toast swal2-{{ message.tags|lower }}'
+                    },
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer);
+                        toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    }
+                });
+            {% endfor %}
+        {% endif %}
+
         const body = document.body;
         const menuToggle = document.getElementById('menu-toggle');
         const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -80,7 +127,7 @@
         function toggleSidebar() {
             body.classList.toggle('sidebar-open');
             body.classList.toggle('sidebar-collapsed');
-            }
+        }
 
         function closeSidebarMobile() {
             if (window.innerWidth <= 1023) {
@@ -95,9 +142,15 @@
             body.classList.add('sidebar-open');
         }
 
-        if (menuToggle) menuToggle.addEventListener('click', toggleSidebar);
-        if (sidebarToggle) sidebarToggle.addEventListener('click', closeSidebarMobile);
-        if (contentOverlay) contentOverlay.addEventListener('click', closeSidebarMobile);
+        if (menuToggle) {
+            menuToggle.addEventListener('click', toggleSidebar);
+        }
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', closeSidebarMobile);
+        }
+        if (contentOverlay) {
+            contentOverlay.addEventListener('click', closeSidebarMobile);
+        }
 
         document.querySelectorAll('.toggle-dropdown').forEach(dropdownToggle => {
             dropdownToggle.addEventListener('click', () => {
@@ -115,7 +168,7 @@
         window.addEventListener('resize', () => {
             if (window.innerWidth > 1023) {
                 body.classList.add('sidebar-open');
-                body.classList.remove('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
             } else {
                 body.classList.add('sidebar-collapsed');
                 body.classList.remove('sidebar-open');

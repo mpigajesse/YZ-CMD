@@ -417,32 +417,39 @@ def detail_prepa(request, pk):
                 return redirect('Prepacommande:detail_prepa', pk=commande.id)
         
         elif action == 'marquer_preparee':
-            # Passer de "En préparation" vers "Préparée"
-            if etat_preparation and etat_preparation.enum_etat.libelle == 'En préparation' and not etat_preparation.date_fin:
-                with transaction.atomic():
-                    # Terminer l'état de préparation actuel
-                    etat_preparation.date_fin = timezone.now()
-                    etat_preparation.commentaire = "Préparation terminée par l'opérateur."
-                    etat_preparation.save()
-
-                    # Créer ou récupérer l'état "Préparée"
-                    etat_preparee_enum, created = EnumEtatCmd.objects.get_or_create(
-                        libelle='Préparée',
-                        defaults={'ordre': 45, 'couleur': '#22C55E'} # Vert pour "Préparée"
-                    )
-                    
-                    # Créer le nouvel état "Préparée" pour la commande
-                    EtatCommande.objects.create(
-                        commande=commande,
-                        enum_etat=etat_preparee_enum,
-                        operateur=operateur_profile,
-                        date_debut=timezone.now(),
-                        commentaire="Commande marquée comme préparée."
-                    )
-                    
-                    messages.success(request, f"La commande {commande.id_yz} a été marquée comme préparée.")
+            with transaction.atomic():
+                # Marquer l'état 'En préparation' comme terminé
+                etat_en_preparation, created = EnumEtatCmd.objects.get_or_create(libelle='En préparation')
                 
-                return redirect('Prepacommande:liste_prepa')
+                etat_actuel = EtatCommande.objects.filter(
+                    commande=commande,
+                    enum_etat=etat_en_preparation,
+                    date_fin__isnull=True
+                ).first()
+                
+                if etat_actuel:
+                    etat_actuel.date_fin = timezone.now()
+                    etat_actuel.operateur = operateur_profile
+                    etat_actuel.save()
+                
+                # Créer le nouvel état 'Préparée'
+                etat_preparee, created = EnumEtatCmd.objects.get_or_create(libelle='Préparée')
+                EtatCommande.objects.create(
+                    commande=commande,
+                    enum_etat=etat_preparee,
+                    operateur=operateur_profile
+                )
+                
+                # Log de l'opération
+                Operation.objects.create(
+                    commande=commande,
+                    type_operation='PREPARATION_TERMINEE',
+                    operateur=operateur_profile,
+                    conclusion=f"Commande marquée comme préparée par {operateur_profile.nom_complet}."
+                )
+            
+            messages.success(request, f"La commande {commande.id_yz} a bien été marquée comme préparée.")
+            return redirect('Prepacommande:detail_prepa', pk=commande.pk)
     
     context = {
         'page_title': f'Préparation Commande {commande.id_yz}',
@@ -938,7 +945,7 @@ def modifier_commande_prepa(request, commande_id):
                         operateur=operateur
                     )
 
-                    messages.success(request, f"Commande {commande.id_yz} mise à jour avec succès.")
+                    messages.success(request, f"Les modifications de la commande {commande.id_yz} ont été enregistrées avec succès.")
                     return redirect('Prepacommande:detail_prepa', pk=commande.id)
                 
         except Exception as e:
