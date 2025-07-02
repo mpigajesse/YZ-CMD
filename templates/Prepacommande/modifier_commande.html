@@ -1,0 +1,571 @@
+{% extends 'composant_generale/operatPrepa/base.html' %}
+{% load static %}
+
+{% block title %}Modifier Commande {{ commande.id_yz }} - Préparation{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .animate-slideInUp { animation: slideInUp 0.6s ease-out forwards; opacity: 0; }
+    @keyframes slideInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .btn-prepa { background: linear-gradient(to right, #361f27, #4b2e3a); color: white; transition: all 0.3s; }
+    .btn-prepa:hover { background: #412a34; }
+    .section-title { color: #361f27; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #361f27, #4b2e3a);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-edit mr-3"></i> Modifier Commande {{ commande.id_yz }}
+            </h1>
+            <p>Modification des détails de la commande en préparation</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <div class="text-right">
+                <div class="text-2xl font-bold">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                <div class="text-sm opacity-80">Total commande</div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="modification-form">
+        {% csrf_token %}
+        <div class="space-y-6">
+            <!-- Informations principales -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
+                    <h3 class="text-lg font-semibold mb-4 section-title">
+                        <i class="fas fa-receipt mr-3"></i>Informations Commande
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ID YZ</label>
+                            <input type="text" value="{{ commande.id_yz }}" readonly class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Numéro Commande</label>
+                            <input type="text" value="{{ commande.num_cmd }}" readonly class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Date Commande</label>
+                            <input type="text" value="{{ commande.date_cmd|date:'d/m/Y' }}" readonly class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Total</label>
+                            <input type="text" value="{{ commande.total_cmd|floatformat:2 }} DH" readonly class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
+                    <h3 class="text-lg font-semibold mb-4 section-title">
+                        <i class="fas fa-user mr-3"></i>Client
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                            <input type="text" name="client_nom" value="{{ commande.client.nom }}" class="w-full p-3 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                            <input type="text" name="client_prenom" value="{{ commande.client.prenom }}" class="w-full p-3 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                            <input type="text" name="client_telephone" value="{{ commande.client.numero_tel }}" class="w-full p-3 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ville Client</label>
+                            <input type="text" value="{{ commande.ville_init|default:'Non spécifiée' }}" readonly class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Livraison -->
+            <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
+                <h3 class="text-lg font-semibold mb-4 section-title">
+                    <i class="fas fa-truck mr-3"></i>Livraison
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ville de livraison</label>
+                        <select name="ville_id" id="ville-select" onchange="chargerRegionEtFrais()" class="w-full p-3 border rounded-lg">
+                            <option value="">-- Sélectionner une ville --</option>
+                            {% for ville in villes %}
+                                <option value="{{ ville.id }}" 
+                                        data-region="{{ ville.region.nom_region }}" 
+                                        data-frais="{{ ville.frais_livraison|default:0 }}"
+                                        {% if commande.ville.id == ville.id %}selected{% endif %}>
+                                    {{ ville.nom }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Région</label>
+                        <input type="text" id="region-display" value="{{ commande.ville.region.nom_region }}" readonly class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Frais de livraison</label>
+                        <input type="text" id="frais-display" value="{{ commande.ville.frais_livraison|default:0 }} DH" readonly class="w-full p-3 bg-gray-100 border rounded-lg text-gray-600">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Adresse de livraison</label>
+                    <textarea name="adresse" rows="3" class="w-full p-3 border rounded-lg" placeholder="Adresse complète de livraison">{{ commande.adresse }}</textarea>
+                </div>
+            </div>
+            <!-- Panier -->
+            <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
+                <h3 class="text-lg font-semibold mb-4 section-title">
+                    <i class="fas fa-box mr-3"></i>Articles du Panier
+                </h3>
+                <table class="w-full bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="px-4 py-3">Article</th>
+                            <th class="px-4 py-3">Référence</th>
+                            <th class="px-4 py-3">Couleur</th>
+                            <th class="px-4 py-3">Pointure</th>
+                            <th class="px-4 py-3">Quantité</th>
+                            <th class="px-4 py-3">Prix unitaire</th>
+                            <th class="px-4 py-3">Sous-total</th>
+                            <th class="px-4 py-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for panier in paniers %}
+                        <tr>
+                            <td>{{ panier.article.nom }}</td>
+                            <td>{{ panier.article.reference }}</td>
+                            <td>{{ panier.article.couleur }}</td>
+                            <td>{{ panier.article.pointure }}</td>
+                            <td>{{ panier.quantite }}</td>
+                            <td>{{ panier.article.prix_unitaire|floatformat:2 }} DH</td>
+                            <td>{{ panier.sous_total|floatformat:2 }} DH</td>
+                            <td>
+                                <button type="button" class="btn-prepa px-2 py-1 rounded" onclick="supprimerArticle({{ panier.id }})"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="flex justify-end">
+                    <span class="font-bold">Total articles : {{ total_articles|floatformat:2 }} DH</span>
+                </div>
+                <div class="mt-4">
+                    <button type="button" class="btn-prepa px-4 py-2 rounded" onclick="ouvrirModalAjoutArticle()"><i class="fas fa-plus mr-2"></i>Ajouter un article</button>
+                </div>
+            </div>
+            <!-- Opérations de préparation -->
+            <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
+                <h3 class="text-lg font-semibold mb-4 section-title">
+                    <i class="fas fa-cogs mr-3"></i>Opérations de Préparation
+                </h3>
+                <table class="w-full bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="px-4 py-3">Type</th>
+                            <th class="px-4 py-3">Date</th>
+                            <th class="px-4 py-3">Commentaire</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for op in operations %}
+                        <tr>
+                            <td>{{ op.type_operation }}</td>
+                            <td>{{ op.date_operation|date:'d/m/Y H:i' }}</td>
+                            <td>{{ op.conclusion }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="mt-4">
+                    <button type="button" class="btn-prepa px-4 py-2 rounded" onclick="ouvrirModalAjoutOperation()"><i class="fas fa-plus mr-2"></i>Ajouter une opération</button>
+                </div>
+            </div>
+            <div class="flex justify-end mt-6">
+                <button type="submit" class="btn-prepa px-6 py-3 rounded text-lg font-bold">Enregistrer les modifications</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Modale pour ajouter un article -->
+<div id="modalAjoutArticle" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold section-title">Ajouter un article</h3>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rechercher un article</label>
+                    <input type="text" id="searchArticle" placeholder="Nom, référence, couleur..." 
+                           class="w-full p-3 border rounded-lg">
+                </div>
+                <div id="articlesList" class="space-y-2 max-h-60 overflow-y-auto">
+                    <!-- Les articles seront chargés ici -->
+                </div>
+                <div class="mt-4 flex justify-end space-x-3">
+                    <button type="button" onclick="fermerModalAjoutArticle()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg">Annuler</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale pour ajouter une opération -->
+<div id="modalAjoutOperation" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold section-title">Ajouter une opération</h3>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Type d'opération</label>
+                    <select id="typeOperation" class="w-full p-3 border rounded-lg">
+                        <option value="">-- Sélectionner --</option>
+                        <option value="VERIFICATION_STOCK">Vérification stock</option>
+                        <option value="PREPARATION_ARTICLE">Préparation article</option>
+                        <option value="VERIFICATION_QUALITE">Vérification qualité</option>
+                        <option value="EMBALLAGE">Emballage</option>
+                        <option value="ETIQUETAGE">Étiquetage</option>
+                        <option value="CONTROLE_FINAL">Contrôle final</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Commentaire</label>
+                    <textarea id="commentaireOperation" rows="3" 
+                              class="w-full p-3 border rounded-lg" 
+                              placeholder="Détails de l'opération..."></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="fermerModalAjoutOperation()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg">Annuler</button>
+                    <button type="button" onclick="ajouterOperation()" 
+                            class="btn-prepa px-4 py-2 rounded-lg">Ajouter</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale de confirmation -->
+<div id="modalConfirmation" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div class="p-6 text-center">
+                <i class="fas fa-question-circle text-4xl text-yellow-500 mb-4"></i>
+                <h3 class="text-xl font-semibold mb-2">Confirmation</h3>
+                <p id="messageConfirmation" class="text-gray-600 mb-6"></p>
+                <div class="flex justify-center space-x-3">
+                    <button type="button" onclick="fermerModalConfirmation()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg">Annuler</button>
+                    <button type="button" id="btnConfirmer" 
+                            class="btn-prepa px-4 py-2 rounded-lg">Confirmer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variables globales
+let commandeId = {{ commande.id }};
+let articlesDisponibles = [];
+
+// Fonctions pour les modales
+function ouvrirModalAjoutArticle() {
+    document.getElementById('modalAjoutArticle').classList.remove('hidden');
+    chargerArticlesDisponibles();
+}
+
+function fermerModalAjoutArticle() {
+    document.getElementById('modalAjoutArticle').classList.add('hidden');
+    document.getElementById('searchArticle').value = '';
+    document.getElementById('articlesList').innerHTML = '';
+}
+
+function ouvrirModalAjoutOperation() {
+    document.getElementById('modalAjoutOperation').classList.remove('hidden');
+}
+
+function fermerModalAjoutOperation() {
+    document.getElementById('modalAjoutOperation').classList.add('hidden');
+    document.getElementById('typeOperation').value = '';
+    document.getElementById('commentaireOperation').value = '';
+}
+
+function ouvrirModalConfirmation(message, action) {
+    document.getElementById('messageConfirmation').textContent = message;
+    document.getElementById('btnConfirmer').onclick = action;
+    document.getElementById('modalConfirmation').classList.remove('hidden');
+}
+
+function fermerModalConfirmation() {
+    document.getElementById('modalConfirmation').classList.add('hidden');
+}
+
+// Mettre à jour la région et les frais en fonction de la ville
+function chargerRegionEtFrais() {
+    const select = document.getElementById('ville-select');
+    if (!select.value) {
+        document.getElementById('region-display').value = '';
+        document.getElementById('frais-display').value = '';
+        return;
+    }
+    const selectedOption = select.options[select.selectedIndex];
+    const region = selectedOption.getAttribute('data-region') || '';
+    const frais = selectedOption.getAttribute('data-frais') || '0';
+    
+    document.getElementById('region-display').value = region;
+    document.getElementById('frais-display').value = `${frais} DH`;
+}
+
+// Charger les articles disponibles
+function chargerArticlesDisponibles() {
+    fetch("{% url 'Prepacommande:api_articles_disponibles_prepa' %}")
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                articlesDisponibles = data.articles;
+                afficherArticles(articlesDisponibles);
+            }
+        })
+        .catch(error => console.error('Erreur:', error));
+}
+
+// Afficher les articles dans la modale
+function afficherArticles(articles) {
+    const container = document.getElementById('articlesList');
+    container.innerHTML = '';
+    
+    articles.forEach(article => {
+        const div = document.createElement('div');
+        div.className = 'p-3 border rounded-lg hover:bg-gray-50 flex justify-between items-center';
+        div.innerHTML = `
+            <div>
+                <div class="font-medium">${article.nom}</div>
+                <div class="text-sm text-gray-600">
+                    Réf: ${article.reference} | ${article.couleur} | Pt: ${article.pointure}
+                </div>
+                <div class="text-sm text-gray-500">
+                    Prix: <span class="font-semibold">${article.prix} DH</span> | 
+                    Stock: <span class="font-semibold">${article.qte_disponible}</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="qte-article-${article.id}" class="text-sm font-medium text-gray-700">Qté:</label>
+                <input type="number" id="qte-article-${article.id}" class="w-20 p-2 border rounded-lg text-center" value="1" min="1">
+                <button type="button" class="btn-prepa px-4 py-2 rounded-lg font-medium" 
+                        onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+// Sélectionner un article
+function selectionnerArticle(articleId, articleName) {
+    const quantiteInput = document.getElementById(`qte-article-${articleId}`);
+    const quantite = parseInt(quantiteInput.value, 10);
+
+    if (isNaN(quantite) || quantite <= 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Quantité invalide',
+            text: 'Veuillez entrer une quantité valide.'
+        });
+        return;
+    }
+    
+    ouvrirModalConfirmation(
+        `Ajouter ${quantite} x "${articleName}" au panier ?`,
+        () => ajouterArticleAuPanier(articleId, quantite)
+    );
+}
+
+// Ajouter un article au panier
+function ajouterArticleAuPanier(articleId, quantite) {
+    const formData = new FormData();
+    formData.append('action', 'add_article');
+    formData.append('article_id', articleId);
+    formData.append('quantite', quantite);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+    fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            fermerModalConfirmation();
+            fermerModalAjoutArticle();
+            Swal.fire({
+                icon: 'success',
+                title: 'Article ajouté !',
+                text: 'L\'article a été ajouté au panier.',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload();
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: data.error || 'Une erreur est survenue.'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur de communication',
+            text: 'Impossible de contacter le serveur.'
+        });
+    });
+}
+
+// Supprimer un article
+function supprimerArticle(panierId) {
+    ouvrirModalConfirmation(
+        'Êtes-vous sûr de vouloir supprimer cet article ?',
+        () => {
+            const formData = new FormData();
+            formData.append('action', 'delete_article');
+            formData.append('article_id', panierId);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+            fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    fermerModalConfirmation();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Article supprimé !',
+                        text: 'L\'article a été retiré du panier.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erreur',
+                        text: data.error || 'Une erreur est survenue.'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erreur de communication',
+                    text: 'Impossible de contacter le serveur.'
+                });
+            });
+        }
+    );
+}
+
+// Ajouter une opération
+function ajouterOperation() {
+    const type = document.getElementById('typeOperation').value;
+    const commentaire = document.getElementById('commentaireOperation').value;
+
+    if (!type || !commentaire) {
+        Swal.fire('Champs requis', 'Veuillez remplir tous les champs.', 'warning');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'add_operation');
+    formData.append('type_operation', type);
+    formData.append('commentaire', commentaire);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+    fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            fermerModalAjoutOperation();
+            Swal.fire({
+                icon: 'success',
+                title: 'Opération ajoutée !',
+                text: 'L\'opération a bien été enregistrée.',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload();
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: data.error || 'Une erreur est survenue.'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur de communication',
+            text: 'Impossible de contacter le serveur.'
+        });
+    });
+}
+
+// Recherche d'articles
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchArticle');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            const filtered = articlesDisponibles.filter(article => 
+                article.nom.toLowerCase().includes(query) ||
+                article.reference.toLowerCase().includes(query) ||
+                article.couleur.toLowerCase().includes(query) ||
+                article.pointure.toLowerCase().includes(query)
+            );
+            afficherArticles(filtered);
+        });
+    }
+
+    // Charger les infos de livraison au chargement de la page
+    chargerRegionEtFrais();
+});
+
+// Fermer les modales en cliquant à l'extérieur
+document.addEventListener('click', function(event) {
+    const modals = ['modalAjoutArticle', 'modalAjoutOperation', 'modalConfirmation'];
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (event.target === modal) {
+            modal.classList.add('hidden');
+        }
+    });
+});
+</script>
+{% endblock %} 

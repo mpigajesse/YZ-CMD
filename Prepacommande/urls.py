@@ -12,7 +12,10 @@ urlpatterns = [
     path('changer-mot-de-passe/', views.changer_mot_de_passe_view, name='changer_mot_de_passe'),
     path('detail-prepa/<int:pk>/', views.detail_prepa, name='detail_prepa'),
     path('etiquettes/', views.etiquette_view, name='etiquette'),
+    path('modifier-commande/<int:commande_id>/', views.modifier_commande_prepa, name='modifier_commande'),
 
     path('api/commande/<int:commande_id>/produits/', views.api_commande_produits, name='api_commande_produits'),
     path('api/commande/<int:commande_id>/changer-etat-preparation/', views.api_changer_etat_preparation, name='api_changer_etat_preparation'),
+    path('api/articles-disponibles-prepa/', views.api_articles_disponibles_prepa, name='api_articles_disponibles_prepa'),
+    path('api/commande/<int:commande_id>/panier/', views.api_panier_commande_prepa, name='api_panier_commande'),
 ] 

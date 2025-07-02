@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
@@ -12,6 +12,11 @@ import json
 from parametre.models import Operateur
 from commande.models import Commande, EtatCommande, EnumEtatCmd, Operation, Panier
 from django.urls import reverse
+
+import barcode
+from barcode.writer import ImageWriter
+from io import BytesIO
+import base64
 
 # Create your views here.
 
@@ -368,6 +373,17 @@ def detail_prepa(request, pk):
     # Déterminer l'état actuel
     etat_actuel = etats_commande.filter(date_fin__isnull=True).first()
     
+    # Récupérer les opérations associées à la commande
+    operations = commande.operations.select_related('operateur').order_by('-date_operation')
+    
+    # Générer le code-barres pour la commande
+    code128 = barcode.get_barcode_class('code128')
+    barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
+    buffer = BytesIO()
+    barcode_instance.write(buffer, options={'write_text': False, 'module_height': 10.0})
+    barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    commande_barcode = f"data:image/png;base64,{barcode_base64}"
+
     # Gestion des actions POST (marquer comme préparée, etc.)
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -438,6 +454,8 @@ def detail_prepa(request, pk):
         'etat_actuel': etat_actuel,
         'etat_preparation': etat_preparation,
         'operateur_profile': operateur_profile,
+        'operations': operations,
+        'commande_barcode': commande_barcode,
     }
     return render(request, 'Prepacommande/detail_prepa.html', context)
 
@@ -481,6 +499,15 @@ def etiquette_view(request):
     
     # Tri par date de préparation (plus récentes en premier)
     commandes_preparees = commandes_preparees.order_by('-date_preparation')
+    
+    # Générer les codes-barres pour chaque commande
+    code128 = barcode.get_barcode_class('code128')
+    for commande in commandes_preparees:
+        barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
+        buffer = BytesIO()
+        barcode_instance.write(buffer, options={'write_text': False})
+        barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        commande.barcode_base64 = f"data:image/png;base64,{barcode_base64}"
     
     # Statistiques
     total_preparees = commandes_preparees.count()
@@ -593,3 +620,444 @@ def api_changer_etat_preparation(request, commande_id):
         return JsonResponse({'success': False, 'message': 'Commande non trouvée'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+
+@login_required
+def modifier_commande_prepa(request, commande_id):
+    """Page de modification complète d'une commande pour les opérateurs de préparation"""
+    from commande.models import Commande, Operation
+    from parametre.models import Ville
+    
+    try:
+        # Récupérer l'opérateur
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil d'opérateur de préparation non trouvé.")
+        return redirect('login')
+    
+    # Récupérer la commande
+    commande = get_object_or_404(Commande, id=commande_id)
+    
+    # Vérifier que la commande est affectée à cet opérateur pour la préparation
+    etat_preparation = commande.etats.filter(
+        Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation'),
+        operateur=operateur,
+        date_fin__isnull=True
+    ).first()
+    
+    if not etat_preparation:
+        messages.error(request, "Cette commande ne vous est pas affectée pour la préparation.")
+        return redirect('Prepacommande:liste_prepa')
+    
+    if request.method == 'POST':
+        try:
+            # ================ GESTION DES ACTIONS AJAX SPÉCIFIQUES ================
+            action = request.POST.get('action')
+            
+            if action == 'add_article':
+                # Ajouter un nouvel article immédiatement
+                from article.models import Article
+                from commande.models import Panier
+                
+                article_id = request.POST.get('article_id')
+                quantite = int(request.POST.get('quantite', 1))
+                
+                try:
+                    article = Article.objects.get(id=article_id)
+                    sous_total = article.prix_unitaire * quantite
+                    
+                    panier = Panier.objects.create(
+                        commande=commande,
+                        article=article,
+                        quantite=quantite,
+                        sous_total=sous_total
+                    )
+                    
+                    # Recalculer le total de la commande
+                    total_commande = commande.paniers.aggregate(
+                        total=Sum('sous_total')
+                    )['total'] or 0
+                    commande.total_cmd = total_commande
+                    commande.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Article ajouté avec succès',
+                        'article_id': panier.id,
+                        'total_commande': float(commande.total_cmd),
+                        'nb_articles': commande.paniers.count(),
+                    })
+                    
+                except Article.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Article non trouvé'
+                    })
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'replace_article':
+                # Remplacer un article existant
+                from article.models import Article
+                from commande.models import Panier
+                
+                ancien_article_id = request.POST.get('ancien_article_id')
+                nouvel_article_id = request.POST.get('nouvel_article_id')
+                nouvelle_quantite = int(request.POST.get('nouvelle_quantite', 1))
+                
+                try:
+                    # Supprimer l'ancien panier
+                    ancien_panier = Panier.objects.get(id=ancien_article_id, commande=commande)
+                    ancien_panier.delete()
+                    
+                    # Créer le nouveau panier
+                    nouvel_article = Article.objects.get(id=nouvel_article_id)
+                    sous_total = nouvel_article.prix_unitaire * nouvelle_quantite
+                    
+                    nouveau_panier = Panier.objects.create(
+                        commande=commande,
+                        article=nouvel_article,
+                        quantite=nouvelle_quantite,
+                        sous_total=sous_total
+                    )
+                    
+                    # Recalculer le total de la commande
+                    total_commande = commande.paniers.aggregate(
+                        total=Sum('sous_total')
+                    )['total'] or 0
+                    commande.total_cmd = total_commande
+                    commande.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Article remplacé avec succès',
+                        'nouvel_article_id': nouveau_panier.id,
+                        'total_commande': float(commande.total_cmd),
+                        'nb_articles': commande.paniers.count(),
+                    })
+                    
+                except Panier.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Article original non trouvé'
+                    })
+                except Article.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Nouvel article non trouvé'
+                    })
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'delete_article':
+                # Supprimer un article
+                from commande.models import Panier
+                
+                article_id = request.POST.get('article_id')
+                
+                try:
+                    panier = Panier.objects.get(id=article_id, commande=commande)
+                    panier.delete()
+                    
+                    # Recalculer le total de la commande
+                    total_commande = commande.paniers.aggregate(
+                        total=Sum('sous_total')
+                    )['total'] or 0
+                    commande.total_cmd = total_commande
+                    commande.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Article supprimé avec succès',
+                        'total_commande': float(commande.total_cmd),
+                        'nb_articles': commande.paniers.count(),
+                    })
+                    
+                except Panier.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Article non trouvé'
+                    })
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'update_operation':
+                # Mettre à jour une opération existante
+                try:
+                    from commande.models import Operation
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    
+                    operation_id = request.POST.get('operation_id')
+                    nouveau_commentaire = request.POST.get('nouveau_commentaire', '').strip()
+                    
+                    if not operation_id or not nouveau_commentaire:
+                        return JsonResponse({'success': False, 'error': 'ID opération et commentaire requis'})
+                    
+                    # Récupérer et mettre à jour l'opération
+                    operation = Operation.objects.get(id=operation_id, commande=commande)
+                    operation.conclusion = nouveau_commentaire
+                    operation.operateur = operateur  # Mettre à jour l'opérateur qui modifie
+                    operation.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Opération mise à jour avec succès',
+                        'operation_id': operation_id,
+                        'nouveau_commentaire': nouveau_commentaire
+                    })
+                    
+                except Operation.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Opération non trouvée'
+                    })
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'add_operation':
+                # Ajouter une nouvelle opération
+                try:
+                    from commande.models import Operation
+                    
+                    type_operation = request.POST.get('type_operation', '').strip()
+                    commentaire = request.POST.get('commentaire', '').strip()
+                    
+                    if not type_operation or not commentaire:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Type d\'opération et commentaire requis'
+                        })
+                    
+                    # Créer la nouvelle opération
+                    operation = Operation.objects.create(
+                        commande=commande,
+                        type_operation=type_operation,
+                        conclusion=commentaire,
+                        operateur=operateur
+                    )
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Opération ajoutée avec succès',
+                        'operation_id': operation.id,
+                        'type_operation': type_operation,
+                        'commentaire': commentaire
+                    })
+                    
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'update_commande_info':
+                # Mettre à jour les informations de base de la commande
+                try:
+                    # Récupérer les données du formulaire
+                    nouvelle_adresse = request.POST.get('adresse', '').strip()
+                    nouvelle_ville_id = request.POST.get('ville_id')
+                    
+                    # Mettre à jour l'adresse
+                    if nouvelle_adresse:
+                        commande.adresse = nouvelle_adresse
+                    
+                    # Mettre à jour la ville si fournie
+                    if nouvelle_ville_id:
+                        try:
+                            nouvelle_ville = Ville.objects.get(id=nouvelle_ville_id)
+                            commande.ville = nouvelle_ville
+                        except Ville.DoesNotExist:
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'Ville non trouvée'
+                            })
+                    
+                    commande.save()
+                    
+                    # Créer une opération pour consigner la modification
+                    Operation.objects.create(
+                        commande=commande,
+                        type_operation='MODIFICATION_PREPA',
+                        conclusion=f"La commande a été modifiée par l'opérateur.",
+                        operateur=operateur
+                    )
+
+                    messages.success(request, f"Commande {commande.id_yz} mise à jour avec succès.")
+                    return redirect('Prepacommande:detail_prepa', pk=commande.id)
+                    
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            else:
+                # Traitement du formulaire principal (non-AJAX)
+                with transaction.atomic():
+                    # Mettre à jour les informations du client
+                    client = commande.client
+                    client.nom = request.POST.get('client_nom', client.nom).strip()
+                    client.prenom = request.POST.get('client_prenom', client.prenom).strip()
+                    client.numero_tel = request.POST.get('client_telephone', client.numero_tel).strip()
+                    client.save()
+
+                    # Mettre à jour les informations de base de la commande
+                    nouvelle_adresse = request.POST.get('adresse', '').strip()
+                    nouvelle_ville_id = request.POST.get('ville_id')
+                    
+                    if nouvelle_adresse:
+                        commande.adresse = nouvelle_adresse
+                    
+                    if nouvelle_ville_id:
+                        try:
+                            nouvelle_ville = Ville.objects.get(id=nouvelle_ville_id)
+                            commande.ville = nouvelle_ville
+                        except Ville.DoesNotExist:
+                            messages.error(request, "Ville sélectionnée non trouvée.")
+                            return redirect('Prepacommande:modifier_commande', commande_id=commande.id)
+                    
+                    commande.save()
+
+                    # Créer une opération pour consigner la modification
+                    Operation.objects.create(
+                        commande=commande,
+                        type_operation='MODIFICATION_PREPA',
+                        conclusion=f"La commande a été modifiée par l'opérateur.",
+                        operateur=operateur
+                    )
+
+                    messages.success(request, f"Commande {commande.id_yz} mise à jour avec succès.")
+                    return redirect('Prepacommande:detail_prepa', pk=commande.id)
+                
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la modification: {str(e)}")
+            return redirect('Prepacommande:modifier_commande', commande_id=commande.id)
+    
+    # Récupérer les données pour l'affichage
+    paniers = commande.paniers.all().select_related('article')
+    operations = commande.operations.all().select_related('operateur').order_by('-date_operation')
+    villes = Ville.objects.all().order_by('nom')
+    
+    # Calculer le total des articles
+    total_articles = sum(panier.sous_total for panier in paniers)
+    
+    context = {
+        'page_title': f'Modifier Commande {commande.id_yz}',
+        'page_subtitle': 'Modification des détails de la commande en préparation',
+        'commande': commande,
+        'paniers': paniers,
+        'operations': operations,
+        'villes': villes,
+        'total_articles': total_articles,
+        'operateur': operateur,
+        'etat_preparation': etat_preparation,
+    }
+    
+    return render(request, 'Prepacommande/modifier_commande.html', context)
+
+@login_required
+def api_articles_disponibles_prepa(request):
+    """API pour récupérer les articles disponibles pour les opérateurs de préparation"""
+    from article.models import Article
+    
+    try:
+        # Vérifier que l'utilisateur est un opérateur de préparation
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
+    
+    search_query = request.GET.get('search', '')
+    
+    # Récupérer les articles actifs
+    articles = Article.objects.filter(actif=True)
+    
+    if search_query:
+        articles = articles.filter(
+            Q(nom__icontains=search_query) |
+            Q(reference__icontains=search_query) |
+            Q(couleur__icontains=search_query) |
+            Q(pointure__icontains=search_query)
+        )
+    
+    # Limiter les résultats
+    articles = articles[:20]
+    
+    articles_data = []
+    for article in articles:
+        articles_data.append({
+            'id': article.id,
+            'nom': article.nom,
+            'reference': article.reference or '',
+            'couleur': article.couleur,
+            'pointure': article.pointure,
+            'prix': float(article.prix_unitaire),
+            'qte_disponible': article.qte_disponible,
+            'display_text': f"{article.nom} - {article.couleur} - {article.pointure} ({article.prix_unitaire} DH)"
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'articles': articles_data
+    })
+
+@login_required
+def api_panier_commande_prepa(request, commande_id):
+    """API pour récupérer le panier d'une commande pour les opérateurs de préparation"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur de préparation
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
+    
+    # Récupérer la commande
+    try:
+        commande = Commande.objects.get(id=commande_id)
+    except Commande.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Commande non trouvée'})
+    
+    # Vérifier que la commande est affectée à cet opérateur
+    etat_preparation = commande.etats.filter(
+        Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation'),
+        operateur=operateur,
+        date_fin__isnull=True
+    ).first()
+    
+    if not etat_preparation:
+        return JsonResponse({'success': False, 'message': 'Commande non affectée'})
+    
+    # Récupérer les paniers
+    paniers = commande.paniers.all().select_related('article')
+    
+    paniers_data = []
+    for panier in paniers:
+        paniers_data.append({
+            'id': panier.id,
+            'article_id': panier.article.id,
+            'article_nom': panier.article.nom,
+            'article_reference': panier.article.reference or '',
+            'article_couleur': panier.article.couleur,
+            'article_pointure': panier.article.pointure,
+            'quantite': panier.quantite,
+            'prix_unitaire': float(panier.article.prix_unitaire),
+            'sous_total': float(panier.sous_total),
+            'display_text': f"{panier.article.nom} - {panier.article.couleur} - {panier.article.pointure}"
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'paniers': paniers_data,
+        'total_commande': float(commande.total_cmd),
+        'nb_articles': len(paniers_data)
+    })
