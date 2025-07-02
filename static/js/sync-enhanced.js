@@ -49,15 +49,51 @@ class SyncEnhanced {
         const message = document.getElementById('syncMessage');
         const progress = document.getElementById('syncProgress');
         
-        // Reset état initial
-        icon.className = 'fas fa-sync-alt text-2xl text-blue-600 spinner-sync';
-        title.textContent = 'Synchronisation en cours...';
-        message.textContent = 'Vérification des nouvelles commandes en arrière-plan';
-        progress.style.width = '0%';
+        // Vérifier que tous les éléments existent avant de les manipuler
+        if (!modal) {
+            console.error('Modal de synchronisation non trouvé, création du modal...');
+            this.createSyncModal();
+            // Récupérer les éléments après création
+            const newModal = document.getElementById('syncModal');
+            const newIcon = document.getElementById('syncIcon');
+            const newTitle = document.getElementById('syncTitle');
+            const newMessage = document.getElementById('syncMessage');
+            const newProgress = document.getElementById('syncProgress');
+            
+            if (newModal && newIcon && newTitle && newMessage && newProgress) {
+                // Reset état initial
+                newIcon.className = 'fas fa-sync-alt text-2xl text-blue-600 spinner-sync';
+                newTitle.textContent = 'Synchronisation en cours...';
+                newMessage.textContent = 'Vérification des nouvelles commandes en arrière-plan';
+                newProgress.style.width = '0%';
+                
+                newModal.classList.remove('hidden');
+                setTimeout(() => {
+                    newProgress.style.width = '30%';
+                }, 500);
+            }
+            return;
+        }
+        
+        // Reset état initial avec vérifications de nullité
+        if (icon) {
+            icon.className = 'fas fa-sync-alt text-2xl text-blue-600 spinner-sync';
+        }
+        if (title) {
+            title.textContent = 'Synchronisation en cours...';
+        }
+        if (message) {
+            message.textContent = 'Vérification des nouvelles commandes en arrière-plan';
+        }
+        if (progress) {
+            progress.style.width = '0%';
+        }
         
         modal.classList.remove('hidden');
         setTimeout(() => {
-            progress.style.width = '30%';
+            if (progress) {
+                progress.style.width = '30%';
+            }
         }, 500);
     }
 
@@ -65,8 +101,10 @@ class SyncEnhanced {
         const progress = document.getElementById('syncProgress');
         const details = document.getElementById('syncDetails');
         
-        progress.style.width = percentage + '%';
-        if (message) {
+        if (progress) {
+            progress.style.width = percentage + '%';
+        }
+        if (message && details) {
             details.textContent = message;
         }
     }
@@ -84,7 +122,9 @@ class SyncEnhanced {
         const hasUpdates = result.existing_orders_updated > 0;
 
         // Terminer la barre de progression
-        progress.style.width = '100%';
+        if (progress) {
+            progress.style.width = '100%';
+        }
 
         // Afficher les statistiques détaillées dans le modal
         this.showDetailedStats(result);
@@ -103,7 +143,9 @@ class SyncEnhanced {
             }
 
             // Afficher les détails
-            details.innerHTML = this.formatDetails(result);
+            if (details) {
+                details.innerHTML = this.formatDetails(result);
+            }
 
             // Auto-fermeture après délai (supprimé ici car géré dans syncConfig)
             // setTimeout(() => {
@@ -144,23 +186,31 @@ class SyncEnhanced {
         const progress = document.getElementById('syncProgress');
 
         // Configuration pour le cas "Aucune nouvelle commande"
-        icon.className = 'fas fa-info-circle text-2xl text-blue-600';
-        title.textContent = 'Resynchronisation terminée';
-        message.innerHTML = `
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <div class="flex items-center text-blue-800 mb-2">
-                    <i class="fas fa-shield-alt mr-2"></i>
-                    <strong>Aucune nouvelle commande trouvée</strong>
+        if (icon) {
+            icon.className = 'fas fa-info-circle text-2xl text-blue-600';
+        }
+        if (title) {
+            title.textContent = 'Resynchronisation terminée';
+        }
+        if (message) {
+            message.innerHTML = `
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center text-blue-800 mb-2">
+                        <i class="fas fa-shield-alt mr-2"></i>
+                        <strong>Aucune nouvelle commande trouvée</strong>
+                    </div>
+                    <div class="text-sm text-blue-700">
+                        📋 ${result.duplicate_orders_found} commandes existantes détectées dans la feuille
+                    </div>
+                    <div class="text-xs text-blue-600 mt-2">
+                        🔍 Toutes les commandes de la feuille existent déjà dans le système
+                    </div>
                 </div>
-                <div class="text-sm text-blue-700">
-                    📋 ${result.duplicate_orders_found} commandes existantes détectées dans la feuille
-                </div>
-                <div class="text-xs text-blue-600 mt-2">
-                    🔍 Toutes les commandes de la feuille existent déjà dans le système
-                </div>
-            </div>
-        `;
-        progress.className = 'bg-blue-600 h-2 rounded-full transition-all';
+            `;
+        }
+        if (progress) {
+            progress.className = 'bg-blue-600 h-2 rounded-full transition-all';
+        }
 
         // Afficher notification finale spécialisée
         this.showFinalNotification('info', 'Resynchronisation sans nouveautés', 
@@ -174,10 +224,18 @@ class SyncEnhanced {
         const progress = document.getElementById('syncProgress');
 
         // Configuration pour le succès
-        icon.className = 'fas fa-check-circle text-2xl text-green-600';
-        title.textContent = 'Synchronisation réussie !';
-        message.innerHTML = this.formatSuccessMessage(result);
-        progress.className = 'bg-green-600 h-2 rounded-full transition-all';
+        if (icon) {
+            icon.className = 'fas fa-check-circle text-2xl text-green-600';
+        }
+        if (title) {
+            title.textContent = 'Synchronisation réussie !';
+        }
+        if (message) {
+            message.innerHTML = this.formatSuccessMessage(result);
+        }
+        if (progress) {
+            progress.className = 'bg-green-600 h-2 rounded-full transition-all';
+        }
 
         // Afficher notification finale de succès
         this.showFinalNotification('success', 'Synchronisation réussie', 
@@ -191,17 +249,25 @@ class SyncEnhanced {
         const progress = document.getElementById('syncProgress');
 
         // Configuration pour l'erreur
-        icon.className = 'fas fa-exclamation-circle text-2xl text-red-600';
-        title.textContent = 'Erreur de synchronisation';
-        message.innerHTML = `
-            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div class="text-red-700">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>
-                    Des erreurs sont survenues pendant la synchronisation
+        if (icon) {
+            icon.className = 'fas fa-exclamation-circle text-2xl text-red-600';
+        }
+        if (title) {
+            title.textContent = 'Erreur de synchronisation';
+        }
+        if (message) {
+            message.innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="text-red-700">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Des erreurs sont survenues pendant la synchronisation
+                    </div>
                 </div>
-            </div>
-        `;
-        progress.className = 'bg-red-600 h-2 rounded-full transition-all';
+            `;
+        }
+        if (progress) {
+            progress.className = 'bg-red-600 h-2 rounded-full transition-all';
+        }
 
         // Afficher notification finale d'erreur
         this.showFinalNotification('error', 'Synchronisation échouée', 
@@ -282,7 +348,9 @@ class SyncEnhanced {
     hide() {
         this.isVisible = false;
         const modal = document.getElementById('syncModal');
-        modal.classList.add('hidden');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
     }
 
     // Méthode principale pour synchroniser

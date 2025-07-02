@@ -13,7 +13,7 @@ class Client(models.Model):
     """
     nom = models.CharField(max_length=100, default='', verbose_name="Nom")
     prenom = models.CharField(max_length=100, default='', verbose_name="Prénom")
-    numero_tel = models.CharField(max_length=20, unique=True, verbose_name="Numéro de téléphone")
+    numero_tel = models.CharField(max_length=30, unique=True, verbose_name="Numéro de téléphone")
     email = models.EmailField(blank=True, null=True, verbose_name="Email")
     adresse = models.TextField(blank=True, null=True, verbose_name="Adresse")
     date_creation = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")

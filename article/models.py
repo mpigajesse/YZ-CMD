@@ -35,11 +35,6 @@ class Article(models.Model):
         constraints = [
             models.CheckConstraint(check=models.Q(prix_unitaire__gt=0), name='prix_unitaire_positif'),
             models.CheckConstraint(check=models.Q(qte_disponible__gte=0), name='qte_disponible_positif'),
-            # La contrainte sur la pointure a été supprimée car elle pose problème avec SQLite
-            # models.CheckConstraint(
-            #     check=models.Q(pointure__regex=r'^(3[0-9]|4[0-9]|50)$'), 
-            #     name='pointure_valide'
-            # ),
         ]
     
     def __str__(self):
