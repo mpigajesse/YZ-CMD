@@ -91,7 +91,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Ville de livraison</label>
-                        <select name="ville_id" id="ville-select" onchange="chargerRegionEtFrais()" class="w-full p-3 border rounded-lg">
+                        <select name="ville_id" id="ville-select" class="w-full p-3 border rounded-lg">
                             <option value="">-- Sélectionner une ville --</option>
                             {% for ville in villes %}
                                 <option value="{{ ville.id }}" 
@@ -193,7 +193,7 @@
     </form>
 </div>
 
-<!-- Modale pour ajouter un article -->
+<!-- Modales -->
 <div id="modalAjoutArticle" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -206,9 +206,7 @@
                     <input type="text" id="searchArticle" placeholder="Nom, référence, couleur..." 
                            class="w-full p-3 border rounded-lg">
                 </div>
-                <div id="articlesList" class="space-y-2 max-h-60 overflow-y-auto">
-                    <!-- Les articles seront chargés ici -->
-                </div>
+                <div id="articlesList" class="space-y-2 max-h-60 overflow-y-auto"></div>
                 <div class="mt-4 flex justify-end space-x-3">
                     <button type="button" onclick="fermerModalAjoutArticle()" 
                             class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg">Annuler</button>
@@ -218,7 +216,6 @@
     </div>
 </div>
 
-<!-- Modale pour ajouter une opération -->
 <div id="modalAjoutOperation" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
@@ -255,7 +252,6 @@
     </div>
 </div>
 
-<!-- Modale de confirmation -->
 <div id="modalConfirmation" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
@@ -273,299 +269,185 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 <script>
-// Variables globales
-let commandeId = {{ commande.id }};
-let articlesDisponibles = [];
+document.addEventListener('DOMContentLoaded', function() {
+    let commandeId = {{ commande.id }};
+    let articlesDisponibles = [];
 
-// Fonctions pour les modales
-function ouvrirModalAjoutArticle() {
-    document.getElementById('modalAjoutArticle').classList.remove('hidden');
-    chargerArticlesDisponibles();
-}
-
-function fermerModalAjoutArticle() {
-    document.getElementById('modalAjoutArticle').classList.add('hidden');
-    document.getElementById('searchArticle').value = '';
-    document.getElementById('articlesList').innerHTML = '';
-}
-
-function ouvrirModalAjoutOperation() {
-    document.getElementById('modalAjoutOperation').classList.remove('hidden');
-}
-
-function fermerModalAjoutOperation() {
-    document.getElementById('modalAjoutOperation').classList.add('hidden');
-    document.getElementById('typeOperation').value = '';
-    document.getElementById('commentaireOperation').value = '';
-}
-
-function ouvrirModalConfirmation(message, action) {
-    document.getElementById('messageConfirmation').textContent = message;
-    document.getElementById('btnConfirmer').onclick = action;
-    document.getElementById('modalConfirmation').classList.remove('hidden');
-}
-
-function fermerModalConfirmation() {
-    document.getElementById('modalConfirmation').classList.add('hidden');
-}
-
-// Mettre à jour la région et les frais en fonction de la ville
-function chargerRegionEtFrais() {
-    const select = document.getElementById('ville-select');
-    if (!select.value) {
-        document.getElementById('region-display').value = '';
-        document.getElementById('frais-display').value = '';
-        return;
-    }
-    const selectedOption = select.options[select.selectedIndex];
-    const region = selectedOption.getAttribute('data-region') || '';
-    const frais = selectedOption.getAttribute('data-frais') || '0';
-    
-    document.getElementById('region-display').value = region;
-    document.getElementById('frais-display').value = `${frais} DH`;
-}
-
-// Charger les articles disponibles
-function chargerArticlesDisponibles() {
-    fetch("{% url 'Prepacommande:api_articles_disponibles_prepa' %}")
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                articlesDisponibles = data.articles;
-                afficherArticles(articlesDisponibles);
-            }
-        })
-        .catch(error => console.error('Erreur:', error));
-}
-
-// Afficher les articles dans la modale
-function afficherArticles(articles) {
-    const container = document.getElementById('articlesList');
-    container.innerHTML = '';
-    
-    articles.forEach(article => {
-        const div = document.createElement('div');
-        div.className = 'p-3 border rounded-lg hover:bg-gray-50 flex justify-between items-center';
-        div.innerHTML = `
-            <div>
-                <div class="font-medium">${article.nom}</div>
-                <div class="text-sm text-gray-600">
-                    Réf: ${article.reference} | ${article.couleur} | Pt: ${article.pointure}
-                </div>
-                <div class="text-sm text-gray-500">
-                    Prix: <span class="font-semibold">${article.prix} DH</span> | 
-                    Stock: <span class="font-semibold">${article.qte_disponible}</span>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <label for="qte-article-${article.id}" class="text-sm font-medium text-gray-700">Qté:</label>
-                <input type="number" id="qte-article-${article.id}" class="w-20 p-2 border rounded-lg text-center" value="1" min="1">
-                <button type="button" class="btn-prepa px-4 py-2 rounded-lg font-medium" 
-                        onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')">
-                    <i class="fas fa-plus"></i>
-                </button>
-            </div>
-        `;
-        container.appendChild(div);
-    });
-}
-
-// Sélectionner un article
-function selectionnerArticle(articleId, articleName) {
-    const quantiteInput = document.getElementById(`qte-article-${articleId}`);
-    const quantite = parseInt(quantiteInput.value, 10);
-
-    if (isNaN(quantite) || quantite <= 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Quantité invalide',
-            text: 'Veuillez entrer une quantité valide.'
-        });
-        return;
-    }
-    
-    ouvrirModalConfirmation(
-        `Ajouter ${quantite} x "${articleName}" au panier ?`,
-        () => ajouterArticleAuPanier(articleId, quantite)
-    );
-}
-
-// Ajouter un article au panier
-function ajouterArticleAuPanier(articleId, quantite) {
-    const formData = new FormData();
-    formData.append('action', 'add_article');
-    formData.append('article_id', articleId);
-    formData.append('quantite', quantite);
-    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-
-    fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            fermerModalConfirmation();
-            fermerModalAjoutArticle();
-            Swal.fire({
-                icon: 'success',
-                title: 'Article ajouté !',
-                text: 'L\'article a été ajouté au panier.',
-                timer: 2000,
-                showConfirmButton: false
-            }).then(() => {
-                location.reload();
-            });
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Erreur',
-                text: data.error || 'Une erreur est survenue.'
-            });
+    // Fonctions globales pour les `onclick`
+    window.ouvrirModalAjoutArticle = function() {
+        const modal = document.getElementById('modalAjoutArticle');
+        if (modal) {
+            modal.classList.remove('hidden');
+            chargerArticlesDisponibles();
         }
-    })
-    .catch(error => {
-        console.error('Erreur:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Erreur de communication',
-            text: 'Impossible de contacter le serveur.'
-        });
-    });
-}
+    };
 
-// Supprimer un article
-function supprimerArticle(panierId) {
-    ouvrirModalConfirmation(
-        'Êtes-vous sûr de vouloir supprimer cet article ?',
-        () => {
+    window.fermerModalAjoutArticle = function() {
+        const modal = document.getElementById('modalAjoutArticle');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.ouvrirModalAjoutOperation = function() {
+        const modal = document.getElementById('modalAjoutOperation');
+        if (modal) modal.classList.remove('hidden');
+    };
+
+    window.fermerModalAjoutOperation = function() {
+        const modal = document.getElementById('modalAjoutOperation');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    function ouvrirModalConfirmation(message, action) {
+        const msgElem = document.getElementById('messageConfirmation');
+        if (msgElem) msgElem.textContent = message;
+        const btnConfirm = document.getElementById('btnConfirmer');
+        if (btnConfirm) btnConfirm.onclick = action;
+        const modal = document.getElementById('modalConfirmation');
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    window.fermerModalConfirmation = function() {
+        const modal = document.getElementById('modalConfirmation');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.selectionnerArticle = function(articleId, articleName) {
+        const quantiteInput = document.getElementById(`qte-article-${articleId}`);
+        if (!quantiteInput) return;
+        const quantite = parseInt(quantiteInput.value, 10);
+        if (isNaN(quantite) || quantite <= 0) {
+            Swal.fire('Quantité invalide', 'Veuillez entrer une quantité valide.', 'warning');
+            return;
+        }
+        ouvrirModalConfirmation(`Ajouter ${quantite} x "${articleName}" au panier ?`, () => ajouterArticleAuPanier(articleId, quantite));
+    };
+
+    window.supprimerArticle = function(panierId) {
+        ouvrirModalConfirmation('Êtes-vous sûr de vouloir supprimer cet article ?', () => {
             const formData = new FormData();
             formData.append('action', 'delete_article');
             formData.append('article_id', panierId);
-            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
+            fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, { method: 'POST', body: formData })
+                .then(res => res.json()).then(handleResponse).catch(handleError);
+        });
+    };
+    
+    window.ajouterOperation = function() {
+        const type = document.getElementById('typeOperation').value;
+        const commentaire = document.getElementById('commentaireOperation').value;
+        if (!type || !commentaire) {
+            Swal.fire('Champs requis', 'Veuillez remplir tous les champs.', 'warning');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('action', 'add_operation');
+        formData.append('type_operation', type);
+        formData.append('commentaire', commentaire);
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
+        fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, { method: 'POST', body: formData })
+            .then(res => res.json()).then(handleResponse).catch(handleError);
+    };
 
-            fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, {
-                method: 'POST',
-                body: formData
-            })
+    // Fonctions internes
+    function chargerRegionEtFrais() {
+        const select = document.getElementById('ville-select');
+        if (!select) return;
+        const selectedOption = select.options[select.selectedIndex];
+        const region = selectedOption ? selectedOption.getAttribute('data-region') : '';
+        const frais = selectedOption ? selectedOption.getAttribute('data-frais') : '0';
+        const regionDisplay = document.getElementById('region-display');
+        const fraisDisplay = document.getElementById('frais-display');
+        if(regionDisplay) regionDisplay.value = region || '';
+        if(fraisDisplay) fraisDisplay.value = `${frais || 0} DH`;
+    }
+
+    function chargerArticlesDisponibles() {
+        fetch("{% url 'Prepacommande:api_articles_disponibles_prepa' %}")
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    fermerModalConfirmation();
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Article supprimé !',
-                        text: 'L\'article a été retiré du panier.',
-                        timer: 2000,
-                        showConfirmButton: false
-                    }).then(() => {
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Erreur',
-                        text: data.error || 'Une erreur est survenue.'
-                    });
+                    articlesDisponibles = data.articles;
+                    afficherArticles(articlesDisponibles);
                 }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erreur de communication',
-                    text: 'Impossible de contacter le serveur.'
-                });
-            });
-        }
-    );
-}
-
-// Ajouter une opération
-function ajouterOperation() {
-    const type = document.getElementById('typeOperation').value;
-    const commentaire = document.getElementById('commentaireOperation').value;
-
-    if (!type || !commentaire) {
-        Swal.fire('Champs requis', 'Veuillez remplir tous les champs.', 'warning');
-        return;
+            }).catch(error => console.error('Erreur de chargement des articles:', error));
     }
 
-    const formData = new FormData();
-    formData.append('action', 'add_operation');
-    formData.append('type_operation', type);
-    formData.append('commentaire', commentaire);
-    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-
-    fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            fermerModalAjoutOperation();
-            Swal.fire({
-                icon: 'success',
-                title: 'Opération ajoutée !',
-                text: 'L\'opération a bien été enregistrée.',
-                timer: 2000,
-                showConfirmButton: false
-            }).then(() => {
-                location.reload();
-            });
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Erreur',
-                text: data.error || 'Une erreur est survenue.'
-            });
-        }
-    })
-    .catch(error => {
-        console.error('Erreur:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Erreur de communication',
-            text: 'Impossible de contacter le serveur.'
+    function afficherArticles(articles) {
+        const container = document.getElementById('articlesList');
+        if (!container) return;
+        container.innerHTML = '';
+        articles.forEach(article => {
+            const div = document.createElement('div');
+            div.className = 'p-3 border rounded-lg hover:bg-gray-50 flex justify-between items-center';
+            div.innerHTML = `
+                <div>
+                    <div class="font-medium">${article.nom}</div>
+                    <div class="text-sm text-gray-600">Réf: ${article.reference || ''} | ${article.couleur} | Pt: ${article.pointure}</div>
+                    <div class="text-sm text-gray-500">Prix: <span class="font-semibold">${article.prix} DH</span> | Stock: <span class="font-semibold">${article.qte_disponible}</span></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="qte-article-${article.id}" class="w-20 p-2 border rounded-lg text-center" value="1" min="1">
+                    <button type="button" class="btn-prepa px-4 py-2 rounded-lg font-medium" onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')"><i class="fas fa-plus"></i></button>
+                </div>`;
+            container.appendChild(div);
         });
-    });
-}
+    }
 
-// Recherche d'articles
-document.addEventListener('DOMContentLoaded', function() {
+    function ajouterArticleAuPanier(articleId, quantite) {
+        const formData = new FormData();
+        formData.append('action', 'add_article');
+        formData.append('article_id', articleId);
+        formData.append('quantite', quantite);
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
+        fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, { method: 'POST', body: formData })
+            .then(res => res.json()).then(handleResponse).catch(handleError);
+    }
+
+    function handleResponse(data) {
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: 'Succès !', text: data.message || 'Opération réussie.', timer: 2000, showConfirmButton: false })
+                .then(() => location.reload());
+        } else {
+            Swal.fire({ icon: 'error', title: 'Erreur', text: data.error || 'Une erreur est survenue.' });
+        }
+    }
+
+    function handleError(error) {
+        console.error('Erreur:', error);
+        Swal.fire({ icon: 'error', title: 'Erreur de communication', text: 'Impossible de contacter le serveur.' });
+    }
+
+    // Event Listeners
     const searchInput = document.getElementById('searchArticle');
     if (searchInput) {
         searchInput.addEventListener('input', function() {
             const query = this.value.toLowerCase();
-            const filtered = articlesDisponibles.filter(article => 
+            const filtered = articlesDisponibles.filter(article =>
                 article.nom.toLowerCase().includes(query) ||
-                article.reference.toLowerCase().includes(query) ||
-                article.couleur.toLowerCase().includes(query) ||
-                article.pointure.toLowerCase().includes(query)
+                (article.reference && article.reference.toLowerCase().includes(query)) ||
+                (article.couleur && article.couleur.toLowerCase().includes(query)) ||
+                (article.pointure && article.pointure.toLowerCase().includes(query))
             );
             afficherArticles(filtered);
         });
     }
 
-    // Charger les infos de livraison au chargement de la page
+    const villeSelect = document.getElementById('ville-select');
+    if (villeSelect) {
+        villeSelect.addEventListener('change', chargerRegionEtFrais);
+    }
+    
+    // Initialisation
     chargerRegionEtFrais();
-});
-
-// Fermer les modales en cliquant à l'extérieur
-document.addEventListener('click', function(event) {
-    const modals = ['modalAjoutArticle', 'modalAjoutOperation', 'modalConfirmation'];
-    modals.forEach(modalId => {
-        const modal = document.getElementById(modalId);
-        if (event.target === modal) {
-            modal.classList.add('hidden');
-        }
-    });
 });
 </script>
 {% endblock %} 

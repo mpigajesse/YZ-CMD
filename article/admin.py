@@ -3,9 +3,9 @@ from .models import Article, Promotion
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nom', 'couleur', 'pointure', 'prix_unitaire', 'prix_upsell_1', 'prix_upsell_2', 'prix_upsell_3', 'prix_actuel', 'categorie', 'qte_disponible', 'actif', 'est_disponible')
+    list_display = ('id', 'nom', 'reference', 'couleur', 'pointure', 'prix_unitaire', 'prix_upsell_1', 'prix_upsell_2', 'prix_upsell_3', 'prix_actuel', 'categorie', 'qte_disponible', 'actif', 'est_disponible')
     list_filter = ('categorie', 'couleur', 'actif', 'date_creation')
-    search_fields = ('nom', 'couleur', 'pointure', 'categorie')
+    search_fields = ('nom', 'reference', 'couleur', 'pointure', 'categorie')
     ordering = ('nom', 'couleur', 'pointure')
     list_editable = ('prix_unitaire', 'prix_upsell_1', 'prix_upsell_2', 'prix_upsell_3', 'qte_disponible', 'actif')
     readonly_fields = ('date_creation', 'date_modification')

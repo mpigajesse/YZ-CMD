@@ -12,6 +12,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from django.db import transaction
 from django.db.models import Q
+import re
 
 class GoogleSheetSync:
     """Classe pour gérer la synchronisation avec Google Sheets"""
@@ -81,30 +82,128 @@ class GoogleSheetSync:
             return None
     
     def parse_product(self, product_str):
-        """Parse le format de produit et retourne les composants"""
+        """Parse le format de produit et retourne les composants, en gérant plusieurs formats de manière robuste."""
         try:
-            # Format attendu: "ESP HOM YZ650 - 42/أسود أبيض / noir blanc"
-            parts = product_str.split(' - ')
-            if len(parts) != 2:
-                return None
+            # Dictionnaire des couleurs connues pour une meilleure détection
+            colors_fr = ['noir', 'blanc', 'beige', 'marron', 'bleu', 'rouge', 'vert', 'rose', 'gris', 
+                         'bleu ciel', 'bleu marine', 'sablé', 'tabac', 'grenat', 'saumon']
             
-            product_code = parts[0].strip()
-            details = parts[1].split('/')
-            if len(details) != 3:
-                return None
+            # Dictionnaire des catégories en fonction des préfixes de produits
+            categories = {
+                'SDL': 'Sandale',
+                'CHAUSS': 'Chaussure',
+                'ESCA': 'Escarpin',
+                'ESPA': 'Espadrille',
+                'MULE': 'Mule',
+                'BOTT': 'Botte',
+                'BASK': 'Basket',
+                'BAL': 'Ballerine'
+            }
             
-            size = details[0].strip()
-            color_ar = details[1].strip()
-            color_fr = details[2].strip()
+            # Nettoyage de la chaîne
+            s = product_str.strip()
+            s = re.sub(r'عرض.*درهم|قطعتين.*درهم', '', s, flags=re.IGNORECASE).strip()
+            s = re.sub(r'\s*TK\s*', ' ', s, flags=re.IGNORECASE).strip()
+            s = s.replace('--', '').strip()
+            
+            # Extraction initiale des parties
+            parts = []
+            for delimiter in ['/', '-']:
+                if delimiter in s:
+                    parts.extend([p.strip() for p in s.split(delimiter) if p.strip()])
+                    break
+            
+            # Si aucun délimiteur n'a été trouvé, on traite la chaîne entière
+            if not parts:
+                parts = [s]
+            
+            # Initialisation des variables
+            size = 'N/A'
+            color_fr = 'N/A'
+            color_ar = 'N/A'
+            product_parts = []
+            category = 'Non spécifiée'
+            
+            # Première passe : identification des parties évidentes
+            for part in parts:
+                # Détection de la taille
+                if re.match(r'^\d{2}$', part) or part.upper() in ['S', 'M', 'L', 'XL', 'XXL']:
+                    size = part
+                    continue
+                
+                # Détection de la couleur arabe (contient uniquement des caractères arabes)
+                if re.match(r'^[\u0600-\u06FF\s]+$', part):
+                    color_ar = part
+                    continue
+                
+                # Détection de la couleur française (correspond à une couleur connue)
+                part_lower = part.lower()
+                if part_lower in colors_fr:
+                    color_fr = part_lower
+                    continue
+                
+                # Si on arrive ici, c'est une partie du nom du produit
+                product_parts.append(part)
+            
+            # Construction du nom du produit
+            product_code = ' '.join(product_parts)
+            
+            # Deuxième passe : recherche dans le nom du produit si certains éléments sont manquants
+            if size == 'N/A':
+                size_match = re.search(r'\b(\d{2}|[SMLX]{1,3})\b', product_code)
+                if size_match:
+                    size = size_match.group(1)
+            
+            # Recherche de couleurs dans le nom du produit
+            if color_fr == 'N/A':
+                # Recherche des couleurs connues dans le nom du produit
+                for color in colors_fr:
+                    if re.search(r'\b' + color + r'\b', product_code.lower(), re.IGNORECASE):
+                        color_fr = color
+                        break
+                
+                # Cas spéciaux pour les couleurs
+                if color_fr == 'N/A':
+                    # Vérifier si une couleur est mentionnée dans le nom du produit
+                    color_words = re.findall(r'\b[a-zA-Z]+\b', product_code.lower())
+                    for word in color_words:
+                        # Si le mot n'est pas un préfixe connu et n'est pas un mot commun
+                        if (word not in ['fem', 'hom', 'yz', 'sdl', 'esca', 'espa', 'mule', 'chauss', 'bott', 'bask', 'bal'] and 
+                            len(word) > 2 and not re.match(r'^[yz]\d+$', word.lower())):
+                            color_fr = word
+                            break
+            
+            # Détermination de la catégorie
+            for prefix, cat in categories.items():
+                if product_code.upper().startswith(prefix) or any(part.upper().startswith(prefix) for part in parts):
+                    category = cat
+                    break
+            
+            # Si FEM ou HOM est dans le nom, c'est probablement une chaussure pour femme ou homme
+            if 'FEM' in product_code.upper():
+                if category == 'Non spécifiée':
+                    category = 'Chaussures Femme'
+                else:
+                    category += ' Femme'
+            elif 'HOM' in product_code.upper():
+                if category == 'Non spécifiée':
+                    category = 'Chaussures Homme'
+                else:
+                    category += ' Homme'
+            
+            # Nettoyage final du nom du produit
+            product_code = re.sub(r'\s{2,}', ' ', product_code).strip()
             
             return {
-                'product_code': product_code,
+                'product_code': product_code[:50],
                 'size': size,
                 'color_ar': color_ar,
-                'color_fr': color_fr
+                'color_fr': color_fr,
+                'category': category
             }
+            
         except Exception as e:
-            self.errors.append(f"Erreur de parsing du produit: {str(e)}")
+            self.errors.append(f"Erreur de parsing du produit '{product_str}': {str(e)}")
             return None
     
     def _parse_date(self, date_str):
@@ -145,7 +244,6 @@ class GoogleSheetSync:
         phone = str(phone_str).strip()
         
         # Supprimer les caractères non numériques courants (espaces, tirets, points, parenthèses)
-        import re
         phone = re.sub(r'[\s\-\.\(\)\+]', '', phone)
         
         # Limiter à 30 caractères maximum (limite du modèle Client)
@@ -212,9 +310,9 @@ class GoogleSheetSync:
             )
             # Mettre à jour les infos client si la fiche n'est pas nouvelle et des données sont dispo
             if not created:
-                if client_nom and client_obj.nom != client_nom: # Mettre à jour seulement si différent et non vide
+                if client_nom and client_obj.nom != client_nom:
                     client_obj.nom = client_nom
-                if client_prenom and client_obj.prenom != client_prenom: # Mettre à jour seulement si différent et non vide
+                if client_prenom and client_obj.prenom != client_prenom:
                     client_obj.prenom = client_prenom
                 if data.get('Adresse') and client_obj.adresse != data.get('Adresse', ''):
                     client_obj.adresse = data.get('Adresse', '')
@@ -233,79 +331,95 @@ class GoogleSheetSync:
             # Créer une NOUVELLE commande (vérification déjà effectuée)
             print(f"➕ Création NOUVELLE commande {order_number}")
             commande = Commande.objects.create(
-                num_cmd=order_number,  # Numéro externe du fichier Google Sheets
+                num_cmd=order_number,
                 date_cmd=self._parse_date(data.get('Date', '')),
                 total_cmd=total_cmd_price,
                 adresse=data.get('Adresse', ''),
                 client=client_obj,
-                ville=ville_obj,
-                ville_init=ville_nom,  # ← CORRECTION: Sauvegarder la ville initiale du CSV
+                ville=None,
+                ville_init=data.get('Ville', '').strip(),
                 produit_init=data.get('Produit', ''),
-                # L'ID YZ sera généré automatiquement par la méthode save() du modèle (1, 2, 3, ...)
+                origine='GSheet'
             )
-            print(f"✅ NOUVELLE commande créée avec ID YZ: {commande.id_yz} et numéro externe: {commande.num_cmd}")
+            self._log(f"✅ NOUVELLE commande créée avec ID YZ: {commande.id_yz} et numéro externe: {commande.num_cmd}", "info")
             self.new_orders_created += 1
+
             # Parser le produit et créer l'article de commande et le panier
-            product_str = data.get('Produit', '')
+            product_str = data.get('Produit', '').strip()
             product_info = self.parse_product(product_str)
-            if product_info:
-                # Tenter de trouver l'article existant ou le créer si non trouvé
-                article_obj, created = Article.objects.get_or_create(
-                    reference=product_info['product_code'],
-                    defaults={
-                        'nom': product_info['product_code'], # Utilise le code comme nom par défaut
-                        'description': f"Taille: {product_info['size']}, Couleur (AR): {product_info['color_ar']}, Couleur (FR): {product_info['color_fr']}",
-                        'prix_unitaire': total_cmd_price,
-                        'couleur': product_info['color_fr'],
-                        'pointure': product_info['size'],
-                        'categorie': 'Non spécifiée',
-                        'qte_disponible': 0,
-                    }
-                )
-                
-                # Créer l'entrée dans le panier
-                try:
-                    quantite = int(data.get('Quantité', 1)) if data.get('Quantité') else 1
-                    panier_obj = Panier.objects.create(
-                        commande=commande,
-                        article=article_obj,
-                        quantite=quantite,
-                        sous_total=total_cmd_price # Utilise le prix de la commande comme sous-total pour l'article unique
+            article_obj = None
+
+            try:
+                if product_info:
+                    # Tronquer la référence si elle est trop longue
+                    reference = product_info['product_code']
+                    if len(reference) > 50:
+                        reference = reference[:50]
+
+                    article_obj, created = Article.objects.get_or_create(
+                        reference=reference,
+                        defaults={
+                            'nom': product_info['product_code'],
+                            'description': f"Taille: {product_info['size']}, Couleur (FR): {product_info['color_fr']}, Couleur (AR): {product_info['color_ar']}",
+                            'prix_unitaire': total_cmd_price,
+                            'couleur': product_info['color_fr'],
+                            'pointure': product_info['size'],
+                            'categorie': product_info.get('category', 'Non spécifiée'),
+                            'qte_disponible': 1, # Default à 1 pour la disponibilité
+                        }
                     )
-                    print(f"Panier créé automatiquement pour la commande ID YZ: {commande.id_yz} (Ext: {commande.num_cmd}) avec l'article {article_obj.reference}")
-                except Exception as e:
-                    self.errors.append(f"Erreur lors de la création du panier pour la commande ID YZ: {commande.id_yz} (Ext: {commande.num_cmd}): {str(e)}")
-            else:
-                # Si on ne peut pas parser le produit, créer une entrée générique
-                try:
-                    # Créer un article générique basé sur le produit initial
-                    article_nom = (product_str[:30] if product_str else "Article synchronisé") + f" #{commande.id_yz}"
-                    article_ref = f"SYNC_{commande.id_yz}"  # Utiliser l'ID YZ pour la référence
+                
+                elif product_str:
+                    # Si le formatage du produit n'est pas standard, utiliser le produit brut comme référence
+                    article_ref = product_str[:50] # Truncate to 50
+                    article_nom = product_str[:200]
                     
                     article_obj, created = Article.objects.get_or_create(
                         reference=article_ref,
                         defaults={
                             'nom': article_nom,
-                            'description': f"Article synchronisé depuis Google Sheets: {product_str}",
+                            'description': "Article synchronisé (format non standard)",
                             'prix_unitaire': total_cmd_price,
-                            'couleur': f"Sync-{commande.id_yz}",
-                            'pointure': '40',  # Utiliser une valeur de pointure valide (entre 30 et 50)
+                            'couleur': 'N/A',
+                            'pointure': 'N/A',
                             'categorie': 'Non spécifiée',
                             'qte_disponible': 0,
                         }
                     )
+                    self._log(f"Article trouvé/créé avec référence brute: {article_ref}")
+
+                else:
+                    # Cas où le produit est vide: créer un article générique
+                    article_nom = f"Article manquant #{commande.id_yz}"
+                    article_ref = f"SYNC_MISSING_{commande.id_yz}"
                     
-                    # Créer l'entrée dans le panier
+                    article_obj, created = Article.objects.get_or_create(
+                        reference=article_ref,
+                        defaults={
+                            'nom': article_nom,
+                            'description': "Aucun produit spécifié dans la source de données.",
+                            'prix_unitaire': total_cmd_price,
+                            'couleur': 'N/A',
+                            'pointure': 'N/A',
+                            'categorie': 'Non spécifiée',
+                            'qte_disponible': 0,
+                        }
+                    )
+                    self.warnings.append(f"Aucun produit spécifié pour la commande {commande.num_cmd}, article générique créé.")
+
+                # Créer l'entrée dans le panier si un article a été trouvé ou créé
+                if article_obj:
                     quantite = int(data.get('Quantité', 1)) if data.get('Quantité') else 1
-                    panier_obj = Panier.objects.create(
+                    Panier.objects.create(
                         commande=commande,
                         article=article_obj,
                         quantite=quantite,
-                        sous_total=total_cmd_price
+                        sous_total=total_cmd_price  # Utilise le prix de la commande comme sous-total pour l'article unique
                     )
-                    print(f"Panier générique créé pour la commande ID YZ: {commande.id_yz} (Ext: {commande.num_cmd})")
-                except Exception as e:
-                    self.errors.append(f"Erreur lors de la création du panier générique pour la commande ID YZ: {commande.id_yz} (Ext: {commande.num_cmd}): {str(e)}")
+                    self._log(f"Panier créé pour la commande ID YZ: {commande.id_yz} (Ext: {commande.num_cmd}) avec l'article {article_obj.nom}")
+
+            except Exception as e:
+                self.errors.append(f"Erreur lors de la création de l'article/panier pour la commande ID YZ: {commande.id_yz} (Ext: {commande.num_cmd}): {str(e)}")
 
             # Si un opérateur est spécifié et que la commande est affectée
             operator_name = data.get('Opérateur', '')
