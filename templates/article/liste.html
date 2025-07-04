@@ -35,9 +35,12 @@
             <p style="color: var(--admin-accent-color);">Gérez les articles du système</p>
         </div>
         <div class="flex items-center gap-4 mt-4 md:mt-0">
-            <a href="{% url 'article:creer_article' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+            <a href="{% url 'article:creer' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
                 <i class="fas fa-plus mr-2"></i>Nouvel Article
             </a>
+            <button type="button" data-modal-target="promotionModal" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-percent mr-2"></i>Nouvelle Promotion
+            </button>
         </div>
     </div>
 
@@ -148,9 +151,22 @@
                     {% endif %}
                 </a>
             <div class="p-4">
+                    <div class="flex justify-between items-start mb-2">
                     <h3 class="text-lg font-bold truncate" style="color: #023535;">
                         <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a]">{{ article.nom }}</a>
                     </h3>
+                    <div class="flex gap-1">
+                        {% if article.has_promo_active %}
+                        <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
+                        {% endif %}
+                        {% if article.phase == 'LIQUIDATION' %}
+                        <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">LIQUIDATION</span>
+                        {% endif %}
+                        {% if article.phase == 'EN_TEST' %}
+                        <span class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">TEST</span>
+                        {% endif %}
+                    </div>
+                    </div>
                     <p class="text-sm font-mono text-gray-500 mb-2">{{ article.reference|default:'N/A' }}</p>
                 
                     <div class="flex items-center justify-between text-sm mb-3">
@@ -162,8 +178,19 @@
                     </span>
                 </div>
                 
-                <div class="flex justify-between items-center pt-3 border-t" style="border-color: #99dddd;">
-                        <div class="text-xl font-bold" style="color: #023535;">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+                                        <div class="flex justify-between items-center pt-3 border-t" style="border-color: #99dddd;">
+                        <div class="flex flex-col">
+                            {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
+                                {% if article.has_promo_active %}
+                                <div class="text-xl font-bold text-red-500">{{ article.prix_actuel|floatformat:2 }} DH</div>
+                                {% else %}
+                                <div class="text-xl font-bold text-orange-500">{{ article.prix_actuel|floatformat:2 }} DH</div>
+                                {% endif %}
+                                <div class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+                            {% else %}
+                                <div class="text-xl font-bold" style="color: #023535;">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+                            {% endif %}
+                        </div>
                         <a href="{% url 'article:detail' article.id %}" class="inline-flex items-center text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: #023535;">
                         <i class="fas fa-eye mr-1"></i>Détails
                     </a>
@@ -187,9 +214,14 @@
                     {% endif %}
                 </a>
                 <div class="flex-grow">
+                    <div class="flex justify-between items-start">
                     <h3 class="text-xl font-bold" style="color: #023535;">
                         <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a]">{{ article.nom }}</a>
                     </h3>
+                        {% if article.has_promo_active %}
+                        <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
+                        {% endif %}
+                    </div>
                     <p class="text-sm font-mono text-gray-500">{{ article.reference|default:'N/A' }}</p>
                     <div class="flex items-center gap-4 mt-1 text-sm">
                         <span><i class="fas fa-sitemap mr-1" style="color: #034a4a;"></i> {{ article.categorie }}</span>
@@ -197,8 +229,19 @@
                         <span><i class="fas fa-ruler-horizontal mr-1" style="color: #034a4a;"></i> {{ article.pointure }}</span>
                     </div>
                 </div>
-                <div class="flex items-center gap-4">
-                    <div class="text-xl font-bold" style="color: #023535;">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+                                    <div class="flex items-center gap-4">
+                    <div class="flex flex-col items-end">
+                        {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
+                            {% if article.has_promo_active %}
+                            <div class="text-xl font-bold text-red-500">{{ article.prix_actuel|floatformat:2 }} DH</div>
+                            {% else %}
+                            <div class="text-xl font-bold text-orange-500">{{ article.prix_actuel|floatformat:2 }} DH</div>
+                            {% endif %}
+                            <div class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+                        {% else %}
+                            <div class="text-xl font-bold" style="color: #023535;">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+                        {% endif %}
+                    </div>
                     <div class="flex items-center gap-2">
                         <a href="{% url 'article:detail' article.id %}" class="text-blue-500 hover:text-blue-700" title="Voir Détails">
                             <i class="fas fa-eye"></i>
@@ -207,7 +250,7 @@
                             <i class="fas fa-edit"></i>
                         </a>
                         <!-- Bouton pour ouvrir la modale de suppression -->
-                        <button type="button" onclick="confirmDeleteArticle('{% url 'article:supprimer_article' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700" title="Supprimer">
+                        <button type="button" onclick="confirmDeleteArticle('{% url 'article:supprimer' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700" title="Supprimer">
                             <i class="fas fa-trash"></i>
                         </button>
                 </div>
@@ -254,7 +297,24 @@
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.categorie }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.couleur }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.pointure }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.prix_unitaire|floatformat:2 }} DH</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
+                            <div class="flex flex-col">
+                                {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
+                                <div class="flex items-center gap-2">
+                                    {% if article.has_promo_active %}
+                                    <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
+                                    <span class="font-bold text-red-500">{{ article.prix_actuel|floatformat:2 }} DH</span>
+                                    {% else %}
+                                    <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">LIQUIDATION</span>
+                                    <span class="font-bold text-orange-500">{{ article.prix_actuel|floatformat:2 }} DH</span>
+                                    {% endif %}
+                                </div>
+                                <span class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</span>
+                                {% else %}
+                                {{ article.prix_unitaire|floatformat:2 }} DH
+                                {% endif %}
+                            </div>
+                        </td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.qte_disponible }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <a href="{% url 'article:detail' article.id %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
@@ -263,7 +323,7 @@
                             <a href="{% url 'article:modifier' article.id %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                            <a href="#" onclick="confirmDeleteArticle('{% url 'article:supprimer_article' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
+                            <a href="#" onclick="confirmDeleteArticle('{% url 'article:supprimer' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
                                 <i class="fas fa-trash-alt"></i>
                             </a>
                         </td>
@@ -345,6 +405,9 @@
         </div>
     </div>
 </div>
+
+{% include "article/promotion_modal.html" %}
+{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -490,7 +553,7 @@
 
             if (selectedIds.length > 0) {
                 // Utiliser la même modale de confirmation, mais pour la suppression en masse des articles
-                const deleteUrl = "{% url 'article:supprimer_articles_masse' %}"; 
+                const deleteUrl = "{% url 'article:supprimer_masse' %}"; 
                 showCustomConfirmModal(deleteUrl, `les ${selectedIds.length} articles sélectionnés`, selectedIds);
             } else {
                 alert("Veuillez sélectionner au moins un article à supprimer.");
@@ -535,6 +598,28 @@
         updateBulkDeleteButtonVisibility(); // Initialiser la visibilité du bouton au chargement de la page
 
     });
+
+    // Styles pour les champs du formulaire de promotion
+    document.addEventListener('DOMContentLoaded', function() {
+        const formInputs = document.querySelectorAll('#promotionModal input[type="text"], #promotionModal input[type="number"], #promotionModal textarea');
+        formInputs.forEach(input => {
+            input.classList.add('w-full', 'px-3', 'py-2', 'border', 'rounded-md', 'focus:outline-none', 'focus:ring-2', 'focus:ring-purple-500', 'focus:border-transparent');
+        });
+
+        const checkboxContainer = document.querySelector('#promotionModal .max-h-40');
+        if (checkboxContainer) {
+            const checkboxes = checkboxContainer.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                const label = checkbox.nextElementSibling;
+                if (label) {
+                    label.classList.add('ml-2', 'text-sm', 'text-gray-700');
+                }
+                const div = checkbox.parentElement;
+                if (div) {
+                    div.classList.add('flex', 'items-center', 'mb-2');
+                }
+            });
+        }
+    });
 </script>
-{% endblock %}
 {% endblock %} 

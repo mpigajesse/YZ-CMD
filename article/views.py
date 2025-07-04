@@ -8,6 +8,9 @@ from .models import Article, Promotion
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+from .forms import PromotionForm
+from decimal import Decimal
+import json
 
 # Create your views here.
 
@@ -15,6 +18,9 @@ from django.utils import timezone
 def liste_articles(request):
     """Liste des articles avec recherche simple et pagination"""
     articles = Article.objects.filter(actif=True).order_by('nom', 'couleur', 'pointure')
+    
+    # Formulaire de promotion pour la modal
+    form_promotion = PromotionForm()
     
     # Recherche unique sur plusieurs champs
     search = request.GET.get('search')
@@ -45,7 +51,7 @@ def liste_articles(request):
         ).distinct()
     
     # Pagination
-    paginator = Paginator(articles, 24)  # 24 articles par page (grille 4x6)
+    paginator = Paginator(articles, 12)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -58,8 +64,9 @@ def liste_articles(request):
     
     context = {
         'page_obj': page_obj,
-        'stats': stats,
         'search': search,
+        'stats': stats,
+        'form_promotion': form_promotion,  # Ajout du formulaire au contexte
     }
     return render(request, 'article/liste.html', context)
 
@@ -152,8 +159,13 @@ def creer_article(request):
             article.reference = request.POST.get('reference')
             article.description = request.POST.get('description')
             article.prix_unitaire = prix_unitaire
+            article.prix_actuel = prix_unitaire  # Assurer que le prix actuel = prix unitaire
             article.qte_disponible = qte_disponible
             article.categorie = request.POST.get('categorie')
+            
+            # Gérer les nouveaux champs
+            article.isUpsell = request.POST.get('isUpsell') == 'on'
+            article.Compteur = 0  # Initialiser le compteur à 0
             
             # Gérer l'image si elle est fournie
             if 'image' in request.FILES:
@@ -237,6 +249,25 @@ def modifier_article(request, id):
             article.qte_disponible = qte_disponible
             article.categorie = request.POST.get('categorie')
             
+            # Gérer les nouveaux champs
+            article.isUpsell = request.POST.get('isUpsell') == 'on'
+            # Ne pas modifier le compteur existant - il est géré par d'autres processus
+            
+            # Récupérer et définir la phase
+            phase = request.POST.get('phase')
+            # Vérifier si l'article est en promotion avant de changer sa phase
+            if phase and phase in dict(Article.PHASE_CHOICES).keys():
+                if article.has_promo_active:
+                    messages.warning(request, f"Impossible de changer la phase de l'article car il est actuellement en promotion.")
+                else:
+                    article.phase = phase
+                    if phase == 'LIQUIDATION':
+                        messages.warning(request, f"L'article '{article.nom}' a été mis en liquidation.")
+                    elif phase == 'EN_TEST':
+                        messages.info(request, f"L'article '{article.nom}' a été mis en phase de test.")
+                    elif phase == 'EN_COURS':
+                        messages.success(request, f"L'article '{article.nom}' a été remis en phase par défaut (En Cours).")
+            
             # Gérer l'image si elle est fournie
             if 'image' in request.FILES:
                 article.image = request.FILES['image']
@@ -257,6 +288,11 @@ def modifier_article(request, id):
                     except ValueError:
                         # Ignorer les valeurs non numériques
                         pass
+            
+            # Mettre à jour le prix actuel pour qu'il soit égal au prix unitaire
+            # sauf si l'article est en promotion active
+            if not article.has_promo_active:
+                article.prix_actuel = article.prix_unitaire
             
             article.save()
             messages.success(request, f"L'article '{article.nom}' a été modifié avec succès.")
@@ -375,25 +411,26 @@ def liste_promotions(request):
     """Liste des promotions avec recherche et filtres"""
     promotions = Promotion.objects.all().order_by('-date_creation')
     
+    # Formulaire de promotion pour le modal
+    form_promotion = PromotionForm()
+    
     # Filtres
     filtre = request.GET.get('filtre', 'toutes')
+    now = timezone.now()
+    
     if filtre == 'actives':
-        now = timezone.now()
         promotions = promotions.filter(active=True, date_debut__lte=now, date_fin__gte=now)
     elif filtre == 'futures':
-        promotions = promotions.filter(active=True, date_debut__gt=timezone.now())
+        promotions = promotions.filter(active=True, date_debut__gt=now)
     elif filtre == 'expirees':
-        promotions = promotions.filter(date_fin__lt=timezone.now())
-    elif filtre == 'inactives':
-        promotions = promotions.filter(active=False)
+        promotions = promotions.filter(date_fin__lt=now)
     
     # Recherche
     search = request.GET.get('search')
     if search:
         promotions = promotions.filter(
             Q(nom__icontains=search) |
-            Q(description__icontains=search) |
-            Q(code_promo__icontains=search)
+            Q(description__icontains=search)
         )
     
     # Pagination
@@ -406,17 +443,17 @@ def liste_promotions(request):
         'total': Promotion.objects.count(),
         'actives': Promotion.objects.filter(
             active=True,
-            date_debut__lte=timezone.now(),
-            date_fin__gte=timezone.now()
+            date_debut__lte=now,
+            date_fin__gte=now
         ).count(),
         'futures': Promotion.objects.filter(
             active=True,
-            date_debut__gt=timezone.now()
+            date_debut__gt=now
         ).count(),
         'articles_en_promo': Article.objects.filter(
             promotions__active=True,
-            promotions__date_debut__lte=timezone.now(),
-            promotions__date_fin__gte=timezone.now()
+            promotions__date_debut__lte=now,
+            promotions__date_fin__gte=now
         ).distinct().count()
     }
     
@@ -424,7 +461,8 @@ def liste_promotions(request):
         'page_obj': page_obj,
         'stats': stats,
         'filtre': filtre,
-        'search': search
+        'search': search,
+        'form_promotion': form_promotion  # Renommer form en form_promotion pour correspondre au template
     }
     return render(request, 'article/liste_promotions.html', context)
 
@@ -446,76 +484,43 @@ def detail_promotion(request, id):
 def creer_promotion(request):
     """Créer une nouvelle promotion"""
     if request.method == 'POST':
-        try:
-            # Récupérer les données du formulaire
-            nom = request.POST.get('nom')
-            description = request.POST.get('description', '')
-            pourcentage_str = request.POST.get('pourcentage_reduction', '').strip().replace(',', '.')
-            date_debut_str = request.POST.get('date_debut')
-            date_fin_str = request.POST.get('date_fin')
-            code_promo = request.POST.get('code_promo', '')
-            
-            # Valider le pourcentage
+        form = PromotionForm(request.POST)
+        if form.is_valid():
             try:
-                pourcentage = float(pourcentage_str)
-                if pourcentage <= 0 or pourcentage > 100:
-                    messages.error(request, "Le pourcentage de réduction doit être entre 0 et 100.")
-                    return render(request, 'article/creer_promotion.html', {'form_data': request.POST})
-            except ValueError:
-                messages.error(request, "Le pourcentage de réduction doit être un nombre valide.")
-                return render(request, 'article/creer_promotion.html', {'form_data': request.POST})
-            
-            # Valider les dates
-            from datetime import datetime
-            try:
-                date_debut = datetime.fromisoformat(date_debut_str)
-                date_fin = datetime.fromisoformat(date_fin_str)
+                # Récupérer les articles sélectionnés avant de sauvegarder
+                articles_selectionnes = form.cleaned_data.get('articles', [])
                 
-                if date_fin <= date_debut:
-                    messages.error(request, "La date de fin doit être postérieure à la date de début.")
-                    return render(request, 'article/creer_promotion.html', {'form_data': request.POST})
-            except ValueError:
-                messages.error(request, "Les dates doivent être au format valide.")
-                return render(request, 'article/creer_promotion.html', {'form_data': request.POST})
-            
-            # Vérifier l'unicité du code promo
-            if code_promo and Promotion.objects.filter(code_promo=code_promo).exists():
-                messages.error(request, "Ce code promo existe déjà.")
-                return render(request, 'article/creer_promotion.html', {'form_data': request.POST})
-            
-            # Créer la promotion
-            promotion = Promotion()
-            promotion.nom = nom
-            promotion.description = description
-            promotion.pourcentage_reduction = pourcentage
-            promotion.date_debut = date_debut
-            promotion.date_fin = date_fin
-            promotion.code_promo = code_promo if code_promo else None
-            promotion.cree_par = request.user
-            promotion.active = request.POST.get('active') == 'on'
-            
-            promotion.save()
-            
-            # Ajouter les articles sélectionnés
-            article_ids = request.POST.getlist('articles')
-            if article_ids:
-                articles = Article.objects.filter(id__in=article_ids)
-                promotion.articles.add(*articles)
-            
-            messages.success(request, f"La promotion '{promotion.nom}' a été créée avec succès.")
-            return redirect('article:liste_promotions')
-            
-        except Exception as e:
-            messages.error(request, f"Une erreur est survenue lors de la création de la promotion : {str(e)}")
-            return render(request, 'article/creer_promotion.html', {'form_data': request.POST})
-    
-    # Pour le formulaire GET, récupérer tous les articles pour la sélection
-    articles = Article.objects.filter(actif=True).order_by('nom', 'couleur', 'pointure')
-    
-    context = {
-        'articles': articles
-    }
-    return render(request, 'article/creer_promotion.html', context)
+                # Créer la promotion sans les articles pour l'instant
+                promotion = form.save(commit=False)
+                promotion.cree_par = request.user
+                promotion.save()
+                
+                # Maintenant que la promotion a un ID, ajouter les articles
+                if articles_selectionnes:
+                    promotion.articles.set(articles_selectionnes)
+                
+                messages.success(request, f"La promotion '{promotion.nom}' a été créée avec succès.")
+                return redirect('article:detail_promotion', id=promotion.id)
+            except Exception as e:
+                messages.error(request, f"Erreur lors de la création de la promotion : {str(e)}")
+                # Renommer form en form_promotion pour correspondre au template
+                return render(request, 'article/liste_promotions.html', {
+                    'form_promotion': form,
+                    'page_obj': Promotion.objects.all().order_by('-date_creation')[:10]
+                })
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"Erreur dans le champ {field}: {error}")
+            # Renommer form en form_promotion pour correspondre au template
+            return render(request, 'article/liste_promotions.html', {
+                'form_promotion': form,
+                'page_obj': Promotion.objects.all().order_by('-date_creation')[:10]
+            })
+    else:
+        # Cette partie ne devrait pas être appelée directement, mais au cas où
+        form = PromotionForm()
+        return redirect('article:liste_promotions')
 
 @login_required
 def modifier_promotion(request, id):
@@ -523,76 +528,21 @@ def modifier_promotion(request, id):
     promotion = get_object_or_404(Promotion, id=id)
     
     if request.method == 'POST':
-        try:
-            # Récupérer les données du formulaire
-            nom = request.POST.get('nom')
-            description = request.POST.get('description', '')
-            pourcentage_str = request.POST.get('pourcentage_reduction', '').strip().replace(',', '.')
-            date_debut_str = request.POST.get('date_debut')
-            date_fin_str = request.POST.get('date_fin')
-            code_promo = request.POST.get('code_promo', '')
-            
-            # Valider le pourcentage
-            try:
-                pourcentage = float(pourcentage_str)
-                if pourcentage <= 0 or pourcentage > 100:
-                    messages.error(request, "Le pourcentage de réduction doit être entre 0 et 100.")
-                    return render(request, 'article/modifier_promotion.html', {'promotion': promotion, 'form_data': request.POST})
-            except ValueError:
-                messages.error(request, "Le pourcentage de réduction doit être un nombre valide.")
-                return render(request, 'article/modifier_promotion.html', {'promotion': promotion, 'form_data': request.POST})
-            
-            # Valider les dates
-            from datetime import datetime
-            try:
-                date_debut = datetime.fromisoformat(date_debut_str)
-                date_fin = datetime.fromisoformat(date_fin_str)
-                
-                if date_fin <= date_debut:
-                    messages.error(request, "La date de fin doit être postérieure à la date de début.")
-                    return render(request, 'article/modifier_promotion.html', {'promotion': promotion, 'form_data': request.POST})
-            except ValueError:
-                messages.error(request, "Les dates doivent être au format valide.")
-                return render(request, 'article/modifier_promotion.html', {'promotion': promotion, 'form_data': request.POST})
-            
-            # Vérifier l'unicité du code promo
-            if code_promo and Promotion.objects.filter(code_promo=code_promo).exclude(id=promotion.id).exists():
-                messages.error(request, "Ce code promo existe déjà.")
-                return render(request, 'article/modifier_promotion.html', {'promotion': promotion, 'form_data': request.POST})
-            
-            # Mettre à jour la promotion
-            promotion.nom = nom
-            promotion.description = description
-            promotion.pourcentage_reduction = pourcentage
-            promotion.date_debut = date_debut
-            promotion.date_fin = date_fin
-            promotion.code_promo = code_promo if code_promo else None
-            promotion.active = request.POST.get('active') == 'on'
-            
-            promotion.save()
-            
-            # Mettre à jour les articles sélectionnés
-            article_ids = request.POST.getlist('articles')
-            promotion.articles.clear()
-            if article_ids:
-                articles = Article.objects.filter(id__in=article_ids)
-                promotion.articles.add(*articles)
-            
+        form = PromotionForm(request.POST, instance=promotion)
+        if form.is_valid():
+            form.save()
             messages.success(request, f"La promotion '{promotion.nom}' a été modifiée avec succès.")
             return redirect('article:detail_promotion', id=promotion.id)
-            
-        except Exception as e:
-            messages.error(request, f"Une erreur est survenue lors de la modification de la promotion : {str(e)}")
-            return render(request, 'article/modifier_promotion.html', {'promotion': promotion, 'form_data': request.POST})
-    
-    # Pour le formulaire GET
-    articles = Article.objects.filter(actif=True).order_by('nom', 'couleur', 'pointure')
-    articles_selectionnes = promotion.articles.all().values_list('id', flat=True)
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"Erreur dans le champ {field}: {error}")
+    else:
+        form = PromotionForm(instance=promotion)
     
     context = {
         'promotion': promotion,
-        'articles': articles,
-        'articles_selectionnes': list(articles_selectionnes)
+        'form': form,
     }
     return render(request, 'article/modifier_promotion.html', context)
 
@@ -624,4 +574,136 @@ def activer_desactiver_promotion(request, id):
     referer = request.META.get('HTTP_REFERER')
     if referer:
         return redirect(referer)
+    return redirect('article:liste_promotions')
+
+@login_required
+def changer_phase(request, id):
+    """Changer la phase d'un article"""
+    article = get_object_or_404(Article, id=id)
+    now = timezone.now()
+    
+    if request.method == 'POST':
+        # Vérifier si l'article est en promotion active
+        if article.has_promo_active:
+            messages.error(request, f"Impossible de changer la phase de l'article '{article.nom}' car il est actuellement en promotion.")
+        else:
+            phase = request.POST.get('phase')
+            if phase in dict(Article.PHASE_CHOICES).keys():
+                article.phase = phase
+                article.save()
+                
+                # Message en fonction de la phase
+                if phase == 'EN_COURS':
+                    messages.success(request, f"L'article '{article.nom}' a été remis en phase par défaut (En Cours).")
+                elif phase == 'LIQUIDATION':
+                    messages.warning(request, f"L'article '{article.nom}' a été mis en liquidation.")
+                elif phase == 'EN_TEST':
+                    messages.info(request, f"L'article '{article.nom}' a été mis en phase de test.")
+                
+    # Rediriger vers la page précédente ou la page de détail
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
+    return redirect('article:detail', id=article.id)
+
+@login_required
+@require_POST
+def appliquer_liquidation(request, id):
+    """Applique une réduction de liquidation à un article"""
+    article = get_object_or_404(Article, id=id)
+    
+    # Vérifier si l'article est déjà en promotion
+    if article.has_promo_active:
+        messages.error(request, "Impossible d'appliquer une liquidation car l'article est en promotion.")
+        return redirect('article:detail', id=article.id)
+    
+    try:
+        pourcentage = Decimal(request.POST.get('pourcentage', '0'))
+        if pourcentage <= 0 or pourcentage > 90:
+            messages.error(request, "Le pourcentage de réduction doit être compris entre 0 et 90%.")
+            return redirect('article:detail', id=article.id)
+        
+        # Mettre l'article en liquidation
+        article.phase = 'LIQUIDATION'
+        # Calculer et appliquer la réduction
+        reduction = article.prix_unitaire * (pourcentage / 100)
+        article.prix_actuel = article.prix_unitaire - reduction
+        article.save()
+        
+        messages.success(request, f"L'article a été mis en liquidation avec une réduction de {pourcentage}%.")
+        
+    except (ValueError, TypeError):
+        messages.error(request, "Le pourcentage de réduction n'est pas valide.")
+    
+    return redirect('article:detail', id=article.id)
+
+@login_required
+@require_POST
+def reinitialiser_prix(request, id):
+    """Réinitialise le prix d'un article à son prix unitaire par défaut"""
+    article = get_object_or_404(Article, id=id)
+    
+    # Réinitialiser le prix actuel au prix unitaire
+    article.prix_actuel = article.prix_unitaire
+    # Remettre la phase en EN_COURS
+    article.phase = 'EN_COURS'
+    article.save()
+    
+    messages.success(request, f"Le prix de l'article '{article.nom}' a été réinitialisé avec succès.")
+    
+    # Rediriger vers la page précédente ou la page de détail
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
+    return redirect('article:detail', id=article.id)
+
+@login_required
+def reset_expired_promotions(request):
+    """Réinitialise les prix des articles ayant des promotions expirées"""
+    now = timezone.now()
+    
+    # Trouver toutes les promotions expirées
+    expired_promotions = Promotion.objects.filter(
+        date_fin__lt=now,
+        active=True
+    )
+    
+    # Compter les articles mis à jour
+    updated_articles_count = 0
+    updated_promotions_count = 0
+    
+    # Parcourir chaque promotion expirée
+    for promotion in expired_promotions:
+        # Désactiver la promotion
+        promotion.active = False
+        promotion.save()
+        updated_promotions_count += 1
+        
+        # Récupérer tous les articles de cette promotion
+        articles = promotion.articles.all()
+        
+        # Mettre à jour le prix de chaque article
+        for article in articles:
+            # Vérifier si l'article n'a pas d'autres promotions actives avant de réinitialiser
+            has_other_active_promos = article.promotions.filter(
+                active=True, 
+                date_debut__lte=now,
+                date_fin__gte=now
+            ).exists()
+            
+            if not has_other_active_promos:
+                article.prix_actuel = article.prix_unitaire
+                article.save()
+                updated_articles_count += 1
+    
+    # Message de feedback
+    if updated_promotions_count > 0:
+        messages.success(
+            request, 
+            f"{updated_promotions_count} promotion(s) expirée(s) désactivée(s) et {updated_articles_count} article(s) mis à jour."
+        )
+    else:
+        messages.info(request, "Aucune promotion expirée à traiter.")
+    
+    # Rediriger vers la liste des promotions
     return redirect('article:liste_promotions')

@@ -17,6 +17,7 @@ from django.db.models import Sum
 from django.db import models, transaction
 from client.models import Client
 from article.models import Article
+import logging
 
 # Create your views here.
 
@@ -1368,7 +1369,10 @@ def modifier_commande(request, commande_id):
                 
                 try:
                     article = Article.objects.get(id=article_id)
-                    sous_total = article.prix_unitaire * quantite
+                    
+                    # Calculer le prix et le compteur selon la logique d'upsell
+                    prix_a_utiliser, increment_compteur = get_prix_et_compteur_upsell(article, quantite, commande)
+                    sous_total = prix_a_utiliser * quantite
                     
                     panier = Panier.objects.create(
                         commande=commande,
@@ -1376,6 +1380,9 @@ def modifier_commande(request, commande_id):
                         quantite=quantite,
                         sous_total=sous_total
                     )
+                    
+                    # Mettre à jour le compteur de la commande
+                    commande.compteur += increment_compteur
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
@@ -1390,6 +1397,7 @@ def modifier_commande(request, commande_id):
                         'article_id': panier.id,
                         'total_commande': float(commande.total_cmd),
                         'nb_articles': commande.paniers.count(),
+                        'compteur': commande.compteur
                     })
                     
                 except Article.DoesNotExist:
@@ -1413,13 +1421,17 @@ def modifier_commande(request, commande_id):
                 nouvelle_quantite = int(request.POST.get('nouvelle_quantite', 1))
                 
                 try:
-                    # Supprimer l'ancien panier
+                    # Supprimer l'ancien panier et récupérer son compteur
                     ancien_panier = Panier.objects.get(id=ancien_article_id, commande=commande)
+                    ancien_article = ancien_panier.article
+                    _, ancien_increment = get_prix_et_compteur_upsell(ancien_article, ancien_panier.quantite, commande)
                     ancien_panier.delete()
                     
                     # Créer le nouveau panier
                     nouvel_article = Article.objects.get(id=nouvel_article_id)
-                    sous_total = nouvel_article.prix_unitaire * nouvelle_quantite
+                    # Calculer le nouveau prix et compteur selon la logique d'upsell
+                    prix_a_utiliser, nouvel_increment = get_prix_et_compteur_upsell(nouvel_article, nouvelle_quantite, commande)
+                    sous_total = prix_a_utiliser * nouvelle_quantite
                     
                     nouveau_panier = Panier.objects.create(
                         commande=commande,
@@ -1427,6 +1439,9 @@ def modifier_commande(request, commande_id):
                         quantite=nouvelle_quantite,
                         sous_total=sous_total
                     )
+                    
+                    # Mettre à jour le compteur de la commande
+                    commande.compteur = commande.compteur - ancien_increment + nouvel_increment
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
@@ -1441,6 +1456,7 @@ def modifier_commande(request, commande_id):
                         'nouvel_article_id': nouveau_panier.id,
                         'total_commande': float(commande.total_cmd),
                         'nb_articles': commande.paniers.count(),
+                        'compteur': commande.compteur
                     })
                     
                 except Panier.DoesNotExist:
@@ -1467,7 +1483,12 @@ def modifier_commande(request, commande_id):
                 
                 try:
                     panier = Panier.objects.get(id=article_id, commande=commande)
+                    # Récupérer le compteur de l'article à supprimer
+                    _, increment_a_supprimer = get_prix_et_compteur_upsell(panier.article, panier.quantite, commande)
                     panier.delete()
+                    
+                    # Mettre à jour le compteur de la commande
+                    commande.compteur -= increment_a_supprimer
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
@@ -1481,6 +1502,7 @@ def modifier_commande(request, commande_id):
                         'message': 'Article supprimé avec succès',
                         'total_commande': float(commande.total_cmd),
                         'nb_articles': commande.paniers.count(),
+                        'compteur': commande.compteur
                     })
                     
                 except Panier.DoesNotExist:
@@ -1864,88 +1886,46 @@ def api_operations_commande(request, commande_id):
 
 @login_required
 def api_articles_disponibles(request):
-    """API pour récupérer la liste des articles disponibles pour la sélection"""
     try:
-        # Vérifier que l'utilisateur est un opérateur de confirmation
-        operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
-        print(f"✅ Opérateur trouvé: {operateur.nom} {operateur.prenom} (Type: {operateur.type_operateur})")
-    except Operateur.DoesNotExist:
-        error_msg = f'Utilisateur {request.user.username} n\'est pas un opérateur de confirmation'
-        print(f"❌ {error_msg}")
+        # Récupérer tous les articles disponibles
+        articles = Article.objects.filter(
+            qte_disponible__gt=0, 
+            actif=True, 
+            phase='EN_COURS'
+        ).order_by('nom')
         
-        # Debug: afficher les informations de l'utilisateur
-        try:
-            user_operateur = Operateur.objects.get(user=request.user)
-            print(f"🔍 Utilisateur trouvé comme opérateur: {user_operateur.type_operateur}")
-        except Operateur.DoesNotExist:
-            print(f"🔍 Aucun profil opérateur trouvé pour: {request.user.username}")
-        
-        return JsonResponse({
-            'success': False,
-            'error': error_msg,
-            'debug_info': {
-                'user': str(request.user),
-                'is_authenticated': request.user.is_authenticated,
-                'user_id': request.user.id if request.user.is_authenticated else None
-            }
-        }, status=403)
-    
-    if request.method == 'GET':
-        try:
-            from article.models import Article
+        # Préparer les données des articles
+        articles_data = []
+        for article in articles:
+            # Mettre à jour le prix actuel si nécessaire
+            if article.prix_actuel is None:
+                article.prix_actuel = article.prix_unitaire
+                article.save(update_fields=['prix_actuel'])
             
-            print("🔍 Recherche d'articles disponibles...")
-            
-            # Récupérer tous les articles actifs avec stock disponible
-            articles = Article.objects.filter(
-                qte_disponible__gt=0,
-                actif=True
-            ).order_by('nom', 'couleur', 'pointure')
-            
-            print(f"📦 {articles.count()} articles trouvés dans la base")
-            
-            articles_data = []
-            for article in articles:
-                try:
-                    article_data = {
-                        'id': article.id,
-                        'nom': article.nom or 'Article sans nom',
-                        'reference': article.reference or f'REF-{article.id}',
-                        'prix_unitaire': float(article.prix_unitaire) if article.prix_unitaire else 0.0,
-                        'description': article.description or '',
-                        'qte_disponible': article.qte_disponible,
-                        'categorie': article.categorie or 'Non spécifiée',
-                        'couleur': article.couleur or 'Non spécifiée',
-                        'pointure': article.pointure or 'Non spécifiée',
-                    }
-                    articles_data.append(article_data)
-                    
-                    print(f"   ✅ Article {article.id}: {article.nom} - {article.prix_unitaire} DH")
-                    
-                except Exception as e:
-                    print(f"   ❌ Erreur lors du traitement de l'article {article.id}: {e}")
-                    continue
-            
-            print(f"✅ {len(articles_data)} articles formatés pour l'API")
-            
-            return JsonResponse({
-                'success': True,
-                'articles': articles_data,
-                'count': len(articles_data)
+            articles_data.append({
+                'id': article.id,
+                'nom': article.nom,
+                'reference': article.reference or '',
+                'pointure': article.pointure,
+                'couleur': article.couleur,
+                'prix_unitaire': float(article.prix_unitaire),
+                'prix_actuel': float(article.prix_actuel or article.prix_unitaire),
+                'qte_disponible': article.qte_disponible,
             })
-            
-        except Exception as e:
-            error_msg = f'Erreur lors de la récupération des articles: {str(e)}'
-            print(f"❌ {error_msg}")
-            return JsonResponse({
-                'success': False,
-                'error': error_msg
-            }, status=500)
+        
+        return JsonResponse(articles_data, safe=False)
     
-    return JsonResponse({
-        'success': False,
-        'error': 'Méthode non autorisée'
-    }, status=405)
+    except Exception as e:
+        # Log de l'erreur côté serveur
+        import logging
+        logging.error(f"Erreur lors du chargement des articles disponibles: {str(e)}")
+        
+        # Retourner une réponse d'erreur JSON
+        return JsonResponse({
+            'success': False, 
+            'error': 'Impossible de charger les articles. Veuillez réessayer.',
+            'details': str(e)
+        }, status=500)
 
 @login_required
 def api_commentaires_disponibles(request):
@@ -2007,6 +1987,10 @@ def creer_commande(request):
                 ville_id = request.POST.get('ville_livraison')
                 adresse = request.POST.get('adresse', '').strip()
                 is_upsell = request.POST.get('is_upsell') == 'on'
+                total_cmd = request.POST.get('total_cmd', 0)
+
+                # Log des données reçues
+                logging.info(f"Données de création de commande reçues: type_client={type_client}, ville_id={ville_id}, adresse={adresse}, is_upsell={is_upsell}, total_cmd={total_cmd}")
 
                 # Valider la présence de la ville et de l'adresse
                 if not ville_id or not adresse:
@@ -2048,19 +2032,26 @@ def creer_commande(request):
 
                 ville = get_object_or_404(Ville, pk=ville_id)
 
-                # Créer la commande avec un total temporaire de 0
-                commande = Commande.objects.create(
-                    client=client,
-                    ville=ville,
-                    adresse=adresse,
-                    total_cmd=0,  # Le total sera recalculé côté serveur
-                    is_upsell=is_upsell,
-                    origine='OC'  # Définir l'origine comme Opérateur Confirmation
-                )
+                # Créer la commande avec le total fourni
+                try:
+                    commande = Commande.objects.create(
+                        client=client,
+                        ville=ville,
+                        adresse=adresse,
+                        total_cmd=float(total_cmd),  # Convertir en float
+                        is_upsell=is_upsell,
+                        origine='OC'  # Définir l'origine comme Opérateur Confirmation
+                    )
+                except Exception as e:
+                    logging.error(f"Erreur lors de la création de la commande: {str(e)}")
+                    messages.error(request, f"Impossible de créer la commande: {str(e)}")
+                    return redirect('operatConfirme:creer_commande')
 
                 # Traiter le panier et calculer le total
                 article_ids = request.POST.getlist('article_id')
                 quantites = request.POST.getlist('quantite')
+                
+                logging.info(f"Articles dans la commande: {article_ids}, Quantités: {quantites}")
                 
                 if not article_ids:
                     messages.warning(request, "La commande a été créée mais est vide. Aucun article n'a été ajouté.")
@@ -2071,7 +2062,13 @@ def creer_commande(request):
                         quantite = int(quantites[i])
                         if quantite > 0 and article_id:
                             article = get_object_or_404(Article, pk=article_id)
-                            sous_total = article.prix_unitaire * quantite
+                            # Utiliser prix_actuel si disponible, sinon prix_unitaire
+                            prix_a_utiliser = article.prix_actuel if article.prix_actuel is not None else article.prix_unitaire
+                            
+                            # Log pour comprendre le calcul du prix
+                            logging.info(f"Article {article.id}: prix_unitaire={article.prix_unitaire}, prix_actuel={article.prix_actuel}, prix_utilisé={prix_a_utiliser}")
+                            
+                            sous_total = prix_a_utiliser * quantite
                             total_calcule += sous_total
                             
                             Panier.objects.create(
@@ -2081,6 +2078,7 @@ def creer_commande(request):
                                 sous_total=sous_total
                             )
                     except (ValueError, IndexError, Article.DoesNotExist) as e:
+                        logging.error(f"Erreur lors de l'ajout d'un article: {str(e)}")
                         messages.error(request, f"Erreur lors de l'ajout d'un article : {e}")
                         raise e # Annule la transaction
 
@@ -2117,6 +2115,7 @@ def creer_commande(request):
                 return redirect('operatConfirme:liste_commandes')
 
         except Exception as e:
+            logging.error(f"Erreur critique lors de la création de la commande: {str(e)}")
             messages.error(request, f"Erreur critique lors de la création de la commande: {str(e)}")
             # Rediriger vers le formulaire pour correction
             return redirect('operatConfirme:creer_commande')
@@ -2202,6 +2201,15 @@ def api_panier_commande(request, commande_id):
             }, status=500)
     
     return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+def get_prix_et_compteur_upsell(article, quantite, commande):
+    """
+    Calcule le prix à utiliser et le compteur pour un article upsell en fonction de la quantité.
+    Retourne un tuple (prix_a_utiliser, increment_compteur)
+    """
+    prix_a_utiliser = article.get_prix_upsell(quantite)
+    increment_compteur = article.get_increment_compteur(quantite)
+    return prix_a_utiliser, increment_compteur
 
 
 

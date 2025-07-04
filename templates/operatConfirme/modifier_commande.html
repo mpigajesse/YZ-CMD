@@ -1,5 +1,6 @@
 {% extends 'composant_generale/operatConfirme/base.html' %}
 {% load static %}
+{% load commande_filters %}
 
 {% block title %}Modifier Commande {{ commande.id_yz }} - YZ-CMD{% endblock %}
 
@@ -438,7 +439,9 @@
                     <!-- Liste des articles existants -->
                     <div id="articles-container" class="space-y-3 mb-6">
                         {% for panier in commande.paniers.all %}
-                        <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" data-article-id="{{ panier.id }}">
+                        <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" 
+                            data-article-id="{{ panier.id }}"
+                            data-article='{"id": {{ panier.article.id }}, "nom": "{{ panier.article.nom }}", "reference": "{{ panier.article.reference }}", "prix_actuel": {{ panier.article.prix_actuel|default:0 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0 }}, "isUpsell": {{ panier.article.isUpsell|yesno:"true,false" }}, "pointure": "{{ panier.article.pointure|default:'' }}", "couleur": "{{ panier.article.couleur|default:'' }}", "categorie": "{{ panier.article.categorie|default:'' }}", "qte_disponible": {{ panier.article.qte_disponible|default:0 }}}'>
                             <div class="flex items-center justify-between">
                                 <!-- Informations de l'article -->
                                 <div class="flex-1">
@@ -480,12 +483,11 @@
                                                     <i class="fas fa-tag mr-1"></i>Catégorie N/A
                                                 </span>
                                                 {% endif %}
-                                                
-                                                {% if panier.article.stock_disponible %}
+                                                                                    
                                                 <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                                                    <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.stock_disponible }}
+                                                    <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.qte_disponible }}
                                                 </span>
-                                                {% endif %}
+            
                                             </div>
                                         </div>
                                         
@@ -497,14 +499,21 @@
                                         
                                         <!-- Prix unitaire -->
                                         <div class="text-center min-w-0">
-                                            <div class="text-sm text-gray-500">Prix unitaire</div>
-                                            <div class="font-medium text-green-600">{{ panier.article.prix_unitaire }} DH</div>
+                                            <div class="text-sm text-gray-500">Prix actuel</div>
+                                            <div class="font-medium text-green-600">
+                                                {{ panier.article|get_prix_upsell:panier.quantite|floatformat:2 }} DH
+                                                {% if panier.article.isUpsell and panier.quantite > 1 %}
+                                                <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-1">Prix Upsell</span>
+                                                {% endif %}
+                                            </div>
                                         </div>
                                         
                                         <!-- Sous-total -->
                                         <div class="text-center min-w-0">
                                             <div class="text-sm text-gray-500">Sous-total</div>
-                                            <div class="text-lg font-bold" style="color: #6d4b3b;">{{ panier.sous_total }} DH</div>
+                                            <div class="text-lg font-bold" style="color: #6d4b3b;">
+                                                {{ panier.article|calculer_sous_total_upsell:panier.quantite|floatformat:2 }} DH
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1833,7 +1842,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             id: article.id,
                             nom: article.nom,
                             reference: article.reference,
-                            prix: article.prix_unitaire,
+                            prix: article.prix_actuel,
                             pointure: article.pointure,
                             couleur: article.couleur,
                             stock: article.qte_disponible
@@ -2654,76 +2663,63 @@ function chargerArticlesDisponibles() {
     .then(data => {
         console.log('📊 Données reçues:', data);
         
-        if (data.success && data.articles) {
-            articlesDisponibles = data.articles;
-            
-            // Remplir le select
-            select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
-            
-            if (articlesDisponibles.length === 0) {
-                select.innerHTML = '<option value="">-- Aucun article disponible --</option>';
-                console.warn('⚠️ Aucun article trouvé dans la base de données');
-                showNotification('⚠️ Aucun article disponible', 'error');
-                return;
-            }
-            
-            articlesDisponibles.forEach((article, index) => {
-                try {
-                    const option = document.createElement('option');
-                    option.value = article.id;
-                    
-                    // Construire un texte plus informatif avec vérifications
-                    let optionText = article.nom || 'Article sans nom';
-                    
-                    if (article.prix_unitaire) {
-                        optionText += ` - ${article.prix_unitaire} DH`;
-                    }
-                    
-                    // Ajouter taille et couleur si disponibles
-                    const details = [];
-                    if (article.pointure && article.pointure.trim()) {
-                        details.push(`T:${article.pointure}`);
-                    }
-                    if (article.couleur && article.couleur.trim()) {
-                        details.push(`C:${article.couleur}`);
-                    }
-                    
-                    if (details.length > 0) {
-                        optionText += ` (${details.join(', ')})`;
-                    }
-                    
-                    option.textContent = optionText;
-                    option.dataset.article = JSON.stringify(article);
-                    select.appendChild(option);
-                    
-                    console.log(`📦 Article ${index + 1} ajouté:`, {
-                        id: article.id,
-                        nom: article.nom,
-                        prix: article.prix_unitaire,
-                        pointure: article.pointure,
-                        couleur: article.couleur
-                    });
-                    
-                } catch (error) {
-                    console.error(`❌ Erreur lors de l'ajout de l'article ${index + 1}:`, error, article);
-                }
-            });
-            
-            console.log(`✅ ${articlesDisponibles.length} articles chargés avec succès`);
-            showNotification(`✅ ${articlesDisponibles.length} article(s) chargé(s)`, 'success');
-            
-        } else {
-            // Gestion d'erreur plus détaillée
-            const errorMsg = data.error || 'Erreur inconnue lors du chargement';
-            select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
-            console.error('❌ Erreur API:', errorMsg);
-            showNotification(`❌ Erreur: ${errorMsg}`, 'error');
-            
-            // Afficher plus de détails pour le debug
-            if (data.error) {
-                console.error('📋 Détails de l\'erreur:', data);
-            }
+        // Modification pour gérer la réponse directe de l'API
+        const articlesDisponibles = Array.isArray(data) ? data : [];
+        
+        // Remplir le select
+        select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
+        
+        if (articlesDisponibles.length === 0) {
+            select.innerHTML = '<option value="">-- Aucun article disponible --</option>';
+            console.warn('⚠️ Aucun article trouvé dans la base de données');
+            showNotification('⚠️ Aucun article disponible', 'error');
+            return;
         }
+        
+        articlesDisponibles.forEach((article, index) => {
+            try {
+                const option = document.createElement('option');
+                option.value = article.id;
+                
+                // Construire un texte plus informatif avec vérifications
+                let optionText = article.nom || 'Article sans nom';
+                
+                if (article.prix_actuel) {
+                    optionText += ` - ${article.prix_actuel} DH`;
+                }
+                
+                // Ajouter taille et couleur si disponibles
+                const details = [];
+                if (article.pointure && article.pointure.trim()) {
+                    details.push(`T:${article.pointure}`);
+                }
+                if (article.couleur && article.couleur.trim()) {
+                    details.push(`C:${article.couleur}`);
+                }
+                
+                if (details.length > 0) {
+                    optionText += ` (${details.join(', ')})`;
+                }
+                
+                option.textContent = optionText;
+                option.dataset.article = JSON.stringify(article);
+                select.appendChild(option);
+                
+                console.log(`📦 Article ${index + 1} ajouté:`, {
+                    id: article.id,
+                    nom: article.nom,
+                    prix: article.prix_actuel,
+                    pointure: article.pointure,
+                    couleur: article.couleur
+                });
+                
+            } catch (error) {
+                console.error(`❌ Erreur lors de l'ajout de l'article ${index + 1}:`, error, article);
+            }
+        });
+        
+        console.log(`✅ ${articlesDisponibles.length} articles chargés avec succès`);
+        showNotification(`✅ ${articlesDisponibles.length} article(s) chargé(s)`, 'success');
     })
     .catch(error => {
         select.innerHTML = '<option value="">-- Erreur de connexion --</option>';
@@ -2765,11 +2761,11 @@ function onArticleSelectionChange() {
 // Fonction pour afficher les informations d'un article
 function afficherInfosArticle(article) {
     const quantite = parseInt(document.getElementById('quantiteInput').value) || 1;
-    const sousTotal = (article.prix_unitaire * quantite).toFixed(2);
+    const sousTotal = (article.prix_actuel * quantite).toFixed(2);
     
     // Informations de base
     document.getElementById('info-reference').textContent = article.reference || '-';
-    document.getElementById('info-prix').textContent = `${article.prix_unitaire} DH`;
+    document.getElementById('info-prix').textContent = `${article.prix_actuel} DH`;
     document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
     
     // Nouvelles informations détaillées
@@ -2847,9 +2843,13 @@ function saveArticle() {
     if (!isEditingArticle) {
         // Ajout d'un nouvel article
         ajouterArticleAuContainer(article, quantite);
+        sauvegarderNouvelArticle(article, quantite);  // Sauvegarde en base
+        showNotification('✅ Article ajouté et sauvegardé', 'success');
     } else {
         // Modification d'un article existant - remplacer complètement l'article
         remplacerArticleExistant(article, quantite);
+        sauvegarderRemplacementArticle(currentArticleId, article, quantite);  // Sauvegarde en base
+        showNotification('🔄 Article remplacé et sauvegardé', 'success');
     }
     
     // Mettre à jour le total
@@ -2857,22 +2857,13 @@ function saveArticle() {
     
     // Fermer la modale
     closeArticleModal();
-    
-    // Sauvegarder immédiatement en base de données
-    if (!isEditingArticle) {
-        // Nouvel article - sauvegarder directement
-        sauvegarderNouvelArticle(article, quantite);
-        showNotification('✅ Article ajouté et sauvegardé', 'success');
-    } else {
-        // Article existant - remplacer en base de données
-        sauvegarderRemplacementArticle(currentArticleId, article, quantite);
-        showNotification('🔄 Article remplacé et sauvegardé', 'success');
-    }
 }
 
 // Fonction pour ajouter un article au container
 function ajouterArticleAuContainer(article, quantite) {
-    const sousTotal = (article.prix_unitaire * quantite).toFixed(2);
+    // Vérifier si le prix actuel est défini, sinon utiliser le prix unitaire
+    const prixActuel = article.prix_actuel !== undefined ? article.prix_actuel : article.prix_unitaire;
+    const sousTotal = (prixActuel * quantite).toFixed(2);
     const articleId = `new-${Date.now()}`; // ID temporaire pour les nouveaux articles
     
     const articleHTML = `
@@ -2932,8 +2923,8 @@ function ajouterArticleAuContainer(article, quantite) {
                         
                         <!-- Prix unitaire -->
                         <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Prix unitaire</div>
-                            <div class="font-medium text-green-600">${article.prix_unitaire} DH</div>
+                            <div class="text-sm text-gray-500">Prix actuel</div>
+                            <div class="font-medium text-green-600">${article.prix_actuel} DH</div>
                         </div>
                         
                         <!-- Sous-total -->
@@ -2972,7 +2963,7 @@ function ajouterArticleAuContainer(article, quantite) {
 function remplacerArticleExistant(nouvelArticle, nouvelleQuantite) {
     const articleCard = document.querySelector(`[data-article-id="${currentArticleId}"]`);
     if (articleCard) {
-        const sousTotal = (nouvelArticle.prix_unitaire * nouvelleQuantite).toFixed(2);
+        const sousTotal = (nouvelArticle.prix_actuel * nouvelleQuantite).toFixed(2);
         
         // Remplacer tout le contenu de la carte d'article
         const nouveauContenu = `
@@ -3031,8 +3022,8 @@ function remplacerArticleExistant(nouvelArticle, nouvelleQuantite) {
                         
                         <!-- Prix unitaire -->
                         <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Prix unitaire</div>
-                            <div class="font-medium text-green-600">${nouvelArticle.prix_unitaire} DH</div>
+                            <div class="text-sm text-gray-500">Prix actuel</div>
+                            <div class="font-medium text-green-600">${nouvelArticle.prix_actuel} DH</div>
                         </div>
                         
                         <!-- Sous-total -->
@@ -3289,18 +3280,55 @@ function mettreAJourCompteurArticles() {
     document.getElementById('articles-plural').textContent = count > 1 ? 's' : '';
 }
 
-// Fonction pour mettre à jour le total de la commande
+function getPrixUpsell(article, quantite) {
+    if (!article.isUpsell) {
+        return article.prix_actuel || article.prix_unitaire;
+    }
+    
+    if (quantite === 1) {
+        return article.prix_actuel || article.prix_unitaire;
+    } else if (quantite === 2 && article.prix_upsell_1) {
+        return article.prix_upsell_1;
+    } else if (quantite === 3 && article.prix_upsell_2) {
+        return article.prix_upsell_2;
+    } else if (quantite > 3 && article.prix_upsell_3) {
+        return article.prix_upsell_3;
+    }
+    return article.prix_actuel || article.prix_unitaire;
+}
+
 function mettreAJourTotalCommande() {
-    const articles = document.querySelectorAll('.article-card');
+    const articlesContainer = document.getElementById('articles-container');
+    if (!articlesContainer) {
+        console.error("L'élément 'articles-container' est introuvable.");
+        return;
+    }
+
+    const articles = articlesContainer.querySelectorAll('.article-card');
     let total = 0;
     
     articles.forEach(article => {
-        const sousTotalText = article.querySelector('.text-lg.font-bold').textContent;
-        const sousTotal = parseFloat(sousTotalText.replace(' DH', ''));
-        total += sousTotal;
+        const quantiteElement = article.querySelector('.text-blue-600');
+        const sousTotalElement = article.querySelector('.text-lg.font-bold');
+        
+        if (quantiteElement && sousTotalElement) {
+            const quantite = parseInt(quantiteElement.textContent);
+            const articleData = JSON.parse(article.dataset.article || '{}');
+            const prix = getPrixUpsell(articleData, quantite);
+            
+            // Si c'est un article upsell, le sous-total est le prix upsell
+            const sousTotal = articleData.isUpsell ? prix : prix * quantite;
+            
+            // Mise à jour du sous-total affiché
+            sousTotalElement.textContent = `${sousTotal.toFixed(2)} DH`;
+            total += sousTotal;
+        }
     });
     
-    document.getElementById('total-commande').textContent = `${total.toFixed(2)} DH`;
+    const totalElement = document.getElementById('total-commande');
+    if (totalElement) {
+        totalElement.textContent = `${total.toFixed(2)} DH`;
+    }
 }
 
 // Fonction pour sauvegarder un nouvel article immédiatement
@@ -3803,6 +3831,127 @@ function showToast(message, type = 'info', duration = 3000) {
         }, 300);
     }, duration);
 }
+
+// Dans le script JavaScript, ajouter une vérification pour le prix
+function afficherInfosArticle(article) {
+    const quantite = parseInt(document.getElementById('quantiteInput').value) || 1;
+    
+    // Vérifier si le prix actuel est défini, sinon utiliser le prix unitaire
+    const prixActuel = article.prix_actuel !== undefined ? article.prix_actuel : article.prix_unitaire;
+    const sousTotal = (prixActuel * quantite).toFixed(2);
+    
+    // Informations de base
+    document.getElementById('info-reference').textContent = article.reference || '-';
+    document.getElementById('info-prix').textContent = `${prixActuel} DH`;
+    document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
+}
+
+// Autres modifications similaires dans le script
+function mettreAJourSousTotal() {
+    const articleSelectionne = document.getElementById('articleSelect');
+    const quantiteInput = document.getElementById('quantiteInput');
+    
+    if (articleSelectionne && quantiteInput) {
+        const selectedArticle = JSON.parse(articleSelectionne.value);
+        const quantite = parseInt(quantiteInput.value) || 1;
+        
+        // Vérifier si le prix actuel est défini, sinon utiliser le prix unitaire
+        const prixActuel = selectedArticle.prix_actuel !== undefined ? selectedArticle.prix_actuel : selectedArticle.prix_unitaire;
+        const sousTotal = (prixActuel * quantite).toFixed(2);
+        
+        document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
+    }
+}
+
+function ajouterArticleAuPanier() {
+    const articleSelect = document.getElementById('articleSelect');
+    const quantiteInput = document.getElementById('quantiteInput');
+    const articlesContainer = document.getElementById('articles-container');
+
+    if (!articleSelect || !quantiteInput || !articlesContainer) {
+        console.error('❌ Éléments de sélection ou conteneur d\'articles introuvables');
+        showNotification('❌ Erreur de chargement des éléments', 'error');
+        return;
+    }
+
+    const selectedOption = articleSelect.options[articleSelect.selectedIndex];
+    if (!selectedOption || !selectedOption.value) {
+        showNotification('❌ Veuillez sélectionner un article', 'error');
+        return;
+    }
+
+    const article = JSON.parse(selectedOption.dataset.article);
+    const quantite = parseInt(quantiteInput.value) || 1;
+    const prixActuel = article.prix_actuel !== undefined ? article.prix_actuel : article.prix_unitaire;
+    const sousTotal = (prixActuel * quantite).toFixed(2);
+
+    // Créer la nouvelle carte d'article
+    const articleCard = document.createElement('div');
+    articleCard.className = 'article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm';
+    // On ajoute un attribut pour pouvoir le supprimer/modifier plus tard si besoin.
+    // NOTE: Cet ID est temporaire côté client. Il devra être mis à jour avec l'ID de la base de données après sauvegarde.
+    articleCard.dataset.articleId = `new-${Date.now()}`; 
+
+    articleCard.innerHTML = `
+        <div class="flex items-center justify-between">
+            <div class="flex-1">
+                <div class="flex items-center space-x-4">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-semibold text-lg" style="color: #4B352A;">${article.nom}</div>
+                        <div class="text-sm text-gray-500">
+                            <i class="fas fa-hashtag mr-1"></i>Réf: ${article.reference || 'N/A'}
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                                <i class="fas fa-ruler-vertical mr-1"></i>${article.pointure || 'N/A'}
+                            </span>
+                            <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                <i class="fas fa-palette mr-1"></i>${article.couleur || 'N/A'}
+                            </span>
+                             <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                <i class="fas fa-boxes mr-1"></i>Stock: ${article.qte_disponible}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="text-center min-w-0">
+                        <div class="text-sm text-gray-500">Quantité</div>
+                        <div class="font-medium text-blue-600">${quantite} unité${quantite > 1 ? 's' : ''}</div>
+                    </div>
+                    <div class="text-center min-w-0">
+                        <div class="text-sm text-gray-500">Prix actuel</div>
+                        <div class="font-medium text-green-600">${prixActuel} DH</div>
+                    </div>
+                    <div class="text-center min-w-0">
+                        <div class="text-sm text-gray-500">Sous-total</div>
+                        <div class="text-lg font-bold" style="color: #6d4b3b;">${sousTotal} DH</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-2 ml-4">
+                <button type="button" onclick="modifierArticle(${articleCard.dataset.articleId})" class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" title="Modifier">
+                    <i class="fas fa-edit mr-1"></i>Modifier
+                </button>
+                <button type="button" onclick="supprimerArticle(this)" class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" title="Supprimer">
+                    <i class="fas fa-trash mr-1"></i>Supprimer
+                </button>
+            </div>
+        </div>
+    `;
+
+    articlesContainer.appendChild(articleCard);
+
+    mettreAJourTotalCommande();
+
+    // Fermer la modale d'ajout
+    const modal = document.getElementById('addArticleModal');
+    if(modal) {
+        modal.classList.add('hidden');
+    }
+    
+    showNotification('✅ Article ajouté au panier', 'success');
+}
+
+// La fonction mettreAJourTotalCommande est déjà définie plus haut dans le fichier
 
 </script>
 

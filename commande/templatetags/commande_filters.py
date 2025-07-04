@@ -70,3 +70,35 @@ def get_etat(commande, libelle_etat):
         return etat
     except Exception:
         return None
+
+@register.filter
+def get_prix_upsell(article, quantite):
+    """
+    Retourne le prix upsell approprié en fonction de la quantité.
+    """
+    if not article.isUpsell:
+        return article.prix_actuel if article.prix_actuel is not None else article.prix_unitaire
+        
+    if quantite == 1:
+        return article.prix_actuel if article.prix_actuel is not None else article.prix_unitaire
+    elif quantite == 2 and article.prix_upsell_1:
+        return article.prix_upsell_1
+    elif quantite == 3 and article.prix_upsell_2:
+        return article.prix_upsell_2
+    elif quantite > 3 and article.prix_upsell_3:
+        return article.prix_upsell_3
+    else:
+        return article.prix_actuel if article.prix_actuel is not None else article.prix_unitaire
+
+@register.filter
+def calculer_sous_total_upsell(article, quantite):
+    """
+    Calcule le sous-total en utilisant le prix upsell approprié.
+    Pour les articles upsell, le sous-total est le prix upsell, pas le prix * quantité.
+    """
+    prix = get_prix_upsell(article, quantite)
+    
+    if article.isUpsell:
+        return prix if prix is not None else 0
+    else:
+        return prix * quantite if prix is not None else 0

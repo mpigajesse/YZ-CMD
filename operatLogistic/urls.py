@@ -1,5 +1,7 @@
 from django.urls import path
 from . import views
+from .service_apres_vente import views as sav_views
+from .stock import views as stock_views
 
 app_name = 'operatLogistic'
 
@@ -22,4 +24,22 @@ urlpatterns = [
     path('export/toutes-regions/csv/', views.export_all_regions_csv, name='export_all_regions_csv'),
     path('export/region/<str:nom_region>/excel/', views.export_region_excel, name='export_region_excel'),
     path('export/region/<str:nom_region>/csv/', views.export_region_csv, name='export_region_csv'),
+    # URL pour le SAV
+    path('commande/<int:commande_id>/changer-etat-sav/', sav_views.changer_etat_livraison, name='changer_etat_sav'),
+    # URLs pour les listes SAV
+    path('sav/reportees/', sav_views.commandes_reportees, name='commandes_reportees'),
+    path('sav/livrees-partiellement/', sav_views.commandes_livrees_partiellement, name='commandes_livrees_partiellement'),
+    path('sav/avec-changement/', sav_views.commandes_livrees_avec_changement, name='commandes_livrees_avec_changement'),
+    path('sav/annulees/', sav_views.commandes_annulees_sav, name='commandes_annulees_sav'),
+    path('sav/commandes-annulees/', sav_views.commandes_annulees_sav, name='commandes_annulees_sav'),
+    path('sav/livrees/', sav_views.commandes_livrees, name='commandes_livrees'),
+    # Nouvelles URLs pour la gestion de stock
+    path('stock/articles/', stock_views.liste_articles, name='stock_articles'),
+    path('stock/article/creer/', stock_views.creer_article, name='creer_article'),
+    path('stock/article/<int:article_id>/', stock_views.detail_article, name='detail_article'),
+    path('stock/article/modifier/<int:article_id>/', stock_views.modifier_article, name='modifier_article'),
+    path('stock/articles/ajuster/<int:article_id>/', stock_views.ajuster_stock, name='ajuster_stock'),
+    path('stock/mouvements/', stock_views.mouvements_stock, name='stock_mouvements'),
+    path('stock/alertes/', stock_views.alertes_stock, name='stock_alertes'),
+    path('stock/statistiques/', stock_views.statistiques_stock, name='stock_statistiques'),
 ] 

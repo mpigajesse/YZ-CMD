@@ -66,6 +66,7 @@ class Commande(models.Model):
     ville_init = models.CharField(max_length=100, blank=True, null=True)
     ville = models.ForeignKey(Ville, on_delete=models.CASCADE, null=True, blank=True, related_name='commandes')
     produit_init = models.TextField(blank=True, null=True)
+    compteur = models.IntegerField(default=0, verbose_name="Compteur d'utilisation")
     
     class Meta:
         verbose_name = "Commande"
@@ -199,8 +200,7 @@ class Operation(models.Model):
         ("Message Whatsapp", "Appel Whatsapp "),
         ("Vocal Whatsapp", "Vocal Whatsapp "),
         ('ENVOI_SMS', 'Envoi de SMS'),
-        ('REMPLACEMENT', 'Remplacement'),
-        ('MODIFICATION_PREPA', 'Modification (Préparation)'),
+        ('MODIFICATION', 'Modification'),
     ]
     Type_Commentaire_CHOICES=[
         ("Commande Annulée", "Commande Annulée"),
@@ -213,7 +213,7 @@ class Operation(models.Model):
         
     ]
     
-    type_operation = models.CharField(max_length=50, choices=TYPE_OPERATION_CHOICES)
+    type_operation = models.CharField(max_length=30, choices=TYPE_OPERATION_CHOICES)
     date_operation = models.DateTimeField(default=timezone.now)
     conclusion = models.TextField()
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='operations')

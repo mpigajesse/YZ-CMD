@@ -1,0 +1,343 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Liste des Promotions{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white shadow rounded-lg">
+        <!-- En-tête avec titre et bouton d'ajout -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Liste des Promotions</h1>
+            <div class="flex gap-2">
+                <a href="{% url 'article:reset_expired_promotions' %}" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700">
+                    <i class="fas fa-sync-alt mr-2"></i>Réinitialiser les prix expirés
+                </a>
+                <button type="button" data-modal-target="promotionModal" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">
+                    <i class="fas fa-plus mr-2"></i>Nouvelle Promotion
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-sm font-medium text-gray-500">Total Promotions</h3>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-sm font-medium text-gray-500">Promotions Actives</h3>
+                <p class="text-2xl font-bold text-green-600">{{ stats.actives }}</p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-sm font-medium text-gray-500">Promotions Futures</h3>
+                <p class="text-2xl font-bold text-blue-600">{{ stats.futures }}</p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-sm font-medium text-gray-500">Articles en Promotion</h3>
+                <p class="text-2xl font-bold text-purple-600">{{ stats.articles_en_promo }}</p>
+            </div>
+        </div>
+
+        <!-- Filtres -->
+        <div class="flex flex-wrap gap-4 mb-6">
+            <a href="?filtre=toutes" class="px-4 py-2 rounded-full {% if filtre == 'toutes' %}bg-gray-200{% else %}bg-gray-100{% endif %} hover:bg-gray-200">
+                Toutes
+            </a>
+            <a href="?filtre=actives" class="px-4 py-2 rounded-full {% if filtre == 'actives' %}bg-green-200{% else %}bg-gray-100{% endif %} hover:bg-green-200">
+                Actives
+            </a>
+            <a href="?filtre=futures" class="px-4 py-2 rounded-full {% if filtre == 'futures' %}bg-blue-200{% else %}bg-gray-100{% endif %} hover:bg-blue-200">
+                Futures
+            </a>
+            <a href="?filtre=expirees" class="px-4 py-2 rounded-full {% if filtre == 'expirees' %}bg-red-200{% else %}bg-gray-100{% endif %} hover:bg-red-200">
+                Expirées
+            </a>
+        </div>
+
+        <!-- Tableau des promotions -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Réduction</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Début</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Fin</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Articles</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for promotion in page_obj %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ promotion.nom }}</div>
+                            <div class="text-sm text-gray-500">{{ promotion.description|truncatechars:50 }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                {{ promotion.pourcentage_reduction }}%
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ promotion.date_debut|date:"d/m/Y H:i" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ promotion.date_fin|date:"d/m/Y H:i" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if promotion.est_active %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                Active
+                            </span>
+                            {% elif promotion.est_future %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                Future
+                            </span>
+                            {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                Expirée
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ promotion.articles.count }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{% url 'article:detail_promotion' promotion.id %}" class="text-blue-600 hover:text-blue-900 mr-3">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'article:modifier_promotion' promotion.id %}" class="text-green-600 hover:text-green-900 mr-3">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                            Aucune promotion trouvée
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="flex justify-center mt-6">
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Précédent</span>
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                {% endif %}
+                
+                {% for i in page_obj.paginator.page_range %}
+                <a href="?page={{ i }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium {% if page_obj.number == i %}text-blue-600 bg-blue-50{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    {{ i }}
+                </a>
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Suivant</span>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Inclure le modal de promotion -->
+{% include "article/promotion_modal.html" %}
+
+{% block extra_js %}
+<script>
+    // Styles pour les champs du formulaire de promotion
+    document.addEventListener('DOMContentLoaded', function() {
+        const formInputs = document.querySelectorAll('#promotionModal input[type="text"], #promotionModal input[type="number"], #promotionModal textarea, #promotionModal select');
+        formInputs.forEach(function(input) {
+            input.classList.add('mt-1', 'block', 'w-full', 'rounded-md', 'border-gray-300', 'shadow-sm', 'focus:border-purple-500', 'focus:ring-purple-500');
+        });
+        
+        // Styles pour les inputs datetime
+        const datetimeInputs = document.querySelectorAll('#promotionModal input[type="datetime-local"]');
+        datetimeInputs.forEach(function(input) {
+            input.classList.add('mt-1', 'block', 'w-full', 'rounded-md', 'border-gray-300', 'shadow-sm', 'focus:border-purple-500', 'focus:ring-purple-500');
+            
+            // S'assurer que la valeur est au format ISO 8601
+            if (input.value) {
+                // Tenter de convertir au format correct si nécessaire
+                try {
+                    const date = new Date(input.value);
+                    if (!isNaN(date.getTime())) {
+                        // Format ISO 8601 sans secondes (compatible avec datetime-local)
+                        const isoString = date.toISOString().slice(0, 16);
+                        input.value = isoString;
+                    }
+                } catch (e) {
+                    console.error("Erreur lors de la conversion de la date:", e);
+                }
+            }
+        });
+        
+        // Gestion des dates au moment de la soumission du formulaire
+        const promotionForm = document.querySelector('#promotionModal form');
+        if (promotionForm) {
+            promotionForm.addEventListener('submit', function(e) {
+                const dateDebut = document.querySelector('#promotionModal [name="date_debut"]');
+                const dateFin = document.querySelector('#promotionModal [name="date_fin"]');
+                
+                // Vérifier si les dates sont valides
+                if (dateDebut && !dateDebut.validity.valid) {
+                    e.preventDefault();
+                    alert('La date de début est dans un format incorrect. Utilisez le format AAAA-MM-JJThh:mm');
+                    return;
+                }
+                
+                if (dateFin && !dateFin.validity.valid) {
+                    e.preventDefault();
+                    alert('La date de fin est dans un format incorrect. Utilisez le format AAAA-MM-JJThh:mm');
+                    return;
+                }
+                
+                // Comparer les dates
+                if (dateDebut && dateFin && new Date(dateDebut.value) >= new Date(dateFin.value)) {
+                    e.preventDefault();
+                    alert('La date de fin doit être postérieure à la date de début.');
+                    return;
+                }
+            });
+        }
+        
+        // Initialiser les dates par défaut si elles ne sont pas définies
+        const dateDebut = document.querySelector('#promotionModal [name="date_debut"]');
+        const dateFin = document.querySelector('#promotionModal [name="date_fin"]');
+        
+        if (dateDebut && !dateDebut.value) {
+            const now = new Date();
+            dateDebut.value = now.toISOString().slice(0, 16);
+        }
+        
+        if (dateFin && !dateFin.value) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(23, 59, 0);
+            dateFin.value = tomorrow.toISOString().slice(0, 16);
+        }
+        
+        // Styles pour les checkboxes
+        const checkboxes = document.querySelectorAll('#promotionModal input[type="checkbox"]');
+        checkboxes.forEach(function(checkbox) {
+            checkbox.classList.add('h-4', 'w-4', 'text-purple-600', 'focus:ring-purple-500', 'border-gray-300', 'rounded');
+        });
+        
+        // Fonctionnalités de recherche et filtrage pour le modal
+        const searchInput = document.querySelector('#promotionModal .article-search-input');
+        const categoryFilter = document.querySelector('#promotionModal [data-filter="categorie"]');
+        const colorFilter = document.querySelector('#promotionModal [data-filter="couleur"]');
+        const modalCheckboxes = document.querySelectorAll('#promotionModal .article-selection input[type="checkbox"]');
+        
+        // Mettre à jour le compteur d'articles
+        function updateModalCounter() {
+            const totalItems = document.querySelectorAll('#promotionModal .article-selection input[type="checkbox"]:not([style*="display: none"])').length;
+            const selectedItems = document.querySelectorAll('#promotionModal .article-selection input[type="checkbox"]:checked').length;
+            
+            document.getElementById('modal-total-count').textContent = totalItems;
+            document.getElementById('modal-selected-count').textContent = selectedItems;
+        }
+        
+        // Ajouter des attributs data- aux éléments de liste pour faciliter le filtrage
+        modalCheckboxes.forEach(function(checkbox) {
+            const label = checkbox.nextElementSibling;
+            if (label) {
+                const text = label.textContent.trim();
+                const parts = text.split(' - ');
+                
+                if (parts.length >= 3) {
+                    const labelContainer = checkbox.parentElement;
+                    labelContainer.setAttribute('data-nom', parts[0].toLowerCase());
+                    labelContainer.setAttribute('data-couleur', parts[1].toLowerCase());
+                    labelContainer.setAttribute('data-categorie', parts.length > 3 ? parts[3].toLowerCase() : '');
+                }
+            }
+        });
+        
+        // Fonction de filtrage pour le modal
+        function filterModalArticles() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedCategory = categoryFilter.value.toLowerCase();
+            const selectedColor = colorFilter.value.toLowerCase();
+            
+            document.querySelectorAll('#promotionModal .article-selection > div').forEach(function(item) {
+                const nom = item.getAttribute('data-nom') || '';
+                const couleur = item.getAttribute('data-couleur') || '';
+                const categorie = item.getAttribute('data-categorie') || '';
+                
+                const matchesSearch = searchTerm === '' || nom.includes(searchTerm);
+                const matchesCategory = selectedCategory === '' || categorie === selectedCategory;
+                const matchesColor = selectedColor === '' || couleur === selectedColor;
+                
+                if (matchesSearch && matchesCategory && matchesColor) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            updateModalCounter();
+        }
+        
+        // Événements pour le modal
+        if (searchInput) searchInput.addEventListener('input', filterModalArticles);
+        if (categoryFilter) categoryFilter.addEventListener('change', filterModalArticles);
+        if (colorFilter) colorFilter.addEventListener('change', filterModalArticles);
+        
+        // Initialiser le compteur pour le modal
+        updateModalCounter();
+        
+        // Événement pour les cases à cocher dans le modal
+        modalCheckboxes.forEach(function(checkbox) {
+            checkbox.addEventListener('change', updateModalCounter);
+        });
+        
+        // Bouton pour tout sélectionner/désélectionner dans le modal
+        const selectAllBtn = document.createElement('button');
+        selectAllBtn.type = 'button';
+        selectAllBtn.className = 'text-sm text-purple-600 hover:text-purple-800 mb-2';
+        selectAllBtn.textContent = 'Tout sélectionner';
+        selectAllBtn.onclick = function() {
+            const visibleCheckboxes = document.querySelectorAll('#promotionModal .article-selection input[type="checkbox"]:not([style*="display: none"])');
+            const allChecked = Array.from(visibleCheckboxes).every(cb => cb.checked);
+            
+            visibleCheckboxes.forEach(function(checkbox) {
+                checkbox.checked = !allChecked;
+            });
+            
+            this.textContent = allChecked ? 'Tout sélectionner' : 'Tout désélectionner';
+            updateModalCounter();
+        };
+        
+        // Ajouter le bouton avant la liste des articles dans le modal
+        const articleContainer = document.querySelector('#promotionModal .article-selection').parentElement;
+        articleContainer.insertBefore(selectAllBtn, document.querySelector('#promotionModal .article-selection'));
+
+        // Gestionnaire pour le bouton d'ouverture du modal
+        const openModalBtn = document.querySelector('[data-modal-target="promotionModal"]');
+        const modal = document.getElementById('promotionModal');
+        
+        if (openModalBtn && modal) {
+            openModalBtn.addEventListener('click', function() {
+                modal.classList.remove('hidden');
+            });
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %} 
