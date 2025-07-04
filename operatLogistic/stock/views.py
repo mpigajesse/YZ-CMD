@@ -598,6 +598,226 @@ def statistiques_stock(request):
     return render(request, 'operatLogistic/stock/statistiques_stock.html', context)
 
 @login_required
+def export_statistiques_stock(request):
+    """Export des statistiques de stock en Excel"""
+    from django.http import HttpResponse
+    from django.db.models import Q, Count, Sum, Avg, F
+    import io
+    
+    # Vérifier si openpyxl est disponible
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        messages.error(request, "Fonctionnalité d'export non disponible. Module openpyxl requis.")
+        return redirect('operatLogistic:stock_statistiques')
+    
+    # Paramètres de filtrage (même logique que la vue principale)
+    periode = int(request.GET.get('periode', 30))
+    categorie_filter = request.GET.get('categorie', '')
+    
+    # Date de début selon la période
+    date_debut = timezone.now() - timedelta(days=periode)
+    
+    # Articles de base
+    articles_qs = Article.objects.filter(actif=True)
+    
+    # Filtrage par catégorie si spécifié
+    if categorie_filter:
+        articles_qs = articles_qs.filter(categorie=categorie_filter)
+    
+    # === CALCULS DES STATISTIQUES ===
+    
+    # Valeur totale du stock
+    valeur_stock = articles_qs.aggregate(
+        valeur_totale=Sum(F('qte_disponible') * F('prix_unitaire'))
+    )['valeur_totale'] or 0
+    
+    # Articles par niveau de stock
+    stats_niveaux = articles_qs.aggregate(
+        total_articles=Count('id'),
+        rupture=Count('id', filter=Q(qte_disponible=0)),
+        stock_faible=Count('id', filter=Q(qte_disponible__gt=0, qte_disponible__lte=10)),
+        stock_normal=Count('id', filter=Q(qte_disponible__gt=10, qte_disponible__lte=50)),
+        stock_eleve=Count('id', filter=Q(qte_disponible__gt=50))
+    )
+    
+    # Taux de rupture
+    taux_rupture = (stats_niveaux['rupture'] / stats_niveaux['total_articles'] * 100) if stats_niveaux['total_articles'] > 0 else 0
+    
+    # Statistiques par catégorie
+    stats_categories = articles_qs.values('categorie').annotate(
+        total_articles=Count('id'),
+        stock_total=Sum('qte_disponible'),
+        valeur_totale=Sum(F('qte_disponible') * F('prix_unitaire')),
+        prix_moyen=Avg('prix_unitaire'),
+        stock_moyen=Avg('qte_disponible'),
+        articles_rupture=Count('id', filter=Q(qte_disponible=0)),
+        articles_faible=Count('id', filter=Q(qte_disponible__gt=0, qte_disponible__lte=10))
+    ).exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('-valeur_totale')
+    
+    # Top articles par valeur
+    top_articles_valeur = articles_qs.annotate(
+        valeur_stock=F('qte_disponible') * F('prix_unitaire')
+    ).filter(qte_disponible__gt=0).order_by('-valeur_stock')[:20]
+    
+    # Top articles par quantité
+    top_articles_quantite = articles_qs.filter(qte_disponible__gt=0).order_by('-qte_disponible')[:20]
+    
+    # === CRÉATION DU FICHIER EXCEL ===
+    
+    wb = openpyxl.Workbook()
+    
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # === FEUILLE 1: RÉSUMÉ GÉNÉRAL ===
+    ws1 = wb.active
+    ws1.title = "Résumé Général"
+    
+    # En-tête
+    ws1['A1'] = "STATISTIQUES STOCK - RÉSUMÉ GÉNÉRAL"
+    ws1['A1'].font = Font(bold=True, size=16)
+    ws1['A2'] = f"Période: {periode} derniers jours"
+    if categorie_filter:
+        ws1['A3'] = f"Catégorie: {categorie_filter}"
+    else:
+        ws1['A3'] = "Catégorie: Toutes"
+    ws1['A4'] = f"Date d'export: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
+    
+    # Statistiques principales
+    row = 6
+    ws1[f'A{row}'] = "STATISTIQUES PRINCIPALES"
+    ws1[f'A{row}'].font = header_font
+    ws1[f'A{row}'].fill = header_fill
+    
+    row += 1
+    stats_data = [
+        ("Valeur totale du stock", f"{valeur_stock:,.2f} DH"),
+        ("Articles en stock", stats_niveaux['total_articles']),
+        ("Articles en rupture", stats_niveaux['rupture']),
+        ("Articles stock faible", stats_niveaux['stock_faible']),
+        ("Articles stock normal", stats_niveaux['stock_normal']),
+        ("Articles stock élevé", stats_niveaux['stock_eleve']),
+        ("Taux de rupture", f"{taux_rupture:.1f}%"),
+    ]
+    
+    for label, value in stats_data:
+        ws1[f'A{row}'] = label
+        ws1[f'B{row}'] = value
+        ws1[f'A{row}'].border = border
+        ws1[f'B{row}'].border = border
+        row += 1
+    
+    # === FEUILLE 2: ANALYSE PAR CATÉGORIE ===
+    ws2 = wb.create_sheet("Analyse par Catégorie")
+    
+    # En-têtes
+    headers = ["Catégorie", "Articles Total", "Stock Total", "Valeur Totale (DH)", 
+               "Prix Moyen (DH)", "Stock Moyen", "Articles Rupture", "Articles Faible"]
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws2.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Données
+    for row, cat in enumerate(stats_categories, 2):
+        ws2.cell(row=row, column=1, value=cat['categorie']).border = border
+        ws2.cell(row=row, column=2, value=cat['total_articles']).border = border
+        ws2.cell(row=row, column=3, value=cat['stock_total'] or 0).border = border
+        ws2.cell(row=row, column=4, value=float(cat['valeur_totale'] or 0)).border = border
+        ws2.cell(row=row, column=5, value=float(cat['prix_moyen'] or 0)).border = border
+        ws2.cell(row=row, column=6, value=float(cat['stock_moyen'] or 0)).border = border
+        ws2.cell(row=row, column=7, value=cat['articles_rupture']).border = border
+        ws2.cell(row=row, column=8, value=cat['articles_faible']).border = border
+    
+    # === FEUILLE 3: TOP ARTICLES PAR VALEUR ===
+    ws3 = wb.create_sheet("Top Articles Valeur")
+    
+    headers = ["Rang", "Nom", "Référence", "Catégorie", "Stock", "Prix Unitaire (DH)", "Valeur Stock (DH)"]
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws3.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal='center')
+    
+    for row, article in enumerate(top_articles_valeur, 2):
+        valeur_stock = (article.qte_disponible or 0) * (article.prix_unitaire or 0)
+        ws3.cell(row=row, column=1, value=row-1).border = border
+        ws3.cell(row=row, column=2, value=article.nom).border = border
+        ws3.cell(row=row, column=3, value=article.reference or "N/A").border = border
+        ws3.cell(row=row, column=4, value=article.categorie).border = border
+        ws3.cell(row=row, column=5, value=article.qte_disponible).border = border
+        ws3.cell(row=row, column=6, value=float(article.prix_unitaire)).border = border
+        ws3.cell(row=row, column=7, value=float(valeur_stock)).border = border
+    
+    # === FEUILLE 4: TOP ARTICLES PAR QUANTITÉ ===
+    ws4 = wb.create_sheet("Top Articles Quantité")
+    
+    headers = ["Rang", "Nom", "Référence", "Catégorie", "Stock", "Prix Unitaire (DH)", "Valeur Stock (DH)"]
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws4.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal='center')
+    
+    for row, article in enumerate(top_articles_quantite, 2):
+        valeur_stock = (article.qte_disponible or 0) * (article.prix_unitaire or 0)
+        ws4.cell(row=row, column=1, value=row-1).border = border
+        ws4.cell(row=row, column=2, value=article.nom).border = border
+        ws4.cell(row=row, column=3, value=article.reference or "N/A").border = border
+        ws4.cell(row=row, column=4, value=article.categorie).border = border
+        ws4.cell(row=row, column=5, value=article.qte_disponible).border = border
+        ws4.cell(row=row, column=6, value=float(article.prix_unitaire)).border = border
+        ws4.cell(row=row, column=7, value=float(valeur_stock)).border = border
+    
+    # Ajuster la largeur des colonnes
+    for ws in [ws1, ws2, ws3, ws4]:
+        for column in ws.columns:
+            max_length = 0
+            column_letter = get_column_letter(column[0].column)
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # === GÉNÉRATION DE LA RÉPONSE ===
+    
+    # Nom du fichier
+    filename = f"statistiques_stock_{timezone.now().strftime('%Y%m%d_%H%M')}"
+    if categorie_filter:
+        filename += f"_{categorie_filter.replace(' ', '_')}"
+    filename += ".xlsx"
+    
+    # Création de la réponse HTTP
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Sauvegarde du fichier
+    wb.save(response)
+    
+    return response
+
+@login_required
 def modifier_article(request, article_id):
     """Affiche un formulaire pour modifier un article existant."""
     article = get_object_or_404(Article, pk=article_id)

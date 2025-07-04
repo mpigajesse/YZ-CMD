@@ -42,4 +42,5 @@ urlpatterns = [
     path('stock/mouvements/', stock_views.mouvements_stock, name='stock_mouvements'),
     path('stock/alertes/', stock_views.alertes_stock, name='stock_alertes'),
     path('stock/statistiques/', stock_views.statistiques_stock, name='stock_statistiques'),
+    path('stock/statistiques/export/', stock_views.export_statistiques_stock, name='export_statistiques_stock'),
 ] 

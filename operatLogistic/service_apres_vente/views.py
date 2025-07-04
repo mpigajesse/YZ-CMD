@@ -88,7 +88,9 @@ def commandes_reportees(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Reportée',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').order_by('-etats__date_debut').distinct()
+    ).select_related('client', 'ville').prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
+    ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes Reportées', 'Liste des livraisons reportées.')
 
 @login_required
@@ -97,7 +99,9 @@ def commandes_livrees_partiellement(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Livrée Partiellement',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').order_by('-etats__date_debut').distinct()
+    ).select_related('client', 'ville').prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
+    ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes Livrées Partiellement', 'Liste des commandes livrées en partie.')
 
 @login_required
@@ -106,7 +110,9 @@ def commandes_livrees_avec_changement(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Livrée avec changement',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').order_by('-etats__date_debut').distinct()
+    ).select_related('client', 'ville').prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
+    ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes avec Changement', 'Liste des commandes livrées avec un article différent.')
 
 @login_required
@@ -115,7 +121,9 @@ def commandes_annulees_sav(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Annulée (SAV)',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').order_by('-etats__date_debut').distinct()
+    ).select_related('client', 'ville').prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
+    ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes Annulées (SAV)', 'Liste des commandes annulées lors de la livraison.')
 
 @login_required
@@ -124,5 +132,7 @@ def commandes_livrees(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Livrée',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').order_by('-etats__date_debut').distinct()
+    ).select_related('client', 'ville').prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
+    ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes Livrées', 'Liste des commandes livrées avec succès.') 

@@ -448,10 +448,25 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Fonction d'export (peut être étendue)
+// Fonction d'export
 function exportStats() {
-    // Logique d'export - peut ouvrir une nouvelle fenêtre ou déclencher un téléchargement
-    alert('Fonctionnalité d\'export en cours de développement');
+    // Récupérer les paramètres de filtrage actuels
+    const periode = document.getElementById('periode').value;
+    const categorie = document.getElementById('categorie').value;
+    
+    // Construire l'URL d'export avec les paramètres
+    let exportUrl = '{% url "operatLogistic:export_statistiques_stock" %}';
+    const params = new URLSearchParams();
+    
+    if (periode) params.append('periode', periode);
+    if (categorie) params.append('categorie', categorie);
+    
+    if (params.toString()) {
+        exportUrl += '?' + params.toString();
+    }
+    
+    // Ouvrir l'export dans une nouvelle fenêtre
+    window.open(exportUrl, '_blank');
 }
 
 // Auto-refresh toutes les 5 minutes
