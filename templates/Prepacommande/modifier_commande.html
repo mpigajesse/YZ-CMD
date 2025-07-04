@@ -159,33 +159,6 @@
                     <button type="button" class="btn-prepa px-4 py-2 rounded" onclick="ouvrirModalAjoutArticle()"><i class="fas fa-plus mr-2"></i>Ajouter un article</button>
                 </div>
             </div>
-            <!-- Opérations de préparation -->
-            <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
-                <h3 class="text-lg font-semibold mb-4 section-title">
-                    <i class="fas fa-cogs mr-3"></i>Opérations de Préparation
-                </h3>
-                <table class="w-full bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
-                    <thead>
-                        <tr class="bg-gray-50 border-b border-gray-200">
-                            <th class="px-4 py-3">Type</th>
-                            <th class="px-4 py-3">Date</th>
-                            <th class="px-4 py-3">Commentaire</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for op in operations %}
-                        <tr>
-                            <td>{{ op.type_operation }}</td>
-                            <td>{{ op.date_operation|date:'d/m/Y H:i' }}</td>
-                            <td>{{ op.conclusion }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                <div class="mt-4">
-                    <button type="button" class="btn-prepa px-4 py-2 rounded" onclick="ouvrirModalAjoutOperation()"><i class="fas fa-plus mr-2"></i>Ajouter une opération</button>
-                </div>
-            </div>
             <div class="flex justify-end mt-6">
                 <button type="submit" class="btn-prepa px-6 py-3 rounded text-lg font-bold">Enregistrer les modifications</button>
             </div>
@@ -210,42 +183,6 @@
                 <div class="mt-4 flex justify-end space-x-3">
                     <button type="button" onclick="fermerModalAjoutArticle()" 
                             class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg">Annuler</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="modalAjoutOperation" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-    <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
-            <div class="p-6 border-b border-gray-200">
-                <h3 class="text-xl font-semibold section-title">Ajouter une opération</h3>
-            </div>
-            <div class="p-6">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Type d'opération</label>
-                    <select id="typeOperation" class="w-full p-3 border rounded-lg">
-                        <option value="">-- Sélectionner --</option>
-                        <option value="VERIFICATION_STOCK">Vérification stock</option>
-                        <option value="PREPARATION_ARTICLE">Préparation article</option>
-                        <option value="VERIFICATION_QUALITE">Vérification qualité</option>
-                        <option value="EMBALLAGE">Emballage</option>
-                        <option value="ETIQUETAGE">Étiquetage</option>
-                        <option value="CONTROLE_FINAL">Contrôle final</option>
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Commentaire</label>
-                    <textarea id="commentaireOperation" rows="3" 
-                              class="w-full p-3 border rounded-lg" 
-                              placeholder="Détails de l'opération..."></textarea>
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="fermerModalAjoutOperation()" 
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg">Annuler</button>
-                    <button type="button" onclick="ajouterOperation()" 
-                            class="btn-prepa px-4 py-2 rounded-lg">Ajouter</button>
                 </div>
             </div>
         </div>
@@ -292,16 +229,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (modal) modal.classList.add('hidden');
     };
 
-    window.ouvrirModalAjoutOperation = function() {
-        const modal = document.getElementById('modalAjoutOperation');
-        if (modal) modal.classList.remove('hidden');
-    };
-
-    window.fermerModalAjoutOperation = function() {
-        const modal = document.getElementById('modalAjoutOperation');
-        if (modal) modal.classList.add('hidden');
-    };
-
     function ouvrirModalConfirmation(message, action) {
         const msgElem = document.getElementById('messageConfirmation');
         if (msgElem) msgElem.textContent = message;
@@ -337,23 +264,6 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, { method: 'POST', body: formData })
                 .then(res => res.json()).then(handleResponse).catch(handleError);
         });
-    };
-    
-    window.ajouterOperation = function() {
-        const type = document.getElementById('typeOperation').value;
-        const commentaire = document.getElementById('commentaireOperation').value;
-        if (!type || !commentaire) {
-            Swal.fire('Champs requis', 'Veuillez remplir tous les champs.', 'warning');
-            return;
-        }
-        const formData = new FormData();
-        formData.append('action', 'add_operation');
-        formData.append('type_operation', type);
-        formData.append('commentaire', commentaire);
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
-        fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, { method: 'POST', body: formData })
-            .then(res => res.json()).then(handleResponse).catch(handleError);
     };
 
     // Fonctions internes
