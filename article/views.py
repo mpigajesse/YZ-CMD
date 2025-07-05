@@ -16,14 +16,46 @@ import json
 
 @login_required
 def liste_articles(request):
-    """Liste des articles avec recherche simple et pagination"""
+    """Liste des articles avec recherche, filtres et pagination"""
     articles = Article.objects.filter(actif=True).order_by('nom', 'couleur', 'pointure')
     
     # Formulaire de promotion pour la modal
     form_promotion = PromotionForm()
     
+    # Récupérer les paramètres de filtrage
+    filtre_phase = request.GET.get('filtre_phase', 'tous')
+    filtre_promotion = request.GET.get('filtre_promotion', '')
+    filtre_stock = request.GET.get('filtre_stock', '')
+    search = request.GET.get('search', '')
+    
+    # Filtrage par phase
+    if filtre_phase and filtre_phase != 'tous':
+        articles = articles.filter(phase=filtre_phase)
+    
+    # Filtrage par promotion
+    now = timezone.now()
+    if filtre_promotion == 'avec_promo':
+        articles = articles.filter(
+            promotions__active=True,
+            promotions__date_debut__lte=now,
+            promotions__date_fin__gte=now
+        ).distinct()
+    elif filtre_promotion == 'sans_promo':
+        articles = articles.exclude(
+            promotions__active=True,
+            promotions__date_debut__lte=now,
+            promotions__date_fin__gte=now
+        ).distinct()
+    
+    # Filtrage par stock
+    if filtre_stock == 'disponible':
+        articles = articles.filter(qte_disponible__gt=0)
+    elif filtre_stock == 'rupture':
+        articles = articles.filter(qte_disponible=0)
+    elif filtre_stock == 'stock_faible':
+        articles = articles.filter(qte_disponible__gt=0, qte_disponible__lt=5)
+    
     # Recherche unique sur plusieurs champs
-    search = request.GET.get('search')
     if search:
         # Essayer de convertir la recherche en nombre pour le prix
         try:
@@ -55,18 +87,31 @@ def liste_articles(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Statistiques simples
+    # Statistiques mises à jour selon les filtres appliqués
     all_articles = Article.objects.filter(actif=True)
     stats = {
         'total_articles': all_articles.count(),
         'articles_disponibles': all_articles.filter(qte_disponible__gt=0).count(),
+        'articles_en_cours': all_articles.filter(phase='EN_COURS').count(),
+        'articles_liquidation': all_articles.filter(phase='LIQUIDATION').count(),
+        'articles_test': all_articles.filter(phase='EN_TEST').count(),
+        'articles_promotion': all_articles.filter(
+            promotions__active=True,
+            promotions__date_debut__lte=now,
+            promotions__date_fin__gte=now
+        ).distinct().count(),
+        'articles_rupture': all_articles.filter(qte_disponible=0).count(),
+        'articles_stock_faible': all_articles.filter(qte_disponible__gt=0, qte_disponible__lt=5).count(),
     }
     
     context = {
         'page_obj': page_obj,
         'search': search,
         'stats': stats,
-        'form_promotion': form_promotion,  # Ajout du formulaire au contexte
+        'form_promotion': form_promotion,
+        'filtre_phase': filtre_phase,
+        'filtre_promotion': filtre_promotion,
+        'filtre_stock': filtre_stock,
     }
     return render(request, 'article/liste.html', context)
 
@@ -260,13 +305,23 @@ def modifier_article(request, id):
                 if article.has_promo_active:
                     messages.warning(request, f"Impossible de changer la phase de l'article car il est actuellement en promotion.")
                 else:
+                    # Vérifier si l'upsell était actif avant le changement
+                    upsell_was_active = article.isUpsell
+                    old_phase = article.phase
+                    
                     article.phase = phase
+                    
+                    # Message avec info sur l'upsell si désactivé
+                    upsell_message = ""
+                    if upsell_was_active and phase in ['LIQUIDATION', 'EN_TEST'] and old_phase != phase:
+                        upsell_message = " L'upsell a été automatiquement désactivé."
+                    
                     if phase == 'LIQUIDATION':
-                        messages.warning(request, f"L'article '{article.nom}' a été mis en liquidation.")
+                        messages.warning(request, f"L'article '{article.nom}' a été mis en liquidation.{upsell_message}")
                     elif phase == 'EN_TEST':
-                        messages.info(request, f"L'article '{article.nom}' a été mis en phase de test.")
+                        messages.info(request, f"L'article '{article.nom}' a été mis en phase de test.{upsell_message}")
                     elif phase == 'EN_COURS':
-                        messages.success(request, f"L'article '{article.nom}' a été remis en phase par défaut (En Cours).")
+                        messages.success(request, f"L'article '{article.nom}' a été remis en phase par défaut (En Cours).{upsell_message}")
             
             # Gérer l'image si elle est fournie
             if 'image' in request.FILES:
@@ -499,7 +554,26 @@ def creer_promotion(request):
                 if articles_selectionnes:
                     promotion.articles.set(articles_selectionnes)
                 
+                    # Vérifier si la promotion doit être active automatiquement
+                    now = timezone.now()
+                    if promotion.active and promotion.date_debut <= now <= promotion.date_fin:
+                        # Compter les articles avec upsell actif avant application
+                        articles_avec_upsell = sum(1 for article in articles_selectionnes if article.isUpsell)
+                        
+                        # Appliquer la promotion aux articles sélectionnés
+                        promotion.activer_promotion()
+                        
+                        # Message avec info sur les upsells désactivés
+                        upsell_message = ""
+                        if articles_avec_upsell > 0:
+                            upsell_message = f" {articles_avec_upsell} upsell(s) ont été automatiquement désactivé(s)."
+                        
+                        messages.success(request, f"La promotion '{promotion.nom}' a été créée et activée avec succès. Les réductions ont été appliquées aux {len(articles_selectionnes)} article(s) sélectionné(s).{upsell_message}")
+                    else:
+                        messages.success(request, f"La promotion '{promotion.nom}' a été créée avec succès.")
+                else:
                 messages.success(request, f"La promotion '{promotion.nom}' a été créée avec succès.")
+                
                 return redirect('article:detail_promotion', id=promotion.id)
             except Exception as e:
                 messages.error(request, f"Erreur lors de la création de la promotion : {str(e)}")
@@ -528,10 +602,55 @@ def modifier_promotion(request, id):
     promotion = get_object_or_404(Promotion, id=id)
     
     if request.method == 'POST':
+        # Conserver les anciens articles pour comparaison
+        anciens_articles = list(promotion.articles.all())
+        
         form = PromotionForm(request.POST, instance=promotion)
         if form.is_valid():
-            form.save()
+            promotion_modifiee = form.save()
+            
+            # Récupérer les nouveaux articles
+            nouveaux_articles = list(promotion_modifiee.articles.all())
+            
+            # Vérifier si la promotion doit être active
+            now = timezone.now()
+            if promotion_modifiee.active and promotion_modifiee.date_debut <= now <= promotion_modifiee.date_fin:
+                # Retirer la promotion des anciens articles qui ne sont plus dans la promotion
+                for article in anciens_articles:
+                    if article not in nouveaux_articles:
+                        # Vérifier si l'article n'a pas d'autres promotions actives
+                        autres_promotions_actives = article.promotions.filter(
+                            active=True,
+                            date_debut__lte=now,
+                            date_fin__gte=now
+                        ).exclude(id=promotion_modifiee.id).exists()
+                        
+                        if not autres_promotions_actives:
+                            article.retirer_promotion()
+                        else:
+                            article.update_prix_actuel()
+                
+                # Appliquer la promotion aux nouveaux articles
+                for article in nouveaux_articles:
+                    article.appliquer_promotion(promotion_modifiee)
+                
+                messages.success(request, f"La promotion '{promotion.nom}' a été modifiée avec succès. Les prix ont été mis à jour.")
+            else:
+                # Si la promotion n'est pas active, retirer la promotion de tous les anciens articles
+                for article in anciens_articles:
+                    autres_promotions_actives = article.promotions.filter(
+                        active=True,
+                        date_debut__lte=now,
+                        date_fin__gte=now
+                    ).exclude(id=promotion_modifiee.id).exists()
+                    
+                    if not autres_promotions_actives:
+                        article.retirer_promotion()
+                    else:
+                        article.update_prix_actuel()
+                
             messages.success(request, f"La promotion '{promotion.nom}' a été modifiée avec succès.")
+            
             return redirect('article:detail_promotion', id=promotion.id)
         else:
             for field, errors in form.errors.items():
@@ -570,10 +689,19 @@ def activer_desactiver_promotion(request, id):
         action = "désactivée"
         messages.success(request, f"La promotion '{promotion.nom}' a été {action} avec succès. Les prix des articles ont été remis à leur état initial.")
     else:
+        # Compter les articles avec upsell actif avant activation
+        articles_avec_upsell = sum(1 for article in promotion.articles.all() if article.isUpsell)
+        
         # Activer la promotion
         promotion.activer_promotion()
         action = "activée"
-        messages.success(request, f"La promotion '{promotion.nom}' a été {action} avec succès. Les réductions ont été appliquées aux articles.")
+        
+        # Message avec info sur les upsells désactivés
+        upsell_message = ""
+        if articles_avec_upsell > 0:
+            upsell_message = f" {articles_avec_upsell} upsell(s) ont été automatiquement désactivé(s)."
+        
+        messages.success(request, f"La promotion '{promotion.nom}' a été {action} avec succès. Les réductions ont été appliquées aux articles.{upsell_message}")
     
     # Rediriger vers la page précédente ou la liste des promotions
     referer = request.META.get('HTTP_REFERER')
@@ -594,16 +722,22 @@ def changer_phase(request, id):
         else:
             phase = request.POST.get('phase')
             if phase in dict(Article.PHASE_CHOICES).keys():
+                # Vérifier si l'upsell était actif avant le changement
+                upsell_was_active = article.isUpsell
+                
                 article.phase = phase
+                # L'upsell sera automatiquement désactivé par la méthode save() si nécessaire
                 article.save()
                 
-                # Message en fonction de la phase
+                # Message en fonction de la phase avec info sur l'upsell
+                upsell_message = " L'upsell a été automatiquement désactivé." if upsell_was_active and phase in ['LIQUIDATION', 'EN_TEST'] else ""
+                
                 if phase == 'EN_COURS':
-                    messages.success(request, f"L'article '{article.nom}' a été remis en phase par défaut (En Cours).")
+                    messages.success(request, f"L'article '{article.nom}' a été remis en phase par défaut (En Cours).{upsell_message}")
                 elif phase == 'LIQUIDATION':
-                    messages.warning(request, f"L'article '{article.nom}' a été mis en liquidation.")
+                    messages.warning(request, f"L'article '{article.nom}' a été mis en liquidation.{upsell_message}")
                 elif phase == 'EN_TEST':
-                    messages.info(request, f"L'article '{article.nom}' a été mis en phase de test.")
+                    messages.info(request, f"L'article '{article.nom}' a été mis en phase de test.{upsell_message}")
                 
     # Rediriger vers la page précédente ou la page de détail
     referer = request.META.get('HTTP_REFERER')
@@ -628,13 +762,20 @@ def appliquer_liquidation(request, id):
             messages.error(request, "Le pourcentage de réduction doit être compris entre 0 et 90%.")
             return redirect('article:detail', id=article.id)
         
+        # Désactiver l'upsell avant de mettre en liquidation
+        upsell_was_active = article.isUpsell
+        
         # Mettre l'article en liquidation
         article.phase = 'LIQUIDATION'
         # Calculer et appliquer la réduction
         reduction = article.prix_unitaire * (pourcentage / 100)
         article.prix_actuel = article.prix_unitaire - reduction
+        # L'upsell sera automatiquement désactivé par la méthode save()
         article.save()
         
+        if upsell_was_active:
+            messages.success(request, f"L'article a été mis en liquidation avec une réduction de {pourcentage}%. L'upsell a été automatiquement désactivé.")
+        else:
         messages.success(request, f"L'article a été mis en liquidation avec une réduction de {pourcentage}%.")
         
     except (ValueError, TypeError):
@@ -662,60 +803,7 @@ def reinitialiser_prix(request, id):
         return redirect(referer)
     return redirect('article:detail', id=article.id)
 
-@login_required
-def reset_expired_promotions(request):
-    """Réinitialise les prix des articles ayant des promotions expirées"""
-    now = timezone.now()
-    
-    # Trouver toutes les promotions expirées qui sont encore actives
-    expired_promotions = Promotion.objects.filter(
-        date_fin__lt=now,
-        active=True
-    )
-    
-    # Compter les promotions et articles mis à jour
-    updated_promotions_count = 0
-    updated_articles_count = 0
-    
-    # Parcourir chaque promotion expirée
-    for promotion in expired_promotions:
-        # Compter les articles avant désactivation
-        articles_count = promotion.articles.count()
-        
-        # Désactiver la promotion (cela met automatiquement à jour les prix)
-        promotion.desactiver_promotion()
-        
-        updated_promotions_count += 1
-        updated_articles_count += articles_count
-    
-    # Vérifier aussi les promotions qui devraient être actives
-    future_promotions = Promotion.objects.filter(
-        date_debut__lte=now,
-        date_fin__gte=now,
-        active=False
-    )
-    
-    activated_promotions_count = 0
-    for promotion in future_promotions:
-        promotion.activer_promotion()
-        activated_promotions_count += 1
-    
-    # Messages de feedback
-    messages_list = []
-    if updated_promotions_count > 0:
-        messages_list.append(f"{updated_promotions_count} promotion(s) expirée(s) désactivée(s)")
-    if activated_promotions_count > 0:
-        messages_list.append(f"{activated_promotions_count} promotion(s) activée(s)")
-    if updated_articles_count > 0:
-        messages_list.append(f"{updated_articles_count} article(s) mis à jour")
-    
-    if messages_list:
-        messages.success(request, " et ".join(messages_list) + ".")
-    else:
-        messages.info(request, "Aucune promotion à traiter.")
-    
-    # Rediriger vers la liste des promotions
-    return redirect('article:liste_promotions')
+
 
 @login_required
 def gerer_promotions_automatiquement(request):
@@ -758,3 +846,59 @@ def gerer_promotions_automatiquement(request):
     
     # Rediriger vers la liste des promotions
     return redirect('article:liste_promotions')
+
+
+
+@login_required
+def corriger_upsells(request):
+    """Corrige les upsells qui devraient être désactivés (vue web)"""
+    try:
+        # Compter les articles avec upsell qui devraient être désactivés
+        articles_avec_upsell = Article.objects.filter(isUpsell=True, actif=True)
+        
+        articles_a_corriger = []
+        stats = {'liquidation': 0, 'test': 0, 'promotion': 0}
+        
+        for article in articles_avec_upsell:
+            if article.should_disable_upsell():
+                articles_a_corriger.append(article)
+                
+                # Compter les raisons
+                if article.phase == 'LIQUIDATION':
+                    stats['liquidation'] += 1
+                elif article.phase == 'EN_TEST':
+                    stats['test'] += 1
+                if article.has_promo_active:
+                    stats['promotion'] += 1
+        
+        if not articles_a_corriger:
+            messages.info(request, "✅ Tous les upsells sont correctement configurés.")
+        else:
+            # Appliquer les corrections
+            corrected_count = 0
+            for article in articles_a_corriger:
+                article.isUpsell = False
+                article.save(update_fields=['isUpsell'])
+                corrected_count += 1
+            
+            # Message détaillé
+            details = []
+            if stats['liquidation'] > 0:
+                details.append(f"{stats['liquidation']} en liquidation")
+            if stats['test'] > 0:
+                details.append(f"{stats['test']} en test")
+            if stats['promotion'] > 0:
+                details.append(f"{stats['promotion']} en promotion")
+            
+            detail_str = " (" + ", ".join(details) + ")" if details else ""
+            
+            messages.success(request, 
+                f"✅ Correction des upsells terminée ! "
+                f"{corrected_count} article(s) mis à jour{detail_str}."
+            )
+        
+    except Exception as e:
+        messages.error(request, f"❌ Erreur lors de la correction des upsells : {str(e)}")
+    
+    # Rediriger vers la liste des articles
+    return redirect('article:liste')

@@ -41,6 +41,9 @@
             <button type="button" data-modal-target="promotionModal" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
                 <i class="fas fa-percent mr-2"></i>Nouvelle Promotion
             </button>
+            <a href="{% url 'article:corriger_upsells' %}" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" title="Corrige automatiquement les upsells qui devraient être désactivés">
+                <i class="fas fa-wrench mr-2"></i>Corriger Upsells
+            </a>
         </div>
     </div>
 
@@ -73,29 +76,128 @@
                 </div>
             </div>
         </div>
+        
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-red-300 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-percent text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">En Promotion</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600">{{ stats.articles_promotion }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-orange-300 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 transition-all duration-300 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-fire text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Liquidation</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600">{{ stats.articles_liquidation }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Barre de recherche et filtres -->
     <div class="bg-white rounded-xl shadow-md border p-6 mb-8" style="border-color: #e6fffe;">
-        <form method="get" class="flex flex-col md:flex-row gap-4">
-            <div class="flex-grow">
-                <div class="relative">
-                    <input type="text" name="search" value="{{ search|default:'' }}" 
-                           class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
-                           style="border-color: #99dddd; focus:ring-color: #023535;"
-                           placeholder="Rechercher par nom, référence, couleur, pointure ou prix...">
-                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+        <form method="get" class="space-y-4">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-grow">
+                    <div class="relative">
+                        <input type="text" name="search" value="{{ search|default:'' }}" 
+                               class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                               style="border-color: #99dddd; focus:ring-color: #023535;"
+                               placeholder="Rechercher par nom, référence, couleur, pointure ou prix...">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
                 </div>
-                        </div>
-            <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
-                    style="background-color: #023535;">
-                Rechercher
-            </button>
-            {% if search %}
-            <a href="{% url 'article:liste' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
-                Réinitialiser
-            </a>
-            {% endif %}
+                <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                        style="background-color: #023535;">
+                    Rechercher
+                </button>
+                {% if search or filtre_phase != 'tous' or filtre_promotion or filtre_stock %}
+                <a href="{% url 'article:liste' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    Réinitialiser
+                </a>
+                {% endif %}
+            </div>
+            
+            <!-- Filtres par catégories -->
+            <div class="flex flex-wrap gap-2 items-center">
+                <span class="text-sm font-medium text-gray-700">Filtres :</span>
+                
+                <!-- Filtres par phase -->
+                <div class="flex gap-2">
+                    <a href="?{% if search %}search={{ search }}&{% endif %}filtre_phase=tous" 
+                       class="px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 
+                              {% if filtre_phase == 'tous' or not filtre_phase %}text-white{% else %}text-gray-700 hover:text-white{% endif %}" 
+                       style="{% if filtre_phase == 'tous' or not filtre_phase %}background-color: var(--admin-color);{% else %}background-color: #f3f4f6; hover:background-color: var(--admin-color);{% endif %}">
+                        <i class="fas fa-list mr-1"></i>Tous
+                    </a>
+                    <a href="?{% if search %}search={{ search }}&{% endif %}filtre_phase=EN_COURS" 
+                       class="px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 
+                              {% if filtre_phase == 'EN_COURS' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-blue-600 hover:text-white{% endif %}">
+                        <i class="fas fa-play-circle mr-1"></i>En Cours
+                    </a>
+                    <a href="?{% if search %}search={{ search }}&{% endif %}filtre_phase=LIQUIDATION" 
+                       class="px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 
+                              {% if filtre_phase == 'LIQUIDATION' %}bg-orange-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-orange-600 hover:text-white{% endif %}">
+                        <i class="fas fa-fire mr-1"></i>Liquidation
+                    </a>
+                    <a href="?{% if search %}search={{ search }}&{% endif %}filtre_phase=EN_TEST" 
+                       class="px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 
+                              {% if filtre_phase == 'EN_TEST' %}bg-yellow-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-yellow-600 hover:text-white{% endif %}">
+                        <i class="fas fa-flask mr-1"></i>En Test
+                    </a>
+                </div>
+                
+                <!-- Séparateur -->
+                <div class="w-px h-6 bg-gray-300"></div>
+                
+                <!-- Filtres par promotion -->
+                <div class="flex gap-2">
+                    <a href="?{% if search %}search={{ search }}&{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}filtre_phase={{ filtre_phase }}&{% endif %}filtre_promotion=avec_promo" 
+                       class="px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 
+                              {% if filtre_promotion == 'avec_promo' %}bg-red-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-red-600 hover:text-white{% endif %}">
+                        <i class="fas fa-percent mr-1"></i>En Promotion
+                    </a>
+                    <a href="?{% if search %}search={{ search }}&{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}filtre_phase={{ filtre_phase }}&{% endif %}filtre_promotion=sans_promo" 
+                       class="px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 
+                              {% if filtre_promotion == 'sans_promo' %}bg-green-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-green-600 hover:text-white{% endif %}">
+                        <i class="fas fa-tag mr-1"></i>Sans Promotion
+                    </a>
+                </div>
+                
+                <!-- Séparateur -->
+                <div class="w-px h-6 bg-gray-300"></div>
+                
+                <!-- Filtres par stock -->
+                <div class="flex gap-2">
+                    <a href="?{% if search %}search={{ search }}&{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}filtre_phase={{ filtre_phase }}&{% endif %}{% if filtre_promotion %}filtre_promotion={{ filtre_promotion }}&{% endif %}filtre_stock=disponible" 
+                       class="px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 
+                              {% if filtre_stock == 'disponible' %}bg-emerald-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-emerald-600 hover:text-white{% endif %}">
+                        <i class="fas fa-check-circle mr-1"></i>Disponibles
+                    </a>
+                    <a href="?{% if search %}search={{ search }}&{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}filtre_phase={{ filtre_phase }}&{% endif %}{% if filtre_promotion %}filtre_promotion={{ filtre_promotion }}&{% endif %}filtre_stock=rupture" 
+                       class="px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 
+                              {% if filtre_stock == 'rupture' %}bg-gray-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-600 hover:text-white{% endif %}">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>Rupture
+                    </a>
+                    <a href="?{% if search %}search={{ search }}&{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}filtre_phase={{ filtre_phase }}&{% endif %}{% if filtre_promotion %}filtre_promotion={{ filtre_promotion }}&{% endif %}filtre_stock=stock_faible" 
+                       class="px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 
+                              {% if filtre_stock == 'stock_faible' %}bg-amber-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-amber-600 hover:text-white{% endif %}">
+                        <i class="fas fa-battery-quarter mr-1"></i>Stock Faible
+                    </a>
+                </div>
+            </div>
         </form>
                     </div>
                     
@@ -119,6 +221,49 @@
                         </button>
     </div>
 
+    <!-- Indicateur de filtres actifs -->
+    {% if search or filtre_phase != 'tous' or filtre_promotion or filtre_stock %}
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="fas fa-filter text-blue-600 mr-2"></i>
+                <span class="text-sm font-medium text-blue-800">
+                    Filtres actifs : {{ page_obj.paginator.count }} article(s) trouvé(s)
+                </span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {% if search %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    <i class="fas fa-search mr-1"></i>
+                    Recherche: "{{ search }}"
+                </span>
+                {% endif %}
+                {% if filtre_phase != 'tous' %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <i class="fas fa-layer-group mr-1"></i>
+                    Phase: {{ filtre_phase|capfirst }}
+                </span>
+                {% endif %}
+                {% if filtre_promotion %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    <i class="fas fa-percent mr-1"></i>
+                    {% if filtre_promotion == 'avec_promo' %}Avec promotion{% else %}Sans promotion{% endif %}
+                </span>
+                {% endif %}
+                {% if filtre_stock %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <i class="fas fa-boxes mr-1"></i>
+                    {% if filtre_stock == 'disponible' %}Disponibles
+                    {% elif filtre_stock == 'rupture' %}Rupture de stock
+                    {% elif filtre_stock == 'stock_faible' %}Stock faible
+                    {% endif %}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Message si aucun résultat -->
     {% if not page_obj %}
     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
@@ -128,7 +273,7 @@
             </div>
             <div class="ml-3">
                 <p class="text-sm text-yellow-700">
-                    Aucun article trouvé{% if search %} pour la recherche "{{ search }}"{% endif %}.
+                    Aucun article trouvé{% if search %} pour la recherche "{{ search }}"{% endif %}{% if filtre_phase != 'tous' or filtre_promotion or filtre_stock %} avec les filtres appliqués{% endif %}.
                 </p>
         </div>
         </div>
@@ -340,12 +485,12 @@
             <ul class="flex items-center -space-x-px">
             {% if page_obj.has_previous %}
                     <li>
-                        <a href="?page=1{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                        <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
                             <i class="fas fa-angle-double-left"></i>
                         </a>
                     </li>
                     <li>
-                        <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
                             <i class="fas fa-angle-left"></i>
                         </a>
                     </li>
@@ -358,19 +503,19 @@
                         </li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                         <li>
-                            <a href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">{{ num }}</a>
+                            <a href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">{{ num }}</a>
                         </li>
                 {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
                     <li>
-                        <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                        <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
                             <i class="fas fa-angle-right"></i>
                         </a>
                     </li>
                     <li>
-                        <a href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
+                        <a href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
                             <i class="fas fa-angle-double-right"></i>
                         </a>
                     </li>

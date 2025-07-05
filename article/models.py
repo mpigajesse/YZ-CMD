@@ -102,6 +102,10 @@ class Article(models.Model):
         # Arrondir le prix actuel à 2 décimales si nécessaire
         self.prix_actuel = Decimal(str(self.prix_actuel)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
+        # Désactiver automatiquement l'upsell si nécessaire
+        if self.isUpsell and self.should_disable_upsell():
+            self.isUpsell = False
+        
         super().save(*args, **kwargs)
     
     @property
@@ -139,13 +143,24 @@ class Article(models.Model):
             reduction = self.prix_unitaire * (promotion.pourcentage_reduction / 100)
             nouveau_prix = self.prix_unitaire - reduction
             self.prix_actuel = Decimal(str(nouveau_prix)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-            self.save(update_fields=['prix_actuel'])
+            
+            # Désactiver l'upsell automatiquement lors de l'application d'une promotion
+            fields_to_update = ['prix_actuel']
+            if self.isUpsell:
+                self.isUpsell = False
+                fields_to_update.append('isUpsell')
+            
+            self.save(update_fields=fields_to_update)
             return True
         return False
     
     def retirer_promotion(self):
         """Retire toutes les promotions et remet le prix actuel au prix unitaire"""
         self.prix_actuel = self.prix_unitaire
+        
+        # Note: Ne pas réactiver automatiquement l'upsell car cela doit être fait manuellement
+        # L'upsell reste désactivé après une promotion pour éviter les activations non désirées
+        
         self.save(update_fields=['prix_actuel'])
         return True
     
@@ -165,6 +180,20 @@ class Article(models.Model):
         """Retourne True si l'article a au moins une promotion active (non expirée et active=True)"""
         now = timezone.now()
         return self.promotions.filter(active=True, date_debut__lte=now, date_fin__gte=now).exists()
+
+    @property
+    def economie(self):
+        """Retourne l'économie réalisée grâce aux promotions"""
+        if self.prix_actuel is not None and self.prix_unitaire > self.prix_actuel:
+            return self.prix_unitaire - self.prix_actuel
+        return Decimal('0.00')
+    
+    def should_disable_upsell(self):
+        """Vérifie si l'upsell devrait être désactivé automatiquement"""
+        return (
+            self.phase in ['LIQUIDATION', 'EN_TEST'] or
+            (self.pk and self.has_promo_active)
+        )
 
     def get_prix_upsell(self, quantite):
         """
@@ -321,6 +350,45 @@ class Promotion(models.Model):
     @property
     def est_expiree(self):
         return self.date_fin < timezone.now()
+    
+    def calculer_statistiques_prix(self):
+        """Calcule les statistiques de prix pour tous les articles de la promotion"""
+        articles = self.articles.all()
+        
+        if not articles:
+            return {
+                'prix_moyen_original': 0,
+                'prix_moyen_reduit': 0,
+                'economie_moyenne': 0,
+                'economie_totale': 0,
+                'prix_min_original': 0,
+                'prix_max_original': 0,
+                'prix_min_reduit': 0,
+                'prix_max_reduit': 0
+            }
+        
+        # Calculs des prix
+        prix_originaux = [float(article.prix_unitaire) for article in articles]
+        prix_reduits = [float(article.prix_actuel or article.prix_unitaire) for article in articles]
+        economies = [float(article.economie) for article in articles]
+        
+        # Statistiques
+        prix_moyen_original = sum(prix_originaux) / len(prix_originaux)
+        prix_moyen_reduit = sum(prix_reduits) / len(prix_reduits)
+        economie_moyenne = sum(economies) / len(economies)
+        economie_totale = sum(economies)
+        
+        return {
+            'prix_moyen_original': prix_moyen_original,
+            'prix_moyen_reduit': prix_moyen_reduit,
+            'economie_moyenne': economie_moyenne,
+            'economie_totale': economie_totale,
+            'prix_min_original': min(prix_originaux),
+            'prix_max_original': max(prix_originaux),
+            'prix_min_reduit': min(prix_reduits),
+            'prix_max_reduit': max(prix_reduits),
+            'nb_articles': len(articles)
+        }
 
 class Categorie(models.Model):
     """
