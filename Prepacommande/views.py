@@ -5,7 +5,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from datetime import datetime, timedelta
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 
 import json
@@ -217,6 +217,18 @@ def liste_prepa(request):
     
     # Tri par date d'affectation (plus récentes en premier)
     commandes_affectees = commandes_affectees.order_by('-etats__date_debut')
+
+    # Générer les codes-barres pour chaque commande
+    code128 = barcode.get_barcode_class('code128')
+    for commande in commandes_affectees:
+        if commande.id_yz:
+            barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
+            buffer = BytesIO()
+            barcode_instance.write(buffer, options={'write_text': False, 'module_height': 10.0})
+            barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            commande.barcode_base64 = barcode_base64
+        else:
+            commande.barcode_base64 = None
     
     # Statistiques
     total_affectees = commandes_affectees.count()
@@ -243,6 +255,52 @@ def liste_prepa(request):
         'api_changer_etat_url_base': reverse('Prepacommande:api_changer_etat_preparation', args=[99999999]),
     }
     return render(request, 'Prepacommande/liste_prepa.html', context)
+
+@login_required
+def commandes_a_imprimer(request):
+    """Affiche les commandes avec l'état 'À imprimer' pour l'opérateur connecté."""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='À imprimer',
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville').order_by('-etats__date_debut').distinct()
+
+    context = {
+        'commandes': commandes,
+    }
+    return render(request, 'Prepacommande/commandes_a_imprimer.html', context)
+
+@login_required
+def commandes_en_preparation(request):
+    """Affiche les commandes avec l'état 'En préparation' pour l'opérateur connecté."""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='En préparation',
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville').order_by('-etats__date_debut').distinct()
+
+    context = {
+        'commandes': commandes,
+    }
+    return render(request, 'Prepacommande/commandes_en_preparation.html', context)
 
 @login_required
 def profile_view(request):
@@ -468,66 +526,127 @@ def detail_prepa(request, pk):
 
 @login_required
 def etiquette_view(request):
-    """Page de gestion des étiquettes pour les commandes préparées"""
+    """
+    Page de gestion des étiquettes pour les commandes.
+    - Si des IDs sont passés en GET, affiche les étiquettes pour ces commandes et les passe à l'état 'En préparation'.
+    - Sinon, affiche les commandes déjà préparées par l'opérateur.
+    """
     try:
         operateur_profile = request.user.profil_operateur
-        
-        # Vérifier que l'utilisateur est un opérateur de préparation
         if not operateur_profile.is_preparation:
-            messages.error(request, "Accès non autorisé. Vous n'êtes pas un opérateur de préparation.")
+            messages.error(request, "Accès non autorisé.")
             return redirect('login')
-            
     except Operateur.DoesNotExist:
         messages.error(request, "Votre profil opérateur n'existe pas.")
         return redirect('login')
 
-    # Récupérer les commandes préparées par cet opérateur
-    # Une commande est considérée comme préparée quand elle a un état "Préparée" actif
-    from django.db.models import Max
+    commande_ids_str = request.GET.get('ids')
+    commandes_a_imprimer = []
+
+    if commande_ids_str:
+        commande_ids = [int(id) for id in commande_ids_str.split(',') if id.isdigit()]
+        commandes_a_imprimer = Commande.objects.filter(id__in=commande_ids, etats__operateur=operateur_profile).distinct()
+
+        # Passer les commandes à l'état "En préparation"
+        etat_en_preparation_enum, _ = EnumEtatCmd.objects.get_or_create(libelle='En préparation')
+        with transaction.atomic():
+            for commande in commandes_a_imprimer:
+                etat_a_imprimer = commande.etats.filter(enum_etat__libelle='À imprimer', date_fin__isnull=True).first()
+                if etat_a_imprimer:
+                    etat_a_imprimer.date_fin = timezone.now()
+                    etat_a_imprimer.save()
+
+                    EtatCommande.objects.create(
+                        commande=commande,
+                        enum_etat=etat_en_preparation_enum,
+                        operateur=operateur_profile
+                    )
+        
+        page_title = "Impression des Étiquettes"
+        page_subtitle = f"{len(commandes_a_imprimer)} étiquette(s) à imprimer"
+
+    else:
+        commandes_a_imprimer = Commande.objects.filter(
+            etats__enum_etat__libelle='Préparée',
+            etats__operateur=operateur_profile,
+            etats__date_fin__isnull=True
+        ).select_related('client', 'ville', 'ville__region').order_by('-etats__date_debut').distinct()
+
+        # Ajouter la date de préparation pour chaque commande
+        for commande in commandes_a_imprimer:
+            etat_preparee = commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut').first()
+            if etat_preparee:
+                commande.date_preparation = etat_preparee.date_debut
+
+        page_title = 'Consultation des Commandes Préparées'
+        page_subtitle = f'Consultez vos {commandes_a_imprimer.count()} commande(s) préparée(s)'
     
-    commandes_preparees = Commande.objects.filter(
-        etats__enum_etat__libelle='Préparée',
-        etats__operateur=operateur_profile,
-        etats__date_fin__isnull=True  # État actif = commande préparée
-    ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats__enum_etat').annotate(
-        date_preparation=Max('etats__date_debut')
-    ).distinct()
-    
-    # Recherche
-    search_query = request.GET.get('search', '')
-    if search_query:
-        commandes_preparees = commandes_preparees.filter(
-            Q(id_yz__icontains=search_query) |
-            Q(num_cmd__icontains=search_query) |
-            Q(client__nom__icontains=search_query) |
-            Q(client__prenom__icontains=search_query) |
-            Q(client__numero_tel__icontains=search_query)
-        ).distinct()
-    
-    # Tri par date de préparation (plus récentes en premier)
-    commandes_preparees = commandes_preparees.order_by('-date_preparation')
-    
-    # Générer les codes-barres pour chaque commande
+    # Générer les codes-barres
     code128 = barcode.get_barcode_class('code128')
-    for commande in commandes_preparees:
+    for commande in commandes_a_imprimer:
         barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
         buffer = BytesIO()
-        barcode_instance.write(buffer, options={'write_text': False})
+        barcode_instance.write(buffer, options={'write_text': False, 'module_height': 15.0, 'module_width': 0.3})
         barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        commande.barcode_base64 = f"data:image/png;base64,{barcode_base64}"
-    
-    # Statistiques
-    total_preparees = commandes_preparees.count()
+        commande.barcode_base64 = barcode_base64
     
     context = {
-        'page_title': 'Consultation des Commandes Préparées',
-        'page_subtitle': f'Consultez vos {total_preparees} commande(s) préparée(s)',
-        'commandes_preparees': commandes_preparees,
-        'search_query': search_query,
-        'total_preparees': total_preparees,
+        'page_title': page_title,
+        'page_subtitle': page_subtitle,
+        'commandes_preparees': commandes_a_imprimer, # Le template utilise ce nom de variable
         'operateur_profile': operateur_profile,
     }
     return render(request, 'Prepacommande/etiquette.html', context)
+
+@login_required
+def impression_etiquettes_view(request):
+    """
+    Vue dédiée à générer une page contenant uniquement les étiquettes pour l'impression.
+    """
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            return HttpResponse("Accès non autorisé.", status=403)
+    except Operateur.DoesNotExist:
+        return HttpResponse("Profil opérateur non trouvé.", status=403)
+
+    commande_ids_str = request.GET.get('ids')
+    if not commande_ids_str:
+        return HttpResponse("Aucun ID de commande fourni.", status=400)
+
+    commande_ids = [int(id) for id in commande_ids_str.split(',') if id.isdigit()]
+    commandes = Commande.objects.filter(id__in=commande_ids, etats__operateur=operateur_profile).distinct()
+
+    # Logique de transition d'état et de génération de code-barres
+    etat_en_preparation_enum, _ = EnumEtatCmd.objects.get_or_create(libelle='En préparation')
+    code128 = barcode.get_barcode_class('code128')
+
+    with transaction.atomic():
+        for commande in commandes:
+            # Transition d'état
+            etat_a_imprimer = commande.etats.filter(enum_etat__libelle='À imprimer', date_fin__isnull=True).first()
+            if etat_a_imprimer:
+                etat_a_imprimer.date_fin = timezone.now()
+                etat_a_imprimer.save()
+                EtatCommande.objects.create(
+                    commande=commande,
+                    enum_etat=etat_en_preparation_enum,
+                    operateur=operateur_profile
+                )
+            
+            # Génération du code-barres
+            barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
+            buffer = BytesIO()
+            barcode_instance.write(buffer, options={'write_text': False, 'module_height': 15.0, 'module_width': 0.3})
+            barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            commande.barcode_base64 = barcode_base64
+            print(f"DEBUG: Barcode for commande {commande.id_yz}: {commande.barcode_base64[:50]}...") # Afficher les 50 premiers caractères
+            commande.date_preparation = timezone.now() # Pour affichage sur l'étiquette
+
+    context = {
+        'commandes': commandes,
+    }
+    return render(request, 'Prepacommande/impression_etiquettes.html', context)
 
 @login_required
 def api_commande_produits(request, commande_id):

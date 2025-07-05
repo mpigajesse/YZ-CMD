@@ -7,7 +7,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm # Importez PasswordChangeForm
 from django.http import JsonResponse, Http404, HttpResponse
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Count, Avg, F
 from django.utils import timezone
 from datetime import datetime, timedelta
 from commande.models import Commande
@@ -36,9 +36,6 @@ def dashboard(request):
     except Operateur.DoesNotExist:
         messages.error(request, "Profil d'opérateur logistique non trouvé.")
         return redirect('login')
-    
-    from django.db.models import Count, Q, Sum, Avg, F
-    from datetime import datetime, timedelta
     
     # Dates pour les statistiques
     today = timezone.now().date()
@@ -124,7 +121,6 @@ def dashboard(request):
     # === DÉTAILS SUPPLÉMENTAIRES DU STOCK ===
     
     # Articles les plus en demande (avec le plus de commandes)
-    from django.db.models import Count
     articles_populaires = Article.objects.filter(
         actif=True,
         paniers__isnull=False
@@ -445,21 +441,12 @@ def details_region(request, nom_region):
         messages.error(request, "Profil d'opérateur logistique non trouvé.")
         return redirect('login')
     
-    from commande.models import EnumEtatCmd
-    from django.db.models import Count
-    from urllib.parse import unquote
-    
-    # Décoder le nom de la région depuis l'URL
-    nom_region = unquote(nom_region)
-    
-    # Récupérer les commandes de cette région en cours de livraison
+    # Statistiques détaillées par ville
     commandes_region = Commande.objects.filter(
         etats__enum_etat__libelle='En cours de livraison',
         etats__date_fin__isnull=True,  # État actif
         ville__region__nom_region=nom_region
     ).select_related('client', 'ville', 'ville__region').prefetch_related('etats__operateur').distinct()
-    
-    # Statistiques détaillées par ville
     stats_par_ville = commandes_region.values(
         'ville__nom'
     ).annotate(

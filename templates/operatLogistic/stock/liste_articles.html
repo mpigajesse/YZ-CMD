@@ -1,0 +1,616 @@
+{% extends 'composant_generale/operatLogistic/base.html' %}
+{% load static %}
+{% load stock_filters %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--logistic-gradient-start), var(--logistic-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-boxes mr-3"></i>
+                {{ page_title }}
+            </h1>
+            <p class="text-gray-300">{{ page_subtitle }}</p>
+        </div>
+    </div>
+
+    <!-- Cards de statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <!-- Articles Totaux -->
+        <div class="group bg-white rounded-xl shadow-lg p-5 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Articles Totaux</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ articles_total }}</p>
+                </div>
+                <div class="p-3 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-boxes fa-lg"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Actifs -->
+        <div class="group bg-white rounded-xl shadow-lg p-5 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Actifs</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ articles_actifs }}</p>
+                </div>
+                <div class="p-3 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-check-circle fa-lg"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Inactifs -->
+        <div class="group bg-white rounded-xl shadow-lg p-5 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Inactifs</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{{ articles_inactifs }}</p>
+                </div>
+                <div class="p-3 rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-600 group-hover:from-yellow-500 group-hover:to-yellow-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-toggle-off fa-lg"></i>
+                </div>
+            </div>
+        </div>
+        <!-- En Rupture -->
+        <div class="group bg-white rounded-xl shadow-lg p-5 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">En Rupture de Stock</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-red-600 transition-colors">{{ articles_rupture }}</p>
+                </div>
+                <div class="p-3 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-exclamation-triangle fa-lg"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Articles créés aujourd'hui -->
+        <div class="group bg-white rounded-xl shadow-lg p-5 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Créés Aujourd'hui</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ articles_crees_aujourd_hui }}</p>
+                </div>
+                <div class="p-3 rounded-full bg-gradient-to-r from-purple-100 to-purple-200 text-purple-600 group-hover:from-purple-500 group-hover:to-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-plus-circle fa-lg"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres, recherche et actions -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+        <!-- Formulaire de recherche principal -->
+        <form method="get" id="searchForm" class="space-y-4">
+            <!-- Barre de recherche principale -->
+            <div class="flex flex-col lg:flex-row gap-4 items-center">
+                <div class="relative flex-1">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </span>
+                    <input type="text" name="q" id="q" placeholder="Rechercher par nom, référence, description, catégorie, couleur..." 
+                           value="{{ request.GET.q }}" 
+                           class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="px-6 py-3 rounded-lg text-white font-semibold transition-all hover:shadow-lg" 
+                            style="background-color: #5A67D8;">
+                        <i class="fas fa-search mr-2"></i>Rechercher
+                    </button>
+                    <button type="button" id="toggleFilters" class="px-4 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-all">
+                        <i class="fas fa-filter mr-2"></i>Filtres
+                        <i class="fas fa-chevron-down ml-2" id="filterChevron"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Filtres avancés (collapsibles) -->
+            <div id="advancedFilters" class="hidden border-t pt-4 mt-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <!-- Catégorie -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                        <select name="categorie" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            <option value="">Toutes les catégories</option>
+                            {% for cat in categories_uniques %}
+                                <option value="{{ cat }}" {% if request.GET.categorie == cat %}selected{% endif %}>{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Statut -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                        <select name="statut" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            <option value="">Tous les statuts</option>
+                            <option value="actif" {% if request.GET.statut == 'actif' %}selected{% endif %}>Actif</option>
+                            <option value="inactif" {% if request.GET.statut == 'inactif' %}selected{% endif %}>Inactif</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Niveau de stock -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Niveau de stock</label>
+                        <select name="stock" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            <option value="">Tous les niveaux</option>
+                            <option value="rupture" {% if request.GET.stock == 'rupture' %}selected{% endif %}>En rupture (≤ 0)</option>
+                            <option value="faible" {% if request.GET.stock == 'faible' %}selected{% endif %}>Stock faible (1-10)</option>
+                            <option value="normal" {% if request.GET.stock == 'normal' %}selected{% endif %}>Stock normal (11-50)</option>
+                            <option value="eleve" {% if request.GET.stock == 'eleve' %}selected{% endif %}>Stock élevé (> 50)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Couleur -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Couleur</label>
+                        <select name="couleur" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            <option value="">Toutes les couleurs</option>
+                            {% for couleur in couleurs_uniques %}
+                                <option value="{{ couleur }}" {% if request.GET.couleur == couleur %}selected{% endif %}>{{ couleur }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Phase -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Phase</label>
+                        <select name="phase" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            <option value="">Toutes les phases</option>
+                            {% for phase in phases_uniques %}
+                                <option value="{{ phase }}" {% if request.GET.phase == phase %}selected{% endif %}>{{ phase|capfirst }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Prix minimum -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Prix minimum (DH)</label>
+                        <input type="number" name="prix_min" step="0.01" placeholder="0.00" value="{{ request.GET.prix_min }}" 
+                               class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                    
+                    <!-- Prix maximum -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Prix maximum (DH)</label>
+                        <input type="number" name="prix_max" step="0.01" placeholder="999.99" value="{{ request.GET.prix_max }}" 
+                               class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                    
+                    <!-- Tri -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Trier par</label>
+                        <select name="tri" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            <option value="date_creation" {% if request.GET.tri == 'date_creation' or not request.GET.tri %}selected{% endif %}>Date de création (récent)</option>
+                            <option value="nom" {% if request.GET.tri == 'nom' %}selected{% endif %}>Nom (A-Z)</option>
+                            <option value="reference" {% if request.GET.tri == 'reference' %}selected{% endif %}>Référence</option>
+                            <option value="prix_asc" {% if request.GET.tri == 'prix_asc' %}selected{% endif %}>Prix (croissant)</option>
+                            <option value="prix_desc" {% if request.GET.tri == 'prix_desc' %}selected{% endif %}>Prix (décroissant)</option>
+                            <option value="stock_asc" {% if request.GET.tri == 'stock_asc' %}selected{% endif %}>Stock (croissant)</option>
+                            <option value="stock_desc" {% if request.GET.tri == 'stock_desc' %}selected{% endif %}>Stock (décroissant)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Boutons d'actions pour les filtres -->
+                <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm">
+                        <i class="fas fa-search mr-1"></i>Appliquer les filtres
+                    </button>
+                    <a href="{% url 'operatLogistic:stock_articles' %}" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all text-sm">
+                        <i class="fas fa-times mr-1"></i>Réinitialiser
+                    </a>
+                    <div class="flex-1"></div>
+                    <span class="text-sm text-gray-500 self-center">
+                        {{ articles.paginator.count }} article{{ articles.paginator.count|pluralize }} trouvé{{ articles.paginator.count|pluralize }}
+                    </span>
+                </div>
+            </div>
+        </form>
+        
+        <!-- Barre d'actions et de vue -->
+        <div class="flex justify-between items-center mt-4 pt-4 border-t">
+            <!-- Boutons de basculement d'affichage -->
+            <div class="flex bg-gray-100 rounded-lg p-1">
+                <button id="tableViewBtn" class="px-3 py-2 rounded-md text-sm font-medium transition-all bg-white text-gray-700 shadow-sm">
+                    <i class="fas fa-table mr-1"></i>Tableau
+                </button>
+                <button id="gridViewBtn" class="px-3 py-2 rounded-md text-sm font-medium transition-all text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-th-large mr-1"></i>Grille
+                </button>
+            </div>
+            
+            <!-- Bouton de création -->
+            <a href="{% url 'operatLogistic:creer_article' %}" class="flex justify-center items-center px-4 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                style="background-color: var(--logistic-primary);">
+                <i class="fas fa-plus-circle mr-2"></i>Créer un article
+            </a>
+        </div>
+    </div>
+    
+    <!-- Affichage en tableau -->
+    <div id="tableView" class="overflow-x-auto mb-8 bg-white rounded-xl shadow-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead style="background-color: var(--logistic-primary);">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Article
+                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Catégorie
+                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Prix Actuel
+                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Stock
+                    </th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                        Statut
+                    </th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                        Actions
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% if not articles %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-12 text-center text-gray-500">
+                            <div class="text-center">
+                                <i class="fas fa-search fa-3x text-gray-400 mb-3"></i>
+                                <h3 class="text-lg font-medium text-gray-800">Aucun article trouvé</h3>
+                                <p class="text-sm text-gray-500 mt-1">Essayez de modifier vos filtres de recherche.</p>
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    {% for article in articles %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-12 w-12">
+                                        {% if article.image %}
+                                            <img class="h-12 w-12 rounded-full object-cover" src="{{ article.image.url }}" alt="">
+                                        {% else %}
+                                            <div class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center">
+                                                <i class="fas fa-box text-gray-400"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">{{ article.nom }}</div>
+                                        <div class="text-sm text-gray-500">{{ article.reference }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ article.categorie|default:"N/A" }}</div>
+                                <div class="text-sm text-gray-500">{{ article.get_phase_display }}</div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold text-green-600">{{ article.prix_actuel|floatformat:2 }} DH</div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold {% if article.qte_disponible <= 0 %}text-red-500{% else %}text-gray-900{% endif %}">
+                                    {{ article.qte_disponible }}
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-center">
+                                {% if article.actif %}
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        Actif
+                                    </span>
+                                {% else %}
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                        Inactif
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-center">
+                                <div class="flex justify-center items-center space-x-2">
+                                    <a href="{% url 'operatLogistic:ajuster_stock' article.id %}" class="text-blue-600 hover:text-blue-800 transition-colors" title="Ajuster le stock">
+                                        <i class="fas fa-exchange-alt"></i>
+                                    </a>
+                                    <a href="{% url 'operatLogistic:detail_article' article.id %}" class="text-gray-600 hover:text-gray-800 transition-colors" title="Voir les détails">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'operatLogistic:modifier_article' article.id %}" class="text-purple-600 hover:text-purple-800 transition-colors" title="Modifier l'article">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Affichage en grille -->
+    <div id="gridView" class="hidden">
+        {% if not articles %}
+            <div class="bg-white rounded-xl shadow-lg p-12 text-center text-gray-500">
+                <i class="fas fa-search fa-3x text-gray-400 mb-3"></i>
+                <h3 class="text-lg font-medium text-gray-800">Aucun article trouvé</h3>
+                <p class="text-sm text-gray-500 mt-1">Essayez de modifier vos filtres de recherche.</p>
+            </div>
+        {% else %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {% for article in articles %}
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+                        <!-- Image de l'article -->
+                        <div class="h-48 bg-gray-100 flex items-center justify-center">
+                            {% if article.image %}
+                                <img class="h-full w-full object-cover" src="{{ article.image.url }}" alt="{{ article.nom }}">
+                            {% else %}
+                                <div class="text-gray-400">
+                                    <i class="fas fa-box fa-3x"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Contenu de la carte -->
+                        <div class="p-4">
+                            <!-- En-tête avec nom et référence -->
+                            <div class="mb-3">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ article.nom }}</h3>
+                                <p class="text-sm text-gray-500">{{ article.reference }}</p>
+                            </div>
+                            
+                            <!-- Informations principales -->
+                            <div class="space-y-2 mb-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600">Catégorie:</span>
+                                    <span class="text-sm font-medium text-gray-900">{{ article.categorie|default:"N/A" }}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600">Prix:</span>
+                                    <span class="text-sm font-bold text-gray-900">{{ article.prix_actuel|floatformat:2 }} DH</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600">Stock:</span>
+                                    <span class="text-sm font-bold {% if article.qte_disponible <= 0 %}text-red-500{% else %}text-gray-900{% endif %}">
+                                        {{ article.qte_disponible }}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- Statut -->
+                            <div class="mb-4">
+                                {% if article.actif %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                        Actif
+                                    </span>
+                                {% else %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                        Inactif
+                                    </span>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Actions -->
+                            <div class="flex justify-center space-x-2">
+                                <a href="{% url 'operatLogistic:ajuster_stock' article.id %}" class="p-2 rounded-full text-blue-600 bg-blue-100 hover:bg-blue-200 transition-colors" title="Ajuster le stock">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </a>
+                                <a href="{% url 'operatLogistic:detail_article' article.id %}" class="p-2 rounded-full text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors" title="Voir les détails">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'operatLogistic:modifier_article' article.id %}" class="p-2 rounded-full text-purple-600 bg-purple-100 hover:bg-purple-200 transition-colors" title="Modifier l'article">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if articles.has_other_pages %}
+    <div class="flex items-center justify-between bg-white px-4 py-3 sm:px-6 rounded-lg shadow-md mt-4">
+        <div class="flex flex-1 justify-between sm:hidden">
+            {% if articles.has_previous %}
+                <a href="?page={{ articles.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
+            {% endif %}
+            {% if articles.has_next %}
+                <a href="?page={{ articles.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
+            {% endif %}
+        </div>
+        <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700">
+                    Affiche de
+                    <span class="font-medium">{{ articles.start_index }}</span>
+                    à
+                    <span class="font-medium">{{ articles.end_index }}</span>
+                    sur
+                    <span class="font-medium">{{ articles.paginator.count }}</span>
+                    résultats
+                </p>
+            </div>
+            <div>
+                <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    {% if articles.has_previous %}
+                        <a href="?page={{ articles.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                            <span class="sr-only">Précédent</span>
+                            <i class="fas fa-chevron-left h-5 w-5"></i>
+                        </a>
+                    {% endif %}
+                    
+                    {% for i in articles.paginator.page_range %}
+                        {% if i == articles.number %}
+                            <a href="#" aria-current="page" class="relative z-10 inline-flex items-center px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style="background-color: var(--logistic-primary);">{{ i }}</a>
+                        {% else %}
+                             <a href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">{{ i }}</a>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if articles.has_next %}
+                        <a href="?page={{ articles.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                            <span class="sr-only">Suivant</span>
+                            <i class="fas fa-chevron-right h-5 w-5"></i>
+                        </a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tableViewBtn = document.getElementById('tableViewBtn');
+    const gridViewBtn = document.getElementById('gridViewBtn');
+    const tableView = document.getElementById('tableView');
+    const gridView = document.getElementById('gridView');
+    const toggleFiltersBtn = document.getElementById('toggleFilters');
+    const advancedFilters = document.getElementById('advancedFilters');
+    const filterChevron = document.getElementById('filterChevron');
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = document.getElementById('q');
+    
+    // Récupérer les préférences sauvegardées
+    const savedView = localStorage.getItem('articlesViewMode') || 'table';
+    const savedFiltersState = localStorage.getItem('articlesFiltersOpen') === 'true';
+    
+    // Fonction pour basculer vers l'affichage tableau
+    function switchToTableView() {
+        tableView.classList.remove('hidden');
+        gridView.classList.add('hidden');
+        
+        // Mettre à jour les boutons
+        tableViewBtn.classList.add('bg-white', 'text-gray-700', 'shadow-sm');
+        tableViewBtn.classList.remove('text-gray-500');
+        
+        gridViewBtn.classList.remove('bg-white', 'text-gray-700', 'shadow-sm');
+        gridViewBtn.classList.add('text-gray-500');
+        
+        // Sauvegarder la préférence
+        localStorage.setItem('articlesViewMode', 'table');
+    }
+    
+    // Fonction pour basculer vers l'affichage grille
+    function switchToGridView() {
+        gridView.classList.remove('hidden');
+        tableView.classList.add('hidden');
+        
+        // Mettre à jour les boutons
+        gridViewBtn.classList.add('bg-white', 'text-gray-700', 'shadow-sm');
+        gridViewBtn.classList.remove('text-gray-500');
+        
+        tableViewBtn.classList.remove('bg-white', 'text-gray-700', 'shadow-sm');
+        tableViewBtn.classList.add('text-gray-500');
+        
+        // Sauvegarder la préférence
+        localStorage.setItem('articlesViewMode', 'grid');
+    }
+    
+    // Fonction pour basculer les filtres avancés
+    function toggleAdvancedFilters() {
+        const isHidden = advancedFilters.classList.contains('hidden');
+        
+        if (isHidden) {
+            advancedFilters.classList.remove('hidden');
+            filterChevron.classList.remove('fa-chevron-down');
+            filterChevron.classList.add('fa-chevron-up');
+            localStorage.setItem('articlesFiltersOpen', 'true');
+        } else {
+            advancedFilters.classList.add('hidden');
+            filterChevron.classList.remove('fa-chevron-up');
+            filterChevron.classList.add('fa-chevron-down');
+            localStorage.setItem('articlesFiltersOpen', 'false');
+        }
+    }
+    
+    // Fonction pour vérifier si des filtres sont appliqués
+    function hasActiveFilters() {
+        const params = new URLSearchParams(window.location.search);
+        const filterParams = ['categorie', 'statut', 'stock', 'prix_min', 'prix_max', 'couleur', 'phase'];
+        return filterParams.some(param => params.get(param) && params.get(param).trim() !== '');
+    }
+    
+    // Fonction pour mettre en évidence le bouton de filtres si des filtres sont actifs
+    function updateFilterButtonState() {
+        if (hasActiveFilters()) {
+            toggleFiltersBtn.classList.add('bg-blue-50', 'border-blue-300', 'text-blue-700');
+            toggleFiltersBtn.classList.remove('border-gray-300', 'text-gray-700');
+        } else {
+            toggleFiltersBtn.classList.remove('bg-blue-50', 'border-blue-300', 'text-blue-700');
+            toggleFiltersBtn.classList.add('border-gray-300', 'text-gray-700');
+        }
+    }
+    
+    // Appliquer les états sauvegardés au chargement
+    if (savedView === 'grid') {
+        switchToGridView();
+    } else {
+        switchToTableView();
+    }
+    
+    // Ouvrir les filtres si des filtres sont actifs ou si l'état était sauvegardé
+    if (savedFiltersState || hasActiveFilters()) {
+        toggleAdvancedFilters();
+    }
+    
+    // Mettre à jour l'état du bouton de filtres
+    updateFilterButtonState();
+    
+    // Écouteurs d'événements
+    tableViewBtn.addEventListener('click', switchToTableView);
+    gridViewBtn.addEventListener('click', switchToGridView);
+    toggleFiltersBtn.addEventListener('click', toggleAdvancedFilters);
+    
+    // Soumission automatique du formulaire lors du changement de tri
+    const sortSelect = document.querySelector('select[name="tri"]');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            searchForm.submit();
+        });
+    }
+    
+    // Auto-complétion et recherche intelligente
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        
+        // Recherche automatique après 1 seconde d'inactivité (optionnel)
+        if (query.length >= 3) {
+            searchTimeout = setTimeout(function() {
+                // Optionnel : soumettre automatiquement après 1 seconde
+                // searchForm.submit();
+            }, 1000);
+        }
+    });
+    
+    // Raccourcis clavier
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + K pour focus sur la recherche
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+        }
+        
+        // Escape pour effacer la recherche
+        if (e.key === 'Escape' && document.activeElement === searchInput) {
+            searchInput.value = '';
+            searchInput.blur();
+        }
+    });
+    
+    // Amélioration de l'UX : focus sur le champ de recherche au chargement
+    if (window.location.search === '' || !document.querySelector('input[name="q"]').value) {
+        searchInput.focus();
+    }
+});
+</script>
+{% endblock %} 

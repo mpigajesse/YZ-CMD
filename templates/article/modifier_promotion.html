@@ -1,0 +1,1848 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Modifier la promotion {{ promotion.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-header {
+        background: linear-gradient(135deg, var(--admin-gradient-start), var(--admin-gradient-end));
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .form-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        animation: slideInUp 0.5s ease-out;
+    }
+    
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .form-section {
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+    
+    .section-title {
+        color: var(--admin-color);
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #99dddd;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .form-input:focus {
+        outline: none;
+        border-color: var(--admin-color);
+        box-shadow: 0 0 0 3px rgba(2, 53, 53, 0.1);
+    }
+    
+    .form-textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #99dddd;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: white;
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--admin-color);
+        box-shadow: 0 0 0 3px rgba(2, 53, 53, 0.1);
+    }
+    
+    .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #99dddd;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .form-select:focus {
+        outline: none;
+        border-color: var(--admin-color);
+        box-shadow: 0 0 0 3px rgba(2, 53, 53, 0.1);
+    }
+    
+    .form-checkbox {
+        width: 1.25rem;
+        height: 1.25rem;
+        border: 2px solid #99dddd;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+    }
+    
+    .form-checkbox:checked {
+        background-color: var(--admin-color);
+        border-color: var(--admin-color);
+    }
+    
+    .form-label {
+        display: block;
+        color: var(--admin-color);
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+    
+    .form-label-small {
+        display: block;
+        color: #666;
+        font-weight: 400;
+        margin-bottom: 0.25rem;
+        font-size: 0.85rem;
+    }
+    
+    .required::after {
+        content: ' *';
+        color: #e74c3c;
+    }
+    
+    .input-group {
+        position: relative;
+    }
+    
+    .input-addon {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    .articles-container {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 2px solid #99dddd;
+        border-radius: 8px;
+        padding: 1rem;
+        background: #f8f9fa;
+    }
+    
+    .article-item {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .article-item:last-child {
+        border-bottom: none;
+    }
+    
+    .article-checkbox {
+        margin-right: 0.75rem;
+    }
+    
+    .article-label {
+        flex: 1;
+        cursor: pointer;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+    
+    /* Nouveaux styles pour l'affichage personnalisé des articles */
+    .article-item-custom {
+        display: block;
+        margin-bottom: 0.75rem;
+        padding: 0.75rem;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .article-item-custom:hover {
+        background: #f8f9fa;
+        border-color: var(--admin-color);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .article-label-custom {
+        display: flex;
+        align-items: flex-start;
+        cursor: pointer;
+        margin: 0;
+        width: 100%;
+    }
+    
+    .article-label-custom input[type="checkbox"] {
+        margin-right: 0.75rem;
+        margin-top: 0.25rem;
+        flex-shrink: 0;
+    }
+    
+    .article-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .article-name {
+        font-weight: 600;
+        color: var(--admin-color);
+        font-size: 0.95rem;
+        line-height: 1.3;
+    }
+    
+    .article-details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    
+    .article-price {
+        background: linear-gradient(135deg, #e8f5e8, #d4edda);
+        color: #155724;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .article-phase {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .phase-en_cours {
+        background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+        color: #0c5460;
+        border: 1px solid #b8daff;
+    }
+    
+    .phase-liquidation {
+        background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+        color: #721c24;
+        border: 1px solid #f1b0b7;
+    }
+    
+    .phase-en_test {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        color: #856404;
+        border: 1px solid #faeeba;
+    }
+    
+    .article-stock {
+        background: linear-gradient(135deg, #f3e5f5, #e2ecf1);
+        color: #495057;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border: 1px solid #d1ecf1;
+    }
+    
+    /* Animation pour la sélection */
+    .article-item-custom input[type="checkbox"]:checked + .article-info {
+        background: linear-gradient(135deg, rgba(2, 53, 53, 0.05), rgba(2, 53, 53, 0.02));
+        border-radius: 4px;
+        padding: 0.5rem;
+        margin: -0.5rem;
+    }
+    
+    .article-item-custom input[type="checkbox"]:checked {
+        accent-color: var(--admin-color);
+    }
+    
+    .filter-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .counter-info {
+        background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        color: var(--admin-color);
+        font-weight: 500;
+        margin-bottom: 1rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, var(--admin-gradient-start), var(--admin-gradient-end));
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(2, 53, 53, 0.3);
+    }
+    
+    .btn-secondary {
+        background: white;
+        color: var(--admin-color);
+        border: 2px solid var(--admin-color);
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-secondary:hover {
+        background: var(--admin-color);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(2, 53, 53, 0.3);
+    }
+    
+    .btn-select-all {
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 1rem;
+    }
+    
+    .btn-select-all:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 10px rgba(79, 172, 254, 0.3);
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        align-items: center;
+        padding-top: 1.5rem;
+        border-top: 2px solid #f0f0f0;
+    }
+    
+    .error-message {
+        color: #e74c3c;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+        display: block;
+    }
+    
+    .success-message {
+        background: linear-gradient(135deg, #d4edda, #c3e6cb);
+        color: #155724;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border-left: 4px solid #28a745;
+    }
+    
+    .info-message {
+        background: linear-gradient(135deg, #cce5ff, #e6f3ff);
+        color: var(--admin-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border-left: 4px solid var(--admin-color);
+    }
+    
+    .grid-two-cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    .date-info-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 10px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .date-info-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        transition: all 0.3s ease;
+    }
+    
+    .date-info-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .date-info-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--admin-gradient-start), var(--admin-gradient-end));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+    }
+    
+    .date-info-content h4 {
+        margin: 0 0 0.25rem 0;
+        color: var(--admin-color);
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    .date-info-content p {
+        margin: 0;
+        color: #495057;
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+    
+    .date-input-group {
+        position: relative;
+    }
+    
+    .datetime-input-container {
+        position: relative;
+    }
+    
+    .datetime-helper {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #e9ecef;
+    }
+    
+    .datetime-helper i {
+        color: var(--admin-color);
+        font-size: 0.8rem;
+    }
+    
+    .datetime-format {
+        font-size: 0.8rem;
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .date-shortcuts {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+        border-radius: 10px;
+        border: 1px solid #b39ddb;
+    }
+    
+    .shortcuts-title {
+        color: var(--admin-color);
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .shortcuts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .shortcut-btn {
+        background: white;
+        border: 2px solid #99dddd;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        color: var(--admin-color);
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    
+    .shortcut-btn:hover {
+        background: var(--admin-color);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(2, 53, 53, 0.3);
+    }
+    
+    .shortcut-btn:active {
+        transform: translateY(0);
+    }
+    
+    .shortcut-btn i {
+        font-size: 0.8rem;
+    }
+    
+    /* Amélioration des champs datetime-local */
+    input[type="datetime-local"] {
+        background: white;
+        border: 2px solid #99dddd;
+        border-radius: 8px;
+        padding: 0.75rem;
+        font-size: 1rem;
+        color: var(--admin-color);
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+    
+    input[type="datetime-local"]:focus {
+        outline: none;
+        border-color: var(--admin-color);
+        box-shadow: 0 0 0 3px rgba(2, 53, 53, 0.1);
+    }
+    
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+        background: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23023535"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7v-5z"/></svg>') no-repeat;
+        background-size: 16px 16px;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.3s ease;
+    }
+    
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+        opacity: 1;
+    }
+    
+    /* Animation pour les changements de date */
+    @keyframes dateChange {
+        0% {
+            background-color: #fff3cd;
+            transform: scale(1.02);
+        }
+        100% {
+            background-color: white;
+            transform: scale(1);
+        }
+    }
+    
+    .date-changed {
+        animation: dateChange 0.5s ease;
+    }
+    
+    /* Indicateur de validation */
+    .date-valid {
+        border-color: #28a745 !important;
+    }
+    
+    .date-invalid {
+        border-color: #dc3545 !important;
+    }
+    
+    /* Styles pour le décompte en temps réel COMPACT */
+    .countdown-container-compact {
+        margin: 1rem 0;
+        padding: 0.75rem;
+        background: linear-gradient(135deg, var(--admin-gradient-start), var(--admin-gradient-end));
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .countdown-card-compact {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 8px;
+        padding: 1rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .countdown-header-compact {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .countdown-status-indicator-compact {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.25rem 0.75rem;
+        background: #f8f9fa;
+        border-radius: 15px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .status-dot-compact {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #6c757d;
+        animation: pulse 2s infinite;
+    }
+    
+    .status-dot-compact.active {
+        background: #28a745;
+    }
+    
+    .status-dot-compact.pending {
+        background: #ffc107;
+    }
+    
+    .status-dot-compact.expired {
+        background: #dc3545;
+    }
+    
+    .status-text-compact {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .countdown-title-compact {
+        color: var(--admin-color);
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .countdown-display-compact {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+        padding: 0.75rem;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .countdown-segment-compact {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 45px;
+    }
+    
+    .countdown-number-compact {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--admin-color);
+        font-family: 'Courier New', monospace;
+        background: linear-gradient(135deg, var(--admin-gradient-start), var(--admin-gradient-end));
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        line-height: 1;
+    }
+    
+    .countdown-label-compact {
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: #6c757d;
+        text-transform: uppercase;
+        margin-top: 0.125rem;
+        line-height: 1;
+    }
+    
+    .countdown-separator-compact {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--admin-color);
+        animation: blink 1s infinite;
+        margin: 0 0.25rem;
+    }
+    
+    .countdown-progress-compact {
+        margin-top: 0.5rem;
+    }
+    
+    .progress-bar-container-compact {
+        width: 100%;
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 0.375rem;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    
+    .progress-bar-compact {
+        height: 100%;
+        background: linear-gradient(90deg, var(--admin-gradient-start), var(--admin-gradient-end));
+        border-radius: 3px;
+        transition: width 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .progress-bar-compact::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+        animation: shimmer 2s infinite;
+    }
+    
+    .progress-info-compact {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.7rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    /* Animations */
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.7;
+            transform: scale(1.1);
+        }
+    }
+    
+    @keyframes countdownPulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.05);
+        }
+    }
+    
+    @keyframes blink {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.3;
+        }
+    }
+    
+    @keyframes shimmer {
+        0% {
+            left: -100%;
+        }
+        100% {
+            left: 100%;
+        }
+    }
+    
+    /* États spéciaux du décompte COMPACT */
+    .countdown-card-compact.pending {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 235, 59, 0.1));
+        border-color: #ffc107;
+    }
+    
+    .countdown-card-compact.active {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.1), rgba(76, 175, 80, 0.1));
+        border-color: #28a745;
+    }
+    
+    .countdown-card-compact.expired {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(244, 67, 54, 0.1));
+        border-color: #dc3545;
+    }
+    
+    .countdown-card-compact.pending .countdown-number-compact {
+        background: linear-gradient(135deg, #ffc107, #ffeb3b);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .countdown-card-compact.active .countdown-number-compact {
+        background: linear-gradient(135deg, #28a745, #4caf50);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .countdown-card-compact.expired .countdown-number-compact {
+        background: linear-gradient(135deg, #dc3545, #f44336);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Effets visuels pour les états critiques COMPACT */
+    .countdown-card-compact.critical {
+        animation: criticalPulse 2s infinite;
+    }
+    
+    @keyframes criticalPulse {
+        0%, 100% {
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+        50% {
+            box-shadow: 0 8px 25px rgba(220, 53, 69, 0.4);
+        }
+    }
+    
+    /* Animations pour les notifications */
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .grid-two-cols {
+            grid-template-columns: 1fr;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary, .btn-secondary {
+            width: 100%;
+            text-align: center;
+        }
+        
+        .date-info-container {
+            grid-template-columns: 1fr;
+        }
+        
+        .shortcuts-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .datetime-helper {
+            flex-direction: column;
+            text-align: center;
+            gap: 0.25rem;
+        }
+        
+        .countdown-display-compact {
+            flex-wrap: wrap;
+            gap: 0.375rem;
+        }
+        
+        .countdown-segment-compact {
+            min-width: 35px;
+        }
+        
+        .countdown-number-compact {
+            font-size: 1.2rem;
+        }
+        
+        .countdown-header-compact {
+            flex-direction: column;
+            gap: 0.5rem;
+            text-align: center;
+        }
+        
+        .countdown-status-indicator-compact {
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- En-tête avec dégradé -->
+    <div class="admin-header text-center">
+        <h1 class="text-3xl font-bold mb-2">
+            <i class="fas fa-edit mr-3"></i>
+            Modifier la promotion
+        </h1>
+        <p class="text-lg opacity-90">{{ promotion.nom }}</p>
+        <p class="text-sm opacity-75">Modifiez les détails de la promotion et ses articles associés</p>
+        </div>
+
+    <!-- Messages d'information -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="{% if message.tags == 'error' %}error-message{% else %}success-message{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+        <!-- Formulaire -->
+    <div class="form-container">
+        <form method="POST" novalidate>
+                {% csrf_token %}
+                
+            <!-- Section 1: Informations de base -->
+            <div class="form-section">
+                <h2 class="section-title">
+                    <i class="fas fa-info-circle"></i>
+                    Informations de base
+                </h2>
+                
+                <div class="space-y-4">
+                    <!-- Nom -->
+                    <div>
+                        <label for="{{ form.nom.id_for_label }}" class="form-label required">{{ form.nom.label }}</label>
+                        {{ form.nom }}
+                        {% if form.nom.errors %}
+                            <span class="error-message">{{ form.nom.errors|join:", " }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <span class="error-message">{{ form.description.errors|join:", " }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                    </div>
+
+            <!-- Section 2: Paramètres de réduction -->
+            <div class="form-section">
+                <h2 class="section-title">
+                    <i class="fas fa-percentage"></i>
+                    Paramètres de réduction
+                </h2>
+
+                    <!-- Pourcentage de réduction -->
+                    <div>
+                    <label for="{{ form.pourcentage_reduction.id_for_label }}" class="form-label required">{{ form.pourcentage_reduction.label }}</label>
+                    <div class="input-group">
+                            {{ form.pourcentage_reduction }}
+                        <span class="input-addon">%</span>
+                        </div>
+                        {% if form.pourcentage_reduction.errors %}
+                        <span class="error-message">{{ form.pourcentage_reduction.errors|join:", " }}</span>
+                        {% endif %}
+                </div>
+                    </div>
+
+            <!-- Section 3: Période de validité -->
+            <div class="form-section">
+                <h2 class="section-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Période de validité
+                </h2>
+                
+                                <!-- Informations sur la période actuelle -->
+                <div class="date-info-container">
+                    <div class="date-info-card">
+                        <div class="date-info-icon">
+                            <i class="fas fa-play-circle"></i>
+                        </div>
+                        <div class="date-info-content">
+                            <h4>Date de début actuelle</h4>
+                            <p id="current-start-date">{{ promotion.date_debut|date:"d/m/Y à H:i" }}</p>
+                        </div>
+                    </div>
+                    <div class="date-info-card">
+                        <div class="date-info-icon">
+                            <i class="fas fa-stop-circle"></i>
+                        </div>
+                        <div class="date-info-content">
+                            <h4>Date de fin actuelle</h4>
+                            <p id="current-end-date">{{ promotion.date_fin|date:"d/m/Y à H:i" }}</p>
+                        </div>
+                    </div>
+                    <div class="date-info-card">
+                        <div class="date-info-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="date-info-content">
+                            <h4>Durée totale</h4>
+                            <p id="duration-display">
+                                {% if promotion.date_debut and promotion.date_fin %}
+                                    {{ promotion.date_fin|timeuntil:promotion.date_debut }}
+                                {% else %}
+                                    Non définie
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Décompte en temps réel compact -->
+                <div class="countdown-container-compact">
+                    <div class="countdown-card-compact" id="countdown-card">
+                        <div class="countdown-header-compact">
+                            <div class="countdown-status-indicator-compact" id="status-indicator">
+                                <span class="status-dot-compact" id="status-dot"></span>
+                                <span class="status-text-compact" id="status-text">Chargement...</span>
+                            </div>
+                            <h4 class="countdown-title-compact" id="countdown-title">État de la promotion</h4>
+                        </div>
+                        
+                        <div class="countdown-display-compact" id="countdown-display">
+                            <div class="countdown-segment-compact">
+                                <div class="countdown-number-compact" id="days">--</div>
+                                <div class="countdown-label-compact">J</div>
+                            </div>
+                            <div class="countdown-separator-compact">:</div>
+                            <div class="countdown-segment-compact">
+                                <div class="countdown-number-compact" id="hours">--</div>
+                                <div class="countdown-label-compact">H</div>
+                            </div>
+                            <div class="countdown-separator-compact">:</div>
+                            <div class="countdown-segment-compact">
+                                <div class="countdown-number-compact" id="minutes">--</div>
+                                <div class="countdown-label-compact">M</div>
+                            </div>
+                            <div class="countdown-separator-compact">:</div>
+                            <div class="countdown-segment-compact">
+                                <div class="countdown-number-compact" id="seconds">--</div>
+                                <div class="countdown-label-compact">S</div>
+                            </div>
+                        </div>
+                        
+                        <div class="countdown-progress-compact">
+                            <div class="progress-bar-container-compact">
+                                <div class="progress-bar-compact" id="progress-bar"></div>
+                            </div>
+                            <div class="progress-info-compact">
+                                <span id="progress-text">0%</span>
+                                <span id="progress-remaining">Temps restant</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-two-cols">
+                    <div class="date-input-group">
+                        <label for="{{ form.date_debut.id_for_label }}" class="form-label required">
+                            <i class="fas fa-calendar-plus mr-2"></i>
+                            {{ form.date_debut.label }}
+                        </label>
+                        <div class="datetime-input-container">
+                            {{ form.date_debut }}
+                            <div class="datetime-helper">
+                                <i class="fas fa-info-circle"></i>
+                                <span class="datetime-format">Format: JJ/MM/AAAA HH:MM</span>
+                            </div>
+                        </div>
+                            {% if form.date_debut.errors %}
+                            <span class="error-message">{{ form.date_debut.errors|join:", " }}</span>
+                            {% endif %}
+                        </div>
+                    <div class="date-input-group">
+                        <label for="{{ form.date_fin.id_for_label }}" class="form-label required">
+                            <i class="fas fa-calendar-minus mr-2"></i>
+                            {{ form.date_fin.label }}
+                        </label>
+                        <div class="datetime-input-container">
+                            {{ form.date_fin }}
+                            <div class="datetime-helper">
+                                <i class="fas fa-info-circle"></i>
+                                <span class="datetime-format">Format: JJ/MM/AAAA HH:MM</span>
+                            </div>
+                        </div>
+                            {% if form.date_fin.errors %}
+                            <span class="error-message">{{ form.date_fin.errors|join:", " }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                <!-- Boutons de raccourci pour les dates -->
+                <div class="date-shortcuts">
+                    <h4 class="shortcuts-title">
+                        <i class="fas fa-magic mr-2"></i>
+                        Raccourcis de dates
+                    </h4>
+                    <div class="shortcuts-grid">
+                        <button type="button" class="shortcut-btn" data-duration="1">
+                            <i class="fas fa-clock"></i>
+                            1 jour
+                        </button>
+                        <button type="button" class="shortcut-btn" data-duration="7">
+                            <i class="fas fa-calendar-week"></i>
+                            1 semaine
+                        </button>
+                        <button type="button" class="shortcut-btn" data-duration="30">
+                            <i class="fas fa-calendar-alt"></i>
+                            1 mois
+                        </button>
+                        <button type="button" class="shortcut-btn" data-duration="90">
+                            <i class="fas fa-calendar"></i>
+                            3 mois
+                        </button>
+                        <button type="button" class="shortcut-btn" id="custom-duration">
+                            <i class="fas fa-cogs"></i>
+                            Personnalisé
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Statut -->
+            <div class="form-section">
+                <h2 class="section-title">
+                    <i class="fas fa-toggle-on"></i>
+                    Statut de la promotion
+                </h2>
+                
+                <div class="flex items-center space-x-3">
+                        {{ form.active }}
+                    <label for="{{ form.active.id_for_label }}" class="form-label mb-0">
+                            Promotion active
+                        </label>
+                        {% if form.active.errors %}
+                        <span class="error-message">{{ form.active.errors|join:", " }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+            <!-- Section 5: Articles -->
+            <div class="form-section">
+                <h2 class="section-title">
+                    <i class="fas fa-boxes"></i>
+                    Articles de la promotion
+                </h2>
+                
+                <!-- Filtres et recherche -->
+                <div class="filter-container">
+                <div>
+                        <label for="{{ form.article_search.id_for_label }}" class="form-label-small">{{ form.article_search.label }}</label>
+                                {{ form.article_search }}
+                            </div>
+                            
+                    <div>
+                        <label for="{{ form.article_filter_categorie.id_for_label }}" class="form-label-small">{{ form.article_filter_categorie.label }}</label>
+                                {{ form.article_filter_categorie }}
+                            </div>
+                    
+                    <div>
+                        <label for="{{ form.article_filter_couleur.id_for_label }}" class="form-label-small">{{ form.article_filter_couleur.label }}</label>
+                                {{ form.article_filter_couleur }}
+                            </div>
+                        </div>
+                        
+                <!-- Compteur d'articles -->
+                <div class="counter-info">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <span id="selected-count">0</span> article(s) sélectionné(s) sur 
+                    <span id="total-count">0</span> disponible(s)
+                    </div>
+                
+                <!-- Bouton tout sélectionner -->
+                <button type="button" id="select-all-btn" class="btn-select-all">
+                    <i class="fas fa-check-square mr-2"></i>
+                    Tout sélectionner
+                </button>
+                    
+                    <!-- Liste des articles -->
+                <div class="articles-container">
+                    <div class="article-selection">
+                        {% for article in form.articles.field.queryset %}
+                            <div class="article-item-custom" 
+                                 data-nom="{{ article.nom|lower }}" 
+                                 data-couleur="{{ article.couleur|lower }}" 
+                                 data-categorie="{{ article.categorie|lower }}">
+                                <label class="article-label-custom">
+                                    <input type="checkbox" 
+                                           name="{{ form.articles.html_name }}" 
+                                           value="{{ article.pk }}" 
+                                           class="article-checkbox"
+                                           {% if article in promotion.articles.all %}checked{% endif %}>
+                                    <div class="article-info">
+                                        <div class="article-name">
+                                            {{ article.nom }} - {{ article.couleur }} - Pointure {{ article.pointure }}
+                                        </div>
+                                        <div class="article-details">
+                                            <span class="article-price">{{ article.prix_unitaire }} DH</span>
+                                            <span class="article-phase phase-{{ article.phase|lower }}">
+                                                {% if article.phase == 'EN_COURS' %}
+                                                    <i class="fas fa-play-circle"></i> En Cours
+                                                {% elif article.phase == 'LIQUIDATION' %}
+                                                    <i class="fas fa-fire"></i> Liquidation
+                                                {% elif article.phase == 'EN_TEST' %}
+                                                    <i class="fas fa-flask"></i> En Test
+                                                {% endif %}
+                                            </span>
+                                            <span class="article-stock">Stock: {{ article.qte_disponible }}</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    </div>
+                    {% if form.articles.errors %}
+                    <span class="error-message">{{ form.articles.errors|join:", " }}</span>
+                    {% endif %}
+                </div>
+
+            <!-- Actions -->
+            <div class="form-actions">
+                <a href="{% url 'article:detail_promotion' promotion.id %}" class="btn-secondary">
+                    <i class="fas fa-times mr-2"></i>
+                        Annuler
+                    </a>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-save mr-2"></i>
+                        Enregistrer les modifications
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    // Styliser les éléments du formulaire
+    document.querySelectorAll('input, textarea, select').forEach(function(element) {
+        if (element.type === 'checkbox') {
+            element.classList.add('form-checkbox');
+        } else if (element.tagName === 'TEXTAREA') {
+            element.classList.add('form-textarea');
+        } else if (element.tagName === 'SELECT') {
+            element.classList.add('form-select');
+        } else {
+            element.classList.add('form-input');
+        }
+    });
+    
+    // Gestion avancée des dates datetime-local
+    const dateInputs = document.querySelectorAll('input[type="datetime-local"]');
+    const dateDebutInput = document.querySelector('[name="date_debut"]');
+    const dateFinInput = document.querySelector('[name="date_fin"]');
+    
+    // Initialiser les dates
+    dateInputs.forEach(function(input) {
+            if (input.value) {
+                try {
+                    const date = new Date(input.value);
+                    if (!isNaN(date.getTime())) {
+                        const isoString = date.toISOString().slice(0, 16);
+                        input.value = isoString;
+                    }
+                } catch (e) {
+                    console.error("Erreur lors de la conversion de la date:", e);
+                }
+            }
+        
+        // Ajouter les événements de validation en temps réel
+        input.addEventListener('input', function() {
+            validateDates();
+            updateDateInfo();
+            input.classList.add('date-changed');
+            setTimeout(() => input.classList.remove('date-changed'), 500);
+        });
+    });
+    
+    // Fonction de validation des dates
+    function validateDates() {
+        const dateDebut = dateDebutInput ? new Date(dateDebutInput.value) : null;
+        const dateFin = dateFinInput ? new Date(dateFinInput.value) : null;
+        const now = new Date();
+        
+        // Validation date de début
+        if (dateDebutInput) {
+            if (dateDebut && dateDebut < now) {
+                dateDebutInput.classList.add('date-invalid');
+                dateDebutInput.classList.remove('date-valid');
+                showDateWarning('La date de début est dans le passé', 'warning');
+            } else if (dateDebut) {
+                dateDebutInput.classList.add('date-valid');
+                dateDebutInput.classList.remove('date-invalid');
+            }
+        }
+        
+        // Validation date de fin
+        if (dateFinInput) {
+            if (dateFin && dateDebut && dateFin <= dateDebut) {
+                dateFinInput.classList.add('date-invalid');
+                dateFinInput.classList.remove('date-valid');
+                showDateWarning('La date de fin doit être postérieure à la date de début', 'error');
+            } else if (dateFin) {
+                dateFinInput.classList.add('date-valid');
+                dateFinInput.classList.remove('date-invalid');
+            }
+        }
+    }
+    
+    // Fonction pour mettre à jour les informations de date
+    function updateDateInfo() {
+        const dateDebut = dateDebutInput ? new Date(dateDebutInput.value) : null;
+        const dateFin = dateFinInput ? new Date(dateFinInput.value) : null;
+        
+        if (dateDebut) {
+            const currentStartDate = document.getElementById('current-start-date');
+            if (currentStartDate) {
+                currentStartDate.textContent = formatDate(dateDebut);
+            }
+        }
+        
+        if (dateFin) {
+            const currentEndDate = document.getElementById('current-end-date');
+            if (currentEndDate) {
+                currentEndDate.textContent = formatDate(dateFin);
+            }
+        }
+        
+        if (dateDebut && dateFin) {
+            const durationDisplay = document.getElementById('duration-display');
+            if (durationDisplay) {
+                const duration = calculateDuration(dateDebut, dateFin);
+                durationDisplay.textContent = duration;
+            }
+        }
+    }
+    
+    // Fonction pour formater les dates
+    function formatDate(date) {
+        if (!date || isNaN(date.getTime())) return 'Non définie';
+        
+        const options = {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        };
+        
+        return date.toLocaleDateString('fr-FR', options).replace(',', ' à');
+    }
+    
+    // Fonction pour calculer la durée
+    function calculateDuration(start, end) {
+        const diff = end - start;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        
+        if (days > 0) {
+            return `${days} jour${days > 1 ? 's' : ''}${hours > 0 ? ` et ${hours} heure${hours > 1 ? 's' : ''}` : ''}`;
+        } else if (hours > 0) {
+            return `${hours} heure${hours > 1 ? 's' : ''}`;
+        } else {
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+        }
+    }
+    
+    // Fonction pour afficher les avertissements
+    function showDateWarning(message, type = 'info') {
+        const existingWarning = document.querySelector('.date-warning');
+        if (existingWarning) {
+            existingWarning.remove();
+        }
+        
+        const warning = document.createElement('div');
+        warning.className = `date-warning alert alert-${type}`;
+        warning.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'error' ? '#f8d7da' : '#fff3cd'};
+            color: ${type === 'error' ? '#721c24' : '#856404'};
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid ${type === 'error' ? '#f5c6cb' : '#faeeba'};
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+        `;
+        warning.textContent = message;
+        
+        document.body.appendChild(warning);
+        
+        setTimeout(() => {
+            warning.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => warning.remove(), 300);
+        }, 3000);
+    }
+    
+    // Gestion des raccourcis de date
+    document.querySelectorAll('.shortcut-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const duration = parseInt(this.getAttribute('data-duration'));
+            const now = new Date();
+            
+            if (this.id === 'custom-duration') {
+                showCustomDurationModal();
+                return;
+            }
+            
+            if (duration) {
+                // Définir la date de début à maintenant
+                const startDate = new Date(now);
+                startDate.setMinutes(startDate.getMinutes() - startDate.getTimezoneOffset());
+                
+                // Calculer la date de fin
+                const endDate = new Date(startDate);
+                endDate.setDate(endDate.getDate() + duration);
+                endDate.setHours(23, 59, 0, 0);
+                
+                // Mettre à jour les champs
+                if (dateDebutInput) {
+                    dateDebutInput.value = startDate.toISOString().slice(0, 16);
+                }
+                if (dateFinInput) {
+                    dateFinInput.value = endDate.toISOString().slice(0, 16);
+                }
+                
+                // Valider et mettre à jour
+                validateDates();
+                updateDateInfo();
+                
+                // Animation de feedback
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 150);
+            }
+        });
+    });
+    
+    // Fonction pour afficher le modal de durée personnalisée
+    function showCustomDurationModal() {
+        const modal = document.createElement('div');
+        modal.className = 'custom-duration-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        `;
+        
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+        `;
+        
+        modalContent.innerHTML = `
+            <h3 style="margin-bottom: 1rem; color: var(--admin-color);">
+                <i class="fas fa-cogs mr-2"></i>
+                Durée personnalisée
+            </h3>
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                    Nombre de jours :
+                </label>
+                <input type="number" id="custom-days" min="1" max="365" value="30" 
+                       style="width: 100%; padding: 0.5rem; border: 2px solid #99dddd; border-radius: 6px;">
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button type="button" class="btn-secondary" style="padding: 0.5rem 1rem;" onclick="this.closest('.custom-duration-modal').remove()">
+                    Annuler
+                </button>
+                <button type="button" class="btn-primary" style="padding: 0.5rem 1rem;" onclick="applyCustomDuration()">
+                    Appliquer
+                </button>
+            </div>
+        `;
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Fonction pour appliquer la durée personnalisée
+        window.applyCustomDuration = function() {
+            const days = parseInt(document.getElementById('custom-days').value);
+            if (days && days > 0) {
+                const now = new Date();
+                const startDate = new Date(now);
+                startDate.setMinutes(startDate.getMinutes() - startDate.getTimezoneOffset());
+                
+                const endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + days);
+                endDate.setHours(23, 59, 0, 0);
+                
+                if (dateDebutInput) {
+                    dateDebutInput.value = startDate.toISOString().slice(0, 16);
+                }
+                if (dateFinInput) {
+                    dateFinInput.value = endDate.toISOString().slice(0, 16);
+                }
+                
+                validateDates();
+                updateDateInfo();
+            }
+            modal.remove();
+        };
+    }
+    
+    // Validation du formulaire
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+                const dateDebut = document.querySelector('[name="date_debut"]');
+                const dateFin = document.querySelector('[name="date_fin"]');
+                
+                if (dateDebut && !dateDebut.validity.valid) {
+                    e.preventDefault();
+                    alert('La date de début est dans un format incorrect. Utilisez le format AAAA-MM-JJThh:mm');
+                    return;
+                }
+                
+                if (dateFin && !dateFin.validity.valid) {
+                    e.preventDefault();
+                    alert('La date de fin est dans un format incorrect. Utilisez le format AAAA-MM-JJThh:mm');
+                    return;
+                }
+                
+                if (dateDebut && dateFin && new Date(dateDebut.value) >= new Date(dateFin.value)) {
+                    e.preventDefault();
+                    alert('La date de fin doit être postérieure à la date de début.');
+                    return;
+                }
+            });
+        }
+        
+        // Gestion des articles
+    const searchInput = document.querySelector('[name="article_search"]');
+    const categoryFilter = document.querySelector('[name="article_filter_categorie"]');
+    const colorFilter = document.querySelector('[name="article_filter_couleur"]');
+    const checkboxes = document.querySelectorAll('.article-item-custom input[type="checkbox"]');
+    const selectAllBtn = document.getElementById('select-all-btn');
+    
+        // Les attributs data sont déjà définis dans le template, pas besoin de les ajouter en JS
+    
+    // Fonction de mise à jour du compteur
+        function updateCounter() {
+        const visibleCheckboxes = document.querySelectorAll('.article-item-custom:not([style*="display: none"]) input[type="checkbox"]');
+        const selectedCheckboxes = document.querySelectorAll('.article-item-custom input[type="checkbox"]:checked');
+        
+        document.getElementById('total-count').textContent = visibleCheckboxes.length;
+        document.getElementById('selected-count').textContent = selectedCheckboxes.length;
+        
+        // Mettre à jour le bouton "tout sélectionner"
+        if (selectAllBtn) {
+            const allSelected = visibleCheckboxes.length > 0 && Array.from(visibleCheckboxes).every(cb => cb.checked);
+            selectAllBtn.innerHTML = allSelected ? 
+                '<i class="fas fa-square mr-2"></i>Tout désélectionner' : 
+                '<i class="fas fa-check-square mr-2"></i>Tout sélectionner';
+        }
+    }
+        
+        // Fonction de filtrage
+        function filterArticles() {
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        const selectedCategory = categoryFilter ? categoryFilter.value.toLowerCase() : '';
+        const selectedColor = colorFilter ? colorFilter.value.toLowerCase() : '';
+        
+        document.querySelectorAll('.article-item-custom').forEach(function(item) {
+                const nom = item.getAttribute('data-nom') || '';
+                const couleur = item.getAttribute('data-couleur') || '';
+                const categorie = item.getAttribute('data-categorie') || '';
+                
+                const matchesSearch = searchTerm === '' || nom.includes(searchTerm);
+                const matchesCategory = selectedCategory === '' || categorie === selectedCategory;
+                const matchesColor = selectedColor === '' || couleur === selectedColor;
+                
+                if (matchesSearch && matchesCategory && matchesColor) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            updateCounter();
+        }
+        
+    // Événements de filtrage
+        if (searchInput) searchInput.addEventListener('input', filterArticles);
+        if (categoryFilter) categoryFilter.addEventListener('change', filterArticles);
+        if (colorFilter) colorFilter.addEventListener('change', filterArticles);
+        
+        // Événement pour les cases à cocher
+        checkboxes.forEach(function(checkbox) {
+            checkbox.addEventListener('change', updateCounter);
+        });
+        
+    // Événement pour le bouton "tout sélectionner"
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function() {
+            const visibleCheckboxes = document.querySelectorAll('.article-item-custom:not([style*="display: none"]) input[type="checkbox"]');
+            const allChecked = Array.from(visibleCheckboxes).every(cb => cb.checked);
+            
+            visibleCheckboxes.forEach(function(checkbox) {
+                checkbox.checked = !allChecked;
+            });
+            
+            updateCounter();
+        });
+    }
+    
+    // Variables pour le décompte en temps réel
+    const promotionData = {
+        dateDebut: "{{ promotion.date_debut|date:'c' }}",
+        dateFin: "{{ promotion.date_fin|date:'c' }}",
+        nom: "{{ promotion.nom }}",
+        active: {{ promotion.active|yesno:"true,false" }}
+    };
+    
+    // Système de décompte en temps réel
+    function initCountdown() {
+        const countdownCard = document.getElementById('countdown-card');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const countdownTitle = document.getElementById('countdown-title');
+        const daysElement = document.getElementById('days');
+        const hoursElement = document.getElementById('hours');
+        const minutesElement = document.getElementById('minutes');
+        const secondsElement = document.getElementById('seconds');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const progressRemaining = document.getElementById('progress-remaining');
+        
+        function updateCountdown() {
+            const now = new Date();
+            const startDate = new Date(promotionData.dateDebut);
+            const endDate = new Date(promotionData.dateFin);
+            
+            let diff, status, title, remainingText;
+            let isActive = promotionData.active;
+            
+            // Déterminer l'état de la promotion
+            if (now < startDate) {
+                status = 'pending';
+                title = 'Démarrage dans';
+                remainingText = 'Avant le début';
+                diff = startDate - now;
+            } else if (now >= startDate && now <= endDate) {
+                status = 'active';
+                title = 'Temps restant';
+                remainingText = 'Fin de la promotion';
+                diff = endDate - now;
+            } else {
+                status = 'expired';
+                title = 'Promotion terminée';
+                remainingText = 'Terminée depuis';
+                diff = now - endDate;
+            }
+            
+            // Calculer le temps
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            // Mettre à jour l'affichage
+            daysElement.textContent = days.toString().padStart(2, '0');
+            hoursElement.textContent = hours.toString().padStart(2, '0');
+            minutesElement.textContent = minutes.toString().padStart(2, '0');
+            secondsElement.textContent = seconds.toString().padStart(2, '0');
+            
+            // Mettre à jour le statut
+            statusDot.className = `status-dot ${status}`;
+            countdownTitle.textContent = title;
+            progressRemaining.textContent = remainingText;
+            
+                    // Mettre à jour la classe de la carte
+        countdownCard.className = `countdown-card-compact ${status}`;
+        
+        // Ajouter classe critique si moins de 24h restantes
+        if (status === 'active' && days === 0 && hours < 24) {
+            countdownCard.classList.add('critical');
+        }
+            
+            // Texte du statut
+            switch(status) {
+                case 'pending':
+                    statusText.textContent = 'En attente';
+                    break;
+                case 'active':
+                    statusText.textContent = isActive ? 'En cours' : 'Inactive';
+                    break;
+                case 'expired':
+                    statusText.textContent = 'Terminée';
+                    break;
+            }
+            
+            // Barre de progression
+            if (status === 'active') {
+                const totalDuration = endDate - startDate;
+                const elapsed = now - startDate;
+                const progress = (elapsed / totalDuration) * 100;
+                
+                progressBar.style.width = `${Math.min(progress, 100)}%`;
+                progressText.textContent = `${Math.floor(progress)}% terminé`;
+            } else if (status === 'expired') {
+                progressBar.style.width = '100%';
+                progressText.textContent = '100% terminé';
+            } else {
+                progressBar.style.width = '0%';
+                progressText.textContent = '0% terminé';
+            }
+            
+            // Effets sonores et notifications (optionnel)
+            if (status === 'active' && days === 0 && hours === 0 && minutes === 5 && seconds === 0) {
+                showNotification('⚠️ Plus que 5 minutes !', 'warning');
+            }
+            
+            if (status === 'active' && days === 0 && hours === 0 && minutes === 0 && seconds === 0) {
+                showNotification('🎉 Promotion terminée !', 'success');
+            }
+        }
+        
+        // Fonction pour afficher les notifications
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `countdown-notification ${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'warning' ? '#fff3cd' : '#d4edda'};
+                color: ${type === 'warning' ? '#856404' : '#155724'};
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                border: 1px solid ${type === 'warning' ? '#faeeba' : '#c3e6cb'};
+                z-index: 10000;
+                animation: slideInRight 0.3s ease;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+                font-weight: 500;
+            `;
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.2rem;">${message.split(' ')[0]}</span>
+                    <span>${message.substring(message.indexOf(' ') + 1)}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+        
+        // Mettre à jour immédiatement
+        updateCountdown();
+        
+        // Mettre à jour toutes les secondes
+        setInterval(updateCountdown, 1000);
+    }
+    
+    // Fonction pour mettre à jour les données de promotion quand les dates changent
+    function updatePromotionData() {
+        const dateDebut = dateDebutInput ? new Date(dateDebutInput.value) : null;
+        const dateFin = dateFinInput ? new Date(dateFinInput.value) : null;
+        
+        if (dateDebut && dateFin) {
+            // Mettre à jour les données de la promotion
+            promotionData.dateDebut = dateDebut.toISOString();
+            promotionData.dateFin = dateFin.toISOString();
+        }
+    }
+    
+    // Améliorer la fonction updateDateInfo pour inclure la mise à jour du décompte
+    const originalUpdateDateInfo = updateDateInfo;
+    updateDateInfo = function() {
+        originalUpdateDateInfo();
+        updatePromotionData();
+    };
+    
+    // Initialiser le décompte
+    initCountdown();
+    
+    // Initialiser le compteur et les dates
+    updateCounter();
+    updateDateInfo();
+    
+    // Masquer les messages après 5 secondes
+    setTimeout(function() {
+        const messages = document.querySelectorAll('.success-message, .error-message');
+        messages.forEach(function(message) {
+            message.style.opacity = '0';
+            setTimeout(() => message.remove(), 300);
+        });
+    }, 5000);
+    });
+</script>
+{% endblock %} 

@@ -24,6 +24,7 @@ urlpatterns = [
     path('annulees/', views.commandes_annulees, name='annulees'),
     path('confirmees/', views.commandes_confirmees, name='confirmees'),
     path('preparees/', views.commandes_preparees, name='preparees'),
+    path('livrees/', views.commandes_livrees, name='livrees'),
     path('suivi-confirmations/', views.suivi_confirmations, name='suivi_confirmations'),
     path('suivi-preparations/', views.suivi_preparations, name='suivi_preparations'),
     path('affecter-preparation/<int:commande_id>/', views.affecter_preparation, name='affecter_preparation'),

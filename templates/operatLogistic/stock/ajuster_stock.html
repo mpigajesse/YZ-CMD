@@ -1,0 +1,65 @@
+{% extends 'composant_generale/operatLogistic/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--logistic-gradient-start), var(--logistic-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-sliders-h mr-3"></i>
+                {{ page_title }}
+            </h1>
+            <p class="text-gray-300">{{ page_subtitle }}</p>
+        </div>
+        <div class="text-right mt-4 md:mt-0">
+            <div class="text-2xl font-bold">{{ article.qte_disponible }}</div>
+            <div class="text-sm opacity-80">Quantité actuelle</div>
+        </div>
+    </div>
+
+    <!-- Formulaire d'ajustement -->
+    <div class="bg-white rounded-xl shadow-lg p-8 max-w-2xl mx-auto">
+        <form method="post">
+            {% csrf_token %}
+            <div class="space-y-6">
+                <div>
+                    <label for="{{ form.nouvelle_quantite.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                        {{ form.nouvelle_quantite.label }}
+                    </label>
+                    <div class="mt-1">
+                        {{ form.nouvelle_quantite }}
+                    </div>
+                    {% if form.nouvelle_quantite.errors %}
+                        <p class="mt-2 text-sm text-red-600">{{ form.nouvelle_quantite.errors|first }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.commentaire.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                        {{ form.commentaire.label }}
+                    </label>
+                    <div class="mt-1">
+                        {{ form.commentaire }}
+                    </div>
+                     {% if form.commentaire.errors %}
+                        <p class="mt-2 text-sm text-red-600">{{ form.commentaire.errors|first }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-4">
+                <a href="{% url 'operatLogistic:stock_articles' %}" class="px-6 py-2 rounded-lg bg-gray-200 text-gray-800 font-medium transition-all hover:bg-gray-300">
+                    Annuler
+                </a>
+                <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                        style="background-color: var(--logistic-primary);">
+                    <i class="fas fa-save mr-2"></i>Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

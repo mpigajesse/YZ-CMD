@@ -1,0 +1,190 @@
+{% extends 'composant_generale/operatLogistic/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--logistic-gradient-start), var(--logistic-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-box-open mr-3"></i>
+                {{ page_title }}
+            </h1>
+            <p class="text-gray-300">{{ page_subtitle }}</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'operatLogistic:stock_articles' %}" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-medium transition-all hover:bg-gray-300">
+                <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
+            </a>
+            <a href="{% url 'operatLogistic:modifier_article' article.id %}" class="px-4 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                    style="background-color: var(--logistic-primary);">
+                <i class="fas fa-edit mr-2"></i>Modifier
+            </a>
+            <a href="{% url 'operatLogistic:ajuster_stock' article.id %}" class="px-4 py-2 rounded-lg bg-orange-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                <i class="fas fa-balance-scale mr-2"></i>Ajuster Stock
+            </a>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert mb-6 p-4 rounded-xl border-l-4 animate-slideInUp alert-dismissible
+                    {% if message.tags == 'success' %}border-green-500 bg-green-50 text-green-700{% endif %}
+                    {% if message.tags == 'error' %}border-red-500 bg-red-50 text-red-700{% endif %}
+                    {% if message.tags == 'info' %}border-blue-500 bg-blue-50 text-blue-700{% endif %}
+                    {% if message.tags == 'warning' %}border-yellow-500 bg-yellow-50 text-yellow-700{% endif %}"
+             data-message-id="message-{{ forloop.counter }}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="{% if message.tags == 'success' %}fas fa-check-circle{% elif message.tags == 'error' %}fas fa-exclamation-circle{% elif message.tags == 'info' %}fas fa-info-circle{% else %}fas fa-exclamation-triangle{% endif %} mr-2"></i>
+                    {{ message }}
+                </div>
+                <button type="button" class="ml-4 text-gray-400 hover:text-gray-600 transition-colors" onclick="dismissMessage('message-{{ forloop.counter }}')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Détails de l'article -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Colonne de gauche: Informations principales -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-6 border-b pb-4">Informations Générales</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><strong class="text-gray-600">Nom :</strong><p class="text-gray-800">{{ article.nom }}</p></div>
+                <div><strong class="text-gray-600">Référence :</strong><p class="text-gray-800">{{ article.reference }}</p></div>
+                <div><strong class="text-gray-600">Catégorie :</strong><p class="text-gray-800">{{ article.categorie }}</p></div>
+                <div><strong class="text-gray-600">Phase :</strong><p class="text-gray-800">{{ article.get_phase_display }}</p></div>
+                <div><strong class="text-gray-600">Couleur :</strong><p class="text-gray-800">{{ article.couleur }}</p></div>
+                <div><strong class="text-gray-600">Pointure :</strong><p class="text-gray-800">{{ article.pointure }}</p></div>
+                <div class="md:col-span-2"><strong class="text-gray-600">Description :</strong><p class="text-gray-800 mt-1">{{ article.description|default:"Aucune description." }}</p></div>
+            </div>
+
+            <h3 class="text-xl font-bold text-gray-800 mt-8 mb-6 border-b pb-4">Détails Financiers et Stock</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><strong class="text-gray-600">Prix Unitaire :</strong><p class="text-gray-800 font-semibold text-lg">{{ article.prix_unitaire|floatformat:2 }} DH</p></div>
+                <div><strong class="text-gray-600">Prix Actuel :</strong><p class="text-green-600 font-bold text-lg">{{ article.prix_actuel|floatformat:2 }} DH</p></div>
+                <div><strong class="text-gray-600">Quantité en stock :</strong><p class="text-blue-600 font-bold text-lg">{{ article.qte_disponible }} unités</p></div>
+                 <div>
+                    <strong class="text-gray-600">Statut :</strong>
+                    <p>
+                        {% if article.actif %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Actif</span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Inactif</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Colonne de droite: Image et derniers mouvements -->
+        <div class="space-y-8">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                 <h3 class="text-xl font-bold text-gray-800 mb-4">Image</h3>
+                {% if article.image %}
+                    <img src="{{ article.image.url }}" alt="Image de {{ article.nom }}" class="w-full h-auto rounded-lg">
+                {% else %}
+                    <div class="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <p class="text-gray-500">Aucune image</p>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Derniers Mouvements</h3>
+                <ul class="space-y-3">
+                    {% for mvt in mouvements %}
+                    <li class="flex justify-between items-center text-sm border-b pb-2">
+                        <div>
+                            <span class="font-semibold">{{ mvt.get_type_mouvement_display }}</span>
+                            <span class="text-gray-500 block">{{ mvt.date_mouvement|date:"d/m/Y H:i" }}</span>
+                        </div>
+                        <span class="font-bold {% if 'pos' in mvt.type_mouvement or 'entree' in mvt.type_mouvement %}text-green-600{% else %}text-red-600{% endif %}">
+                            {{ mvt.quantite }}
+                        </span>
+                    </li>
+                    {% empty %}
+                    <li class="text-gray-500">Aucun mouvement récent.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-masquer les messages après un délai
+    const messages = document.querySelectorAll('.alert-dismissible');
+    messages.forEach(function(message) {
+        // Messages de succès : 5 secondes
+        if (message.classList.contains('bg-green-50')) {
+            setTimeout(function() {
+                dismissMessage(message.getAttribute('data-message-id'));
+            }, 5000);
+        }
+        
+        // Messages d'erreur : 10 secondes
+        if (message.classList.contains('bg-red-50')) {
+            setTimeout(function() {
+                dismissMessage(message.getAttribute('data-message-id'));
+            }, 10000);
+        }
+        
+        // Messages d'information : 7 secondes
+        if (message.classList.contains('bg-blue-50')) {
+            setTimeout(function() {
+                dismissMessage(message.getAttribute('data-message-id'));
+            }, 7000);
+        }
+        
+        // Messages d'avertissement : 7 secondes
+        if (message.classList.contains('bg-yellow-50')) {
+            setTimeout(function() {
+                dismissMessage(message.getAttribute('data-message-id'));
+            }, 7000);
+        }
+    });
+});
+
+// Fonction pour fermer un message
+function dismissMessage(messageId) {
+    const message = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (message) {
+        message.style.transition = 'all 0.5s ease-out';
+        message.style.opacity = '0';
+        message.style.transform = 'translateY(-20px)';
+        setTimeout(function() {
+            message.remove();
+        }, 500);
+    }
+}
+</script>
+{% endblock %} 

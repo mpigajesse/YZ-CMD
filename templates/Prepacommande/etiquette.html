@@ -291,7 +291,7 @@
                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ commande.id_yz }}</td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <div class="flex flex-col items-center justify-center">
-                                    <img src="{{ commande.barcode_base64 }}" alt="Code-barres pour {{ commande.id_yz }}" style="height: 50px; min-width: 160px;">
+                                    <img src="{% if 'data:image/png;base64,' not in commande.barcode_base64 %}data:image/png;base64,{% endif %}{{ commande.barcode_base64 }}" alt="Code-barres pour {{ commande.id_yz }}" style="height: 50px; min-width: 160px;">
                                 </div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
@@ -391,23 +391,38 @@
     </div>
 </div>
 
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Animation d'entrée pour les éléments
-    const cards = document.querySelectorAll('.preparation-card, .group');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        
-        setTimeout(() => {
-            card.style.transition = 'all 0.6s ease-out';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 100);
+    // Vérifie s'il y a un paramètre 'ids' dans l'URL.
+    // Si c'est le cas, cela signifie qu'une impression a été demandée.
+    const urlParams = new URLSearchParams(window.location.search);
+    const ids = urlParams.get('ids');
+
+    if (ids) {
+        // Lance la boîte de dialogue d'impression dès que la page est chargée.
+        window.print();
+    }
+
+    // Récupérer les produits pour chaque étiquette via API
+    document.querySelectorAll('.products-section').forEach(section => {
+        const commandeId = section.dataset.commandeId;
+        if (commandeId) {
+            fetch(`/prepacommande/api/commande/${commandeId}/produits/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        section.textContent = data.produits;
+                    } else {
+                        section.textContent = 'Erreur chargement produits.';
+                    }
+                })
+                .catch(() => {
+                    section.textContent = 'Erreur réseau.';
+                });
+        }
     });
 });
 </script>

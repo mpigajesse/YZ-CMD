@@ -68,53 +68,35 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-lg border p-6 mb-8 preparation-card" style="border-color: var(--preparation-border-accent);">
-        <!-- En-tête avec boutons -->
-        {% if commandes_affectees %}
-        <div class="flex justify-between items-center mb-4 px-2">
-            <div class="flex items-center space-x-4">
-                <button onclick="switchToTable()" id="btn-table" class="flex items-center px-4 py-2 rounded-lg font-medium text-white transition-colors" style="background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-dark));">
-                    <i class="fas fa-table mr-2"></i>
-                    Vue Tableau
-                </button>
-                <button id="printSelectedBtn" class="flex items-center px-4 py-2 rounded-lg font-medium text-white transition-colors bg-blue-600 hover:bg-blue-700">
-                    <i class="fas fa-print mr-2"></i>
-                    Imprimer sélectionnées
-                </button>
+        <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex-1">
+                <p class="text-gray-700 mb-2">Liste des commandes qui vous sont affectées.</p>
+                {% if search_query %}
+                    <div class="flex items-center text-sm text-gray-600">
+                        <i class="fas fa-search mr-2"></i>
+                        <span>Résultats pour : "<strong>{{ search_query }}</strong>"</span>
+                        <a href="{% url 'Prepacommande:liste_prepa' %}" class="ml-2 text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-times-circle"></i> Effacer
+                        </a>
+                    </div>
+                {% endif %}
             </div>
-            <div class="flex items-center space-x-4">
-                <div class="text-sm text-gray-600">
-                    <strong>{{ commandes_affectees.count }}</strong> commande{{ commandes_affectees.count|pluralize }} affectée{{ commandes_affectees.count|pluralize }}
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-            <h2 class="text-2xl font-bold mb-4 md:mb-0" style="color: var(--preparation-primary);">Mes Commandes Affectées</h2>
-            
-            <!-- Barre de recherche -->
-            <div class="w-full md:w-auto">
-                <form method="get" class="flex">
+            <div class="flex gap-2">
+                <form method="GET" class="flex">
                     <input type="text" name="search" value="{{ search_query }}" 
                            placeholder="Rechercher par ID, nom, téléphone..." 
-                           class="px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-offset-2 transition-all w-full md:w-80"
-                           style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
-                    <button type="submit" 
-                            class="px-6 py-2 text-white rounded-r-lg hover:shadow-lg transition-all"
-                            style="background-color: var(--preparation-primary);">
+                           class="block px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <button type="submit" class="inline-flex items-center px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-r-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                         <i class="fas fa-search"></i>
                     </button>
                 </form>
             </div>
         </div>
-
+        
         <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead style="background-color: var(--preparation-primary);">
                     <tr>
-                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                            <input type="checkbox" id="selectAll" class="rounded text-blue-600 focus:ring-blue-500">
-                        </th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
@@ -123,26 +105,19 @@
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Affectation</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Code-barres</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
                         <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
-                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% if commandes_affectees %}
                         {% for commande in commandes_affectees %}
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-4 py-4 whitespace-nowrap text-center">
-                                <input type="checkbox" value="{{ commande.id }}" class="commande-checkbox rounded text-blue-600 focus:ring-blue-500" data-commande-id="{{ commande.id }}">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ commande.id_yz }}
                             </td>
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                <a href="{% url 'Prepacommande:detail_prepa' commande.pk %}" class="text-sm font-medium hover:underline transition-all" style="color: var(--preparation-primary);">
-                                    {{ commande.id_yz }}
-                                </a>
-                            </td>
-                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ commande.num_cmd|default:'-' }}
-                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
                             <!-- Colonne Client -->
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
@@ -192,6 +167,13 @@
                                 <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.barcode_base64 %}
+                                    <img src="data:image/png;base64,{{ commande.barcode_base64 }}" alt="Code-barres" style="height: 30px;">
+                                {% else %}
+                                    <span class="text-xs text-gray-400">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
                                 {% with etat_actuel=commande.etat_actuel %}
                                     {% if etat_actuel.enum_etat.libelle == 'À imprimer' %}
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
@@ -224,34 +206,11 @@
                                     {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
                                 </a>
                             </td>
-                            <td class="px-4 py-4 whitespace-nowrap text-center">
-                                <div class="flex items-center justify-center space-x-2">
-                                    {% with etat_actuel=commande.etat_actuel %}
-                                        {% if etat_actuel.enum_etat.libelle == 'À imprimer' %}
-                                            <!-- Bouton Imprimer (état initial) -->
-                                            <button onclick="printSingleLabel({{ commande.id }})" 
-                                               class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
-                                               style="background-color: #F59E0B; hover:background-color: #D97706;"
-                                               title="Imprimer l'étiquette">
-                                                <i class="fas fa-print mr-1"></i> Imprimer
-                                            </button>
-                                        {% elif etat_actuel.enum_etat.libelle == 'En préparation' %}
-                                            <!-- Bouton Préparer (état en cours) -->
-                                            <a href="{% url 'Prepacommande:detail_prepa' commande.pk %}" 
-                                               class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
-                                               style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
-                                               title="Finaliser la préparation">
-                                                <i class="fas fa-boxes mr-1"></i> Préparer
-                                            </a>
-                                        {% endif %}
-                                    {% endwith %}
-                                </div>
-                            </td>
                         </tr>
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="12" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                            <td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                                 <div class="flex flex-col items-center py-8">
                                     <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
                                     <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande affectée</h3>
@@ -298,557 +257,38 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Gestion de la sélection globale
-    const selectAllCheckbox = document.getElementById('selectAll');
-    const commandeCheckboxes = document.querySelectorAll('.commande-checkbox');
-    
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-            commandeCheckboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
-            });
-        });
-    }
-    
-    // Mise à jour du checkbox "tout sélectionner"
-    commandeCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const totalCheckboxes = commandeCheckboxes.length;
-            const checkedCheckboxes = document.querySelectorAll('.commande-checkbox:checked').length;
-            
-            if (selectAllCheckbox) {
-                selectAllCheckbox.checked = totalCheckboxes === checkedCheckboxes;
-                selectAllCheckbox.indeterminate = checkedCheckboxes > 0 && checkedCheckboxes < totalCheckboxes;
-            }
-        });
-    });
-    
-    // Impression multiple
-    const printSelectedButton = document.getElementById('printSelectedBtn');
-    if (printSelectedButton) {
-        printSelectedButton.addEventListener('click', async function() {
-            const checkedBoxes = document.querySelectorAll('.commande-checkbox:checked');
-            if (checkedBoxes.length === 0) {
-                showToast("Veuillez sélectionner au moins une commande à imprimer.", 'error');
-                return;
-            }
-
-            // Identifier les commandes "À imprimer" avant l'impression
-            const commandesAImprimer = [];
-            checkedBoxes.forEach(checkbox => {
-                const row = checkbox.closest('tr');
-                const etatCell = row.querySelector('td:nth-child(10)'); // Colonne État
-                const etatBadge = etatCell ? etatCell.querySelector('span') : null;
-                
-                // Vérifier si l'état est "À imprimer"
-                if (etatBadge && etatBadge.textContent.trim().includes('À imprimer')) {
-                    commandesAImprimer.push({
-                        id: checkbox.value,
-                        row: row
-                    });
-                }
-            });
-
-            // Si il y a des commandes "À imprimer", changer leur état AVANT l'impression
-            if (commandesAImprimer.length > 0) {
-                showToast(`Changement d'état en cours pour ${commandesAImprimer.length} commande(s)...`, 'info');
-                
-                let compteurReussite = 0;
-                for (const commande of commandesAImprimer) {
-                    const succes = await changerEtatApresImpression(commande.id);
-                    if (succes) {
-                        compteurReussite++;
-                        // Mettre à jour visuellement la ligne immédiatement
-                        mettreAJourLigneCommande(commande.id, 'En préparation');
-                    }
-                }
-                
-                if (compteurReussite > 0) {
-                    showToast(
-                        `${compteurReussite} commande(s) passée(s) en préparation ! Lancement de l'impression...`, 
-                        'success'
-                    );
-                }
-                
-                // Attendre un peu puis lancer l'impression
-                setTimeout(async () => {
-                    await printMultipleLabels(checkedBoxes);
-                }, 500);
-            } else {
-                // Si aucune commande "À imprimer", juste imprimer
-                await printMultipleLabels(checkedBoxes);
-            }
-        });
-    }
-
-    // Fonction pour afficher les notifications toast
-    function showToast(message, type = 'info', duration = 3000) {
-        const toast = document.createElement('div');
-        toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all transform translate-x-full opacity-0 max-w-sm`;
-        
-        if (type === 'success') {
-            toast.classList.add('bg-green-500', 'text-white');
-        } else if (type === 'error') {
-            toast.classList.add('bg-red-500', 'text-white');
-        } else {
-            toast.classList.add('bg-blue-500', 'text-white');
-        }
-        
-        toast.innerHTML = `
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    ${type === 'success' ? '<i class="fas fa-check-circle"></i>' : 
-                      type === 'error' ? '<i class="fas fa-exclamation-circle"></i>' : 
-                      '<i class="fas fa-info-circle"></i>'}
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium">${message}</p>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.classList.remove('translate-x-full', 'opacity-0');
-        }, 100);
-        
-        setTimeout(() => {
-            toast.classList.add('translate-x-full', 'opacity-0');
-            setTimeout(() => {
-                document.body.removeChild(toast);
-            }, 300);
-        }, duration);
-    }
-
-    // Animation d'entrée pour les éléments
-    const cards = document.querySelectorAll('.preparation-card, .group');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        
-        setTimeout(() => {
-            card.style.transition = 'all 0.6s ease-out';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 100);
-    });
-
-    // Fonction pour basculer vers la vue tableau
-    window.switchToTable = function() {
-        // Fonction maintenue pour compatibilité
-        showToast('Vue tableau active', 'info');
-    };
-
-    // Fonction pour mettre à jour l'affichage d'une ligne après changement d'état
-    function mettreAJourLigneCommande(commandeId, nouvelEtat) {
-        const row = document.querySelector(`input[data-commande-id="${commandeId}"]`).closest('tr');
-        if (!row) return;
-        
-        // Mettre à jour la colonne État (colonne 10)
-        const etatCell = row.querySelector('td:nth-child(10)');
-        if (etatCell) {
-            if (nouvelEtat === 'En préparation') {
-                etatCell.innerHTML = `
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        <i class="fas fa-cog fa-spin mr-1"></i>
-                        En préparation
-                    </span>
-                `;
-            }
-        }
-        
-        // Mettre à jour la colonne Actions (colonne 12)
-        const actionsCell = row.querySelector('td:nth-child(12)');
-        if (actionsCell && nouvelEtat === 'En préparation') {
-            const commandeId_url = row.querySelector('td:nth-child(2) a').getAttribute('href');
-            actionsCell.innerHTML = `
-                <div class="flex items-center justify-center space-x-2">
-                    <a href="${commandeId_url}" 
-                       class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
-                       style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
-                       title="Finaliser la préparation">
-                        <i class="fas fa-boxes mr-1"></i> Préparer
-                    </a>
-                </div>
-            `;
-        }
-    }
-
-    // Fonction pour imprimer une seule étiquette
-    window.printSingleLabel = async function(commandeId) {
-        console.log('Début printSingleLabel pour commande:', commandeId);
-        
-        // Créer un checkbox temporaire pour utiliser la fonction d'impression multiple
-        const tempRow = document.querySelector(`input[data-commande-id="${commandeId}"]`).closest('tr');
-        const tempCheckbox = {
-            value: commandeId,
-            closest: () => tempRow
-        };
-        
-        // Vérifier si la commande est "À imprimer"
-        // Utilisons un sélecteur plus robuste pour trouver la cellule contenant le badge d'état
-        const etatCell = tempRow.querySelector('td:nth-child(10)'); // Colonne État
-        const etatBadge = etatCell ? etatCell.querySelector('span') : null;
-        const estAImprimer = etatBadge && etatBadge.textContent.trim().includes('À imprimer');
-        
-        console.log('Cellule état trouvée:', !!etatCell);
-        console.log('Badge trouvé:', !!etatBadge);
-        console.log('État détecté:', etatBadge ? etatBadge.textContent.trim() : 'Badge non trouvé');
-        console.log('Est à imprimer:', estAImprimer);
-        
-        // Debug : afficher le contenu de toutes les cellules
-        const cells = tempRow.querySelectorAll('td');
-        console.log('Nombre de cellules:', cells.length);
-        cells.forEach((cell, index) => {
-            console.log(`Cellule ${index + 1}:`, cell.textContent.trim().substring(0, 50));
-        });
-        
-        // Si c'est "À imprimer", changer l'état immédiatement AVANT l'impression
-        if (estAImprimer) {
-            showToast('Changement d\'état en cours...', 'info');
-            
-            const succes = await changerEtatApresImpression(commandeId);
-            if (succes) {
-                // Mettre à jour visuellement la ligne immédiatement
-                mettreAJourLigneCommande(commandeId, 'En préparation');
-                
-                showToast('Commande passée en préparation ! Lancement de l\'impression...', 'success');
-                
-                // Attendre un peu puis lancer l'impression
-                setTimeout(async () => {
-                    await printMultipleLabels([tempCheckbox]);
-                }, 500);
-            } else {
-                showToast('Erreur lors du changement d\'état', 'error');
-            }
-        } else {
-            // Si ce n'est pas "À imprimer", juste imprimer
-            await printMultipleLabels([tempCheckbox]);
-        }
-    };
-
-    // Fonction pour changer l'état d'une commande après impression
-    async function changerEtatApresImpression(commandeId) {
-        const apiUrl = '{{ api_changer_etat_url_base }}'.replace('99999999', commandeId);
-        console.log('URL API construite:', apiUrl);
-        
-        const csrfToken = getCsrfToken();
-        console.log('Token CSRF récupéré:', csrfToken ? 'Oui' : 'Non');
-        
-        try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken,
-                }
-            });
-            
-            console.log('Statut de la réponse:', response.status);
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('Données reçues:', data);
-                if (data.success) {
-                    console.log(`État changé pour commande ${commandeId}: ${data.message}`);
-                    return true;
-                } else {
-                    console.error(`Erreur changement d'état: ${data.message}`);
-                    return false;
-                }
-            } else {
-                const errorText = await response.text();
-                console.error('Erreur HTTP:', response.status, errorText);
-                return false;
-            }
-        } catch (error) {
-            console.error('Erreur lors du changement d\'état:', error);
-            return false;
-        }
-        return false;
-    }
-    
-    // Fonction pour obtenir le token CSRF
-    function getCsrfToken() {
-        return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-               document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    }
-
-    // Fonction pour imprimer plusieurs étiquettes sur une seule page
-    window.printMultipleLabels = async function(checkboxes) {
-        const apiUrlBase = '{{ api_produits_url_base }}';
-        
-        // Afficher un indicateur de chargement
-        const loadingDiv = document.createElement('div');
-        loadingDiv.innerHTML = `
-            <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; justify-content: center; align-items: center;">
-                <div style="background: white; padding: 20px; border-radius: 8px; text-align: center;">
-                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                    <p>Préparation des étiquettes...</p>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(loadingDiv);
-        
-        let labelsHtml = '';
-        
-        // Traiter chaque commande
-        for (let i = 0; i < checkboxes.length; i++) {
-            const checkbox = checkboxes[i];
-            const row = checkbox.closest('tr');
-            const cells = row.querySelectorAll('td');
-            
-            // Extraire les données de la ligne
-            const commandeId = checkbox.value;
-            const idYz = cells[1].textContent.trim();
-            const numExt = cells[2].textContent.trim();
-            const clientName = cells[3].querySelector('.text-sm.font-medium').textContent.trim();
-            const telephone = cells[4].textContent.trim();
-            const villeClient = cells[5].textContent.trim();
-            const villeLivraison = cells[6].querySelector('.text-sm.text-gray-900') ? 
-                                  cells[6].querySelector('.text-sm.text-gray-900').textContent.trim() : 
-                                  cells[6].textContent.trim();
-            const total = cells[9].textContent.trim();
-            
-            // Récupérer les vrais produits via AJAX
-            let produits = "PRODUITS DE LA COMMANDE " + idYz;
-            try {
-                // Construire l'URL correcte en remplaçant le placeholder numérique
-                const apiUrl = apiUrlBase.replace('99999999', commandeId);
-
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        produits = data.produits;
-                    }
-                }
-            } catch (error) {
-                console.log('Erreur lors de la récupération des produits:', error);
-                // On garde la valeur par défaut
-            }
-            
-            // Créer l'étiquette compacte
-            labelsHtml += `
-                <div class="compact-label">
-                    <div class="label-header">
-                        <span>N° ${idYz}</span>
-                        <span>${new Date().toLocaleDateString('fr-FR')}</span>
-                    </div>
-                    <div class="label-body">
-                        <div class="info-line">
-                            <i class="fas fa-user"></i>
-                            <span style="font-weight: bold;">${clientName.toUpperCase()}</span>
-                        </div>
-                        <div class="separator"></div>
-                        <div class="info-line">
-                            <i class="fas fa-phone-alt"></i>
-                            <span>${telephone !== 'Non renseigné' ? telephone : '-- -- -- -- --'}</span>
-                        </div>
-                        <div class="separator"></div>
-                        <div class="info-line">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span>ADRESSE À COMPLÉTER</span>
-                        </div>
-                        <div class="separator"></div>
-                        <div class="info-line">
-                            <i class="fas fa-city"></i>
-                            <span style="font-weight: bold;">${villeLivraison.toUpperCase()}</span>
-                        </div>
-                    </div>
-                    <div class="products-section-container">
-                        <div class="products-section">
-                            ${produits}
-                        </div>
-                    </div>
-                    <div class="label-footer">
-                        <span>${total}</span>
-                        <span>${villeLivraison.toUpperCase()}</span>
-                    </div>
-                    <div class="label-brand">
-                        <span class="brand-name">YOOZAK</span>
-                        <div style="text-align: right; line-height: 1.1;">
-                            <div>www.yoozak.com</div>
-                            <div>06 34 21 56 39 / 47</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Supprimer l'indicateur de chargement
-        document.body.removeChild(loadingDiv);
-
-        // Créer la fenêtre d'impression et retourner une promesse
-        return new Promise((resolve) => {
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
-            printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Impression Étiquettes - ${checkboxes.length} commande(s)</title>
-                <meta charset="UTF-8">
-                <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        margin: 0;
-                        padding: 5mm;
-                        background: white;
-                        -webkit-print-color-adjust: exact !important;
-                        color-adjust: exact !important;
-                    }
-                    
-                    .labels-container {
-                        display: grid;
-                        grid-template-columns: repeat(2, 1fr);
-                        gap: 5mm;
-                        width: 100%;
-                    }
-                    
-                    .compact-label {
-                        width: 90mm;
-                        height: 60mm;
-                        border: 2px solid black;
-                        font-family: Arial, sans-serif;
-                        font-size: 10px;
-                        display: flex;
-                        flex-direction: column;
-                        background: white;
-                        page-break-inside: avoid;
-                        margin: 0;
-                    }
-                    
-                    .compact-label * {
-                        -webkit-print-color-adjust: exact !important;
-                        color-adjust: exact !important;
-                    }
-                    
-                    .label-header {
-                        background-color: black !important;
-                        color: white !important;
-                        padding: 2mm;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        font-weight: bold;
-                        font-size: 11px;
-                    }
-                    
-                    .label-body {
-                        padding: 2mm;
-                        flex-grow: 1;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: space-between;
-                    }
-                    
-                    .info-line {
-                        display: flex;
-                        align-items: center;
-                        margin-bottom: 1mm;
-                        font-size: 9px;
-                    }
-                    
-                    .info-line i {
-                        width: 3mm;
-                        margin-right: 2mm;
-                        font-size: 8px;
-                    }
-                    
-                    .separator {
-                        border-bottom: 1px dashed #666 !important;
-                        margin: 1mm 0;
-                    }
-                    
-                    .products-section-container {
-                        border-top: 1.5px solid black !important;
-                        border-bottom: 1.5px solid black !important;
-                        padding: 2mm 0;
-                        margin: 2mm 0;
-                    }
-
-                    .products-section {
-                        padding: 1mm 2mm;
-                        font-size: 10px;
-                        font-weight: bold;
-                        text-align: left;
-                        min-height: 12mm;
-                        max-height: 24mm;
-                        overflow-y: auto;
-                    }
-                    
-                    .label-footer {
-                        background-color: black !important;
-                        color: white !important;
-                        padding: 2mm;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        font-weight: bold;
-                        font-size: 11px;
-                    }
-                    
-                    .label-brand {
-                        background-color: #f9f9f9 !important;
-                        padding: 1mm 2mm;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        font-size: 7px;
-                    }
-                    
-                    .brand-name {
-                        font-weight: bold;
-                        font-size: 9px;
-                        font-family: serif;
-                    }
-                    
-                    @media print {
-                        body { margin: 0; padding: 5mm; }
-                        .labels-container { 
-                            display: grid !important; 
-                            grid-template-columns: repeat(2, 1fr) !important; 
-                            gap: 5mm !important; 
-                        }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="labels-container">
-                    ${labelsHtml}
-                </div>
-            </body>
-            </html>
-        `);
-        
-        printWindow.document.close();
-        
-            // Attendre le chargement et imprimer
-            printWindow.onload = function() {
-                printWindow.focus();
-                setTimeout(function() {
-                    printWindow.print();
-                    printWindow.onafterprint = async function() {
-                        printWindow.close();
-                        
-                        // Impression terminée - plus de traitement automatique d'état ici
-                        // Les états sont maintenant changés AVANT l'impression
-                        
-                        // Résoudre la promesse pour indiquer que l'impression est terminée
-                        resolve();
-                    };
-                }, 500);
-            };
-        });
-    };
+    // Ce script peut être simplifié ou retiré si plus aucune action JS n'est nécessaire
+    console.log("Page de liste des préparations chargée.");
 });
+
+// Fonction pour afficher les notifications toast (si nécessaire ailleurs)
+function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all transform translate-x-full opacity-0 max-w-sm`;
+    
+    if (type === 'success') {
+        toast.classList.add('bg-green-500', 'text-white');
+    } else if (type === 'error') {
+        toast.classList.add('bg-red-500', 'text-white');
+    } else {
+        toast.classList.add('bg-gray-800', 'text-white');
+    }
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // Animer l'entrée
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+        toast.classList.add('translate-x-0', 'opacity-100');
+    }, 100);
+    
+    // Animer la sortie
+    setTimeout(() => {
+        toast.classList.remove('translate-x-0', 'opacity-100');
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 500);
+    }, duration);
+}
 </script>
 {% endblock %} 
