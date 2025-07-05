@@ -135,6 +135,33 @@ class Commande(models.Model):
         """Retourne l'historique complet des états"""
         return self.etats.all().order_by('date_debut')
 
+    def recalculer_totaux_upsell(self):
+        """
+        Recalcule automatiquement les totaux de la commande selon le compteur upsell.
+        Tous les articles de la commande prennent le prix upsell correspondant au compteur.
+        """
+        from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+        
+        nouveau_total = 0
+        
+        # Recalculer chaque panier selon le compteur upsell
+        for panier in self.paniers.all():
+            # Calculer le prix selon le compteur de la commande
+            prix_unitaire = get_prix_upsell_avec_compteur(panier.article, self.compteur)
+            nouveau_sous_total = prix_unitaire * panier.quantite
+            
+            # Mettre à jour le sous-total du panier si nécessaire
+            if panier.sous_total != nouveau_sous_total:
+                panier.sous_total = nouveau_sous_total
+                panier.save()
+            
+            nouveau_total += nouveau_sous_total
+        
+        # Mettre à jour le total de la commande si nécessaire
+        if self.total_cmd != nouveau_total:
+            self.total_cmd = nouveau_total
+            self.save(update_fields=['total_cmd'])
+
 
 class Panier(models.Model):
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='paniers')

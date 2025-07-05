@@ -564,11 +564,16 @@ def activer_desactiver_promotion(request, id):
     """Activer ou désactiver une promotion"""
     promotion = get_object_or_404(Promotion, id=id)
     
-    promotion.active = not promotion.active
-    promotion.save()
-    
-    action = "activée" if promotion.active else "désactivée"
-    messages.success(request, f"La promotion '{promotion.nom}' a été {action} avec succès.")
+    if promotion.active:
+        # Désactiver la promotion
+        promotion.desactiver_promotion()
+        action = "désactivée"
+        messages.success(request, f"La promotion '{promotion.nom}' a été {action} avec succès. Les prix des articles ont été remis à leur état initial.")
+    else:
+        # Activer la promotion
+        promotion.activer_promotion()
+        action = "activée"
+        messages.success(request, f"La promotion '{promotion.nom}' a été {action} avec succès. Les réductions ont été appliquées aux articles.")
     
     # Rediriger vers la page précédente ou la liste des promotions
     referer = request.META.get('HTTP_REFERER')
@@ -662,48 +667,94 @@ def reset_expired_promotions(request):
     """Réinitialise les prix des articles ayant des promotions expirées"""
     now = timezone.now()
     
-    # Trouver toutes les promotions expirées
+    # Trouver toutes les promotions expirées qui sont encore actives
     expired_promotions = Promotion.objects.filter(
         date_fin__lt=now,
         active=True
     )
     
-    # Compter les articles mis à jour
-    updated_articles_count = 0
+    # Compter les promotions et articles mis à jour
     updated_promotions_count = 0
+    updated_articles_count = 0
     
     # Parcourir chaque promotion expirée
     for promotion in expired_promotions:
-        # Désactiver la promotion
-        promotion.active = False
-        promotion.save()
+        # Compter les articles avant désactivation
+        articles_count = promotion.articles.count()
+        
+        # Désactiver la promotion (cela met automatiquement à jour les prix)
+        promotion.desactiver_promotion()
+        
         updated_promotions_count += 1
-        
-        # Récupérer tous les articles de cette promotion
-        articles = promotion.articles.all()
-        
-        # Mettre à jour le prix de chaque article
-        for article in articles:
-            # Vérifier si l'article n'a pas d'autres promotions actives avant de réinitialiser
-            has_other_active_promos = article.promotions.filter(
-                active=True, 
-                date_debut__lte=now,
-                date_fin__gte=now
-            ).exists()
-            
-            if not has_other_active_promos:
-                article.prix_actuel = article.prix_unitaire
-                article.save()
-                updated_articles_count += 1
+        updated_articles_count += articles_count
     
-    # Message de feedback
+    # Vérifier aussi les promotions qui devraient être actives
+    future_promotions = Promotion.objects.filter(
+        date_debut__lte=now,
+        date_fin__gte=now,
+        active=False
+    )
+    
+    activated_promotions_count = 0
+    for promotion in future_promotions:
+        promotion.activer_promotion()
+        activated_promotions_count += 1
+    
+    # Messages de feedback
+    messages_list = []
     if updated_promotions_count > 0:
-        messages.success(
-            request, 
-            f"{updated_promotions_count} promotion(s) expirée(s) désactivée(s) et {updated_articles_count} article(s) mis à jour."
-        )
+        messages_list.append(f"{updated_promotions_count} promotion(s) expirée(s) désactivée(s)")
+    if activated_promotions_count > 0:
+        messages_list.append(f"{activated_promotions_count} promotion(s) activée(s)")
+    if updated_articles_count > 0:
+        messages_list.append(f"{updated_articles_count} article(s) mis à jour")
+    
+    if messages_list:
+        messages.success(request, " et ".join(messages_list) + ".")
     else:
-        messages.info(request, "Aucune promotion expirée à traiter.")
+        messages.info(request, "Aucune promotion à traiter.")
+    
+    # Rediriger vers la liste des promotions
+    return redirect('article:liste_promotions')
+
+@login_required
+def gerer_promotions_automatiquement(request):
+    """Gère automatiquement toutes les promotions selon leur date et statut"""
+    now = timezone.now()
+    
+    # Statistiques
+    stats = {
+        'activated': 0,
+        'deactivated': 0,
+        'articles_updated': 0
+    }
+    
+    # Récupérer toutes les promotions
+    all_promotions = Promotion.objects.all()
+    
+    for promotion in all_promotions:
+        result = promotion.verifier_et_appliquer_automatiquement()
+        
+        if result == "activated":
+            stats['activated'] += 1
+            stats['articles_updated'] += promotion.articles.count()
+        elif result == "deactivated":
+            stats['deactivated'] += 1
+            stats['articles_updated'] += promotion.articles.count()
+    
+    # Messages de feedback
+    messages_list = []
+    if stats['activated'] > 0:
+        messages_list.append(f"{stats['activated']} promotion(s) activée(s)")
+    if stats['deactivated'] > 0:
+        messages_list.append(f"{stats['deactivated']} promotion(s) désactivée(s)")
+    if stats['articles_updated'] > 0:
+        messages_list.append(f"{stats['articles_updated']} article(s) mis à jour")
+    
+    if messages_list:
+        messages.success(request, "Gestion automatique terminée : " + " et ".join(messages_list) + ".")
+    else:
+        messages.info(request, "Aucune promotion à traiter automatiquement.")
     
     # Rediriger vers la liste des promotions
     return redirect('article:liste_promotions')

@@ -1370,19 +1370,41 @@ def modifier_commande(request, commande_id):
                 try:
                     article = Article.objects.get(id=article_id)
                     
-                    # Calculer le prix et le compteur selon la logique d'upsell
-                    prix_a_utiliser, increment_compteur = get_prix_et_compteur_upsell(article, quantite, commande)
-                    sous_total = prix_a_utiliser * quantite
-                    
+                    # Créer d'abord le panier
                     panier = Panier.objects.create(
                         commande=commande,
                         article=article,
                         quantite=quantite,
-                        sous_total=sous_total
+                        sous_total=0  # Sera recalculé après
                     )
                     
-                    # Mettre à jour le compteur de la commande
-                    commande.compteur += increment_compteur
+                    # Recalculer le compteur après ajout
+                    if article.isUpsell and hasattr(article, 'prix_upsell_1') and article.prix_upsell_1 is not None:
+                        # Compter la quantité totale d'articles upsell (après ajout)
+                        from django.db.models import Sum
+                        total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
+                            total=Sum('quantite')
+                        )['total'] or 0
+                        
+                        # Le compteur ne s'incrémente qu'à partir de 2 unités d'articles upsell
+                        # 0-1 unités upsell → compteur = 0
+                        # 2+ unités upsell → compteur = total_quantite_upsell - 1
+                        if total_quantite_upsell >= 2:
+                            commande.compteur = total_quantite_upsell - 1
+                        else:
+                            commande.compteur = 0
+                        
+                        commande.save()
+                        
+                        # Recalculer TOUS les articles de la commande avec le nouveau compteur
+                        commande.recalculer_totaux_upsell()
+                    else:
+                        # Pour les articles normaux, juste calculer le sous-total
+                        from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+                        prix_unitaire = get_prix_upsell_avec_compteur(article, commande.compteur)
+                        sous_total = prix_unitaire * quantite
+                        panier.sous_total = sous_total
+                        panier.save()
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
@@ -1421,17 +1443,44 @@ def modifier_commande(request, commande_id):
                 nouvelle_quantite = int(request.POST.get('nouvelle_quantite', 1))
                 
                 try:
-                    # Supprimer l'ancien panier et récupérer son compteur
+                    # Supprimer l'ancien panier et décrémenter le compteur
                     ancien_panier = Panier.objects.get(id=ancien_article_id, commande=commande)
                     ancien_article = ancien_panier.article
-                    _, ancien_increment = get_prix_et_compteur_upsell(ancien_article, ancien_panier.quantite, commande)
+                    
+                    # Sauvegarder les infos avant suppression
+                    ancien_etait_upsell = ancien_article.isUpsell
+                    
+                    # Supprimer l'ancien panier
                     ancien_panier.delete()
                     
                     # Créer le nouveau panier
                     nouvel_article = Article.objects.get(id=nouvel_article_id)
-                    # Calculer le nouveau prix et compteur selon la logique d'upsell
-                    prix_a_utiliser, nouvel_increment = get_prix_et_compteur_upsell(nouvel_article, nouvelle_quantite, commande)
-                    sous_total = prix_a_utiliser * nouvelle_quantite
+                    
+                    # Recalculer le compteur après remplacement
+                    from django.db.models import Sum
+                    total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
+                        total=Sum('quantite')
+                    )['total'] or 0
+                    
+                    # Ajouter la quantité si le nouvel article est upsell
+                    if nouvel_article.isUpsell:
+                        total_quantite_upsell += nouvelle_quantite
+                    
+                    # Appliquer la logique : compteur = max(0, total_quantite_upsell - 1)
+                    if total_quantite_upsell >= 2:
+                        commande.compteur = total_quantite_upsell - 1
+                    else:
+                        commande.compteur = 0
+                    
+                    commande.save()
+                    
+                    # Recalculer TOUS les articles de la commande avec le nouveau compteur
+                    commande.recalculer_totaux_upsell()
+                    
+                    # Calculer le sous-total selon le compteur de la commande
+                    from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+                    prix_unitaire = get_prix_upsell_avec_compteur(nouvel_article, commande.compteur)
+                    sous_total = prix_unitaire * nouvelle_quantite
                     
                     nouveau_panier = Panier.objects.create(
                         commande=commande,
@@ -1439,9 +1488,6 @@ def modifier_commande(request, commande_id):
                         quantite=nouvelle_quantite,
                         sous_total=sous_total
                     )
-                    
-                    # Mettre à jour le compteur de la commande
-                    commande.compteur = commande.compteur - ancien_increment + nouvel_increment
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
@@ -1483,12 +1529,33 @@ def modifier_commande(request, commande_id):
                 
                 try:
                     panier = Panier.objects.get(id=article_id, commande=commande)
-                    # Récupérer le compteur de l'article à supprimer
-                    _, increment_a_supprimer = get_prix_et_compteur_upsell(panier.article, panier.quantite, commande)
+                    
+                    # Sauvegarder l'info avant suppression
+                    etait_upsell = panier.article.isUpsell
+                    
+                    # Supprimer l'article
                     panier.delete()
                     
-                    # Mettre à jour le compteur de la commande
-                    commande.compteur -= increment_a_supprimer
+                    # Recalculer le compteur après suppression
+                    if etait_upsell:
+                        # Compter la quantité totale d'articles upsell restants (après suppression)
+                        from django.db.models import Sum
+                        total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
+                            total=Sum('quantite')
+                        )['total'] or 0
+                        
+                        # Le compteur ne s'incrémente qu'à partir de 2 unités d'articles upsell
+                        # 0-1 unités upsell → compteur = 0
+                        # 2+ unités upsell → compteur = total_quantite_upsell - 1
+                        if total_quantite_upsell >= 2:
+                            commande.compteur = total_quantite_upsell - 1
+                        else:
+                            commande.compteur = 0
+                        
+                        commande.save()
+                        
+                        # Recalculer TOUS les articles de la commande avec le nouveau compteur
+                        commande.recalculer_totaux_upsell()
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
@@ -1502,6 +1569,72 @@ def modifier_commande(request, commande_id):
                         'message': 'Article supprimé avec succès',
                         'total_commande': float(commande.total_cmd),
                         'nb_articles': commande.paniers.count(),
+                        'compteur': commande.compteur
+                    })
+                    
+                except Panier.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Article non trouvé'
+                    })
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'update_quantity':
+                # Modifier la quantité d'un article
+                from commande.models import Panier
+                
+                panier_id = request.POST.get('panier_id')
+                nouvelle_quantite = int(request.POST.get('nouvelle_quantite', 1))
+                
+                try:
+                    panier = Panier.objects.get(id=panier_id, commande=commande)
+                    ancienne_quantite = panier.quantite
+                    etait_upsell = panier.article.isUpsell
+                    
+                    # Modifier la quantité
+                    panier.quantite = nouvelle_quantite
+                    panier.save()
+                    
+                    # Recalculer le compteur si c'était un article upsell
+                    if etait_upsell:
+                        # Compter la quantité totale d'articles upsell (après modification)
+                        from django.db.models import Sum
+                        total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
+                            total=Sum('quantite')
+                        )['total'] or 0
+                        
+                        # Le compteur ne s'incrémente qu'à partir de 2 unités d'articles upsell
+                        if total_quantite_upsell >= 2:
+                            commande.compteur = total_quantite_upsell - 1
+                        else:
+                            commande.compteur = 0
+                        
+                        commande.save()
+                        
+                        # Recalculer TOUS les articles de la commande avec le nouveau compteur
+                        commande.recalculer_totaux_upsell()
+                    else:
+                        # Pour les articles normaux, juste recalculer le sous-total
+                        from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+                        prix_unitaire = get_prix_upsell_avec_compteur(panier.article, commande.compteur)
+                        panier.sous_total = prix_unitaire * nouvelle_quantite
+                        panier.save()
+                    
+                    # Recalculer le total de la commande
+                    total_commande = commande.paniers.aggregate(
+                        total=models.Sum('sous_total')
+                    )['total'] or 0
+                    commande.total_cmd = total_commande
+                    commande.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Quantité modifiée de {ancienne_quantite} à {nouvelle_quantite}',
+                        'total_commande': float(commande.total_cmd),
                         'compteur': commande.compteur
                     })
                     
@@ -2202,14 +2335,123 @@ def api_panier_commande(request, commande_id):
     
     return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
 
-def get_prix_et_compteur_upsell(article, quantite, commande):
+def reinitialiser_compteur_commande(request, commande_id):
     """
-    Calcule le prix à utiliser et le compteur pour un article upsell en fonction de la quantité.
-    Retourne un tuple (prix_a_utiliser, increment_compteur)
+    Fonction pour réinitialiser le compteur d'une commande si nécessaire
     """
-    prix_a_utiliser = article.get_prix_upsell(quantite)
-    increment_compteur = article.get_increment_compteur(quantite)
-    return prix_a_utiliser, increment_compteur
+    try:
+        commande = get_object_or_404(Commande, id=commande_id)
+        
+        # Vérifier et compter les articles upsell dans la commande
+        articles_upsell = commande.paniers.filter(article__isUpsell=True)
+        
+        # Calculer la quantité totale d'articles upsell
+        from django.db.models import Sum
+        total_quantite_upsell = articles_upsell.aggregate(
+            total=Sum('quantite')
+        )['total'] or 0
+        
+        # Déterminer le compteur correct selon la nouvelle logique :
+        # 0-1 unités upsell → compteur = 0
+        # 2+ unités upsell → compteur = total_quantite_upsell - 1
+        if total_quantite_upsell >= 2:
+            compteur_correct = total_quantite_upsell - 1
+        else:
+            compteur_correct = 0
+        
+        if commande.compteur != compteur_correct:
+            print(f"🔧 Correction du compteur: {commande.compteur} -> {compteur_correct}")
+            commande.compteur = compteur_correct
+            commande.save()
+            
+            # Recalculer les totaux
+            commande.recalculer_totaux_upsell()
+            
+            messages.success(request, f"Compteur corrigé: {compteur_correct}")
+        else:
+            messages.info(request, "Compteur déjà correct")
+            
+        return redirect('operatConfirme:modifier_commande', commande_id=commande.id)
+        
+    except Exception as e:
+        messages.error(request, f"Erreur lors de la correction: {str(e)}")
+        return redirect('operatConfirme:confirmation')
+
+def diagnostiquer_compteur_commande(request, commande_id):
+    """
+    Fonction pour diagnostiquer et corriger le compteur d'une commande
+    """
+    try:
+        commande = get_object_or_404(Commande, id=commande_id)
+        
+        # Diagnostiquer la situation actuelle
+        articles_upsell = commande.paniers.filter(article__isUpsell=True)
+        compteur_actuel = commande.compteur
+        
+        # Calculer la quantité totale d'articles upsell
+        from django.db.models import Sum
+        total_quantite_upsell = articles_upsell.aggregate(
+            total=Sum('quantite')
+        )['total'] or 0
+        
+        print(f"🔍 DIAGNOSTIC Commande {commande.id_yz}:")
+        print(f"📊 Compteur actuel: {compteur_actuel}")
+        print(f"📦 Articles upsell trouvés: {articles_upsell.count()}")
+        print(f"🔢 Quantité totale d'articles upsell: {total_quantite_upsell}")
+        
+        if articles_upsell.exists():
+            print("📋 Articles upsell dans la commande:")
+            for panier in articles_upsell:
+                print(f"  - {panier.article.nom} (Qté: {panier.quantite}, ID: {panier.article.id}, isUpsell: {panier.article.isUpsell})")
+        
+        # Déterminer le compteur correct selon la nouvelle logique :
+        # 0-1 unités upsell → compteur = 0
+        # 2+ unités upsell → compteur = total_quantite_upsell - 1
+        if total_quantite_upsell >= 2:
+            compteur_correct = total_quantite_upsell - 1
+        else:
+            compteur_correct = 0
+        
+        print(f"✅ Compteur correct: {compteur_correct}")
+        print("📖 Logique: 0-1 unités upsell → compteur=0 | 2+ unités upsell → compteur=total_quantité-1")
+        
+        # Corriger si nécessaire
+        if compteur_actuel != compteur_correct:
+            print(f"🔧 CORRECTION: {compteur_actuel} -> {compteur_correct}")
+            commande.compteur = compteur_correct
+            commande.save()
+            
+            # Recalculer tous les totaux
+            commande.recalculer_totaux_upsell()
+            
+            messages.success(request, f"Compteur corrigé: {compteur_actuel} -> {compteur_correct}")
+            
+            # Retourner les nouvelles données
+            return JsonResponse({
+                'success': True,
+                'message': f'Compteur corrigé de {compteur_actuel} vers {compteur_correct}',
+                'ancien_compteur': compteur_actuel,
+                'nouveau_compteur': compteur_correct,
+                'total_commande': float(commande.total_cmd),
+                'articles_upsell': articles_upsell.count(),
+                'quantite_totale_upsell': total_quantite_upsell
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'message': 'Compteur déjà correct',
+                'compteur': compteur_actuel,
+                'articles_upsell': articles_upsell.count(),
+                'quantite_totale_upsell': total_quantite_upsell
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
 
 
 

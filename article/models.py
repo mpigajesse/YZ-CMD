@@ -67,11 +67,7 @@ class Article(models.Model):
             #     check=models.Q(pointure__regex=r'^(3[0-9]|4[0-9]|50)$'), 
             #     name='pointure_valide'
             # ),
-            # Contrainte: Un article marqué comme upsell doit être en phase 'EN_COURS'
-            models.CheckConstraint(
-                check=models.Q(isUpsell=False) | models.Q(phase='EN_COURS'),
-                name='upsell_seulement_en_cours'
-            ),
+
         ]
     
     def __str__(self):
@@ -88,9 +84,9 @@ class Article(models.Model):
                     'prix_actuel': 'Assurez-vous qu\'il n\'y a pas plus de 2 chiffres après la virgule.'
                 })
         
-        # Vérification existante pour upsell
-        if self.isUpsell and self.phase != 'EN_COURS':
-            raise ValidationError("Un article ne peut pas être marqué comme 'upsell' s'il est en liquidation ou en test.")
+        # Désactiver automatiquement l'upsell pour les articles en liquidation ou en test
+        if self.isUpsell and self.phase in ['LIQUIDATION', 'EN_TEST']:
+            self.isUpsell = False
             
         # Vérifier qu'un article en promotion n'est pas marqué comme upsell
         if self.isUpsell and self.has_promo_active:
@@ -128,12 +124,30 @@ class Article(models.Model):
         # Appliquer la réduction si une promotion est active
         if promotion_active:
             reduction = self.prix_unitaire * (promotion_active.pourcentage_reduction / 100)
-            self.prix_actuel = self.prix_unitaire - reduction
+            nouveau_prix = self.prix_unitaire - reduction
+            # Arrondir à 2 décimales
+            self.prix_actuel = Decimal(str(nouveau_prix)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         else:
-            # Si pas de promotion, le prix actuel est égal au prix unitaire
+            # Si pas de promotion, le prix actuel revient au prix unitaire
             self.prix_actuel = self.prix_unitaire
             
         self.save(update_fields=['prix_actuel'])
+    
+    def appliquer_promotion(self, promotion):
+        """Applique une promotion spécifique à cet article"""
+        if promotion.est_active and self in promotion.articles.all():
+            reduction = self.prix_unitaire * (promotion.pourcentage_reduction / 100)
+            nouveau_prix = self.prix_unitaire - reduction
+            self.prix_actuel = Decimal(str(nouveau_prix)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            self.save(update_fields=['prix_actuel'])
+            return True
+        return False
+    
+    def retirer_promotion(self):
+        """Retire toutes les promotions et remet le prix actuel au prix unitaire"""
+        self.prix_actuel = self.prix_unitaire
+        self.save(update_fields=['prix_actuel'])
+        return True
     
     def get_all_prices(self):
         """Retourne tous les prix disponibles pour cet article (prix unitaire + upsells)"""
@@ -244,6 +258,57 @@ class Promotion(models.Model):
     def __str__(self):
         return f"{self.nom} ({self.pourcentage_reduction}%)"
     
+    def activer_promotion(self):
+        """Active la promotion et applique les réductions aux articles"""
+        self.active = True
+        # Utiliser update() pour éviter de déclencher le signal post_save
+        Promotion.objects.filter(id=self.id).update(active=True)
+        
+        # Appliquer la promotion à tous les articles associés
+        for article in self.articles.all():
+            article.appliquer_promotion(self)
+        
+        return True
+    
+    def desactiver_promotion(self):
+        """Désactive la promotion et remet les prix des articles à leur état initial"""
+        self.active = False
+        # Utiliser update() pour éviter de déclencher le signal post_save
+        Promotion.objects.filter(id=self.id).update(active=False)
+        
+        # Retirer la promotion de tous les articles associés
+        for article in self.articles.all():
+            # Vérifier si l'article n'a pas d'autres promotions actives
+            autres_promotions_actives = article.promotions.filter(
+                active=True,
+                date_debut__lte=timezone.now(),
+                date_fin__gte=timezone.now()
+            ).exclude(id=self.id).exists()
+            
+            if not autres_promotions_actives:
+                article.retirer_promotion()
+            else:
+                # Recalculer le prix avec les autres promotions actives
+                article.update_prix_actuel()
+        
+        return True
+    
+    def verifier_et_appliquer_automatiquement(self):
+        """Vérifie si la promotion doit être active et l'applique automatiquement"""
+        now = timezone.now()
+        
+        # Si la promotion est dans sa période d'activité et n'est pas encore active
+        if (self.date_debut <= now <= self.date_fin and not self.active):
+            self.activer_promotion()
+            return "activated"
+        
+        # Si la promotion est expirée et encore active
+        elif (now > self.date_fin and self.active):
+            self.desactiver_promotion()
+            return "deactivated"
+        
+        return "no_change"
+    
     @property
     def est_active(self):
         now = timezone.now()
@@ -257,6 +322,63 @@ class Promotion(models.Model):
     def est_expiree(self):
         return self.date_fin < timezone.now()
 
+class Categorie(models.Model):
+    """
+    Modèle pour les catégories d'articles
+    """
+    isUpsell = models.BooleanField(default=False)
+    qte_disponible = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    
+    class Meta:
+        verbose_name = "Catégorie"
+        verbose_name_plural = "Catégories"
+    
+    def __str__(self):
+        return f"Catégorie - Upsell: {self.isUpsell}"
+
+
+class MouvementStock(models.Model):
+    """
+    Modèle pour tracer les mouvements de stock des articles
+    """
+    TYPE_MOUVEMENT_CHOICES = [
+        ('entree', 'Entrée'),
+        ('sortie', 'Sortie'),
+        ('ajustement_pos', 'Ajustement Positif'),
+        ('ajustement_neg', 'Ajustement Négatif'),
+        ('inventaire', 'Inventaire'),
+        ('retour_client', 'Retour Client'),
+    ]
+    
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='mouvements')
+    type_mouvement = models.CharField(max_length=20, choices=TYPE_MOUVEMENT_CHOICES)
+    quantite = models.IntegerField(help_text="Quantité du mouvement. Positive pour une entrée, négative pour une sortie.")
+    qte_apres_mouvement = models.IntegerField()
+    date_mouvement = models.DateTimeField(auto_now_add=True)
+    commentaire = models.TextField(blank=True, null=True)
+    commande_associee = models.ForeignKey(
+        'commande.Commande', 
+        on_delete=models.SET_NULL, 
+        blank=True, 
+        null=True,
+        help_text="Commande liée à ce mouvement (si applicable)"
+    )
+    operateur = models.ForeignKey(
+        'parametre.Operateur', 
+        on_delete=models.SET_NULL, 
+        blank=True, 
+        null=True
+    )
+    
+    class Meta:
+        verbose_name = "Mouvement de stock"
+        verbose_name_plural = "Mouvements de stock"
+        ordering = ['-date_mouvement']
+    
+    def __str__(self):
+        return f"{self.article.nom} - {self.get_type_mouvement_display()} - {self.quantite}"
+
+
 # Signal pour initialiser le prix actuel au prix unitaire lors de la création
 @receiver(post_save, sender=Article)
 def initialize_prix_actuel(sender, instance, created, **kwargs):
@@ -267,41 +389,17 @@ def initialize_prix_actuel(sender, instance, created, **kwargs):
 
 # Signal pour automatiquement mettre à jour les articles quand une promotion est modifiée ou expirée
 @receiver(post_save, sender=Promotion)
-def update_article_prices(sender, instance, **kwargs):
+def update_article_prices(sender, instance, created, **kwargs):
+    """Met à jour les prix des articles quand une promotion est modifiée"""
+    from django.utils import timezone
+    
+    # Vérifier automatiquement si la promotion doit être active (seulement pour les nouvelles promotions)
+    if created:
+        now = timezone.now()
+        if instance.date_debut <= now <= instance.date_fin:
+            instance.activer_promotion()
+    
     # Pour tous les articles associés à cette promotion
     for article in instance.articles.all():
-        # Mettre à jour le prix actuel basé sur les promotions actives
+        # Mettre à jour le prix actuel basé sur toutes les promotions actives
         article.update_prix_actuel()
-
-class Categorie(models.Model):
-    isUpsell = models.BooleanField(default=False)
-    qte_disponible = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    
-    def __str__(self):
-        return f"{self.nom} ({self.reference})"
-
-class MouvementStock(models.Model):
-    TYPE_MOUVEMENT_CHOICES = [
-        ('entree', 'Entrée'),
-        ('sortie', 'Sortie'),
-        ('ajustement_pos', 'Ajustement Positif'),
-        ('ajustement_neg', 'Ajustement Négatif'),
-        ('inventaire', 'Inventaire'),
-        ('retour_client', 'Retour Client'),
-    ]
-    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='mouvements')
-    type_mouvement = models.CharField(max_length=20, choices=TYPE_MOUVEMENT_CHOICES)
-    quantite = models.IntegerField(help_text="Quantité du mouvement. Positive pour une entrée, négative pour une sortie.")
-    qte_apres_mouvement = models.IntegerField()
-    date_mouvement = models.DateTimeField(auto_now_add=True)
-    operateur = models.ForeignKey('parametre.Operateur', on_delete=models.SET_NULL, null=True, blank=True)
-    commentaire = models.TextField(blank=True, null=True)
-    commande_associee = models.ForeignKey('commande.Commande', on_delete=models.SET_NULL, null=True, blank=True, help_text="Commande liée à ce mouvement (si applicable)")
-
-    def __str__(self):
-        return f"{self.get_type_mouvement_display()} de {self.quantite} pour {self.article.nom}"
-
-    class Meta:
-        ordering = ['-date_mouvement']
-        verbose_name = "Mouvement de stock"
-        verbose_name_plural = "Mouvements de stock"

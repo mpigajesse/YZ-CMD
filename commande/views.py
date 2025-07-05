@@ -207,16 +207,24 @@ def creer_commande(request):
                         article = Article.objects.get(pk=article_id)
                         quantite = int(request.POST.get(f'quantite_{article_counter}', 1))
                         
+                        # Calculer le sous-total selon la logique upsell
+                        from commande.templatetags.commande_filters import calculer_sous_total_upsell
+                        sous_total = calculer_sous_total_upsell(article, quantite)
+                        
                         # Créer le panier
                         Panier.objects.create(
                             commande=commande,
                             article=article,
                             quantite=quantite,
-                            sous_total=quantite * article.prix_unitaire
+                            sous_total=sous_total
                         )
                         
                         # Mettre à jour le total
-                        total_commande += quantite * article.prix_unitaire
+                        total_commande += sous_total
+                        
+                        # Incrémenter le compteur si c'est un article upsell
+                        if article.isUpsell and quantite > 1:
+                            commande.compteur += 1
                     
                     article_counter += 1
                 
@@ -280,13 +288,15 @@ def modifier_commande(request, pk):
                     while f'article_{article_counter}' in request.POST:
                         article_id = request.POST.get(f'article_{article_counter}')
                         quantite = request.POST.get(f'quantite_{article_counter}')
-                        sous_total = request.POST.get(f'sous_total_{article_counter}')
                         
-                        if article_id and quantite and sous_total:
+                        if article_id and quantite:
                             try:
                                 article = Article.objects.get(pk=article_id)
                                 quantite = int(quantite)
-                                sous_total = float(sous_total)
+                                
+                                # Calculer le sous-total selon la logique upsell
+                                from commande.templatetags.commande_filters import calculer_sous_total_upsell
+                                sous_total = calculer_sous_total_upsell(article, quantite)
                                 
                                 # Créer l'entrée dans le panier
                                 Panier.objects.create(
@@ -297,6 +307,10 @@ def modifier_commande(request, pk):
                                 )
                                 
                                 total_commande += sous_total
+                                
+                                # Incrémenter le compteur si c'est un article upsell
+                                if article.isUpsell and quantite > 1:
+                                    commande.compteur += 1
                             except (Article.DoesNotExist, ValueError):
                                 pass
                         
@@ -2233,3 +2247,106 @@ def suivi_preparations(request):
     }
     
     return render(request, 'commande/suivi_preparations.html', context)
+
+@login_required
+def commandes_livrees(request):
+    """Vue pour afficher les commandes livrées avec pagination, recherche et statistiques"""
+    from django.utils import timezone
+    from datetime import datetime, timedelta
+    
+    # Récupérer toutes les commandes livrées
+    commandes_livrees = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
+    
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_livrees = commandes_livrees.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query) |
+            Q(etats__operateur__nom__icontains=search_query) |
+            Q(etats__operateur__prenom__icontains=search_query) |
+            Q(ville__nom__icontains=search_query) |
+            Q(ville__region__nom_region__icontains=search_query)
+        ).distinct()
+    
+    # Tri par date de livraison (plus récentes en premier)
+    commandes_livrees = commandes_livrees.order_by('-etats__date_debut')
+    
+    # Pagination
+    paginator = Paginator(commandes_livrees, 25)  # 25 commandes par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques
+    today = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+    this_week = today - timedelta(days=7)
+    this_month = today - timedelta(days=30)
+    
+    # Compter par période
+    livrees_aujourd_hui = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date=today
+    ).distinct().count()
+    
+    livrees_hier = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date=yesterday
+    ).distinct().count()
+    
+    livrees_semaine = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date__gte=this_week
+    ).distinct().count()
+    
+    livrees_mois = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée',
+        etats__date_fin__isnull=True,
+        etats__date_debut__date__gte=this_month
+    ).distinct().count()
+    
+    # Montant total des commandes livrées
+    montant_total = commandes_livrees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Total des commandes livrées
+    total_livrees = commandes_livrees.count()
+    
+    # Récupérer les commandes par opérateur de livraison
+    commandes_par_operateur = {}
+    for commande in commandes_livrees:
+        etat_livraison = commande.etats.filter(
+            enum_etat__libelle='Livrée',
+            date_fin__isnull=True
+        ).first()
+        
+        if etat_livraison and etat_livraison.operateur:
+            operateur_nom = f"{etat_livraison.operateur.prenom} {etat_livraison.operateur.nom}"
+            if operateur_nom not in commandes_par_operateur:
+                commandes_par_operateur[operateur_nom] = []
+            commandes_par_operateur[operateur_nom].append(commande)
+    
+    context = {
+        'commandes_livrees': page_obj,
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'livrees_aujourd_hui': livrees_aujourd_hui,
+        'livrees_hier': livrees_hier,
+        'livrees_semaine': livrees_semaine,
+        'livrees_mois': livrees_mois,
+        'total_livrees': total_livrees,
+        'montant_total': montant_total,
+        'commandes_par_operateur': sorted(commandes_par_operateur.items()),
+        'page_title': 'Commandes Livrées',
+        'page_subtitle': 'Suivi des commandes livrées avec succès'
+    }
+    
+    return render(request, 'commande/livrees.html', context)

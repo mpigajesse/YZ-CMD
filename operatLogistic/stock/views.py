@@ -34,12 +34,19 @@ def ajuster_stock(request, article_id):
                     article.save()
                     
                     # 2. Créer un mouvement de stock
+                    # Récupérer l'opérateur associé à l'utilisateur
+                    try:
+                        from parametre.models import Operateur
+                        operateur = Operateur.objects.get(user=request.user)
+                    except Operateur.DoesNotExist:
+                        operateur = None
+                    
                     MouvementStock.objects.create(
                         article=article,
                         type_mouvement=type_mouvement,
                         quantite=abs(difference),
                         qte_apres_mouvement=nouvelle_quantite,
-                        operateur=request.user.profil_operateur,
+                        operateur=operateur,
                         commentaire=commentaire
                     )
                     

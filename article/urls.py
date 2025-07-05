@@ -27,6 +27,7 @@ urlpatterns = [
     path('promotions/supprimer/<int:id>/', views.supprimer_promotion, name='supprimer_promotion'),
     path('promotions/activer-desactiver/<int:id>/', views.activer_desactiver_promotion, name='activer_desactiver_promotion'),
     path('promotions/reset-expired/', views.reset_expired_promotions, name='reset_expired_promotions'),
+    path('promotions/gerer-automatiquement/', views.gerer_promotions_automatiquement, name='gerer_promotions_automatiquement'),
     
     # Gestion des phases
     path('changer-phase/<int:id>/', views.changer_phase, name='changer_phase'),
