@@ -1,4 +1,4 @@
-<!-- Onglet Vue Quantitative - Suivi des états de commandes -->
+<!-- Onglet État des commandes - Suivi des états de commandes -->
 <div class="space-y-6">
   <!-- Section principale: Suivi de l'état des commandes -->
   <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
@@ -13,7 +13,7 @@
       </div>
 
       <!-- Filtres temporels et export -->
-      <div class="flex items-center gap-3">
+      <div class="flex flex-col sm:flex-row gap-4">
         <!-- Filtres temporels -->
         <div class="flex items-center gap-2">
           <label class="text-sm font-medium text-gray-700">Période :</label>
@@ -38,8 +38,8 @@
         <!-- Boutons d'export -->
         <div class="flex items-center gap-2 border-l border-gray-300 pl-3">
           <button id="export-excel-btn" class="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Exporter en Excel">
-            <i class="fas fa-file-excel text-xs"></i>
-            <span>Excel</span>
+            <i class="fas fa-download text-xs"></i>
+            <span>Exporter</span>
           </button>
         </div>
 
@@ -52,7 +52,7 @@
     </div>
 
     <!-- Grille des états de commandes -->
-    <div id="vue-quantitative-etats-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+    <div id="vue-quantitative-etats-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       <!-- Contenu chargé dynamiquement -->
       <div class="col-span-full flex items-center justify-center py-12">
         <div class="text-center">
@@ -66,101 +66,6 @@
 
 <!-- Styles CSS spécifiques -->
 <style>
-  .etat-card {
-    @apply bg-white rounded-lg border border-gray-200 p-4 transition-all duration-200 hover:shadow-md hover:border-gray-300;
-  }
-  
-  .etat-card-header {
-    @apply flex items-center justify-between mb-2;
-  }
-  
-  .etat-number {
-    @apply text-2xl font-bold;
-  }
-  
-  .etat-label {
-    @apply text-sm font-medium text-gray-600;
-  }
-  
-  .etat-icon {
-    @apply w-8 h-8 rounded-full flex items-center justify-center text-white text-sm;
-  }
-  
-  /* Couleurs par type d'état */
-  .etat-recue .etat-icon {
-    @apply bg-blue-500;
-  }
-  .etat-affectee .etat-icon {
-    @apply bg-green-500;
-  }
-  .etat-non_affectee .etat-icon {
-    @apply bg-yellow-500;
-  }
-  .etat-erronnee .etat-icon {
-    @apply bg-red-500;
-  }
-  .etat-doublon .etat-icon {
-    @apply bg-orange-500;
-  }
-  .etat-en_cours_confirmation .etat-icon {
-    @apply bg-indigo-500;
-  }
-  .etat-confirmee .etat-icon {
-    @apply bg-emerald-500;
-  }
-  .etat-en_cours_preparation .etat-icon {
-    @apply bg-cyan-500;
-  }
-  .etat-preparee .etat-icon {
-    @apply bg-teal-500;
-  }
-  .etat-en_cours_livraison .etat-icon {
-    @apply bg-purple-500;
-  }
-  .etat-livree .etat-icon {
-    @apply bg-green-600;
-  }
-  .etat-retournee .etat-icon {
-    @apply bg-gray-500;
-  }
-  
-  .etat-recue .etat-number {
-    @apply text-blue-600;
-  }
-  .etat-affectee .etat-number {
-    @apply text-green-600;
-  }
-  .etat-non_affectee .etat-number {
-    @apply text-yellow-600;
-  }
-  .etat-erronnee .etat-number {
-    @apply text-red-600;
-  }
-  .etat-doublon .etat-number {
-    @apply text-orange-600;
-  }
-  .etat-en_cours_confirmation .etat-number {
-    @apply text-indigo-600;
-  }
-  .etat-confirmee .etat-number {
-    @apply text-emerald-600;
-  }
-  .etat-en_cours_preparation .etat-number {
-    @apply text-cyan-600;
-  }
-  .etat-preparee .etat-number {
-    @apply text-teal-600;
-  }
-  .etat-en_cours_livraison .etat-number {
-    @apply text-purple-600;
-  }
-  .etat-livree .etat-number {
-    @apply text-green-700;
-  }
-  .etat-retournee .etat-number {
-    @apply text-gray-600;
-  }
-  
   /* Styles pour la validation des dates */
   .border-red-500 {
     border-color: #ef4444 !important;
@@ -182,7 +87,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     let currentData = null // Stocker les données actuelles pour l'export
   
-    // Charger les données de l'onglet Vue Quantitative
+    // Charger les données de l'onglet État des commandes
     function loadVueQuantitativeData(period = 'aujourd_hui') {
       // Afficher un indicateur de chargement
       showLoadingState()
@@ -234,18 +139,18 @@
       var container = document.getElementById('vue-quantitative-etats-grid')
   
       var etatsConfig = {
-        recue: { label: 'Reçues', icon: 'fas fa-inbox' },
-        affectee: { label: 'Affectées', icon: 'fas fa-user-check' },
-        non_affectee: { label: 'Non affectées', icon: 'fas fa-user-times' },
-        erronnee: { label: 'Erronées', icon: 'fas fa-exclamation-triangle' },
-        doublon: { label: 'Doublons', icon: 'fas fa-copy' },
-        en_cours_confirmation: { label: 'En confirmation', icon: 'fas fa-clock' },
-        confirmee: { label: 'Confirmées', icon: 'fas fa-check-circle' },
-        en_cours_preparation: { label: 'En préparation', icon: 'fas fa-box-open' },
-        preparee: { label: 'Préparées', icon: 'fas fa-box' },
-        en_cours_livraison: { label: 'En livraison', icon: 'fas fa-truck' },
-        livree: { label: 'Livrées', icon: 'fas fa-check-double' },
-        retournee: { label: 'Retournées', icon: 'fas fa-undo' }
+        recue: { label: 'Reçues', icon: 'fas fa-inbox', bgClass: 'bg-blue-100', iconClass: 'text-blue-600', numberClass: 'text-blue-600' },
+        affectee: { label: 'Affectées', icon: 'fas fa-user-check', bgClass: 'bg-green-100', iconClass: 'text-green-600', numberClass: 'text-green-600' },
+        non_affectee: { label: 'Non affectées', icon: 'fas fa-user-times', bgClass: 'bg-yellow-100', iconClass: 'text-yellow-600', numberClass: 'text-yellow-600' },
+        erronnee: { label: 'Erronées', icon: 'fas fa-exclamation-triangle', bgClass: 'bg-red-100', iconClass: 'text-red-600', numberClass: 'text-red-600' },
+        doublon: { label: 'Doublons', icon: 'fas fa-copy', bgClass: 'bg-orange-100', iconClass: 'text-orange-600', numberClass: 'text-orange-600' },
+        en_cours_confirmation: { label: 'En confirmation', icon: 'fas fa-clock', bgClass: 'bg-indigo-100', iconClass: 'text-indigo-600', numberClass: 'text-indigo-600' },
+        confirmee: { label: 'Confirmées', icon: 'fas fa-check-circle', bgClass: 'bg-emerald-100', iconClass: 'text-emerald-600', numberClass: 'text-emerald-600' },
+        en_cours_preparation: { label: 'En préparation', icon: 'fas fa-box-open', bgClass: 'bg-cyan-100', iconClass: 'text-cyan-600', numberClass: 'text-cyan-600' },
+        preparee: { label: 'Préparées', icon: 'fas fa-box', bgClass: 'bg-teal-100', iconClass: 'text-teal-600', numberClass: 'text-teal-600' },
+        en_cours_livraison: { label: 'En livraison', icon: 'fas fa-truck', bgClass: 'bg-purple-100', iconClass: 'text-purple-600', numberClass: 'text-purple-600' },
+        livree: { label: 'Livrées', icon: 'fas fa-check-double', bgClass: 'bg-green-100', iconClass: 'text-green-700', numberClass: 'text-green-700' },
+        retournee: { label: 'Retournées', icon: 'fas fa-undo', bgClass: 'bg-gray-100', iconClass: 'text-gray-600', numberClass: 'text-gray-600' }
       }
   
       var html = ''
@@ -254,14 +159,16 @@
           var count = etats[etat]
           var config = etatsConfig[etat]
           if (config) {
-            html += '<div class="etat-card etat-' + etat + '">'
-            html += '  <div class="etat-card-header">'
-            html += '    <div class="etat-icon">'
-            html += '      <i class="' + config.icon + '"></i>'
+            html += '<div class="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">'
+            html += '  <div class="flex items-center justify-between">'
+            html += '    <div>'
+            html += '      <p class="text-sm font-medium text-gray-600">' + config.label + '</p>'
+            html += '      <p class="text-2xl font-bold ' + config.numberClass + '">' + count.toLocaleString() + '</p>'
+            html += '    </div>'
+            html += '    <div class="w-12 h-12 ' + config.bgClass + ' rounded-lg flex items-center justify-center">'
+            html += '      <i class="' + config.icon + ' ' + config.iconClass + ' text-xl"></i>'
             html += '    </div>'
             html += '  </div>'
-            html += '  <div class="etat-number">' + count.toLocaleString() + '</div>'
-            html += '  <div class="etat-label">' + config.label + '</div>'
             html += '</div>'
           }
         }
@@ -353,37 +260,37 @@
   
       // Créer un vrai format Excel avec HTML table (Excel peut l'interpréter)
       let htmlContent = `<?xml version="1.0"?>
-  <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-   xmlns:o="urn:schemas-microsoft-com:office:office"
-   xmlns:x="urn:schemas-microsoft-com:office:excel"
-   xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
-   xmlns:html="http://www.w3.org/TR/REC-html40">
-   <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
-    <Title>États des commandes</Title>
-   </DocumentProperties>
-   <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
-    <WindowHeight>12000</WindowHeight>
-    <WindowWidth>18000</WindowWidth>
-    <WindowTopX>0</WindowTopX>
-    <WindowTopY>0</WindowTopY>
-   </ExcelWorkbook>
-   <Styles>
-    <Style ss:ID="header">
-     <Font ss:Bold="1"/>
-     <Interior ss:Color="#D3D3D3" ss:Pattern="Solid"/>
-    </Style>
-    <Style ss:ID="total">
-     <Font ss:Bold="1"/>
-     <Interior ss:Color="#F0F0F0" ss:Pattern="Solid"/>
-    </Style>
-   </Styles>
-   <Worksheet ss:Name="États des commandes">
-    <Table>
-     <Row>
-      <Cell ss:StyleID="header"><Data ss:Type="String">État de commande</Data></Cell>
-      <Cell ss:StyleID="header"><Data ss:Type="String">Nombre</Data></Cell>
-      <Cell ss:StyleID="header"><Data ss:Type="String">Pourcentage</Data></Cell>
-     </Row>`
+      <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+       xmlns:o="urn:schemas-microsoft-com:office:office"
+       xmlns:x="urn:schemas-microsoft-com:office:excel"
+       xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+       xmlns:html="http://www.w3.org/TR/REC-html40">
+       <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+        <Title>États des commandes</Title>
+       </DocumentProperties>
+       <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+        <WindowHeight>12000</WindowHeight>
+        <WindowWidth>18000</WindowWidth>
+        <WindowTopX>0</WindowTopX>
+        <WindowTopY>0</WindowTopY>
+       </ExcelWorkbook>
+       <Styles>
+        <Style ss:ID="header">
+         <Font ss:Bold="1"/>
+         <Interior ss:Color="#D3D3D3" ss:Pattern="Solid"/>
+        </Style>
+        <Style ss:ID="total">
+         <Font ss:Bold="1"/>
+         <Interior ss:Color="#F0F0F0" ss:Pattern="Solid"/>
+        </Style>
+       </Styles>
+       <Worksheet ss:Name="États des commandes">
+        <Table>
+         <Row>
+          <Cell ss:StyleID="header"><Data ss:Type="String">État de commande</Data></Cell>
+          <Cell ss:StyleID="header"><Data ss:Type="String">Nombre</Data></Cell>
+          <Cell ss:StyleID="header"><Data ss:Type="String">Pourcentage</Data></Cell>
+         </Row>`
   
       // Ajouter les données des états
       for (const [etat, count] of Object.entries(etats)) {
@@ -391,24 +298,24 @@
         const pourcentage = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
   
         htmlContent += `
-     <Row>
-      <Cell><Data ss:Type="String">${label}</Data></Cell>
-      <Cell><Data ss:Type="Number">${count}</Data></Cell>
-      <Cell><Data ss:Type="String">${pourcentage}%</Data></Cell>
-     </Row>`
+         <Row>
+          <Cell><Data ss:Type="String">${label}</Data></Cell>
+          <Cell><Data ss:Type="Number">${count}</Data></Cell>
+          <Cell><Data ss:Type="String">${pourcentage}%</Data></Cell>
+         </Row>`
       }
   
       // Ajouter une ligne vide et le total
       htmlContent += `
-     <Row></Row>
-     <Row>
-      <Cell ss:StyleID="total"><Data ss:Type="String">Total</Data></Cell>
-      <Cell ss:StyleID="total"><Data ss:Type="Number">${total}</Data></Cell>
-      <Cell ss:StyleID="total"><Data ss:Type="String">100.0%</Data></Cell>
-     </Row>
-    </Table>
-   </Worksheet>
-  </Workbook>`
+         <Row></Row>
+         <Row>
+          <Cell ss:StyleID="total"><Data ss:Type="String">Total</Data></Cell>
+          <Cell ss:StyleID="total"><Data ss:Type="Number">${total}</Data></Cell>
+          <Cell ss:StyleID="total"><Data ss:Type="String">100.0%</Data></Cell>
+         </Row>
+        </Table>
+       </Worksheet>
+      </Workbook>`
   
       // Créer et télécharger le fichier Excel (.xls format XML Excel)
       const blob = new Blob(['\ufeff' + htmlContent], {

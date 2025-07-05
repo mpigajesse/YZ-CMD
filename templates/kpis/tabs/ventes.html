@@ -6,77 +6,205 @@
   <div class="flex items-center justify-between">
     <div>
       <h2 class="text-2xl font-bold text-gray-900">Performance Ventes</h2>
-      <p class="text-gray-600">Analyse détaillée des ventes et performances commerciales</p>
+      <p class="text-gray-600">Analyse des ventes et performances commerciales (commandes livrées)</p>
     </div>
     {% comment %} <div class="flex gap-2">
       <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"><i class="fas fa-download"></i> Exporter</button>
     </div> {% endcomment %}
   </div>
 
-  <!-- KPIs Ventes Principaux -->
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-    <!-- CA Total -->
-    <div data-kpi="ca_total" class="kpi-card">
-      {% include 'kpis/components/kpi_card.html' with title='CA Total' subtitle='Période sélectionnée' value='--' unit='DH' icon='fas fa-coins' color='blue' trend='--' trend_label='vs période précédente' sub_value='Chargement...' %}
-    </div>
-
-    <!-- Panier Moyen -->
-    <div data-kpi="panier_moyen" class="kpi-card">
-      {% include 'kpis/components/kpi_card.html' with title='Panier Moyen' subtitle='Par commande' value='--' unit='DH' icon='fas fa-shopping-basket' color='green' trend='--' trend_label='vs période précédente' sub_value='Chargement...' %}
-    </div>
-
-    <!-- Nombre de Commandes -->
-    <div data-kpi="nb_commandes" class="kpi-card">
-      {% include 'kpis/components/kpi_card.html' with title='Nb Commandes' subtitle='Volume total' value='--' unit='commandes' icon='fas fa-shopping-cart' color='purple' trend='--' trend_label='vs période précédente' sub_value='Chargement...' %}
-    </div>
-
-    <!-- Taux de Confirmation -->
-    <div data-kpi="taux_confirmation" class="kpi-card">
-      {% include 'kpis/components/kpi_card.html' with title='Taux Confirmation' subtitle='Commandes confirmées' value='--' unit='%' icon='fas fa-check-circle' color='orange' trend='--' trend_label='vs période précédente' sub_value='Chargement...' %}
-    </div>
-  </div>
-
-  <!-- KPIs Secondaires Ventes -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <!-- Top Modèle -->
-    <div data-kpi="top_modele" class="kpi-card">
-      {% include 'kpis/components/kpi_card.html' with title='Top Modèle' subtitle='Plus vendu (CA)' value='--' unit='' icon='fas fa-crown' color='blue' trend='--' trend_label='part du CA total' size='small' sub_value='Chargement...' %}
-    </div>
-
-    <!-- Top Région -->
-    <div data-kpi="top_region" class="kpi-card">
-      {% include 'kpis/components/kpi_card.html' with title='Top Région' subtitle='Plus performante' value='--' unit='' icon='fas fa-map-marker-alt' color='green' trend='--' trend_label='du CA total' size='small' sub_value='Chargement...' %}
-    </div>
-
-    <!-- Commande Maximale -->
-    <div data-kpi="commande_max" class="kpi-card">
-      {% include 'kpis/components/kpi_card.html' with title='Commande Max' subtitle='Record période' value='--' unit='DH' icon='fas fa-trophy' color='yellow' trend='--' trend_label='record actuel' size='small' sub_value='Chargement...' %}
-    </div>
-  </div>
-
-  <!-- Graphiques Principaux -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Evolution CA temporelle -->
-    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100 evolution-ca-container">
-      <div class="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-        <div class="text-center">
-          <i class="fas fa-spinner fa-spin text-blue-600 text-2xl mb-2"></i>
-          <p class="text-gray-500">Chargement évolution CA...</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Top Modèles par CA -->
-    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100 top-modeles-container">
-      <div class="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-        <div class="text-center">
-          <i class="fas fa-spinner fa-spin text-green-600 text-2xl mb-2"></i>
-          <p class="text-gray-500">Chargement top modèles...</p>
-        </div>
+  <!-- Message d'état pour cas vide -->
+  <div id="ventes-empty-state" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+    <div class="flex flex-col items-center gap-4">
+      <i class="fas fa-shopping-cart text-blue-400 text-4xl"></i>
+      <div>
+        <h3 class="text-lg font-semibold text-blue-900">Aucune vente enregistrée</h3>
+        <p class="text-blue-700">Les données de ventes apparaîtront ici une fois que vous aurez des commandes dans la base.</p>
       </div>
     </div>
   </div>
 
-  <!-- Section supprimée: Performance par Catégorie Chaussures (valeurs codées en dur) -->
-  <!-- Cette section sera implémentée plus tard avec des données dynamiques -->
+  <!-- Indicateur de chargement -->
+  <div id="ventes-loading" class="text-center py-8">
+    <div class="inline-flex items-center gap-2 text-gray-600">
+      <i class="fas fa-spinner fa-spin"></i>
+      <span>Chargement des données de ventes...</span>
+    </div>
+  </div>
+
+  <!-- Contenu principal (masqué initialement) -->
+  <div id="ventes-main-content" class="hidden space-y-6">
+    <!-- KPIs Ventes Principaux -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <!-- CA Total -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-coins text-blue-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">CA Total</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="ca_periode" class="text-3xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="ca_periode" class="text-sm text-gray-600">DH</span>
+            </div>
+            <p data-kpi-sub="ca_periode" class="text-xs text-gray-500 mt-1">Ce mois</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="ca_periode" class="inline-flex items-center gap-1 text-sm font-medium">
+              <i class="fas fa-arrow-up text-green-600"></i>
+              <span class="text-green-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">vs mois dernier</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panier Moyen -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-shopping-basket text-green-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">Panier Moyen</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="panier_moyen" class="text-3xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="panier_moyen" class="text-sm text-gray-600">DH</span>
+            </div>
+            <p data-kpi-sub="panier_moyen" class="text-xs text-gray-500 mt-1">Ce mois</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="panier_moyen" class="inline-flex items-center gap-1 text-sm font-medium">
+              <i class="fas fa-arrow-up text-green-600"></i>
+              <span class="text-green-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">vs mois dernier</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nombre de Commandes -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-shopping-cart text-purple-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">Nb Commandes</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="nb_commandes" class="text-3xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="nb_commandes" class="text-sm text-gray-600">commandes</span>
+            </div>
+            <p data-kpi-sub="nb_commandes" class="text-xs text-gray-500 mt-1">Ce mois</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="nb_commandes" class="inline-flex items-center gap-1 text-sm font-medium">
+              <i class="fas fa-arrow-up text-green-600"></i>
+              <span class="text-green-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">vs mois dernier</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPIs Secondaires Ventes -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Top Modèle -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-crown text-yellow-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">Top Modèle</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="top_modele" class="text-2xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="top_modele" class="text-sm text-gray-600"></span>
+            </div>
+            <p data-kpi-sub="top_modele" class="text-xs text-gray-500 mt-1">Plus vendu (CA)</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="top_modele" class="inline-flex items-center gap-1 text-sm font-medium">
+              <span class="text-blue-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">part du CA total</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Région -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-map-marker-alt text-green-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">Top Région</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="top_region" class="text-2xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="top_region" class="text-sm text-gray-600"></span>
+            </div>
+            <p data-kpi-sub="top_region" class="text-xs text-gray-500 mt-1">Plus performante</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="top_region" class="inline-flex items-center gap-1 text-sm font-medium">
+              <span class="text-green-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">du CA total</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Commande Maximale -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-trophy text-orange-600"></i>
+              <h3 class="text-sm font-medium text-gray-600">Commande Max</h3>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span data-kpi="commande_max" class="text-2xl font-bold text-gray-900">-</span>
+              <span data-kpi-unite="commande_max" class="text-sm text-gray-600">DH</span>
+            </div>
+            <p data-kpi-sub="commande_max" class="text-xs text-gray-500 mt-1">Record période</p>
+          </div>
+          <div class="text-right">
+            <div data-kpi-trend="commande_max" class="inline-flex items-center gap-1 text-sm font-medium">
+              <span class="text-orange-600">-</span>
+            </div>
+            <div class="text-xs text-gray-500">record actuel</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Graphiques Principaux -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Evolution CA temporelle -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100 evolution-ca-container">
+        <div class="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+          <div class="text-center">
+            <i class="fas fa-spinner fa-spin text-blue-600 text-2xl mb-2"></i>
+            <p class="text-gray-500">Chargement évolution CA...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Modèles par CA -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100 top-modeles-container">
+        <div class="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+          <div class="text-center">
+            <i class="fas fa-spinner fa-spin text-green-600 text-2xl mb-2"></i>
+            <p class="text-gray-500">Chargement top modèles...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section supprimée: Performance par Catégorie Chaussures (valeurs codées en dur) -->
+    <!-- Cette section sera implémentée plus tard avec des données dynamiques -->
+  </div>
 </div>

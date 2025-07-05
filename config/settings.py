@@ -284,4 +284,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 
-NPM_BIN_PATH = "C:/Program Files/nodejs/npm.cmd"  # Chemin vers l'exécutable npm
+NPM_BIN_PATH = "/usr/local/share/nvm/versions/node/v22.16.0/bin/npm"  # windows : C:/Program Files/nodejs/npm.cmd; github codespace /usr/local/share/nvm/versions/node/v22.16.0/bin/npm

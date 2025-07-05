@@ -1,0 +1,722 @@
+<!-- Performance Opérateurs -->
+<div class="space-y-6">
+  <!-- Section principale: Performance des opérateurs -->
+  <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+    <div class="flex items-center justify-between mb-6">          <div>
+            <h3 class="text-xl font-bold text-gray-900 flex items-center gap-3">
+              <div class="w-8 h-8 bg-gradient-to-r from-purple-600 to-purple-800 rounded-lg flex items-center justify-center">
+                <i class="fas fa-user-tie text-white text-sm"></i>
+              </div>Performance des opérateurs de confirmation
+            </h3>
+            <p class="text-gray-600 mt-1">Analyse détaillée des performances et métriques des opérateurs de confirmation</p>
+          </div>
+
+      <!-- Filtres temporels et actions -->
+      <div class="flex flex-col sm:flex-row gap-4">
+        <!-- Filtres temporels -->
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-gray-700">Période :</label>
+          <select id="perf-operateurs-period-filter" class="text-sm border border-gray-300 rounded-lg px-3 py-1 bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+            <option value="today" selected>Aujourd'hui</option>
+            <option value="yesterday">Hier</option>
+            <option value="week">Cette semaine</option>
+            <option value="month">Ce mois</option>
+            <option value="quarter">Ce trimestre</option>
+            <option value="year">Cette année</option>
+            <option value="custom">Personnalisée</option>
+          </select>
+
+          <!-- Dates personnalisées (intégrées dans la même ligne) -->
+          <div id="perf-operateurs-custom-dates" class="hidden items-center gap-2 ml-2">
+            <label class="text-sm text-gray-600">Du :</label>
+            <input type="date" id="perf-operateurs-start-date" class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+            <label class="text-sm text-gray-600">au :</label>
+            <input type="date" id="perf-operateurs-end-date" class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+            <button id="apply-perf-operateurs-custom-filter" class="text-sm bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 transition-colors">Appliquer</button>
+          </div>
+        </div>
+
+        <!-- Boutons d'export et actions -->
+        <div class="flex items-center gap-2 border-l border-gray-300 pl-3">
+          <button id="export-perf-operateurs" class="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Exporter en Excel">
+            <i class="fas fa-download text-xs"></i>
+            <span>Exporter</span>
+          </button>
+        </div>
+
+        <!-- Bouton de rafraîchissement -->
+        <button id="refresh-perf-operateurs" class="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200" title="Actualiser les données">
+          <i class="fas fa-sync-alt text-xs"></i>
+          <span>Actualiser</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Métriques globales -->
+  <div id="perf-operateurs-global-metrics" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Les cartes de métriques seront générées ici -->
+  </div>
+
+  <!-- Section Performance par Opérateur -->
+  <div class="bg-white rounded-xl shadow-lg border border-gray-100">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+      <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <i class="fas fa-users text-gray-600"></i>
+        Performance par Opérateur de Confirmation
+      </h3>
+    </div>
+    
+    <div class="p-6">
+      <!-- Indicateur de chargement -->
+      <div id="perf-operateurs-loading" class="flex items-center justify-center py-12">
+        <div class="flex items-center gap-3 text-gray-500">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+          <span>Chargement des données...</span>
+        </div>
+      </div>
+
+      <!-- Tableau des performances -->
+      <div id="perf-operateurs-table-container" class="hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opérateur</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Affectées</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">En Cours</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confirmées</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taux Confirm.</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NB Actions</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nb Upsell</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Panier Moyen</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Panier Max</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Panier Min</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Moy. Articles</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Détails</th>
+              </tr>
+            </thead>
+            <tbody id="perf-operateurs-table-body" class="bg-white divide-y divide-gray-200">
+              <!-- Les lignes seront générées ici -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Message si aucune donnée -->
+      <div id="perf-operateurs-no-data" class="hidden text-center py-12">
+        <div class="flex flex-col items-center gap-4">
+          <i class="fas fa-chart-line text-gray-400 text-4xl"></i>
+          <div>
+            <h3 class="text-lg font-medium text-gray-900">Aucune donnée disponible</h3>
+            <p class="text-gray-500">Aucun opérateur trouvé pour la période sélectionnée.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de détails opérateur -->
+<div id="operator-details-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <!-- Overlay -->
+  <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+
+    <!-- Modal -->
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+      <!-- En-tête de la modal -->
+      <div class="bg-white px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <i class="fas fa-user text-blue-600 text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900" id="modal-operator-name">Détails Opérateur</h3>
+              <p class="text-sm text-gray-500">Opérateur de confirmation</p>
+            </div>
+          </div>
+          <button type="button" class="text-gray-400 hover:text-gray-600 focus:outline-none" onclick="closeOperatorModal()">
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Contenu de la modal -->
+      <div class="bg-white px-6 py-6">
+        <!-- Métriques principales -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div class="bg-blue-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-blue-600" id="modal-total-actions">0</div>
+            <div class="text-sm text-gray-600">Actions Totales</div>
+          </div>
+          <div class="bg-green-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-green-600" id="modal-confirmation-rate">0%</div>
+            <div class="text-sm text-gray-600">Taux de Confirmation</div>
+          </div>
+          <div class="bg-purple-50 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-purple-600" id="modal-average-basket">0 MAD</div>
+            <div class="text-sm text-gray-600">Panier Moyen</div>
+          </div>
+        </div>
+
+        <!-- Détails complets -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Colonne gauche : Activité -->
+          <div class="space-y-4">
+            <h4 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <i class="fas fa-chart-line text-blue-600"></i>
+              Activité
+            </h4>
+            
+            <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Appels Effectués</span>
+                <span class="font-medium" id="modal-confirmations">0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Commandes Affectées</span>
+                <span class="font-medium" id="modal-commands-affected">0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Commandes En Cours</span>
+                <span class="font-medium" id="modal-commands-progress">0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Commandes Confirmées</span>
+                <span class="font-medium" id="modal-commands-confirmed">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Colonne droite : Performance -->
+          <div class="space-y-4">
+            <h4 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <i class="fas fa-trophy text-yellow-600"></i>
+              Performance
+            </h4>
+            
+            <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Upsell Généré</span>
+                <span class="font-medium text-green-600" id="modal-upsell">0 MAD</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Efficacité</span>
+                <span class="font-medium" id="modal-efficiency">-</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Score Global</span>
+                <div class="flex items-center gap-2">
+                  <div class="w-16 bg-gray-200 rounded-full h-2">
+                    <div class="bg-blue-600 h-2 rounded-full" id="modal-score-bar" style="width: 0%"></div>
+                  </div>
+                  <span class="text-xs text-gray-500" id="modal-score">0%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Historique récent -->
+        <div class="mt-6">
+          <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <i class="fas fa-history text-gray-600"></i>
+            Historique Récent (5 dernières actions)
+          </h4>
+          
+          <div class="bg-gray-50 rounded-lg p-4">
+            <div id="modal-recent-history" class="space-y-2">
+              <!-- L'historique sera chargé ici -->
+              <div class="text-center text-gray-500 py-4">
+                <i class="fas fa-spinner fa-spin"></i>
+                Chargement de l'historique...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pied de modal -->
+      <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+        <button type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors" onclick="closeOperatorModal()">
+          Fermer
+        </button>
+        <button type="button" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors" onclick="exportOperatorDetails()">
+          <i class="fas fa-download mr-2"></i>
+          Export Détails
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts spécifiques à la performance des opérateurs -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Variables globales pour la performance des opérateurs
+  let currentPerfOperateursFilter = 'today';
+  let customStartDate = null;
+  let customEndDate = null;
+
+  // Éléments DOM
+  const periodFilter = document.getElementById('perf-operateurs-period-filter');
+  const customDatesDiv = document.getElementById('perf-operateurs-custom-dates');
+  const startDateInput = document.getElementById('perf-operateurs-start-date');
+  const endDateInput = document.getElementById('perf-operateurs-end-date');
+  const applyCustomButton = document.getElementById('apply-perf-operateurs-custom-filter');
+  const exportButton = document.getElementById('export-perf-operateurs');
+  const loadingDiv = document.getElementById('perf-operateurs-loading');
+  const tableContainer = document.getElementById('perf-operateurs-table-container');
+  const noDataDiv = document.getElementById('perf-operateurs-no-data');
+  const tableBody = document.getElementById('perf-operateurs-table-body');
+  const globalMetricsContainer = document.getElementById('perf-operateurs-global-metrics');
+
+  // Gestion du filtre période
+  periodFilter.addEventListener('change', function() {
+    currentPerfOperateursFilter = this.value;
+    
+    if (this.value === 'custom') {
+      customDatesDiv.classList.remove('hidden');
+      // Définir des dates par défaut
+      const today = new Date();
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 7);
+      
+      endDateInput.value = today.toISOString().split('T')[0];
+      startDateInput.value = sevenDaysAgo.toISOString().split('T')[0];
+    } else {
+      customDatesDiv.classList.add('hidden');
+      customStartDate = null;
+      customEndDate = null;
+      loadPerfOperateursData();
+    }
+  });
+
+  // Application des dates personnalisées
+  applyCustomButton.addEventListener('click', function() {
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
+    
+    if (!startDate || !endDate) {
+      alert('Veuillez sélectionner une date de début et une date de fin.');
+      return;
+    }
+    
+    if (new Date(startDate) > new Date(endDate)) {
+      alert('La date de début doit être antérieure à la date de fin.');
+      return;
+    }
+    
+    customStartDate = startDate;
+    customEndDate = endDate;
+    loadPerfOperateursData();
+  });
+
+  // Export Excel
+  exportButton.addEventListener('click', function() {
+    exportPerfOperateursToExcel();
+  });
+
+  // Fonction pour charger les données de performance des opérateurs
+  function loadPerfOperateursData() {
+    showPerfOperateursLoading();
+    
+    const params = new URLSearchParams({
+      period: currentPerfOperateursFilter
+    });
+    
+    if (customStartDate && customEndDate) {
+      params.append('start_date', customStartDate);
+      params.append('end_date', customEndDate);
+    }
+    
+    fetch(`/kpis/performance-operateurs-data/?${params.toString()}`)
+      .then(response => response.json())
+      .then(data => {
+        hideLoadingAndShowData();
+        displayPerfOperateursData(data);
+      })
+      .catch(error => {
+        hideLoadingAndShowData();
+        console.error('Erreur lors du chargement des données:', error);
+        showNoDataMessage();
+      });
+  }
+
+  // Fonction pour afficher les métriques globales
+  function displayGlobalMetrics(globalData) {
+    const metrics = [
+      {
+        title: 'Total Actions',
+        value: globalData.total_actions || 0,
+        icon: 'fas fa-mouse-pointer',
+        bgClass: 'bg-blue-100',
+        iconClass: 'text-blue-600'
+      },
+      {
+        title: 'Total Confirmations',
+        value: globalData.total_confirmations || 0,
+        icon: 'fas fa-check-circle',
+        bgClass: 'bg-green-100',
+        iconClass: 'text-green-600'
+      },
+      {
+        title: 'Taux Confirmation Global',
+        value: `${(globalData.global_confirmation_rate || 0).toFixed(1)}%`,
+        icon: 'fas fa-percentage',
+        bgClass: 'bg-purple-100',
+        iconClass: 'text-purple-600'
+      },
+      {
+        title: 'Opérateurs Actifs',
+        value: globalData.active_operators || 0,
+        icon: 'fas fa-users',
+        bgClass: 'bg-orange-100',
+        iconClass: 'text-orange-600'
+      }
+    ];
+
+    globalMetricsContainer.innerHTML = metrics.map(metric => `
+      <div class="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">${metric.title}</p>
+            <p class="text-2xl font-bold text-gray-900">${metric.value}</p>
+          </div>
+          <div class="w-12 h-12 ${metric.bgClass} rounded-lg flex items-center justify-center">
+            <i class="${metric.icon} ${metric.iconClass} text-xl"></i>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Fonction pour afficher les données des opérateurs
+  function displayPerfOperateursData(data) {
+    if (!data.operators || data.operators.length === 0) {
+      showNoDataMessage();
+      return;
+    }
+
+    // Stocker les données globalement pour la modal
+    window.currentOperatorsData = data.operators;
+
+    // Afficher les métriques globales
+    displayGlobalMetrics(data.global_metrics);
+
+    // Générer les lignes du tableau
+    tableBody.innerHTML = data.operators.map(operator => `
+      <tr class="hover:bg-gray-50">
+        <td class="px-6 py-4 whitespace-nowrap">
+          <div class="flex items-center">
+            <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+              <i class="fas fa-user text-gray-600"></i>
+            </div>
+            <div class="ml-3">
+              <div class="text-sm font-medium text-gray-900">${operator.nom || 'N/A'}</div>
+              <div class="text-sm text-gray-500">${operator.username || 'N/A'}</div>
+            </div>
+          </div>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${operator.commands_affected || 0}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${operator.commands_in_progress || 0}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${operator.commands_confirmed || 0}</td>
+        <td class="px-6 py-4 whitespace-nowrap">
+          <span class="text-sm font-medium ${getConfirmationRateClass(operator.confirmation_rate)}">${(operator.confirmation_rate || 0).toFixed(1)}%</span>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${operator.total_actions || 0}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${operator.upsell_count || 0}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatCurrency(operator.average_basket || 0)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatCurrency(operator.max_basket || 0)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatCurrency(operator.min_basket || 0)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${(operator.avg_articles_per_cmd || 0).toFixed(1)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+          <button class="text-purple-600 hover:text-purple-900" onclick="viewOperatorDetails('${operator.id}')">Détails</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // Fonctions utilitaires
+  function getConfirmationRateClass(rate) {
+    if (rate >= 80) return 'text-green-600';
+    if (rate >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  }
+
+  function formatCurrency(amount) {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'MAD'
+    }).format(amount);
+  }
+
+  function showPerfOperateursLoading() {
+    loadingDiv.classList.remove('hidden');
+    tableContainer.classList.add('hidden');
+    noDataDiv.classList.add('hidden');
+    globalMetricsContainer.innerHTML = '';
+  }
+
+  function hideLoadingAndShowData() {
+    loadingDiv.classList.add('hidden');
+    tableContainer.classList.remove('hidden');
+    noDataDiv.classList.add('hidden');
+  }
+
+  function showNoDataMessage() {
+    loadingDiv.classList.add('hidden');
+    tableContainer.classList.add('hidden');
+    noDataDiv.classList.remove('hidden');
+    globalMetricsContainer.innerHTML = '';
+  }
+
+  // Export Excel
+  function exportPerfOperateursToExcel() {
+    const params = new URLSearchParams({
+      period: currentPerfOperateursFilter,
+      export: 'excel'
+    });
+    
+    if (customStartDate && customEndDate) {
+      params.append('start_date', customStartDate);
+      params.append('end_date', customEndDate);
+    }
+    
+    window.location.href = `/kpis/performance-operateurs-data/?${params.toString()}`;
+  }
+
+  // Fonction pour voir les détails d'un opérateur
+  window.viewOperatorDetails = function(operatorId) {
+    showOperatorModal(operatorId);
+  };
+
+  // Variables globales pour la modal
+  let currentModalOperatorId = null;
+  let currentModalOperatorData = null;
+
+  // Fonction pour afficher la modal avec les détails de l'opérateur
+  function showOperatorModal(operatorId) {
+    // Trouver les données de l'opérateur dans les données actuelles
+    const operators = window.currentOperatorsData || [];
+    const operator = operators.find(op => op.id == operatorId);
+    
+    if (!operator) {
+      alert('Données de l\'opérateur introuvables');
+      return;
+    }
+
+    currentModalOperatorId = operatorId;
+    currentModalOperatorData = operator;
+
+    // Remplir les informations de base
+    document.getElementById('modal-operator-name').textContent = operator.nom || 'Nom inconnu';
+
+    // Remplir les métriques principales
+    document.getElementById('modal-total-actions').textContent = operator.total_actions || 0;
+    document.getElementById('modal-confirmation-rate').textContent = `${(operator.confirmation_rate || 0).toFixed(1)}%`;
+    document.getElementById('modal-average-basket').textContent = formatCurrency(operator.average_basket || 0);
+
+    // Remplir les détails d'activité
+    document.getElementById('modal-confirmations').textContent = operator.total_confirmations || 0;
+    document.getElementById('modal-commands-affected').textContent = operator.commands_affected || 0;
+    document.getElementById('modal-commands-confirmed').textContent = operator.commands_confirmed || 0;
+    document.getElementById('modal-commands-progress').textContent = operator.commands_in_progress || 0;
+
+    // Remplir les détails de performance
+    document.getElementById('modal-upsell').textContent = formatCurrency(operator.upsell_amount || 0);
+    
+    // Calculer l'efficacité (ratio confirmations/actions)
+    const efficiency = operator.total_actions > 0 ? 
+      ((operator.total_confirmations / operator.total_actions) * 100).toFixed(1) : 0;
+    document.getElementById('modal-efficiency').textContent = `${efficiency}%`;
+
+    // Calculer un score global (basé sur plusieurs métriques)
+    const score = calculateOperatorScore(operator);
+    document.getElementById('modal-score').textContent = `${score}%`;
+    document.getElementById('modal-score-bar').style.width = `${score}%`;
+
+    // Charger l'historique récent
+    loadOperatorHistory(operatorId);
+
+    // Afficher la modal
+    document.getElementById('operator-details-modal').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden'); // Empêcher le scroll de la page
+  }
+
+  // Fonction pour fermer la modal
+  window.closeOperatorModal = function() {
+    document.getElementById('operator-details-modal').classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+    currentModalOperatorId = null;
+    currentModalOperatorData = null;
+  };
+
+  // Calculer un score global pour l'opérateur
+  function calculateOperatorScore(operator) {
+    let score = 0;
+    let factors = 0;
+
+    // Facteur 1: Taux de confirmation (40% du score)
+    if (operator.total_actions > 0) {
+      const confirmationRate = (operator.total_confirmations / operator.total_actions) * 100;
+      score += (confirmationRate / 100) * 40;
+      factors += 40;
+    }
+
+    // Facteur 2: Volume d'activité (30% du score)
+    // On considère 10+ actions comme bon, 20+ comme excellent
+    const activityScore = Math.min(operator.total_actions / 20, 1) * 30;
+    score += activityScore;
+    factors += 30;
+
+    // Facteur 3: Panier moyen (30% du score)
+    // On considère 500+ MAD comme bon, 1000+ comme excellent
+    if (operator.average_basket > 0) {
+      const basketScore = Math.min(operator.average_basket / 1000, 1) * 30;
+      score += basketScore;
+      factors += 30;
+    }
+
+    return factors > 0 ? Math.round(score) : 0;
+  }
+
+  // Charger l'historique récent de l'opérateur
+  function loadOperatorHistory(operatorId) {
+    const historyContainer = document.getElementById('modal-recent-history');
+    
+    // Afficher le loader
+    historyContainer.innerHTML = `
+      <div class="text-center text-gray-500 py-4">
+        <i class="fas fa-spinner fa-spin"></i>
+        Chargement de l'historique...
+      </div>
+    `;
+
+    // Faire la requête pour l'historique
+    const params = new URLSearchParams({
+      operator_id: operatorId,
+      period: currentPerfOperateursFilter,
+      limit: 5
+    });
+
+    if (customStartDate && customEndDate) {
+      params.append('start_date', customStartDate);
+      params.append('end_date', customEndDate);
+    }
+
+    fetch(`/kpis/operator-history/?${params.toString()}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.history && data.history.length > 0) {
+          displayOperatorHistory(data.history);
+        } else {
+          historyContainer.innerHTML = `
+            <div class="text-center text-gray-500 py-4">
+              <i class="fas fa-info-circle"></i>
+              Aucun historique récent trouvé
+            </div>
+          `;
+        }
+      })
+      .catch(error => {
+        console.error('Erreur lors du chargement de l\'historique:', error);
+        historyContainer.innerHTML = `
+          <div class="text-center text-red-500 py-4">
+            <i class="fas fa-exclamation-triangle"></i>
+            Erreur lors du chargement de l'historique
+          </div>
+        `;
+      });
+  }
+
+  // Afficher l'historique de l'opérateur
+  function displayOperatorHistory(history) {
+    const historyContainer = document.getElementById('modal-recent-history');
+    
+    const historyHtml = history.map(item => `
+      <div class="flex items-center justify-between py-2 border-b border-gray-200 last:border-b-0">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+            <i class="fas fa-phone text-blue-600 text-xs"></i>
+          </div>
+          <div>
+            <div class="text-sm font-medium text-gray-900">${item.type_operation}</div>
+            <div class="text-xs text-gray-500">Commande: ${item.commande_num}</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-gray-500">${formatDateTime(item.date_operation)}</div>
+          <div class="text-xs text-green-600">${item.status || 'Terminé'}</div>
+        </div>
+      </div>
+    `).join('');
+
+    historyContainer.innerHTML = historyHtml || `
+      <div class="text-center text-gray-500 py-4">Aucun historique disponible</div>
+    `;
+  }
+
+  // Exporter les détails de l'opérateur actuel
+  window.exportOperatorDetails = function() {
+    if (!currentModalOperatorData) {
+      alert('Aucun opérateur sélectionné');
+      return;
+    }
+
+    const params = new URLSearchParams({
+      period: currentPerfOperateursFilter,
+      operator_id: currentModalOperatorId,
+      export: 'excel'
+    });
+
+    if (customStartDate && customEndDate) {
+      params.append('start_date', customStartDate);
+      params.append('end_date', customEndDate);
+    }
+
+    window.location.href = `/kpis/performance-operateurs-data/?${params.toString()}`;
+  };
+
+  // Formater une date/heure pour l'affichage
+  function formatDateTime(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  // Fermer la modal en cliquant sur l'overlay
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('bg-opacity-75')) {
+      closeOperatorModal();
+    }
+  });
+
+  // Fermer la modal avec Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeOperatorModal();
+    }
+  });
+
+  // Charger les données initiales
+  loadPerfOperateursData();
+});
+</script>
+
+<style>
+/* Styles spécifiques pour les performances opérateurs */
+.perf-operateurs-metric-card {
+  transition: transform 0.2s ease-in-out;
+}
+
+.perf-operateurs-metric-card:hover {
+  transform: translateY(-2px);
+}
+</style>

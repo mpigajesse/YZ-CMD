@@ -1,7 +1,7 @@
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Count, Avg, Q, F, Min
+from django.db.models import Sum, Count, Avg, Q, F, Min, Max
 from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -12,6 +12,22 @@ from article.models import Article
 from client.models import Client
 from parametre.models import Operateur
 from .models import KPIConfiguration  # Assurez-vous d'importer votre modèle de configuration
+
+def format_number_fr(number, decimals=0):
+    """Formate un nombre selon les standards français (espace comme séparateur de milliers)"""
+    if number is None or (isinstance(number, (int, float)) and number == 0):
+        return "0"
+    
+    if isinstance(number, (int, float)):
+        if decimals == 0:
+            # Pour les entiers, utiliser un format sans décimales
+            return f"{number:,.0f}".replace(",", " ")
+        else:
+            # Pour les décimales
+            return f"{number:,.{decimals}f}".replace(",", " ")
+    
+    # Si c'est déjà une chaîne, la retourner telle quelle
+    return str(number)
 
 def api_login_required(view_func):
     """Décorateur qui renvoie du JSON au lieu de rediriger pour les APIs"""
@@ -465,113 +481,116 @@ def ventes_data(request):
         debut_mois = aujourd_hui.replace(day=1)
         mois_precedent = (debut_mois - timedelta(days=1)).replace(day=1)
         debut_30j = aujourd_hui - timedelta(days=30)
-        # === KPI 1: CA par Période ===
-        # CA des 30 derniers jours
-        ca_30j = Commande.objects.filter(
-            date_cmd__gte=debut_30j,
-            date_cmd__lte=aujourd_hui
-        ).exclude(
-            etats__enum_etat__libelle__iexact='Annulée',
-            etats__date_fin__isnull=True
+        # === KPI 1: CA par Période (Commandes livrées uniquement) ===
+        # CA de ce mois (du 1er du mois jusqu'à aujourd'hui) - Commandes livrées
+        ca_mois_actuel = Commande.objects.filter(
+            date_cmd__gte=debut_mois,
+            date_cmd__lte=aujourd_hui,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).aggregate(total=Sum('total_cmd'))['total'] or 0
         
-        # CA période précédente pour comparaison
-        debut_periode_precedente = debut_30j - timedelta(days=30)
-        ca_precedent = Commande.objects.filter(
-            date_cmd__gte=debut_periode_precedente,
-            date_cmd__lt=debut_30j
-        ).exclude(
-            etats__enum_etat__libelle__iexact='Annulée',
-            etats__date_fin__isnull=True
+        # CA mois précédent (du 1er au dernier jour du mois précédent) - Commandes livrées
+        fin_mois_precedent = debut_mois - timedelta(days=1)
+        ca_mois_precedent = Commande.objects.filter(
+            date_cmd__gte=mois_precedent,
+            date_cmd__lte=fin_mois_precedent,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).aggregate(total=Sum('total_cmd'))['total'] or 0
         
         # Tendance CA
-        if ca_precedent > 0:
-            tendance_ca = ((ca_30j - ca_precedent) / ca_precedent) * 100
+        if ca_mois_precedent > 0:
+            tendance_ca = ((ca_mois_actuel - ca_mois_precedent) / ca_mois_precedent) * 100
         else:
-            tendance_ca = 100 if ca_30j > 0 else 0
+            tendance_ca = 100 if ca_mois_actuel > 0 else 0
         
-        # === KPI 2: Panier Moyen ===
-        panier_moyen_30j = Commande.objects.filter(
-            date_cmd__gte=debut_30j
-        ).exclude(
-            etats__enum_etat__libelle__iexact='Annulée',
-            etats__date_fin__isnull=True
+        # === KPI 2: Panier Moyen (Commandes livrées uniquement) ===
+        panier_moyen_mois = Commande.objects.filter(
+            date_cmd__gte=debut_mois,
+            date_cmd__lte=aujourd_hui,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).aggregate(moyenne=Avg('total_cmd'))['moyenne'] or 0
         
-        # Panier moyen période précédente
+        # Panier moyen mois précédent - Commandes livrées
         panier_moyen_precedent = Commande.objects.filter(
-            date_cmd__gte=debut_periode_precedente,
-            date_cmd__lt=debut_30j
-        ).exclude(
-            etats__enum_etat__libelle__iexact='Annulée',
-            etats__date_fin__isnull=True
+            date_cmd__gte=mois_precedent,
+            date_cmd__lte=fin_mois_precedent,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).aggregate(moyenne=Avg('total_cmd'))['moyenne'] or 0
         
         # Tendance panier moyen
         if panier_moyen_precedent > 0:
-            tendance_panier = ((panier_moyen_30j - panier_moyen_precedent) / panier_moyen_precedent) * 100
+            tendance_panier = ((panier_moyen_mois - panier_moyen_precedent) / panier_moyen_precedent) * 100
         else:
-            tendance_panier = 100 if panier_moyen_30j > 0 else 0
-          # === KPI 3: Taux de Confirmation ===
-        commandes_total_30j = Commande.objects.filter(date_cmd__gte=debut_30j).count()
-        commandes_confirmees_30j = Commande.objects.filter(
-            date_cmd__gte=debut_30j,
-            etats__enum_etat__libelle__iexact='Confirmée'
-        ).distinct().count()
-        
-        if commandes_total_30j > 0:
-            taux_confirmation = (commandes_confirmees_30j / commandes_total_30j) * 100
-        else:
-            taux_confirmation = 0
-        
-        # Taux de confirmation période précédente
-        commandes_total_precedent = Commande.objects.filter(
-            date_cmd__gte=debut_periode_precedente,
-            date_cmd__lt=debut_30j
-        ).count()
-        commandes_confirmees_precedent = Commande.objects.filter(
-            date_cmd__gte=debut_periode_precedente,
-            date_cmd__lt=debut_30j,
-            etats__enum_etat__libelle__iexact='Confirmée'
-        ).distinct().count()
-        
-        if commandes_total_precedent > 0:
-            taux_confirmation_precedent = (commandes_confirmees_precedent / commandes_total_precedent) * 100
-            tendance_taux_confirmation = taux_confirmation - taux_confirmation_precedent
-        else:
-            tendance_taux_confirmation = taux_confirmation if taux_confirmation > 0 else 0
-        
-        # === KPI 4: Nombre de Commandes ===
-        nb_commandes_30j = Commande.objects.filter(
-            date_cmd__gte=debut_30j
-        ).exclude(
-            etats__enum_etat__libelle__iexact='Annulée',
-            etats__date_fin__isnull=True
+            tendance_panier = 100 if panier_moyen_mois > 0 else 0
+        # === KPI 3: Nombre de Commandes (Commandes livrées uniquement) ===
+        nb_commandes_mois = Commande.objects.filter(
+            date_cmd__gte=debut_mois,
+            date_cmd__lte=aujourd_hui,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).count()
         
-        nb_commandes_precedent = Commande.objects.filter(
-            date_cmd__gte=debut_periode_precedente,
-            date_cmd__lt=debut_30j
-        ).exclude(
-            etats__enum_etat__libelle__iexact='Annulée',
-            etats__date_fin__isnull=True
+        nb_commandes_mois_precedent = Commande.objects.filter(
+            date_cmd__gte=mois_precedent,
+            date_cmd__lte=fin_mois_precedent,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).count()
         
-        difference_commandes = nb_commandes_30j - nb_commandes_precedent
+        # Tendance nombre de commandes
+        if nb_commandes_mois_precedent > 0:
+            tendance_commandes = ((nb_commandes_mois - nb_commandes_mois_precedent) / nb_commandes_mois_precedent) * 100
+        else:
+            tendance_commandes = 100 if nb_commandes_mois > 0 else 0
         
         # === KPIs Secondaires ===
         
-        # Top 5 Modèles par CA
+        # Top 5 Modèles par CA (ce mois) - Basé sur les commandes livrées
         top_modeles = (Article.objects
-            .filter(paniers__commande__date_cmd__gte=debut_30j)
-            .exclude(paniers__commande__etats__enum_etat__libelle__iexact='Annulée')
+            .filter(
+                paniers__commande__date_cmd__gte=debut_mois, 
+                paniers__commande__date_cmd__lte=aujourd_hui,
+                paniers__commande__etats__enum_etat__libelle__iexact='Livrée',
+                paniers__commande__etats__date_fin__isnull=True  # État actuel
+            )
             .annotate(
                 ca_total=Sum('paniers__sous_total'),
                 quantite_vendue=Sum('paniers__quantite')
             )
             .order_by('-ca_total')[:5]
         )
+        
+        # Recherche du top modèle et top région
+        top_modele = top_modeles.first() if top_modeles else None
+        
+        # Top Région par CA (ce mois)
+        # Filtrer d'abord les commandes avec des régions valides
+        top_regions = (Commande.objects
+            .filter(date_cmd__gte=debut_mois, date_cmd__lte=aujourd_hui)
+            .exclude(etats__enum_etat__libelle__iexact='Annulée')
+            .exclude(ville__region__nom_region__isnull=True)  # Exclure les régions nulles
+            .exclude(ville__region__nom_region__exact='')     # Exclure les régions vides
+            .values('ville__region__nom_region')
+            .annotate(
+                ca_total=Sum('total_cmd'),
+                nb_commandes=Count('id')
+            )
+            .order_by('-ca_total')[:5]
+        )
+        
+        top_region = top_regions.first() if top_regions else None
+        
+        # Vérifier s'il y a des commandes sans région pour diagnostic
+        commandes_sans_region = Commande.objects.filter(
+            date_cmd__gte=debut_mois,
+            date_cmd__lte=aujourd_hui,
+            ville__region__nom_region__isnull=True
+        ).exclude(etats__enum_etat__libelle__iexact='Annulée').count()
+        
+        # Commande maximale (ce mois) - Basée sur les commandes livrées
+        commande_max = Commande.objects.filter(
+            date_cmd__gte=debut_mois,
+            date_cmd__lte=aujourd_hui,
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).aggregate(max_cmd=Max('total_cmd'))['max_cmd'] or 0
         
         # Répartition par Catégorie
         ventes_par_categorie = (Article.objects
@@ -625,62 +644,64 @@ def ventes_data(request):
             'timestamp': timezone.now().isoformat(),
             'kpis_principaux': {
                 'ca_periode': {
-                    'valeur': float(ca_30j),
-                    'valeur_formatee': f"{ca_30j:,.0f}",
+                    'valeur': float(ca_mois_actuel),
+                    'valeur_formatee': format_number_fr(ca_mois_actuel),
                     'tendance': round(tendance_ca, 1),
                     'unite': 'DH',
-                    'label': 'CA 30 jours',
-                    'sub_value': f"vs période précédente"
+                    'label': 'CA Total',
+                    'sub_value': f"Ce mois vs {format_number_fr(ca_mois_precedent)} DH mois dernier"
                 },
                 'panier_moyen': {
-                    'valeur': float(panier_moyen_30j) if panier_moyen_30j else 0,
-                    'valeur_formatee': f"{panier_moyen_30j:.0f}" if panier_moyen_30j else "0",
+                    'valeur': float(panier_moyen_mois) if panier_moyen_mois else 0,
+                    'valeur_formatee': format_number_fr(panier_moyen_mois) if panier_moyen_mois else "0",
                     'tendance': round(tendance_panier, 1),
                     'unite': 'DH',
                     'label': 'Panier Moyen',
-                    'sub_value': f"Commandes validées"
-                },                'taux_confirmation': {
-                    'valeur': round(taux_confirmation, 1),
-                    'valeur_formatee': f"{taux_confirmation:.1f}",
-                    'tendance': round(tendance_taux_confirmation, 1),
-                    'unite': '%',
-                    'label': 'Taux Confirmation',
-                    'sub_value': f"{commandes_confirmees_30j}/{commandes_total_30j} confirmées"
+                    'sub_value': f"Ce mois vs {format_number_fr(panier_moyen_precedent)} DH mois dernier"
                 },
                 'nb_commandes': {
-                    'valeur': nb_commandes_30j,
-                    'valeur_formatee': str(nb_commandes_30j),
-                    'tendance': difference_commandes,
+                    'valeur': nb_commandes_mois,
+                    'valeur_formatee': format_number_fr(nb_commandes_mois),
+                    'tendance': round(tendance_commandes, 1),
                     'unite': 'commandes',
-                    'label': 'Commandes Validées',
-                    'sub_value': f"30 derniers jours"
+                    'label': 'Nb Commandes',
+                    'sub_value': f"Ce mois vs {format_number_fr(nb_commandes_mois_precedent)} mois dernier"
                 }
             },
             'kpis_secondaires': {
+                'top_modele': {
+                    'nom': top_modele.nom if top_modele else 'Aucun',
+                    'ca': float(top_modele.ca_total) if top_modele and top_modele.ca_total else 0,
+                    'ca_formate': format_number_fr(top_modele.ca_total) if top_modele and top_modele.ca_total else "0",
+                    'pourcentage': round((float(top_modele.ca_total) / ca_mois_actuel * 100), 1) if top_modele and top_modele.ca_total and ca_mois_actuel > 0 else 0
+                },
+                'top_region': {
+                    'nom': (top_region['ville__region__nom_region'] 
+                           if top_region and top_region['ville__region__nom_region'] 
+                           else 'Données géographiques manquantes sur les commandes'),
+                    'ca': float(top_region['ca_total']) if top_region else 0,
+                    'ca_formate': (format_number_fr(top_region['ca_total']) 
+                                  if top_region 
+                                  else ""),
+                    'pourcentage': (round((float(top_region['ca_total']) / ca_mois_actuel * 100), 1) 
+                                   if top_region and ca_mois_actuel > 0 
+                                   else 0),
+                    'est_donnees_manquantes': not bool(top_region),
+                    'affichage_simple': not bool(top_region)
+                },
+                'commande_max': {
+                    'valeur': float(commande_max),
+                    'valeur_formatee': format_number_fr(commande_max)
+                },
                 'top_modeles': [
                     {
                         'nom': article.nom,
                         'ca': float(article.ca_total) if article.ca_total else 0,
                         'quantite': article.quantite_vendue or 0,
-                        'couleur': article.couleur
+                        'couleur': getattr(article, 'couleur', '#3b82f6'),
+                        'reference': getattr(article, 'reference', 'N/A')
                     } for article in top_modeles
-                ],
-                'ventes_categorie': [
-                    {
-                        'categorie': cat['categorie'],
-                        'ca': float(cat['ca_total']) if cat['ca_total'] else 0,
-                        'quantite': cat['quantite'] or 0
-                    } for cat in ventes_par_categorie
-                ],
-                'ventes_geographique': [
-                    {
-                        'ville': ville['ville__nom'] or 'Inconnue',
-                        'region': ville['ville__region__nom_region'] or 'Inconnue',
-                        'ca': float(ville['ca_total']) if ville['ca_total'] else 0,
-                        'commandes': ville['nb_commandes'] or 0
-                    } for ville in ventes_par_ville
-                ],
-                'performance_operateurs': performance_operateurs
+                ]
             }
         }
         
@@ -706,13 +727,12 @@ def evolution_ca_data(request):
         fin_date = timezone.now()
         debut_date = fin_date - timedelta(days=nb_jours)
         
-        # Calcul des données réelles si disponibles
+        # Calcul des données réelles basées sur les commandes livrées
         commandes_par_jour = Commande.objects.filter(
             date_cmd__gte=debut_date,
-            date_cmd__lte=fin_date
-        ).exclude(
-            etats__enum_etat__libelle__iexact='Annulée',
-            etats__date_fin__isnull=True
+            date_cmd__lte=fin_date,
+            etats__enum_etat__libelle__iexact='Livrée',
+            etats__date_fin__isnull=False
         ).extra(select={'date_seule': 'DATE(date_cmd)'}).values('date_seule').annotate(
             ca_jour=Sum('total_cmd')
         ).order_by('date_seule')
@@ -811,26 +831,24 @@ def top_modeles_data(request):
         fin_date = timezone.now()
         debut_date = fin_date - timedelta(days=periode_jours)
         
-        # Calcul des ventes par article/modèle
+        # Calcul des ventes par article/modèle basé sur les commandes livrées
         top_modeles = Article.objects.annotate(
             ca_total=Sum(
                 'paniers__sous_total',
                 filter=Q(
                     paniers__commande__date_cmd__gte=debut_date,
-                    paniers__commande__date_cmd__lte=fin_date
-                ) & ~Q(
-                    paniers__commande__etats__enum_etat__libelle__iexact='Annulée',
-                    paniers__commande__etats__date_fin__isnull=True
+                    paniers__commande__date_cmd__lte=fin_date,
+                    paniers__commande__etats__enum_etat__libelle__iexact='Livrée',
+                    paniers__commande__etats__date_fin__isnull=False
                 )
             ),
             nb_ventes=Count(
                 'paniers',
                 filter=Q(
                     paniers__commande__date_cmd__gte=debut_date,
-                    paniers__commande__date_cmd__lte=fin_date
-                ) & ~Q(
-                    paniers__commande__etats__enum_etat__libelle__iexact='Annulée',
-                    paniers__commande__etats__date_fin__isnull=True
+                    paniers__commande__date_cmd__lte=fin_date,
+                    paniers__commande__etats__enum_etat__libelle__iexact='Livrée',
+                    paniers__commande__etats__date_fin__isnull=False
                 )
             )
         ).filter(
@@ -970,7 +988,7 @@ def performance_regions_data(request):
             'ca_total_format': f"{total_ca_general/1000000:.1f}M DH" if total_ca_general >= 1000000 else f"{total_ca_general/1000:.0f}K DH",
             'nb_commandes_total': sum(region['nb_commandes'] for region in regions_formattees),
             'ca_moyen_general': float(total_ca_general / len(regions_formattees)) if regions_formattees else 0
-        }
+        };
         
         response_data = {
             'success': True,
@@ -1014,23 +1032,23 @@ def clients_data(request):
         
         difference_nouveaux = nouveaux_clients_mois - nouveaux_clients_precedent
         
-        # Moyenne journalière
-        jours_ecoules = (aujourd_hui - debut_mois).days + 1
-        moyenne_jour = nouveaux_clients_mois / jours_ecoules if jours_ecoules > 0 else 0
+        # Plus besoin de calcul de moyenne journalière - simplification
         
         # === KPI 2: Clients Actifs (30 derniers jours) ===
-        # Clients qui ont passé au moins une commande
+        # Clients qui ont au moins une commande livrée
         clients_actifs_ids = Commande.objects.filter(
-            date_cmd__gte=debut_30j
+            date_cmd__gte=debut_30j,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).values_list('client_id', flat=True).distinct()
         
         clients_actifs_30j = len(set(clients_actifs_ids))
         
-        # Clients actifs période précédente
+        # Clients actifs période précédente (commandes livrées)
         debut_periode_precedente = debut_30j - timedelta(days=30)
         clients_actifs_precedent_ids = Commande.objects.filter(
             date_cmd__gte=debut_periode_precedente,
-            date_cmd__lt=debut_30j
+            date_cmd__lt=debut_30j,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).values_list('client_id', flat=True).distinct()
         
         clients_actifs_precedent = len(set(clients_actifs_precedent_ids))
@@ -1041,55 +1059,92 @@ def clients_data(request):
         pourcentage_actifs = (clients_actifs_30j / total_clients * 100) if total_clients > 0 else 0
         
         # === KPI 3: Taux de Retour ===
-        # Simplifié - basé sur les commandes des 30 derniers jours
-        commandes_30j = Commande.objects.filter(date_cmd__gte=debut_30j).count()
+        # CALCUL CORRECT - basé sur les commandes livrées uniquement
+        # On ne peut retourner que ce qui a été livré !
+        commandes_livrees_30j = Commande.objects.filter(
+            date_cmd__gte=debut_30j,
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).distinct().count()
         
-        # Estimation basée sur les motifs d'annulation (retours)
+        # Commandes réellement retournées (avec état "Retournée")
         commandes_retournees = Commande.objects.filter(
             date_cmd__gte=debut_30j,
-            motif_annulation__isnull=False
-        ).count()
+            etats__enum_etat__libelle__iexact='Retournée'
+        ).distinct().count()
         
-        taux_retour = (commandes_retournees / commandes_30j * 100) if commandes_30j > 0 else 0
+        taux_retour = (commandes_retournees / commandes_livrees_30j * 100) if commandes_livrees_30j > 0 else 0
         
         # Taux retour période précédente
-        commandes_precedent = Commande.objects.filter(
+        commandes_livrees_precedent = Commande.objects.filter(
             date_cmd__gte=debut_periode_precedente,
-            date_cmd__lt=debut_30j
-        ).count()
+            date_cmd__lt=debut_30j,
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).distinct().count()
         
         retours_precedent = Commande.objects.filter(
             date_cmd__gte=debut_periode_precedente,
             date_cmd__lt=debut_30j,
-            motif_annulation__isnull=False
-        ).count()
+            etats__enum_etat__libelle__iexact='Retournée'
+        ).distinct().count()
         
-        taux_retour_precedent = (retours_precedent / commandes_precedent * 100) if commandes_precedent > 0 else 0
+        taux_retour_precedent = (retours_precedent / commandes_livrees_precedent * 100) if commandes_livrees_precedent > 0 else 0
         tendance_retour = taux_retour - taux_retour_precedent
         
-        # === KPI 4: Satisfaction Client ===
-        # Calculé basé sur le taux de retour inversé et les commandes répétées
-        commandes_clients_multiples = 0
-        for client_id in clients_actifs_ids:
-            nb_commandes = Commande.objects.filter(
+        # === KPI 4: Fidélisation Client (90 jours - adapté secteur chaussures) ===
+        # Période plus longue car les chaussures se rachètent moins fréquemment
+        debut_90j = aujourd_hui - timedelta(days=90)
+        debut_90j_precedent = debut_90j - timedelta(days=90)
+        
+        # Clients actifs sur 90 jours (commandes livrées uniquement)
+        clients_actifs_90j_ids = Commande.objects.filter(
+            date_cmd__gte=debut_90j,
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).values_list('client_id', flat=True).distinct()
+        clients_actifs_90j = len(set(clients_actifs_90j_ids))
+        
+        # Clients fidèles (2+ commandes livrées sur 90 jours)
+        clients_fideles_90j = 0
+        for client_id in clients_actifs_90j_ids:
+            nb_commandes_livrees = Commande.objects.filter(
                 client_id=client_id,
-                date_cmd__gte=debut_30j
+                date_cmd__gte=debut_90j,
+                etats__enum_etat__libelle__iexact='Livrée'
             ).count()
-            if nb_commandes > 1:
-                commandes_clients_multiples += 1
+            if nb_commandes_livrees >= 2:
+                clients_fideles_90j += 1
         
-        # Score satisfaction basé sur fidélisation et retours
-        taux_fidelisation = (commandes_clients_multiples / clients_actifs_30j * 100) if clients_actifs_30j > 0 else 0
-        score_satisfaction = min(5.0, max(1.0, 5.0 - (taux_retour / 20) + (taux_fidelisation / 100)))
+        # Calcul du taux de fidélisation
+        taux_fidelisation = (clients_fideles_90j / clients_actifs_90j * 100) if clients_actifs_90j > 0 else 0
         
-        pourcentage_satisfaits = max(0, 100 - taux_retour * 2)
+        # Tendance fidélisation (vs période précédente 90j) - commandes livrées
+        clients_actifs_90j_precedent_ids = Commande.objects.filter(
+            date_cmd__gte=debut_90j_precedent,
+            date_cmd__lt=debut_90j,
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).values_list('client_id', flat=True).distinct()
+        clients_actifs_90j_precedent = len(set(clients_actifs_90j_precedent_ids))
+        
+        clients_fideles_90j_precedent = 0
+        for client_id in clients_actifs_90j_precedent_ids:
+            nb_commandes_livrees_precedent = Commande.objects.filter(
+                client_id=client_id,
+                date_cmd__gte=debut_90j_precedent,
+                date_cmd__lt=debut_90j,
+                etats__enum_etat__libelle__iexact='Livrée'
+            ).count()
+            if nb_commandes_livrees_precedent >= 2:
+                clients_fideles_90j_precedent += 1
+        
+        taux_fidelisation_precedent = (clients_fideles_90j_precedent / clients_actifs_90j_precedent * 100) if clients_actifs_90j_precedent > 0 else 0
+        tendance_fidelisation = taux_fidelisation - taux_fidelisation_precedent
         
         # === ANALYSES DÉTAILLÉES ===
         
-        # Top Clients VIP (par CA) - simplifié
+        # Top Clients VIP (par CA) - basé sur commandes livrées
         top_clients_data = []
         commandes_avec_ca = Commande.objects.filter(
-            date_cmd__gte=debut_30j
+            date_cmd__gte=debut_30j,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).values('client_id').annotate(
             ca_total=Sum('total_cmd'),
             nb_commandes=Count('id')
@@ -1098,43 +1153,59 @@ def clients_data(request):
         for client_data in commandes_avec_ca:
             try:
                 client = Client.objects.get(id=client_data['client_id'])
+                ca_total = float(client_data['ca_total']) if client_data['ca_total'] else 0
+                # Formatage français avec espaces comme séparateurs de milliers
+                ca_total_format = f"{ca_total:,.0f}".replace(',', ' ') + " DH" if ca_total > 0 else "0 DH"
+                
                 top_clients_data.append({
                     'nom': f"{client.prenom} {client.nom[0]}." if client.nom else "Client anonyme",
-                    'ca_total': float(client_data['ca_total']) if client_data['ca_total'] else 0,
-                    'ca_total_format': f"{client_data['ca_total']:,.0f} DH" if client_data['ca_total'] else "0 DH",
+                    'ca_total': ca_total,
+                    'ca_total_format': ca_total_format,
                     'nb_commandes': client_data['nb_commandes']
                 })
             except Client.DoesNotExist:
                 continue
           # Performance mensuelle
-        # Commandes du mois en cours
+        # Commandes du mois en cours (livrées uniquement)
         commandes_mois_actuel = Commande.objects.filter(
             date_cmd__gte=debut_mois,
-            date_cmd__lte=aujourd_hui
+            date_cmd__lte=aujourd_hui,
+            etats__enum_etat__libelle__iexact='Livrée'
         ).count()
         
-        # CA moyen par client actif
-        if clients_actifs_30j > 0 and len(top_clients_data) > 0:
-            ca_total_clients_actifs = sum(client['ca_total'] for client in top_clients_data)
-            ca_moyen_par_client = ca_total_clients_actifs / clients_actifs_30j
-        else:
-            ca_moyen_par_client = 0
+        # CA moyen par client actif - CALCUL CORRECT basé sur commandes livrées
+        # Utiliser le CA total de TOUS les clients actifs, pas seulement le top 5
+        ca_total_tous_clients_actifs = Commande.objects.filter(
+            date_cmd__gte=debut_30j,
+            client_id__in=clients_actifs_ids,
+            etats__enum_etat__libelle__iexact='Livrée'
+        ).aggregate(ca_total=Sum('total_cmd'))['ca_total'] or 0
         
-        # Segmentation comportementale simplifiée
-        clients_reguliers = sum(1 for client_id in clients_actifs_ids 
-                              if Commande.objects.filter(client_id=client_id, date_cmd__gte=debut_30j).count() >= 3)
+        ca_moyen_par_client = ca_total_tous_clients_actifs / clients_actifs_30j if clients_actifs_30j > 0 else 0
+        
+        # Segmentation comportementale adaptée (basée sur 90 jours pour plus de pertinence) - commandes livrées
+        clients_reguliers = sum(1 for client_id in clients_actifs_90j_ids 
+                              if Commande.objects.filter(
+                                  client_id=client_id, 
+                                  date_cmd__gte=debut_90j,
+                                  etats__enum_etat__libelle__iexact='Livrée'
+                              ).count() >= 3)
         
         clients_nouveaux_testeurs = Client.objects.filter(
-            date_creation__date__gte=debut_30j
+            date_creation__date__gte=debut_90j
         ).filter(
-            id__in=clients_actifs_ids
+            id__in=clients_actifs_90j_ids
         ).count()
         
-        clients_occasionnels = sum(1 for client_id in clients_actifs_ids 
-                                 if Commande.objects.filter(client_id=client_id, date_cmd__gte=debut_30j).count() == 2)
+        clients_occasionnels = sum(1 for client_id in clients_actifs_90j_ids 
+                                 if Commande.objects.filter(
+                                     client_id=client_id, 
+                                     date_cmd__gte=debut_90j,
+                                     etats__enum_etat__libelle__iexact='Livrée'
+                                 ).count() == 2)
         
         clients_vip = len(top_clients_data)
-        total_clients_analyse = clients_actifs_30j
+        total_clients_analyse = clients_actifs_90j
         
         # Réponse JSON structurée
         data = {
@@ -1147,7 +1218,7 @@ def clients_data(request):
                     'tendance': difference_nouveaux,
                     'unite': 'clients',
                     'label': 'Nouveaux Clients',
-                    'sub_value': f"{moyenne_jour:.1f} nouveaux/jour"
+                    'sub_value': f"ce mois"
                 },
                 'clients_actifs': {
                     'valeur': clients_actifs_30j,
@@ -1163,24 +1234,24 @@ def clients_data(request):
                     'tendance': round(tendance_retour, 1),
                     'unite': '%',
                     'label': 'Taux Retour',
-                    'sub_value': f"{commandes_retournees}/{commandes_30j} retournées",
+                    'sub_value': f"{commandes_retournees}/{commandes_livrees_30j} retournées",
                     'status': 'good' if taux_retour < 5 else 'warning' if taux_retour < 10 else 'critical'
                 },                'satisfaction': {
-                    'valeur': round(score_satisfaction, 1),
-                    'valeur_formatee': f"{score_satisfaction:.1f}",
-                    'tendance': round(-tendance_retour, 1),  # Inverse du taux retour
-                    'unite': '/5',
-                    'label': 'Satisfaction',
-                    'sub_value': f"{pourcentage_satisfaits:.1f}% satisfaits",
-                    'status': 'excellent' if score_satisfaction >= 4.5 else 'good' if score_satisfaction >= 4.0 else 'warning' if score_satisfaction >= 3.0 else 'critical'
+                    'valeur': round(taux_fidelisation, 1),
+                    'valeur_formatee': f"{taux_fidelisation:.1f}",
+                    'tendance': round(tendance_fidelisation, 1),
+                    'unite': '%',
+                    'label': 'Fidélisation',
+                    'sub_value': f"{clients_fideles_90j}/{clients_actifs_90j} clients fidèles (90j)",
+                    'status': 'excellent' if taux_fidelisation >= 25 else 'good' if taux_fidelisation >= 15 else 'warning' if taux_fidelisation >= 8 else 'critical'
                 },
                 'fidelisation': {
                     'valeur': round(taux_fidelisation, 1),
                     'valeur_formatee': f"{taux_fidelisation:.1f}",
-                    'tendance': round(difference_actifs / clients_actifs_precedent * 100 if clients_actifs_precedent > 0 else 0, 1),
+                    'tendance': round(tendance_fidelisation, 1),
                     'unite': '%',
                     'label': 'Fidélisation',
-                    'sub_value': f"{commandes_clients_multiples}/{clients_actifs_30j} clients fidèles"
+                    'sub_value': f"{clients_fideles_90j}/{clients_actifs_90j} clients fidèles (90j)"
                 }
             },
             'analyses_detaillees': {
@@ -1200,8 +1271,8 @@ def clients_data(request):
                 'total_clients': total_clients,
                 'clients_actifs_30j': clients_actifs_30j,
                 'taux_activite': round((clients_actifs_30j / total_clients * 100), 1) if total_clients > 0 else 0,
-                'commandes_total_30j': commandes_30j,
-                'panier_moyen_clients': round((sum(client['ca_total'] for client in top_clients_data) / clients_actifs_30j), 2) if clients_actifs_30j > 0 else 0
+                'commandes_total_30j': commandes_livrees_30j,
+                'panier_moyen_clients': round(ca_moyen_par_client, 2)  # Utiliser le CA moyen calculé correctement
             },
             'empty': total_clients == 0
         }
@@ -1576,7 +1647,7 @@ def reset_configurations(request):
 
 @login_required
 def vue_quantitative_data(request):
-    """API pour les données de l'onglet Vue Quantitative"""
+    """API pour les données de l'onglet État des commandes"""
     try:
         # Obtenir la date actuelle et la période demandée
         aujourd_hui = timezone.now().date()
@@ -1733,4 +1804,436 @@ def vue_quantitative_data(request):
             'success': False,
             'message': f'Erreur lors du calcul des états de commandes : {str(e)}',
             'error': 'erreur_calcul_etats'
+        }, status=500)
+
+@login_required
+def performance_operateurs_data(request):
+    """API pour les données de l'onglet Performance Opérateurs"""
+    try:
+        # Obtenir les paramètres de la requête
+        period = request.GET.get('period', 'today')
+        operator_type = request.GET.get('operator_type', 'all')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        export_format = request.GET.get('export')
+        
+        # Calculer les dates selon la période
+        aujourd_hui = timezone.now().date()
+        
+        if period == 'custom' and start_date and end_date:
+            try:
+                date_debut = datetime.strptime(start_date, '%Y-%m-%d').date()
+                date_fin = datetime.strptime(end_date, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Format de date invalide',
+                    'error': 'invalid_date_format'
+                }, status=400)
+        else:
+            # Périodes prédéfinies
+            if period == 'today':
+                date_debut = aujourd_hui
+                date_fin = aujourd_hui
+            elif period == 'yesterday':
+                hier = aujourd_hui - timedelta(days=1)
+                date_debut = hier
+                date_fin = hier
+            elif period == 'week':
+                date_debut = aujourd_hui - timedelta(days=7)
+                date_fin = aujourd_hui
+            elif period == 'month':
+                date_debut = aujourd_hui.replace(day=1)
+                date_fin = aujourd_hui
+            elif period == 'quarter':
+                # Début du trimestre actuel
+                mois_actuel = aujourd_hui.month
+                if mois_actuel <= 3:
+                    debut_trimestre = aujourd_hui.replace(month=1, day=1)
+                elif mois_actuel <= 6:
+                    debut_trimestre = aujourd_hui.replace(month=4, day=1)
+                elif mois_actuel <= 9:
+                    debut_trimestre = aujourd_hui.replace(month=7, day=1)
+                else:
+                    debut_trimestre = aujourd_hui.replace(month=10, day=1)
+                date_debut = debut_trimestre
+                date_fin = aujourd_hui
+            elif period == 'year':
+                date_debut = aujourd_hui.replace(month=1, day=1)
+                date_fin = aujourd_hui
+            else:
+                # Défaut aujourd'hui
+                date_debut = aujourd_hui
+                date_fin = aujourd_hui
+        
+        # Convertir les dates pour les comparaisons avec les DateTimeFields
+        # Utiliser __date pour les comparaisons de DateTimeField avec des dates
+        
+        # Construire la requête des opérateurs - Focus sur CONFIRMATION uniquement
+        operateurs_query = Operateur.objects.filter(type_operateur='CONFIRMATION')
+        
+        # Récupérer tous les opérateurs avec leurs données
+        operateurs_data = []
+        
+        # Métriques globales
+        total_actions_global = 0
+        total_confirmations_global = 0
+        operateurs_actifs = 0
+        
+        for operateur in operateurs_query:
+            # Calculer les métriques pour chaque opérateur
+            
+            # 1. Actions totales (Operations liées à l'opérateur)
+            actions_count = Operation.objects.filter(
+                operateur=operateur,
+                date_operation__date__gte=date_debut,
+                date_operation__date__lte=date_fin
+            ).count()
+            
+            # 2. Confirmations (Operations de type confirmation)
+            confirmations_count = Operation.objects.filter(
+                operateur=operateur,
+                date_operation__date__gte=date_debut,
+                date_operation__date__lte=date_fin,
+                type_operation__icontains='confirmation'
+            ).count()
+            
+            # 3. Commandes affectées à l'opérateur dans la période
+            commandes_affectees = Commande.objects.filter(
+                etats__operateur=operateur,
+                etats__date_debut__date__gte=date_debut,
+                etats__date_debut__date__lte=date_fin
+            ).count()
+            
+            # 4. Commandes confirmées par l'opérateur
+            commandes_confirmees = Commande.objects.filter(
+                etats__operateur=operateur,
+                etats__enum_etat__libelle__icontains='Confirmée',
+                etats__date_debut__date__gte=date_debut,
+                etats__date_debut__date__lte=date_fin
+            ).count()
+            
+            # 5. Commandes en cours pour cet opérateur
+            commandes_en_cours = Commande.objects.filter(
+                etats__operateur=operateur,
+                etats__date_fin__isnull=True,  # États non terminés
+                etats__date_debut__date__gte=date_debut,
+                etats__date_debut__date__lte=date_fin
+            ).exclude(
+                etats__enum_etat__libelle__in=['Livrée', 'Annulée', 'Retournée']
+            ).count()
+            
+            # 6. Calcul du taux de confirmation pour opérateurs CONFIRMATION
+            # Ratio : Cmds Confirmées / Cmds Affectées
+            if commandes_affectees > 0:
+                taux_confirmation = (commandes_confirmees / commandes_affectees) * 100
+            else:
+                taux_confirmation = 0
+            taux_confirmation_label = "Taux Confirmation"
+            
+            # 7. Calcul du panier moyen (commandes confirmées par l'opérateur)
+            panier_moyen = Commande.objects.filter(
+                etats__operateur=operateur,
+                etats__enum_etat__libelle__icontains='Confirmée',
+                etats__date_debut__date__gte=date_debut,
+                etats__date_debut__date__lte=date_fin
+            ).aggregate(
+                moyenne=Avg('total_cmd')
+            )['moyenne'] or 0
+            
+            # 8. Calcul de l'upsell (différence avec panier initial estimé)
+            # Pour simplifier, on prend 10% du CA comme estimation d'upsell
+            ca_operateur = Commande.objects.filter(
+                etats__operateur=operateur,
+                etats__enum_etat__libelle__icontains='Confirmée',
+                etats__date_debut__date__gte=date_debut,
+                etats__date_debut__date__lte=date_fin
+            ).aggregate(
+                total=Sum('total_cmd')
+            )['total'] or 0
+            
+            upsell_estime = Decimal(str(ca_operateur)) * Decimal('0.1')  # 10% estimé comme upsell
+            
+            # 9. Calculs additionnels demandés
+            # Commandes avec upsell (is_upsell=True)
+            commandes_upsell_count = Commande.objects.filter(
+                etats__operateur=operateur,
+                etats__enum_etat__libelle__icontains='Confirmée',
+                etats__date_debut__date__gte=date_debut,
+                etats__date_debut__date__lte=date_fin,
+                is_upsell=True
+            ).count()
+            
+            # Panier min et max pour les commandes confirmées
+            commandes_confirmees_query = Commande.objects.filter(
+                etats__operateur=operateur,
+                etats__enum_etat__libelle__icontains='Confirmée',
+                etats__date_debut__date__gte=date_debut,
+                etats__date_debut__date__lte=date_fin
+            )
+            
+            panier_stats = commandes_confirmees_query.aggregate(
+                panier_min=Min('total_cmd'),
+                panier_max=Max('total_cmd')
+            )
+            panier_min = panier_stats['panier_min'] or 0
+            panier_max = panier_stats['panier_max'] or 0
+            
+            # Moyenne du nombre d'articles par commande
+            # Note: Ceci nécessite le modèle Panier (articles par commande)
+            try:
+                from commande.models import Panier
+                avg_articles = commandes_confirmees_query.annotate(
+                    nb_articles=Sum('paniers__quantite')
+                ).aggregate(
+                    moyenne_articles=Avg('nb_articles')
+                )['moyenne_articles'] or 0
+            except ImportError:
+                # Si le modèle Panier n'existe pas ou n'est pas accessible
+                avg_articles = 0
+            
+            # Marquer comme actif si l'opérateur a au moins une action
+            is_active = actions_count > 0
+            if is_active:
+                operateurs_actifs += 1
+            
+            # Accumuler pour les métriques globales
+            total_actions_global += actions_count
+            total_confirmations_global += confirmations_count
+            
+            operateurs_data.append({
+                'id': operateur.id,
+                'nom': operateur.nom,
+                'username': operateur.user.username,
+                'type': operateur.type_operateur,
+                'total_actions': actions_count,
+                'total_confirmations': confirmations_count,
+                'confirmation_rate': round(taux_confirmation, 1),
+                'confirmation_rate_label': taux_confirmation_label,
+                'commands_affected': commandes_affectees,
+                'commands_confirmed': commandes_confirmees,
+                'commands_in_progress': commandes_en_cours,
+                'upsell_count': commandes_upsell_count,
+                'average_basket': float(panier_moyen),
+                'min_basket': float(panier_min),
+                'max_basket': float(panier_max),
+                'avg_articles_per_cmd': float(avg_articles),
+                'upsell_amount': float(upsell_estime),
+                'is_active': is_active
+            })
+        
+        # Calculer le taux de confirmation global
+        if total_actions_global > 0:
+            taux_confirmation_global = (total_confirmations_global / total_actions_global) * 100
+        else:
+            taux_confirmation_global = 0
+        
+        # Métriques globales
+        global_metrics = {
+            'total_actions': total_actions_global,
+            'total_confirmations': total_confirmations_global,
+            'global_confirmation_rate': round(taux_confirmation_global, 1),
+            'active_operators': operateurs_actifs
+        }
+        
+        # Trier par nombre d'actions décroissant
+        operateurs_data.sort(key=lambda x: x['total_actions'], reverse=True)
+        
+        # Si export Excel demandé
+        if export_format == 'excel':
+            return export_performance_operateurs_excel(operateurs_data, global_metrics, date_debut, date_fin)
+        
+        # Réponse JSON normale
+        response_data = {
+            'success': True,
+            'operators': operateurs_data,
+            'global_metrics': global_metrics,
+            'period_info': {
+                'start_date': date_debut.isoformat(),
+                'end_date': date_fin.isoformat(),
+                'period': period,
+                'operator_type': operator_type
+            },
+            'last_update': timezone.now().isoformat()
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors du calcul des performances des opérateurs : {str(e)}',
+            'error': 'erreur_calcul_performance'
+        }, status=500)
+
+def export_performance_operateurs_excel(operateurs_data, global_metrics, date_debut, date_fin):
+    """Export des données de performance des opérateurs en Excel (format TSV)"""
+    try:
+        # Création du contenu TSV avec BOM UTF-8
+        content = '\ufeff'  # BOM UTF-8
+        
+        # En-tête du fichier
+        content += f"Performance des Opérateurs de Confirmation\t\t\t\t\t\t\t\t\n"
+        content += f"Période: {date_debut.strftime('%d/%m/%Y')} - {date_fin.strftime('%d/%m/%Y')}\t\t\t\t\t\t\t\t\t\n"
+        content += f"Généré le: {timezone.now().strftime('%d/%m/%Y à %H:%M')}\t\t\t\t\t\t\t\t\t\n"
+        content += "\t\t\t\t\t\t\t\t\t\n"
+        
+        # Métriques globales
+        content += "MÉTRIQUES GLOBALES\t\t\t\t\t\t\t\t\t\n"
+        content += f"Total Actions\t{global_metrics['total_actions']}\t\t\t\t\t\t\t\t\n"
+        content += f"Total Confirmations\t{global_metrics['total_confirmations']}\t\t\t\t\t\t\t\t\n"
+        content += f"Taux Confirmation Global\t{global_metrics['global_confirmation_rate']}%\t\t\t\t\t\t\t\t\n"
+        content += f"Opérateurs Actifs\t{global_metrics['active_operators']}\t\t\t\t\t\t\t\t\n"
+        content += "\t\t\t\t\t\t\t\t\t\n"
+        
+        # En-têtes du tableau
+        content += "DÉTAIL PAR OPÉRATEUR\t\t\t\t\t\t\t\t\t\t\t\n"
+        content += "Opérateur\tActions\tTaux Confirm. (%)\tCmds Affectées\tCmds Confirmées\tCmds En Cours\tNb Upsell\tPanier Moyen (MAD)\tPanier Max (MAD)\tPanier Min (MAD)\tMoy. Articles\n"
+        
+        # Données des opérateurs
+        for operateur in operateurs_data:
+            content += f"{operateur['nom']}\t"
+            content += f"{operateur['total_actions']}\t"
+            content += f"{operateur['confirmation_rate']}\t"
+            content += f"{operateur['commands_affected']}\t"
+            content += f"{operateur['commands_confirmed']}\t"
+            content += f"{operateur['commands_in_progress']}\t"
+            content += f"{operateur['upsell_count']}\t"
+            content += f"{operateur['average_basket']:.2f}\t"
+            content += f"{operateur['max_basket']:.2f}\t"
+            content += f"{operateur['min_basket']:.2f}\t"
+            content += f"{operateur['avg_articles_per_cmd']:.1f}\n"
+        
+        # Configuration de la réponse HTTP
+        response = HttpResponse(content, content_type='text/tab-separated-values; charset=utf-8-sig')
+        
+        # Nom du fichier avec date
+        filename = f"performance_operateurs_{date_debut.strftime('%Y%m%d')}_{date_fin.strftime('%Y%m%d')}.txt"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de l\'export Excel : {str(e)}',
+            'error': 'erreur_export_excel'
+        }, status=500)
+
+@api_login_required
+def operator_history_data(request):
+    """API pour récupérer l'historique récent d'un opérateur"""
+    try:
+        # Paramètres de la requête
+        operator_id = request.GET.get('operator_id')
+        period = request.GET.get('period', 'today')
+        limit = int(request.GET.get('limit', 5))
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if not operator_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'ID opérateur manquant',
+                'error': 'missing_operator_id'
+            }, status=400)
+        
+        # Vérifier que l'opérateur existe
+        try:
+            operateur = Operateur.objects.get(id=operator_id)
+        except Operateur.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Opérateur introuvable',
+                'error': 'operator_not_found'
+            }, status=404)
+        
+        # Calculer les dates selon la période (même logique que performance_operateurs_data)
+        aujourd_hui = timezone.now().date()
+        
+        if period == 'custom' and start_date and end_date:
+            try:
+                date_debut = datetime.strptime(start_date, '%Y-%m-%d').date()
+                date_fin = datetime.strptime(end_date, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Format de date invalide',
+                    'error': 'invalid_date_format'
+                }, status=400)
+        else:
+            # Périodes prédéfinies
+            if period == 'today':
+                date_debut = aujourd_hui
+                date_fin = aujourd_hui
+            elif period == 'yesterday':
+                hier = aujourd_hui - timedelta(days=1)
+                date_debut = hier
+                date_fin = hier
+            elif period == 'week':
+                date_debut = aujourd_hui - timedelta(days=7)
+                date_fin = aujourd_hui
+            elif period == 'month':
+                date_debut = aujourd_hui.replace(day=1)
+                date_fin = aujourd_hui
+            elif period == 'quarter':
+                # Début du trimestre actuel
+                mois_actuel = aujourd_hui.month
+                if mois_actuel <= 3:
+                    debut_trimestre = aujourd_hui.replace(month=1, day=1)
+                elif mois_actuel <= 6:
+                    debut_trimestre = aujourd_hui.replace(month=4, day=1)
+                elif mois_actuel <= 9:
+                    debut_trimestre = aujourd_hui.replace(month=7, day=1)
+                else:
+                    debut_trimestre = aujourd_hui.replace(month=10, day=1)
+                date_debut = debut_trimestre
+                date_fin = aujourd_hui
+            elif period == 'year':
+                date_debut = aujourd_hui.replace(month=1, day=1)
+                date_fin = aujourd_hui
+            else:
+                # Défaut aujourd'hui
+                date_debut = aujourd_hui
+                date_fin = aujourd_hui
+        
+        # Récupérer les opérations récentes de l'opérateur
+        operations = Operation.objects.filter(
+            operateur=operateur,
+            date_operation__date__gte=date_debut,
+            date_operation__date__lte=date_fin
+        ).select_related('commande').order_by('-date_operation')[:limit]
+        
+        # Formater les données
+        history_data = []
+        for operation in operations:
+            history_data.append({
+                'id': operation.id,
+                'type_operation': operation.get_type_operation_display(),
+                'commande_num': operation.commande.num_cmd,
+                'date_operation': operation.date_operation.isoformat(),
+                'conclusion': operation.conclusion[:100] + '...' if len(operation.conclusion) > 100 else operation.conclusion,
+                'status': 'Terminé'  # Peut être étendu selon la logique métier
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'history': history_data,
+            'operator': {
+                'id': operateur.id,
+                'nom': operateur.nom,
+                'type': operateur.type_operateur
+            },
+            'period_info': {
+                'start_date': date_debut.isoformat(),
+                'end_date': date_fin.isoformat(),
+                'period': period
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la récupération de l\'historique : {str(e)}',
+            'error': 'erreur_historique'
         }, status=500)

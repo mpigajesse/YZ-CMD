@@ -16,75 +16,8 @@ from django.contrib.auth import update_session_auth_hash # Required for password
 
 @login_required
 def dashboard(request):
-    """Page d'accueil de l'interface administrateur - Redirige vers le dashboard KPIs"""
-    # Rediriger directement vers le dashboard KPIs pour les administrateurs
-    if request.user.is_staff or hasattr(request.user, 'profil_operateur') and request.user.profil_operateur.type_operateur == 'ADMIN':
-        return redirect('/kpis/')
-    
-    # Fallback vers l'ancien dashboard pour les autres types d'utilisateurs
-    # Statistiques pour le dashboard
-    stats = {
-        'total_articles': Article.objects.count(),
-        'articles_disponibles': Article.objects.filter(qte_disponible__gt=0).count(),
-        'total_commandes': Commande.objects.count(),
-        'total_operateurs': Operateur.objects.count(),
-        'operateurs_actifs': Operateur.objects.filter(actif=True).count(),
-    }
-    
-    # Ajouter les statistiques des états de commandes
-    try:
-        from commande.models import EtatCommande, EnumEtatCmd
-        
-        # Compter les commandes par état en utilisant les libellés des états
-        commandes_non_affectees = EtatCommande.objects.filter(
-            date_fin__isnull=True,
-            enum_etat__libelle__icontains='Non affectée'
-        ).count()
-        
-        commandes_affectees = EtatCommande.objects.filter(
-            date_fin__isnull=True,
-            enum_etat__libelle__icontains='Affectée'
-        ).count()
-        
-        commandes_erronnees = EtatCommande.objects.filter(
-            date_fin__isnull=True,
-            enum_etat__libelle__icontains='Erronée'
-        ).count()
-        
-        commandes_doublons = EtatCommande.objects.filter(
-            date_fin__isnull=True,
-            enum_etat__libelle__icontains='Doublon'
-        ).count()
-        
-        # Commandes nouvelles = commandes sans état actuel
-        commandes_avec_etat = EtatCommande.objects.filter(date_fin__isnull=True).values_list('commande_id', flat=True)
-        commandes_nouvelles = Commande.objects.exclude(id__in=commandes_avec_etat).count()
-        
-        stats.update({
-            'commandes_non_affectees': commandes_non_affectees,
-            'commandes_affectees': commandes_affectees,
-            'commandes_erronnees': commandes_erronnees,
-            'commandes_doublons': commandes_doublons,
-            'commandes_nouvelles': commandes_nouvelles,
-        })
-    except ImportError:
-        # Si les modèles ne sont pas disponibles, mettre des valeurs par défaut
-        stats.update({
-            'commandes_non_affectees': 0,
-            'commandes_affectees': 0,
-            'commandes_erronnees': 0,
-            'commandes_doublons': 0,
-            'commandes_nouvelles': 0,
-        })
-
-    # Récupérer quelques opérateurs actifs pour l'affichage des initiales
-    active_operators_for_display = Operateur.objects.filter(actif=True, user__is_superuser=False).order_by('id')[:3]
-
-    context = {
-        'stats': stats,
-        'active_operators_for_display': active_operators_for_display,
-    }
-    return render(request, 'composant_generale/admin/home.html', context)
+    """Page d'accueil de l'interface administrateur"""
+    return render(request, 'composant_generale/admin/home.html')
 
 @staff_member_required
 @login_required

@@ -19,6 +19,8 @@ urlpatterns = [# Documentation
     path('api/performance-regions/', views.performance_regions_data, name='performance_regions_data'),
     path('api/clients/', views.clients_data, name='clients_data'),
     path('api/vue-quantitative/', views.vue_quantitative_data, name='vue_quantitative_data'),
+    path('performance-operateurs-data/', views.performance_operateurs_data, name='performance_operateurs_data'),
+    path('operator-history/', views.operator_history_data, name='operator_history_data'),
     
     # APIs pour configuration
     path('api/configurations/', views.get_configurations, name='get_configurations'),
