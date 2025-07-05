@@ -572,7 +572,7 @@ def creer_promotion(request):
                     else:
                         messages.success(request, f"La promotion '{promotion.nom}' a été créée avec succès.")
                 else:
-                messages.success(request, f"La promotion '{promotion.nom}' a été créée avec succès.")
+                    messages.success(request, f"La promotion '{promotion.nom}' a été créée avec succès.")
                 
                 return redirect('article:detail_promotion', id=promotion.id)
             except Exception as e:
@@ -776,7 +776,7 @@ def appliquer_liquidation(request, id):
         if upsell_was_active:
             messages.success(request, f"L'article a été mis en liquidation avec une réduction de {pourcentage}%. L'upsell a été automatiquement désactivé.")
         else:
-        messages.success(request, f"L'article a été mis en liquidation avec une réduction de {pourcentage}%.")
+            messages.success(request, f"L'article a été mis en liquidation avec une réduction de {pourcentage}%.")
         
     except (ValueError, TypeError):
         messages.error(request, "Le pourcentage de réduction n'est pas valide.")
