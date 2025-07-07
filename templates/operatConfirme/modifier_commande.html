@@ -504,108 +504,7 @@
                     
                     <!-- Liste des articles existants -->
                     <div id="articles-container" class="space-y-3 mb-6">
-                        {% for panier in commande.paniers.all %}
-                        <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" 
-                            data-article-id="{{ panier.id }}"
-                            data-article='{"id": {{ panier.article.id }}, "nom": "{{ panier.article.nom }}", "reference": "{{ panier.article.reference }}", "prix_actuel": {{ panier.article.prix_actuel|default:0 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0 }}, "isUpsell": {{ panier.article.isUpsell|yesno:"true,false" }}, "pointure": "{{ panier.article.pointure|default:'' }}", "couleur": "{{ panier.article.couleur|default:'' }}", "categorie": "{{ panier.article.categorie|default:'' }}", "qte_disponible": {{ panier.article.qte_disponible|default:0 }}}'>
-                            <div class="flex items-center justify-between">
-                                <!-- Informations de l'article -->
-                                <div class="flex-1">
-                                    <div class="flex items-center space-x-4">
-                                        <!-- Nom et référence -->
-                                        <div class="min-w-0 flex-1">
-                                            <div class="font-semibold text-lg" style="color: #4B352A;">{{ panier.article.nom }}</div>
-                                            <div class="text-sm text-gray-500">
-                                                <i class="fas fa-hashtag mr-1"></i>Réf: {{ panier.article.reference }}
-                                            </div>
-                                            <!-- Informations détaillées -->
-                                            <div class="mt-2 flex flex-wrap gap-2">
-                                                {% if panier.article.pointure %}
-                                                <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                                                    <i class="fas fa-ruler-vertical mr-1"></i>{{ panier.article.pointure }}
-                                                </span>
-                                                {% else %}
-                                                <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                                    <i class="fas fa-ruler-vertical mr-1"></i>Taille N/A
-                                                </span>
-                                                {% endif %}
-                                                
-                                                {% if panier.article.couleur %}
-                                                <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                                                    <i class="fas fa-palette mr-1"></i>{{ panier.article.couleur }}
-                                                </span>
-                                                {% else %}
-                                                <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                                    <i class="fas fa-palette mr-1"></i>Couleur N/A
-                                                </span>
-                                                {% endif %}
-                                                
-                                                {% if panier.article.categorie %}
-                                                <span class="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
-                                                    <i class="fas fa-tag mr-1"></i>{{ panier.article.categorie }}
-                                                </span>
-                                                {% else %}
-                                                <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                                    <i class="fas fa-tag mr-1"></i>Catégorie N/A
-                                                </span>
-                                                {% endif %}
-                                                                                    
-                                                <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                                                    <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.qte_disponible }}
-                                                </span>
-            
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Quantité -->
-                                        <div class="text-center min-w-0">
-                                            <div class="text-sm text-gray-500">Quantité</div>
-                                            <div class="font-medium text-blue-600">{{ panier.quantite }} unité{{ panier.quantite|pluralize }}</div>
-                                            <button type="button" onclick="modifierQuantite({{ panier.id }}, {{ panier.quantite }})" 
-                                                    class="text-xs text-blue-500 hover:text-blue-700 mt-1">
-                                                <i class="fas fa-edit mr-1"></i>Modifier qté
-                                            </button>
-                                        </div>
-                                        
-                                        <!-- Prix unitaire -->
-                                        <div class="text-center min-w-0">
-                                            <div class="text-sm text-gray-500">Prix actuel</div>
-                                            {% with panier.article|get_prix_avec_phase_info:commande.compteur as prix_info %}
-                                            <div class="font-medium {{ prix_info.couleur_classe }}">
-                                                {{ prix_info.prix|floatformat:2 }} DH
-                                            </div>
-                                            <div class="text-xs {{ prix_info.couleur_classe }} mt-1">
-                                                {{ prix_info.libelle }}
-                                            </div>
-                                            {% endwith %}
-                                        </div>
-                                        
-                                        <!-- Sous-total -->
-                                        <div class="text-center min-w-0">
-                                            <div class="text-sm text-gray-500">Sous-total</div>
-                                            <div class="text-lg font-bold" style="color: #6d4b3b;">
-                                                {{ panier|calculer_sous_total_avec_compteur:commande.compteur|floatformat:2 }} DH
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Boutons d'action -->
-                                <div class="flex space-x-2 ml-4">
-                                    <button type="button" onclick="modifierArticle({{ panier.id }})" 
-                                            class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" 
-                                            title="Modifier">
-                                        <i class="fas fa-edit mr-1"></i>Modifier
-                                    </button>
-                                    <button type="button" onclick="supprimerArticle({{ panier.id }})" 
-                                            class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" 
-                                            title="Supprimer">
-                                        <i class="fas fa-trash mr-1"></i>Supprimer
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
+                        {% include 'operatConfirme/partials/_articles_section.html' %}
                     </div>
 
                     <!-- Résumé total -->
@@ -3058,445 +2957,117 @@ function saveArticle() {
         return;
     }
     
-    // Vérifier qu'un article est sélectionné (même en mode modification)
-        const select = document.getElementById('articleSelect');
-        if (!select.value) {
-            alert('⚠️ Veuillez sélectionner un article');
-            return;
-        }
-        
-        const selectedOption = select.options[select.selectedIndex];
-        const article = JSON.parse(selectedOption.dataset.article);
-        
-    if (!isEditingArticle) {
-        // Ajout d'un nouvel article
-        ajouterArticleAuContainer(article, quantite);
-        sauvegarderNouvelArticle(article, quantite);  // Sauvegarde en base
-        showNotification('✅ Article ajouté et sauvegardé', 'success');
-    } else {
-        // Modification d'un article existant - remplacer complètement l'article
-        remplacerArticleExistant(article, quantite);
-        sauvegarderRemplacementArticle(currentArticleId, article, quantite);  // Sauvegarde en base
-        showNotification('🔄 Article remplacé et sauvegardé', 'success');
+    const select = document.getElementById('articleSelect');
+    if (!select.value) {
+        alert('⚠️ Veuillez sélectionner un article');
+        return;
     }
     
-    // Mettre à jour le total
-    mettreAJourTotalCommande();
+    const articleId = select.value;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    let action = isEditingArticle ? 'update_article' : 'add_article';
     
-    // Fermer la modale
-    closeArticleModal();
-}
+    let body = {
+        'action': action,
+        'article_id': articleId,
+        'quantite': quantite,
+    };
 
-// Fonction pour ajouter un article au container
-function ajouterArticleAuContainer(article, quantite) {
-    // Vérifier si le prix actuel est défini, sinon utiliser le prix unitaire
-    const prixActuel = article.prix_actuel !== undefined ? article.prix_actuel : article.prix_unitaire;
-    const sousTotal = (prixActuel * quantite).toFixed(2);
-    const articleId = `new-${Date.now()}`; // ID temporaire pour les nouveaux articles
-    
-    const articleHTML = `
-        <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" data-article-id="${articleId}" data-is-new="true">
-            <div class="flex items-center justify-between">
-                <!-- Informations de l'article -->
-                <div class="flex-1">
-                    <div class="flex items-center space-x-4">
-                        <!-- Nom et référence -->
-                        <div class="min-w-0 flex-1">
-                            <div class="font-semibold text-lg" style="color: #4B352A;">${article.nom}</div>
-                            <div class="text-sm text-gray-500">
-                                <i class="fas fa-hashtag mr-1"></i>Réf: ${article.reference}
-                            </div>
-                                                         <!-- Informations détaillées -->
-                             <div class="mt-2 flex flex-wrap gap-2">
-                                 ${article.pointure ? 
-                                     `<span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                                         <i class="fas fa-ruler-vertical mr-1"></i>${article.pointure}
-                                     </span>` : 
-                                     `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                         <i class="fas fa-ruler-vertical mr-1"></i>Taille N/A
-                                     </span>`
-                                 }
-                                 
-                                 ${article.couleur ? 
-                                     `<span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                                         <i class="fas fa-palette mr-1"></i>${article.couleur}
-                                     </span>` : 
-                                     `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                         <i class="fas fa-palette mr-1"></i>Couleur N/A
-                                     </span>`
-                                 }
-                                 
-                                 ${article.categorie ? 
-                                     `<span class="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
-                                         <i class="fas fa-tag mr-1"></i>${article.categorie}
-                                     </span>` : 
-                                     `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                         <i class="fas fa-tag mr-1"></i>Catégorie N/A
-                                     </span>`
-                                 }
-                                 
-                                 ${article.stock_disponible ? 
-                                     `<span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                                         <i class="fas fa-boxes mr-1"></i>Stock: ${article.stock_disponible}
-                                     </span>` : ''
-                                 }
-                             </div>
-                        </div>
-                        
-                        <!-- Quantité -->
-                        <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Quantité</div>
-                            <div class="font-medium text-blue-600">${quantite} unité${quantite > 1 ? 's' : ''}</div>
-                        </div>
-                        
-                        <!-- Prix détaillé -->
-                        <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Prix actuel</div>
-                            <div class="font-medium text-green-600">${prixActuel} DH</div>
-                            ${article.isUpsell && quantite > 1 ? 
-                                `<div class="text-xs text-orange-600 mt-1">
-                                    Prix upsell (remplace le prix unitaire)
-                                </div>` : 
-                                '<div class="text-xs text-gray-400 mt-1">Prix standard</div>'
-                            }
-                        </div>
-                        
-                        <!-- Sous-total -->
-                        <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Sous-total</div>
-                            <div class="text-lg font-bold" style="color: #6d4b3b;">${sousTotal} DH</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Boutons d'action -->
-                <div class="flex space-x-2 ml-4">
-                    <button type="button" onclick="modifierArticle('${articleId}')" 
-                            class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" 
-                            title="Modifier">
-                        <i class="fas fa-edit mr-1"></i>Modifier
-                    </button>
-                    <button type="button" onclick="supprimerArticle('${articleId}')" 
-                            class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" 
-                            title="Supprimer">
-                        <i class="fas fa-trash mr-1"></i>Supprimer
-                    </button>
-                </div>
-            </div>
-            <!-- Champs cachés pour le formulaire -->
-            <input type="hidden" name="new_articles[]" value="${article.id}">
-            <input type="hidden" name="new_quantities[]" value="${quantite}">
-        </div>
-    `;
-    
-    document.getElementById('articles-container').insertAdjacentHTML('beforeend', articleHTML);
-    mettreAJourCompteurArticles();
-}
-
-// Fonction pour remplacer complètement un article existant
-function remplacerArticleExistant(nouvelArticle, nouvelleQuantite) {
-    const articleCard = document.querySelector(`[data-article-id="${currentArticleId}"]`);
-    if (articleCard) {
-        const prixActuel = nouvelArticle.prix_actuel !== undefined ? nouvelArticle.prix_actuel : nouvelArticle.prix_unitaire;
-        const sousTotal = (prixActuel * nouvelleQuantite).toFixed(2);
-        
-        // Remplacer tout le contenu de la carte d'article
-        const nouveauContenu = `
-            <div class="flex items-center justify-between">
-                <!-- Informations de l'article -->
-                <div class="flex-1">
-                    <div class="flex items-center space-x-4">
-                        <!-- Nom et référence -->
-                        <div class="min-w-0 flex-1">
-                            <div class="font-semibold text-lg" style="color: #4B352A;">${nouvelArticle.nom}</div>
-                            <div class="text-sm text-gray-500">
-                                <i class="fas fa-hashtag mr-1"></i>Réf: ${nouvelArticle.reference}
-                            </div>
-                            <!-- Informations détaillées -->
-                            <div class="mt-2 flex flex-wrap gap-2">
-                                ${nouvelArticle.pointure ? 
-                                    `<span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                                        <i class="fas fa-ruler-vertical mr-1"></i>${nouvelArticle.pointure}
-                                    </span>` : 
-                                    `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                        <i class="fas fa-ruler-vertical mr-1"></i>Taille N/A
-                                    </span>`
-                                }
-                                
-                                ${nouvelArticle.couleur ? 
-                                    `<span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                                        <i class="fas fa-palette mr-1"></i>${nouvelArticle.couleur}
-                                    </span>` : 
-                                    `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                        <i class="fas fa-palette mr-1"></i>Couleur N/A
-                                    </span>`
-                                }
-                                
-                                ${nouvelArticle.categorie ? 
-                                    `<span class="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
-                                        <i class="fas fa-tag mr-1"></i>${nouvelArticle.categorie}
-                                    </span>` : 
-                                    `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                        <i class="fas fa-tag mr-1"></i>Catégorie N/A
-                                    </span>`
-                                }
-                                
-                                ${nouvelArticle.qte_disponible ? 
-                                    `<span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                                        <i class="fas fa-boxes mr-1"></i>Stock: ${nouvelArticle.qte_disponible}
-                                    </span>` : ''
-                                }
-                            </div>
-                        </div>
-                        
-                        <!-- Quantité -->
-                        <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Quantité</div>
-                            <div class="font-medium text-blue-600">${nouvelleQuantite} unité${nouvelleQuantite > 1 ? 's' : ''}</div>
-                        </div>
-                        
-                        <!-- Prix détaillé -->
-                        <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Prix actuel</div>
-                            <div class="font-medium text-green-600">${prixActuel} DH</div>
-                            ${nouvelArticle.isUpsell && nouvelleQuantite > 1 ? 
-                                `<div class="text-xs text-orange-600 mt-1">
-                                    Prix upsell (remplace le prix unitaire)
-                                </div>` : 
-                                '<div class="text-xs text-gray-400 mt-1">Prix standard</div>'
-                            }
-                        </div>
-                        
-                        <!-- Sous-total -->
-                        <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Sous-total</div>
-                            <div class="text-lg font-bold" style="color: #6d4b3b;">${sousTotal} DH</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Boutons d'action -->
-                <div class="flex space-x-2 ml-4">
-                    <button type="button" onclick="modifierArticle('${currentArticleId}')" 
-                            class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" 
-                            title="Modifier">
-                        <i class="fas fa-edit mr-1"></i>Modifier
-                    </button>
-                    <button type="button" onclick="supprimerArticle('${currentArticleId}')" 
-                            class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" 
-                            title="Supprimer">
-                        <i class="fas fa-trash mr-1"></i>Supprimer
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        // Remplacer le contenu HTML
-        articleCard.innerHTML = nouveauContenu;
-        
-        // Mettre à jour ou ajouter les champs cachés pour le formulaire
-        if (articleCard.dataset.isNew) {
-            // Nouvel article - mettre à jour les champs cachés
-            let articleInput = articleCard.querySelector('input[name="new_articles[]"]');
-            let quantityInput = articleCard.querySelector('input[name="new_quantities[]"]');
-            
-            if (!articleInput) {
-                articleInput = document.createElement('input');
-                articleInput.type = 'hidden';
-                articleInput.name = 'new_articles[]';
-                articleCard.appendChild(articleInput);
-            }
-            if (!quantityInput) {
-                quantityInput = document.createElement('input');
-                quantityInput.type = 'hidden';
-                quantityInput.name = 'new_quantities[]';
-                articleCard.appendChild(quantityInput);
-            }
-            
-            articleInput.value = nouvelArticle.id;
-            quantityInput.value = nouvelleQuantite;
-        } else {
-            // Article existant - remplacement complet (supprimer l'ancien, ajouter le nouveau)
-            
-            // 1. Marquer l'ancien article pour suppression
-            let deleteInput = articleCard.querySelector('input[name="deleted_articles[]"]');
-            if (!deleteInput) {
-                deleteInput = document.createElement('input');
-                deleteInput.type = 'hidden';
-                deleteInput.name = 'deleted_articles[]';
-                deleteInput.value = currentArticleId;
-                articleCard.appendChild(deleteInput);
-            }
-            
-            // 2. Ajouter le nouvel article
-            let newArticleInput = articleCard.querySelector('input[name="new_articles[]"]');
-            let newQuantityInput = articleCard.querySelector('input[name="new_quantities[]"]');
-            
-            if (!newArticleInput) {
-                newArticleInput = document.createElement('input');
-                newArticleInput.type = 'hidden';
-                newArticleInput.name = 'new_articles[]';
-                articleCard.appendChild(newArticleInput);
-            }
-            
-            if (!newQuantityInput) {
-                newQuantityInput = document.createElement('input');
-                newQuantityInput.type = 'hidden';
-                newQuantityInput.name = 'new_quantities[]';
-                articleCard.appendChild(newQuantityInput);
-            }
-            
-            newArticleInput.value = nouvelArticle.id;
-            newQuantityInput.value = nouvelleQuantite;
-            
-            // 3. Marquer comme article remplacé pour le traitement côté serveur
-            articleCard.dataset.isReplaced = 'true';
-            
-            console.log('🔄 Article existant remplacé:', {
-                ancienId: currentArticleId,
-                nouveauId: nouvelArticle.id,
-                nouveauNom: nouvelArticle.nom,
-                quantite: nouvelleQuantite
-            });
-        }
-        
-        console.log('✅ Article remplacé avec succès:', {
-            ancien: currentArticleId,
-            nouveau: nouvelArticle.nom,
-            quantite: nouvelleQuantite
-        });
-        
-        // Ajouter une notification explicite pour le remplacement d'article
-        if (!articleCard.dataset.isNew) {
-            console.log('🔄 Remplacement d\'article détecté - l\'ancien sera supprimé et le nouveau ajouté lors de la sauvegarde');
-        }
+    if(isEditingArticle) {
+        body.panier_id = currentArticleId; // currentArticleId est l'ID du *panier*
     }
-}
 
-// Fonction pour modifier un article existant (ancienne version - gardée pour compatibilité)
-function modifierArticleExistant(nouvelleQuantite) {
-    const articleCard = document.querySelector(`[data-article-id="${currentArticleId}"]`);
-    if (articleCard) {
-        // Mettre à jour la quantité
-        const quantiteElement = articleCard.querySelector('.text-blue-600');
-        quantiteElement.textContent = `${nouvelleQuantite} unité${nouvelleQuantite > 1 ? 's' : ''}`;
-        
-        // Recalculer le sous-total
-        const prixElement = articleCard.querySelector('.text-green-600');
-        const prix = parseFloat(prixElement.textContent.replace(' DH', ''));
-        const nouveauSousTotal = (prix * nouvelleQuantite).toFixed(2);
-        
-        const sousTotalElement = articleCard.querySelector('.text-lg.font-bold');
-        sousTotalElement.textContent = `${nouveauSousTotal} DH`;
-        
-        // Mettre à jour les champs cachés si c'est un nouvel article
-        if (articleCard.dataset.isNew) {
-            const quantityInput = articleCard.querySelector('input[name="new_quantities[]"]');
-            if (quantityInput) {
-                quantityInput.value = nouvelleQuantite;
-            }
-        } else {
-            // Pour les articles existants, ajouter des champs de modification
-            let modifInput = articleCard.querySelector('input[name="modified_articles[]"]');
-            if (!modifInput) {
-                modifInput = document.createElement('input');
-                modifInput.type = 'hidden';
-                modifInput.name = 'modified_articles[]';
-                modifInput.value = currentArticleId;
-                articleCard.appendChild(modifInput);
-                
-                const quantityInput = document.createElement('input');
-                quantityInput.type = 'hidden';
-                quantityInput.name = 'modified_quantities[]';
-                quantityInput.value = nouvelleQuantite;
-                articleCard.appendChild(quantityInput);
-            } else {
-                const quantityInput = articleCard.querySelector('input[name="modified_quantities[]"]');
-                quantityInput.value = nouvelleQuantite;
-            }
-        }
-    }
-}
-
-// Fonction pour supprimer un article
-function supprimerArticle(articleId) {
-    if (confirm('⚠️ Êtes-vous sûr de vouloir supprimer cet article de la commande ?')) {
-        const articleCard = document.querySelector(`[data-article-id="${articleId}"]`);
-        if (articleCard) {
-            // Si c'est un nouvel article non sauvegardé, juste le supprimer du DOM
-            if (articleCard.dataset.isNew) {
-                articleCard.remove();
-                mettreAJourCompteurArticles();
-                mettreAJourTotalCommande();
-                showNotification('🗑️ Article supprimé', 'success');
-            } else {
-                // Si c'est un article existant, le supprimer en base de données
-                sauvegarderSuppressionArticle(articleId);
-            }
-        }
-    }
-}
-
-// Fonction pour sauvegarder la suppression d'un article immédiatement
-function sauvegarderSuppressionArticle(articleId) {
-    console.log('🗑️ Sauvegarde immédiate de la suppression d\'article...');
-    
-    const formData = new FormData();
-    
-    // Ajouter le token CSRF
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-    if (csrfToken) {
-        formData.append('csrfmiddlewaretoken', csrfToken.value);
-    }
-    
-    // Ajouter les données de suppression
-    formData.append('action', 'delete_article');
-    formData.append('article_id', articleId);
-    formData.append('commande_id', '{{ commande.id }}');
-    
-    // Envoyer via AJAX
     fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
         method: 'POST',
-        body: formData,
         headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        }
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken
+        },
+        body: new URLSearchParams(body)
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('✅ Article supprimé de la base de données');
-            
-            // Supprimer du DOM
-            const articleCard = document.querySelector(`[data-article-id="${articleId}"]`);
-            if (articleCard) {
-            articleCard.remove();
-            }
-            
-            // Mettre à jour l'interface
-            mettreAJourCompteurArticles();
-            
-            // Mettre à jour le total si fourni
-            if (data.total_commande) {
-                document.getElementById('total-commande').textContent = `${data.total_commande.toFixed(2)} DH`;
-            }
-            
-            // Mettre à jour le compteur d'articles
-            if (data.nb_articles !== undefined) {
-                document.getElementById('articles-count').textContent = data.nb_articles;
-                document.getElementById('articles-plural').textContent = data.nb_articles > 1 ? 's' : '';
-            }
-            
-            showNotification('🗑️ Article supprimé et sauvegardé', 'success');
-            
+            showToast(isEditingArticle ? '✅ Article modifié avec succès' : '✅ Article ajouté avec succès', 'success');
+            rafraichirSectionArticles();
+            closeArticleModal();
         } else {
-            console.error('❌ Erreur lors de la suppression:', data.error);
-            showNotification('❌ Erreur lors de la suppression: ' + data.error, 'error');
+            showToast('❌ Erreur: ' + data.error, 'error');
         }
     })
     .catch(error => {
-        console.error('❌ Erreur de connexion:', error);
-        showNotification('❌ Erreur de connexion lors de la suppression', 'error');
+        console.error('❌ Erreur:', error);
+        showToast('❌ Erreur de réseau', 'error');
+    });
+}
+
+// Nouvelle fonction pour rafraîchir la section des articles
+function rafraichirSectionArticles() {
+    const container = document.getElementById('articles-container');
+    container.innerHTML = '<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-500"></i><p class="mt-2">Chargement des articles...</p></div>';
+
+    fetch(`{% url 'operatConfirme:api_rafraichir_articles' commande.id %}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour la liste des articles
+                container.innerHTML = data.html;
+
+                // Mettre à jour les autres éléments de la page
+                document.getElementById('total-commande').textContent = `${data.total_commande.toFixed(2)} DH`;
+                document.getElementById('articles-count').textContent = data.articles_count;
+                
+                const compteurSpan = document.getElementById('compteur-display');
+                if (compteurSpan) {
+                    compteurSpan.textContent = data.compteur;
+                } else if (data.compteur > 0) {
+                    // Si le span n'existait pas, on peut le créer (logique plus complexe, à voir si nécessaire)
+                }
+
+                showToast('🔄 Section des articles mise à jour.', 'info', 1500);
+            } else {
+                container.innerHTML = `<div class="text-center p-4 bg-red-100 text-red-700 rounded-lg">${data.error}</div>`;
+                showToast(`❌ Erreur de rafraîchissement: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur de rafraîchissement:', error);
+            container.innerHTML = '<div class="text-center p-4 bg-red-100 text-red-700 rounded-lg">Erreur de connexion.</div>';
+            showToast('❌ Erreur de connexion lors du rafraîchissement.', 'error');
+        });
+}
+
+// Fonction pour supprimer un article
+function supprimerArticle(panierId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cet article de la commande ?')) {
+        return;
+    }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken
+        },
+        body: new URLSearchParams({
+            'action': 'delete_panier',
+            'panier_id': panierId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('✅ Article supprimé avec succès', 'success');
+            rafraichirSectionArticles();
+        } else {
+            showToast('❌ Erreur: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erreur:', error);
+        showToast('❌ Erreur de réseau', 'error');
     });
 }
 
@@ -4444,8 +4015,8 @@ function modifierQuantite(panierId, quantiteActuelle) {
     .then(data => {
         if (data.success) {
             showToast(`✅ ${data.message} - Nouveau compteur: ${data.compteur}`, 'success');
-            // Recharger la page pour voir les changements
-            setTimeout(() => location.reload(), 1000);
+            // Recharger la section des articles dynamiquement
+            rafraichirSectionArticles();
         } else {
             showToast('❌ Erreur: ' + data.error, 'error');
         }

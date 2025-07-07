@@ -19,6 +19,7 @@ from client.models import Client
 from article.models import Article
 import logging
 from django.urls import reverse
+from django.template.loader import render_to_string
 
 # Create your views here.
 
@@ -2467,6 +2468,39 @@ def diagnostiquer_compteur_commande(request, commande_id):
             'success': False,
             'error': str(e)
         })
+
+@login_required
+def rafraichir_articles_section(request, commande_id):
+    """
+    Vue pour rafraîchir la section des articles d'une commande et renvoyer le HTML.
+    """
+    try:
+        commande = get_object_or_404(Commande.objects.prefetch_related('paniers__article'), id=commande_id)
+        
+        # S'assurer que les totaux et le compteur sont à jour
+        commande.recalculer_totaux_upsell()
+
+        context = {
+            'commande': commande,
+            'villes': Ville.objects.select_related('region').order_by('region__nom_region', 'nom')
+        }
+        
+        # Rendre le template partiel avec la liste des articles
+        html = render_to_string('operatConfirme/partials/_articles_section.html', context, request=request)
+        
+        # Renvoyer le HTML et les totaux mis à jour
+        return JsonResponse({
+            'success': True,
+            'html': html,
+            'total_commande': float(commande.total_cmd),
+            'articles_count': commande.paniers.count(),
+            'compteur': commande.compteur,
+        })
+        
+    except Commande.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Commande non trouvée'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 
