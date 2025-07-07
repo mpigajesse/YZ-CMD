@@ -1,0 +1,432 @@
+<!-- Navigation par Onglets KPIs Yoozak -->
+<div class="bg-white rounded-xl shadow-lg border border-gray-100 mb-6">
+  <!-- En-tête avec logo/title -->
+  <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg">
+            <i class="fas fa-chart-pie text-white text-xl"></i>
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">Dashboard</h1>
+            <p class="text-sm text-gray-600 flex items-center gap-2">Indicateurs de Performance</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Indicateurs de statut avancés -->
+      <div class="flex items-center gap-4">
+        <!-- Statut de synchronisation -->
+        <div class="flex items-center gap-2 text-sm">
+          <div class="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full">
+            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span class="font-medium">Sync OK</span>
+          </div>
+        </div>
+
+        <!-- Horodatage avec animation -->
+        <div class="flex items-center gap-2 text-sm text-gray-500 transition-all duration-200">
+          <i class="fas fa-clock text-gray-400"></i>
+          <span id="last-update" class="transition-all duration-200">Dernière MAJ: il y a 2 min</span>
+        </div>
+
+        <!-- Bouton de rafraîchissement -->
+        <button id="refresh-kpis" class="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group">
+          <i class="fas fa-sync-alt text-xs group-hover:animate-spin"></i>
+          <span>Actualiser</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Onglets -->
+  <div class="px-6">
+    <nav class="flex space-x-8" role="tablist" aria-label="Catégories de KPIs">
+      <!-- Onglet Vue Générale -->
+      <button class="kpi-tab-button active flex items-center gap-2 py-4 px-1 border-b-2 border-blue-600 font-medium text-sm text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-lg" data-tab="vue-generale" role="tab" aria-selected="true" aria-controls="vue-generale-content" tabindex="0" title="Vue d'ensemble des indicateurs critiques">
+        <i class="fas fa-home" aria-hidden="true"></i>
+        <span>Vue Générale</span>
+        <span class="ml-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full" aria-label="4 indicateurs">4</span>
+      </button>
+
+      <!-- Onglet Ventes -->
+      <button class="kpi-tab-button flex items-center gap-2 py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-lg transition-all duration-200" data-tab="ventes" role="tab" aria-selected="false" aria-controls="ventes-content" tabindex="-1" title="Performance des ventes et chiffre d'affaires">
+        <i class="fas fa-chart-line" aria-hidden="true"></i>
+        <span>Ventes</span>
+        <span class="ml-1 bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full" aria-label="7 indicateurs">7</span>
+      </button>
+
+      <!-- Onglet Clients -->
+      <button class="kpi-tab-button flex items-center gap-2 py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-lg transition-all duration-200" data-tab="clients" role="tab" aria-selected="false" aria-controls="clients-content" tabindex="-1" title="Analyse de la clientèle et fidélisation">
+        <i class="fas fa-users" aria-hidden="true"></i>
+        <span>Clients</span>
+        <span class="ml-1 bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full" aria-label="5 indicateurs">5</span>
+      </button>
+
+      <!-- Onglet Opérations -->
+      <button class="kpi-tab-button flex items-center gap-2 py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-lg transition-all duration-200" data-tab="operations" role="tab" aria-selected="false" aria-controls="operations-content" tabindex="-1" title="Performance opérationnelle et téléphonique">
+        <i class="fas fa-cogs" aria-hidden="true"></i>
+        <span>Opérations</span>
+        <span class="ml-1 bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full" aria-label="6 indicateurs">6</span>
+      </button>
+
+      <!-- Onglet Chaussures & Stocks -->
+      <button class="kpi-tab-button flex items-center gap-2 py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-lg transition-all duration-200" data-tab="chaussures-stocks" role="tab" aria-selected="false" aria-controls="chaussures-stocks-content" tabindex="-1" title="Gestion des stocks par pointures et modèles">
+        <i class="fas fa-shoe-prints" aria-hidden="true"></i>
+        <span>Chaussures & Stocks</span>
+        <span class="ml-1 bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full" aria-label="6 indicateurs">6</span>
+      </button>
+    </nav>
+  </div>
+</div>
+
+<!-- Contenus des Onglets -->
+<div class="kpi-tab-content">
+  <!-- Vue Générale (Onglet actif par défaut) -->
+  <div id="vue-generale-content" class="kpi-tab-panel active" role="tabpanel">
+    {% include 'kpis/tabs/vue_generale.html' %}
+  </div>
+
+  <!-- Ventes -->
+  <div id="ventes-content" class="kpi-tab-panel hidden" role="tabpanel">
+    {% include 'kpis/tabs/ventes.html' %}
+  </div>
+
+  <!-- Clients -->
+  <div id="clients-content" class="kpi-tab-panel hidden" role="tabpanel">
+    {% include 'kpis/tabs/clients.html' %}
+  </div>
+
+  <!-- Opérations -->
+  <div id="operations-content" class="kpi-tab-panel hidden" role="tabpanel">
+    {% include 'kpis/tabs/operations.html' %}
+  </div>
+
+  <!-- Chaussures & Stocks -->
+  <div id="chaussures-stocks-content" class="kpi-tab-panel hidden" role="tabpanel">
+    {% include 'kpis/tabs/chaussures_stocks.html' %}
+  </div>
+</div>
+
+<!-- JavaScript pour la gestion des onglets -->
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Gestion des onglets
+    const tabButtons = document.querySelectorAll('.kpi-tab-button')
+    const tabPanels = document.querySelectorAll('.kpi-tab-panel')
+  
+    tabButtons.forEach((button) => {
+      button.addEventListener('click', function (e) {
+        e.preventDefault()
+        const targetTab = this.getAttribute('data-tab')
+  
+        // Éviter les clics multiples
+        if (this.classList.contains('kpi-tab-loading')) return
+  
+        // Ajouter loading state
+        this.classList.add('kpi-tab-loading')
+  
+        // Simuler un léger délai pour l'animation
+        setTimeout(() => {
+          // Désactiver tous les onglets
+          tabButtons.forEach((btn) => {
+            btn.classList.remove('active', 'border-blue-600', 'text-blue-600', 'kpi-tab-loading')
+            btn.classList.add('border-transparent', 'text-gray-500')
+            btn.setAttribute('aria-selected', 'false')
+            btn.setAttribute('tabindex', '-1')
+          })
+  
+          // Masquer tous les panneaux avec animation
+          tabPanels.forEach((panel) => {
+            panel.classList.remove('active')
+            panel.classList.add('hidden')
+          })
+  
+          // Activer l'onglet cliqué
+          this.classList.add('active', 'border-blue-600', 'text-blue-600')
+          this.classList.remove('border-transparent', 'text-gray-500')
+          this.setAttribute('aria-selected', 'true')
+          this.setAttribute('tabindex', '0')
+  
+          // Afficher le panneau correspondant avec animation
+          const targetPanel = document.getElementById(targetTab + '-content')
+          if (targetPanel) {
+            targetPanel.classList.remove('hidden')
+            targetPanel.classList.add('active')
+  
+            // Focus management pour l'accessibilité
+            targetPanel.setAttribute('tabindex', '-1')
+            targetPanel.focus()
+          }
+  
+          // Mettre à jour l'URL
+          history.replaceState(null, null, `#${targetTab}`)
+  
+          // Déclencher l'événement de changement d'onglet
+          const event = new CustomEvent('tabChanged', {
+            detail: { tab: targetTab, timestamp: new Date().toISOString() }
+          })
+          document.dispatchEvent(event)
+  
+          // Mettre à jour le compteur de badges (simulation)
+          updateTabBadges(targetTab)
+        }, 200) // Délai pour l'animation loading
+      })
+  
+      // Support navigation clavier
+      button.addEventListener('keydown', function (e) {
+        const currentIndex = Array.from(tabButtons).indexOf(this)
+        let targetIndex = currentIndex
+  
+        switch (e.key) {
+          case 'ArrowLeft':
+            e.preventDefault()
+            targetIndex = currentIndex > 0 ? currentIndex - 1 : tabButtons.length - 1
+            break
+          case 'ArrowRight':
+            e.preventDefault()
+            targetIndex = currentIndex < tabButtons.length - 1 ? currentIndex + 1 : 0
+            break
+          case 'Home':
+            e.preventDefault()
+            targetIndex = 0
+            break
+          case 'End':
+            e.preventDefault()
+            targetIndex = tabButtons.length - 1
+            break
+          case 'Enter':
+          case ' ':
+            e.preventDefault()
+            this.click()
+            return
+        }
+  
+        if (targetIndex !== currentIndex) {
+          tabButtons[targetIndex].focus()
+        }
+      })
+    })
+  
+    // Fonction pour mettre à jour les badges des onglets
+    function updateTabBadges(activeTab) {
+      const badges = {
+        'vue-generale': { count: 4, color: 'blue' },
+        ventes: { count: 7, color: 'green' },
+        clients: { count: 5, color: 'purple' },
+        operations: { count: 6, color: 'orange' },
+        'chaussures-stocks': { count: 6, color: 'indigo' }
+      }
+  
+      Object.entries(badges).forEach(([tab, config]) => {
+        const button = document.querySelector(`[data-tab="${tab}"]`)
+        const badge = button?.querySelector('span:last-child')
+        if (badge) {
+          const isActive = tab === activeTab
+          badge.className = `ml-1 text-xs px-2 py-1 rounded-full transition-all duration-200 ${isActive ? `bg-${config.color}-100 text-${config.color}-800` : 'bg-gray-100 text-gray-600'}`
+          badge.textContent = config.count
+  
+          // Animation du badge si c'est l'onglet actif
+          if (isActive) {
+            badge.style.transform = 'scale(1.1)'
+            setTimeout(() => {
+              badge.style.transform = 'scale(1)'
+            }, 200)
+          }
+        }
+      })
+    }
+  
+    // Gérer l'onglet initial basé sur l'URL hash
+    const initialTab = window.location.hash.substring(1) || 'vue-generale'
+    const initialButton = document.querySelector(`[data-tab="${initialTab}"]`)
+    if (initialButton) {
+      // Configurer l'accessibilité initiale
+      tabButtons.forEach((btn) => btn.setAttribute('tabindex', '-1'))
+      initialButton.setAttribute('tabindex', '0')
+      initialButton.click()
+    }
+  
+    // Mise à jour de l'horodatage avec animation
+    function updateTimestamp() {
+      const lastUpdateEl = document.getElementById('last-update')
+      if (lastUpdateEl) {
+        // Animation de mise à jour
+        lastUpdateEl.style.opacity = '0.5'
+        lastUpdateEl.style.transform = 'scale(0.95)'
+  
+        setTimeout(() => {
+          const now = new Date()
+          lastUpdateEl.textContent = `Dernière MAJ: ${now.toLocaleTimeString('fr-FR')}`
+          lastUpdateEl.style.opacity = '1'
+          lastUpdateEl.style.transform = 'scale(1)'
+        }, 150)
+      }
+    }
+  
+    // Actualiser l'horodatage toutes les minutes
+    setInterval(updateTimestamp, 60000)
+  
+    // Écouter les événements de mise à jour des KPIs
+    document.addEventListener('kpiUpdated', function (e) {
+      updateTimestamp()
+  
+      // Animation globale de mise à jour
+      const indicator = document.querySelector('.animate-pulse')
+      if (indicator) {
+        indicator.style.background = '#10b981' // Vert pour succès
+        setTimeout(() => {
+          indicator.style.background = '#6b7280' // Retour gris
+        }, 2000)
+      }
+    })
+  
+    // Gestion des erreurs de chargement
+    document.addEventListener('kpiError', function (e) {
+      console.error('Erreur KPI:', e.detail)
+  
+      // Afficher notification d'erreur
+      const indicator = document.querySelector('.animate-pulse')
+      if (indicator) {
+        indicator.style.background = '#ef4444' // Rouge pour erreur
+        setTimeout(() => {
+          indicator.style.background = '#6b7280' // Retour gris
+        }, 3000)
+      }
+    })
+  
+    // Gestionnaire pour le bouton de rafraîchissement
+    const refreshButton = document.getElementById('refresh-kpis')
+    if (refreshButton) {
+      refreshButton.addEventListener('click', function () {
+        const icon = this.querySelector('i')
+        const text = this.querySelector('span')
+  
+        // Animation de chargement
+        icon.classList.add('animate-spin')
+        text.textContent = 'Actualisation...'
+        this.disabled = true
+  
+        // Simuler le rafraîchissement
+        setTimeout(() => {
+          // Déclencher événement de mise à jour
+          document.dispatchEvent(
+            new CustomEvent('kpiUpdated', {
+              detail: { source: 'manual_refresh', timestamp: new Date().toISOString() }
+            })
+          )
+  
+          // Réinitialiser le bouton
+          icon.classList.remove('animate-spin')
+          text.textContent = 'Actualiser'
+          this.disabled = false
+  
+          // Animation de succès
+          this.classList.add('bg-green-100', 'text-green-700')
+          setTimeout(() => {
+            this.classList.remove('bg-green-100', 'text-green-700')
+          }, 1000)
+        }, 1500)
+      })
+    }
+  })
+  
+  // CSS pour les animations avancées
+  const style = document.createElement('style')
+  style.textContent = `
+              .kpi-tab-button {
+                  position: relative;
+                  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                  overflow: hidden;
+              }
+              
+              .kpi-tab-button::before {
+                  content: '';
+                  position: absolute;
+                  top: 0;
+                  left: -100%;
+                  width: 100%;
+                  height: 100%;
+                  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+                  transition: left 0.5s ease;
+              }
+              
+              .kpi-tab-button:hover::before {
+                  left: 100%;
+              }
+              
+              .kpi-tab-button:hover {
+                  transform: translateY(-2px);
+                  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+              }
+              
+              .kpi-tab-button.active {
+                  background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.1) 100%);
+                  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+              }
+              
+              .kpi-tab-button.active::after {
+                  content: '';
+                  position: absolute;
+                  bottom: -2px;
+                  left: 50%;
+                  transform: translateX(-50%);
+                  width: 0;
+                  height: 2px;
+                  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+                  animation: expandBorder 0.3s ease forwards;
+              }
+              
+              @keyframes expandBorder {
+                  to { width: 100%; }
+              }
+              
+              .kpi-tab-panel {
+                  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                  transform-origin: top center;
+              }
+              
+              .kpi-tab-panel.hidden {
+                  display: none;
+                  opacity: 0;
+                  transform: translateY(20px) scale(0.95);
+              }
+              
+              .kpi-tab-panel.active {
+                  animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+              }
+              
+              @keyframes slideInUp {
+                  from { 
+                      opacity: 0; 
+                      transform: translateY(30px) scale(0.95);
+                  }
+                  to { 
+                      opacity: 1; 
+                      transform: translateY(0) scale(1);
+                  }
+              }
+              
+              .kpi-tab-loading {
+                  position: relative;
+                  overflow: hidden;
+              }
+              
+              .kpi-tab-loading::before {
+                  content: '';
+                  position: absolute;
+                  top: 0;
+                  left: -100%;
+                  width: 100%;
+                  height: 2px;
+                  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+                  animation: loadingBar 1s ease-in-out;
+              }
+              
+              @keyframes loadingBar {
+                  to { left: 100%; }
+              }
+          `
+  document.head.appendChild(style)
+</script>

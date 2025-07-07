@@ -1,0 +1,317 @@
+<!-- Modal de création de promotion -->
+<div id="promotionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-4xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid var(--admin-color);">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b" style="border-color: var(--admin-color);">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--admin-color);">
+                    <i class="fas fa-plus text-white text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold" style="color: var(--admin-color);">Nouvelle Promotion</h3>
+            </div>
+            <button type="button" class="close-modal text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <form method="post" action="{% url 'article:creer_promotion' %}" class="space-y-6">
+                {% csrf_token %}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Nom -->
+                    <div>
+                        <label for="{{ form_promotion.nom.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-tag mr-2" style="color: var(--admin-color);"></i>Nom de la promotion <span class="text-red-500">*</span>
+                        </label>
+                        {{ form_promotion.nom }}
+                        {% if form_promotion.nom.errors %}
+                        <p class="text-red-500 text-xs mt-1 flex items-center">
+                            <i class="fas fa-exclamation-circle mr-1"></i>{{ form_promotion.nom.errors.0 }}
+                        </p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Pourcentage de réduction -->
+                    <div>
+                        <label for="{{ form_promotion.pourcentage_reduction.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-percentage mr-2" style="color: var(--admin-color);"></i>Pourcentage de réduction <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            {{ form_promotion.pourcentage_reduction }}
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-gray-500 text-sm">%</span>
+                            </div>
+                        </div>
+                        {% if form_promotion.pourcentage_reduction.errors %}
+                        <p class="text-red-500 text-xs mt-1 flex items-center">
+                            <i class="fas fa-exclamation-circle mr-1"></i>{{ form_promotion.pourcentage_reduction.errors.0 }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <label for="{{ form_promotion.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-align-left mr-2" style="color: var(--admin-color);"></i>Description
+                    </label>
+                    {{ form_promotion.description }}
+                    {% if form_promotion.description.errors %}
+                    <p class="text-red-500 text-xs mt-1 flex items-center">
+                        <i class="fas fa-exclamation-circle mr-1"></i>{{ form_promotion.description.errors.0 }}
+                    </p>
+                    {% endif %}
+                </div>
+
+                <!-- Dates -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="{{ form_promotion.date_debut.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-calendar-plus mr-2 text-blue-600"></i>Date de début <span class="text-red-500">*</span>
+                        </label>
+                        {{ form_promotion.date_debut }}
+                        {% if form_promotion.date_debut.errors %}
+                        <p class="text-red-500 text-xs mt-1 flex items-center">
+                            <i class="fas fa-exclamation-circle mr-1"></i>{{ form_promotion.date_debut.errors.0 }}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form_promotion.date_fin.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-calendar-times mr-2 text-red-600"></i>Date de fin <span class="text-red-500">*</span>
+                        </label>
+                        {{ form_promotion.date_fin }}
+                        {% if form_promotion.date_fin.errors %}
+                        <p class="text-red-500 text-xs mt-1 flex items-center">
+                            <i class="fas fa-exclamation-circle mr-1"></i>{{ form_promotion.date_fin.errors.0 }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+           
+                <!-- Articles -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">
+                        <i class="fas fa-shopping-bag mr-2" style="color: var(--admin-color);"></i>Articles en promotion <span class="text-red-500">*</span>
+                    </label>
+                    <div class="border rounded-lg" style="border-color: #99dddd;">
+                        <!-- Compteur d'articles -->
+                        <div class="px-4 py-3 bg-gray-50 border-b rounded-t-lg flex justify-between items-center" style="border-bottom-color: #99dddd;">
+                            <span class="text-sm text-gray-600 flex items-center">
+                                <i class="fas fa-info-circle mr-2" style="color: var(--admin-color);"></i>
+                                <span id="modal-selected-count">0</span> article(s) sélectionné(s) sur <span id="modal-total-count">0</span>
+                            </span>
+                            <button type="button" id="selectAllBtn" class="text-sm font-medium transition-colors duration-200" style="color: var(--admin-color); hover:color: #045555;">
+                                Tout sélectionner
+                            </button>
+                        </div>
+                        
+                        <!-- Liste des articles avec scroll -->
+                        <div class="max-h-60 overflow-y-auto p-4 bg-white rounded-b-lg">
+                            {% for article in form_promotion.articles.field.queryset %}
+                                <div class="article-item-modal" 
+                                     data-nom="{{ article.nom|lower }}" 
+                                     data-couleur="{{ article.couleur|lower }}" 
+                                     data-categorie="{{ article.categorie|lower }}">
+                                    <label class="flex items-center p-2 hover:bg-gray-50 rounded-md cursor-pointer transition-colors duration-200 text-sm">
+                                        <input type="checkbox" 
+                                               name="{{ form_promotion.articles.html_name }}" 
+                                               value="{{ article.pk }}" 
+                                               class="h-4 w-4 rounded border-gray-300 focus:ring-2 mr-3">
+                                        <div class="flex-1">
+                                            <div class="font-medium text-gray-900">
+                                                {{ article.nom }} - {{ article.couleur }} - Pointure {{ article.pointure }}
+                                            </div>
+                                            <div class="flex items-center gap-2 mt-1">
+                                                <span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded">
+                                                    {{ article.prix_unitaire }} DH
+                                                </span>
+                                                <span class="text-xs px-2 py-1 rounded
+                                                    {% if article.phase == 'EN_COURS' %}bg-blue-100 text-blue-800{% elif article.phase == 'LIQUIDATION' %}bg-red-100 text-red-800{% elif article.phase == 'EN_TEST' %}bg-yellow-100 text-yellow-800{% endif %}">
+                                                    {% if article.phase == 'EN_COURS' %}
+                                                        <i class="fas fa-play-circle mr-1"></i>En Cours
+                                                    {% elif article.phase == 'LIQUIDATION' %}
+                                                        <i class="fas fa-fire mr-1"></i>Liquidation
+                                                    {% elif article.phase == 'EN_TEST' %}
+                                                        <i class="fas fa-flask mr-1"></i>En Test
+                                                    {% endif %}
+                                                </span>
+                                                <span class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                                                    Stock: {{ article.qte_disponible }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% if form_promotion.articles.errors %}
+                    <p class="text-red-500 text-xs mt-1 flex items-center">
+                        <i class="fas fa-exclamation-circle mr-1"></i>{{ form_promotion.articles.errors.0 }}
+                    </p>
+                    {% endif %}
+                </div>
+
+                <!-- Erreurs globales -->
+                {% if form_promotion.non_field_errors %}
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex">
+                        <i class="fas fa-exclamation-triangle text-red-400 mr-2 mt-0.5"></i>
+                        <div class="text-red-700 text-sm">
+                            {{ form_promotion.non_field_errors }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-6 border-t" style="border-color: var(--admin-color);">
+            <button type="button" class="close-modal px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-all duration-200">
+                <i class="fas fa-times mr-2"></i>
+                Annuler
+            </button>
+            <button type="submit" form="promotionForm" class="px-6 py-3 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5" style="background-color: var(--admin-color); focus:ring-color: var(--admin-color);">
+                <i class="fas fa-plus mr-2"></i>
+                Créer la promotion
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Script pour la modal -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('promotionModal');
+    const openModalBtn = document.querySelector('[data-modal-target="promotionModal"]');
+    const closeModalBtns = document.querySelectorAll('.close-modal');
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        // Focus sur le premier champ
+        const firstInput = modal.querySelector('input[type="text"]');
+        if (firstInput) {
+            setTimeout(() => firstInput.focus(), 100);
+        }
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+    }
+
+    if (openModalBtn) {
+        openModalBtn.addEventListener('click', openModal);
+    }
+
+    closeModalBtns.forEach(btn => {
+        btn.addEventListener('click', closeModal);
+    });
+
+    // Fermer la modal en cliquant en dehors
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Fermer avec la touche Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+
+    // Appliquer les styles aux champs de formulaire
+    const formInputs = modal.querySelectorAll('input[type="text"], input[type="number"], textarea, input[type="datetime-local"]');
+    formInputs.forEach(function(input) {
+        input.classList.add('w-full', 'p-3', 'border', 'border-gray-300', 'rounded-lg', 'focus:ring-2', 'focus:ring-offset-2', 'transition-all');
+        input.style.borderColor = '#99dddd';
+        input.style.setProperty('--tw-ring-color', '#023535');
+        
+        // Ajouter un effet de focus
+        input.addEventListener('focus', function() {
+            this.style.borderColor = '#023535';
+        });
+        
+        input.addEventListener('blur', function() {
+            this.style.borderColor = '#99dddd';
+        });
+    });
+
+    // Styles pour les checkboxes et labels
+    const checkboxContainer = modal.querySelector('.max-h-60');
+    if (checkboxContainer) {
+        const checkboxes = checkboxContainer.querySelectorAll('.article-item-modal input[type="checkbox"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            checkbox.style.setProperty('--tw-ring-color', '#023535');
+            
+            // Couleur personnalisée pour les checkboxes cochées
+            checkbox.addEventListener('change', function() {
+                updateModalCounter();
+            });
+        });
+    }
+
+    // Fonction pour mettre à jour le compteur
+    function updateModalCounter() {
+        const totalItems = modal.querySelectorAll('.article-item-modal input[type="checkbox"]').length;
+        const selectedItems = modal.querySelectorAll('.article-item-modal input[type="checkbox"]:checked').length;
+        
+        const totalCountEl = document.getElementById('modal-total-count');
+        const selectedCountEl = document.getElementById('modal-selected-count');
+        
+        if (totalCountEl) totalCountEl.textContent = totalItems;
+        if (selectedCountEl) selectedCountEl.textContent = selectedItems;
+    }
+
+    // Bouton tout sélectionner/désélectionner
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function() {
+            const checkboxes = modal.querySelectorAll('.article-item-modal input[type="checkbox"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = !allChecked;
+            });
+            
+            this.textContent = allChecked ? 'Tout sélectionner' : 'Tout désélectionner';
+            updateModalCounter();
+        });
+    }
+
+    // Initialiser le compteur
+    updateModalCounter();
+
+    // Initialiser les dates par défaut
+    const dateDebut = modal.querySelector('[name="date_debut"]');
+    const dateFin = modal.querySelector('[name="date_fin"]');
+    
+    if (dateDebut && !dateDebut.value) {
+        const now = new Date();
+        dateDebut.value = now.toISOString().slice(0, 16);
+    }
+    
+    if (dateFin && !dateFin.value) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(23, 59, 0);
+        dateFin.value = tomorrow.toISOString().slice(0, 16);
+    }
+
+    // Ajouter l'ID du formulaire au bouton submit
+    const form = modal.querySelector('form');
+    const submitBtn = modal.querySelector('button[type="submit"]');
+    if (form && submitBtn) {
+        form.id = 'promotionForm';
+        submitBtn.setAttribute('form', 'promotionForm');
+    }
+});
+</script> 

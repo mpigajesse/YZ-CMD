@@ -50,6 +50,19 @@
         --logistic-light: #dbeafe;
         --logistic-border: #3b82f6;
     }
+
+    .sav-action-btn {
+        color: white;
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .sav-action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
 </style>
 {% endblock %}
 
@@ -75,12 +88,20 @@
     <!-- Messages -->
     {% if messages %}
         {% for message in messages %}
-        <div class="alert mb-6 p-4 rounded-xl border-l-4 animate-slideInUp
+        <div class="alert mb-6 p-4 rounded-xl border-l-4 animate-slideInUp alert-dismissible
                     {% if message.tags == 'success' %}border-green-500 bg-green-50 text-green-700{% endif %}
                     {% if message.tags == 'error' %}border-red-500 bg-red-50 text-red-700{% endif %}
-                    {% if message.tags == 'warning' %}border-yellow-500 bg-yellow-50 text-yellow-700{% endif %}">
-            <i class="{% if message.tags == 'success' %}fas fa-check-circle{% elif message.tags == 'error' %}fas fa-exclamation-circle{% else %}fas fa-info-circle{% endif %} mr-2"></i>
-            {{ message }}
+                    {% if message.tags == 'warning' %}border-yellow-500 bg-yellow-50 text-yellow-700{% endif %}"
+             data-message-id="message-{{ forloop.counter }}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="{% if message.tags == 'success' %}fas fa-check-circle{% elif message.tags == 'error' %}fas fa-exclamation-circle{% else %}fas fa-info-circle{% endif %} mr-2"></i>
+                    {{ message }}
+                </div>
+                <button type="button" class="ml-4 text-gray-400 hover:text-gray-600 transition-colors" onclick="dismissMessage('message-{{ forloop.counter }}')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
         </div>
         {% endfor %}
     {% endif %}
@@ -334,7 +355,144 @@
             {% endfor %}
         </div>
     </div>
+
+    <!-- Section Actions de Livraison (SAV) -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mt-6" style="border-color: var(--logistic-border);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--logistic-primary);">
+            <i class="fas fa-shipping-fast mr-2"></i>Actions de Livraison (SAV)
+        </h2>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <button onclick="openSavModal('Reportée')" class="sav-action-btn" style="background-color: #F59E0B;">
+                <i class="fas fa-clock mr-2"></i>Reporter
+            </button>
+            <button onclick="openSavModal('Livrée')" class="sav-action-btn" style="background-color: #10B981;">
+                <i class="fas fa-check-circle mr-2"></i>Livrée
+            </button>
+            <button onclick="openSavModal('Livrée Partiellement')" class="sav-action-btn" style="background-color: #3B82F6;">
+                <i class="fas fa-box-open mr-2"></i>Livraison Partielle
+            </button>
+            <button onclick="openSavModal('Livrée avec changement')" class="sav-action-btn" style="background-color: #8B5CF6;">
+                <i class="fas fa-exchange-alt mr-2"></i>Avec Changement
+            </button>
+            <button onclick="openSavModal('Annulée (SAV)')" class="sav-action-btn" style="background-color: #EF4444;">
+                <i class="fas fa-times-circle mr-2"></i>Annuler (SAV)
+            </button>
+        </div>
+    </div>
+
+    <!-- Modale de Confirmation SAV -->
+    <div id="savModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="savModalTitle">Mettre à jour l'état</h3>
+                <div class="mt-2 px-7 py-3">
+                    <form id="savForm" action="{% url 'operatLogistic:changer_etat_sav' commande.id %}" method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="nouvel_etat" id="nouvel_etat_input">
+                        <div class="text-left">
+                            <label for="commentaire" class="text-sm font-medium text-gray-700">Commentaire (obligatoire)</label>
+                            <textarea name="commentaire" id="commentaire" rows="4" class="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="confirmSavBtn" class="px-4 py-2 bg-green-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300">
+                        Confirmer la mise à jour
+                    </button>
+                    <button id="cancelSavBtn" class="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 mt-2">
+                        Annuler
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
+{% endblock %}
 
+{% block extra_js %}
+<script>
+function openSavModal(etat) {
+    document.getElementById('nouvel_etat_input').value = etat;
+    document.getElementById('savModalTitle').innerText = 'Mettre à jour vers : ' + etat;
+    document.getElementById('savModal').classList.remove('hidden');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('savModal');
+    const cancelBtn = document.getElementById('cancelSavBtn');
+    const confirmBtn = document.getElementById('confirmSavBtn');
+    const form = document.getElementById('savForm');
+
+    cancelBtn.addEventListener('click', function() {
+        modal.classList.add('hidden');
+    });
+
+    confirmBtn.addEventListener('click', function() {
+        // Valider que le commentaire n'est pas vide
+        const commentaire = document.getElementById('commentaire').value.trim();
+        if (commentaire === '') {
+            alert('Le commentaire est obligatoire.');
+            return;
+        }
+        form.submit();
+    });
+
+    // Fermer la modale si on clique en dehors
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.classList.add('hidden');
+        }
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-masquer les messages de succès après 5 secondes
+    const successMessages = document.querySelectorAll('.alert-dismissible');
+    successMessages.forEach(function(message, index) {
+        // Auto-masquer les messages de succès après 5 secondes
+        if (message.classList.contains('bg-green-50')) {
+            setTimeout(function() {
+                dismissMessage(message.getAttribute('data-message-id'));
+            }, 5000);
+        }
+        
+        // Auto-masquer les messages d'erreur après 10 secondes
+        if (message.classList.contains('bg-red-50')) {
+            setTimeout(function() {
+                dismissMessage(message.getAttribute('data-message-id'));
+            }, 10000);
+        }
+        
+        // Auto-masquer les messages d'avertissement après 7 secondes
+        if (message.classList.contains('bg-yellow-50')) {
+            setTimeout(function() {
+                dismissMessage(message.getAttribute('data-message-id'));
+            }, 7000);
+        }
+    });
+});
+
+// Fonction pour fermer un message
+function dismissMessage(messageId) {
+    const message = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (message) {
+        message.style.transition = 'all 0.5s ease-out';
+        message.style.opacity = '0';
+        message.style.transform = 'translateY(-20px)';
+        setTimeout(function() {
+            message.remove();
+        }, 500);
+    }
+}
+
+// Fonction pour fermer tous les messages
+function dismissAllMessages() {
+    const messages = document.querySelectorAll('.alert-dismissible');
+    messages.forEach(function(message) {
+        const messageId = message.getAttribute('data-message-id');
+        dismissMessage(messageId);
+    });
+}
+</script>
 {% endblock %} 

@@ -1,5 +1,6 @@
 {% extends 'composant_generale/admin/base.html' %}
 {% load static %}
+{% load commande_filters %}
 
 {% block title %}Détail de l'Article: {{ article.nom }} - YZ-CMD{% endblock %}
 
@@ -35,8 +36,25 @@
 
             <!-- Colonne Informations -->
             <div class="lg:col-span-2">
-                <h2 class="text-3xl font-bold mb-1" style="color: #023535;">{{ article.nom }}</h2>
-                <p class="text-md font-mono mb-4" style="color: #045555;">Référence: {{ article.reference }}</p>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-3xl font-bold mb-1" style="color: #023535;">{{ article.nom }}</h2>
+                        <p class="text-md font-mono mb-4" style="color: #045555;">Référence: {{ article.reference }}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {% if article.has_promo_active %}
+                        <span class="bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">PROMO</span>
+                        {% endif %}
+                        
+                        {% if article.phase == 'EN_COURS' %}
+                            <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium text-sm">En Cours</span>
+                        {% elif article.phase == 'LIQUIDATION' %}
+                            <span class="bg-orange-100 text-orange-800 px-3 py-1 rounded-full font-medium text-sm">Liquidation</span>
+                        {% elif article.phase == 'EN_TEST' %}
+                            <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium text-sm">En Test</span>
+                        {% endif %}
+                    </div>
+                </div>
                 
                 <div class="mb-6 border-t pt-4" style="border-color: #e6fffe;">
                     <p class="text-gray-700 leading-relaxed">{{ article.description|default:"Aucune description fournie." }}</p>
@@ -46,7 +64,15 @@
                     <div class="flex items-center text-lg">
                         <i class="fas fa-tag w-6 text-center mr-3" style="color: #034a4a;"></i>
                         <strong style="color: #023535;">Prix:</strong>
-                        <span class="ml-2 text-gray-700">{{ article.prix_unitaire|floatformat:2 }} DH</span>
+                        {% with article|get_prix_avec_phase_simple as prix_info %}
+                        <div class="ml-2 flex flex-col">
+                            <span class="{{ prix_info.couleur_classe }} font-bold text-lg">{{ prix_info.prix|floatformat:2 }} DH</span>
+                            <span class="{{ prix_info.couleur_classe }} text-sm">{{ prix_info.libelle }}</span>
+                            {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
+                            <span class="text-gray-500 text-sm line-through">{{ article.prix_unitaire|floatformat:2 }} DH</span>
+                            {% endif %}
+                        </div>
+                        {% endwith %}
                     </div>
                     <div class="flex items-center text-lg">
                         <i class="fas fa-cubes w-6 text-center mr-3" style="color: #034a4a;"></i>
@@ -68,14 +94,62 @@
                         <strong style="color: #023535;">Pointure:</strong>
                         <span class="ml-2 text-gray-700">{{ article.pointure }}</span>
                     </div>
+                    <div class="flex items-center text-lg">
+                        <i class="fas fa-money-bill-wave w-6 text-center mr-3" style="color: #034a4a;"></i>
+                        <strong style="color: #023535;">Prix d'achat:</strong>
+                        <span class="ml-2 text-gray-700">{{ article.prix_achat|floatformat:2 }} DH</span>
+                    </div>
+                    <div class="flex items-center text-lg">
+                        <i class="fas fa-arrow-up w-6 text-center mr-3" style="color: #034a4a;"></i>
+                        <strong style="color: #023535;">Upsell:</strong>
+                        {% if article.isUpsell %}
+                        <span class="ml-2 text-green-600 font-semibold">Oui</span>
+                        {% else %}
+                        <span class="ml-2 text-gray-500">Non</span>
+                        {% if article.phase == 'LIQUIDATION' or article.phase == 'EN_TEST' %}
+                        <span class="ml-2 text-xs text-gray-400">(désactivé automatiquement pour les articles en {{ article.get_phase_display|lower }})</span>
+                        {% endif %}
+                        {% endif %}
+                    </div>
                 </div>
 
                 <!-- Boutons d'action -->
                 <div class="flex justify-end gap-3 mt-8 border-t pt-6" style="border-color: #e6fffe;">
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold mb-2" style="color: #023535;">Changer la phase:</h3>
+                        <form method="post" action="{% url 'article:changer_phase' article.id %}" class="inline-flex flex-wrap gap-2">
+                            {% csrf_token %}
+                            {% if article.has_promo_active %}
+                                <div class="w-full bg-yellow-100 text-yellow-700 p-2 rounded-lg mb-2 text-sm">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    Les changements de phase sont désactivés car cet article est actuellement en promotion.
+                                </div>
+                                <button type="button" disabled class="inline-flex items-center bg-gray-300 text-gray-500 px-3 py-1.5 rounded-lg text-sm font-medium cursor-not-allowed opacity-60">
+                                    <i class="fas fa-check-circle mr-1"></i>Par défaut
+                                </button>
+                                <button type="button" disabled class="inline-flex items-center bg-gray-300 text-gray-500 px-3 py-1.5 rounded-lg text-sm font-medium cursor-not-allowed opacity-60">
+                                    <i class="fas fa-tag mr-1"></i>Liquidation
+                                </button>
+                                <button type="button" disabled class="inline-flex items-center bg-gray-300 text-gray-500 px-3 py-1.5 rounded-lg text-sm font-medium cursor-not-allowed opacity-60">
+                                    <i class="fas fa-flask mr-1"></i>Test
+                                </button>
+                            {% else %}
+                                <button type="submit" name="phase" value="EN_COURS" class="inline-flex items-center bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all">
+                                    <i class="fas fa-check-circle mr-1"></i>Par défaut
+                                </button>
+                                <button type="button" onclick="openLiquidationModal()" class="inline-flex items-center bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all">
+                                    <i class="fas fa-tag mr-1"></i>Liquidation
+                                </button>
+                                <button type="submit" name="phase" value="EN_TEST" class="inline-flex items-center bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all">
+                                    <i class="fas fa-flask mr-1"></i>Test
+                                </button>
+                            {% endif %}
+                        </form>
+                    </div>
                     <a href="{% url 'article:modifier' article.id %}" class="inline-flex items-center bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg">
                         <i class="fas fa-edit mr-2"></i>Modifier
                     </a>
-                    <button type="button" onclick="showCustomConfirmModal('{% url 'article:supprimer_article' article.id %}', 'l\'article &quot;{{ article.nom|escapejs }}&quot;')" class="inline-flex items-center bg-red-500 hover:bg-red-600 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg">
+                    <button type="button" onclick="showCustomConfirmModal('{% url 'article:supprimer' article.id %}', 'l\'article &quot;{{ article.nom|escapejs }}&quot;')" class="inline-flex items-center bg-red-500 hover:bg-red-600 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg">
                         <i class="fas fa-trash mr-2"></i>Supprimer
                     </button>
                 </div>
@@ -83,4 +157,75 @@
         </div>
     </div>
 </div>
+
+<!-- Modale de liquidation -->
+<div id="liquidationModal" class="fixed inset-0 z-50 items-center justify-center bg-black bg-opacity-60 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full transform transition-all duration-300 scale-95 opacity-0" id="liquidationModalContent">
+        <div class="text-center">
+            <div class="mb-4">
+                <i class="fas fa-tag text-6xl text-orange-400"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Appliquer une liquidation</h2>
+            <p class="text-gray-600 mb-6">
+                Veuillez saisir le pourcentage de réduction pour la liquidation.
+            </p>
+            <form method="POST" action="{% url 'article:appliquer_liquidation' article.id %}" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label for="pourcentage" class="block text-sm font-medium text-gray-700 mb-2">Pourcentage de réduction</label>
+                    <input type="number" name="pourcentage" id="pourcentage" min="1" max="90" step="0.1" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                    <p class="text-sm text-gray-500 mt-1">Entre 1% et 90%</p>
+                </div>
+                <div class="flex justify-center gap-4 mt-6">
+                    <button type="submit" class="px-6 py-2 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-colors shadow-lg">
+                        Appliquer
+                    </button>
+                    <button type="button" onclick="closeLiquidationModal()" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition-colors shadow-lg">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openLiquidationModal() {
+        const modal = document.getElementById('liquidationModal');
+        const modalContent = document.getElementById('liquidationModalContent');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modalContent.classList.remove('scale-95', 'opacity-0');
+        }, 10);
+    }
+
+    function closeLiquidationModal() {
+        const modal = document.getElementById('liquidationModal');
+        const modalContent = document.getElementById('liquidationModalContent');
+        modalContent.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 300);
+    }
+
+    // Fermer la modale si on clique en dehors
+    document.getElementById('liquidationModal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            closeLiquidationModal();
+        }
+    });
+
+    // Fermer la modale avec la touche Echap
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeLiquidationModal();
+        }
+    });
+</script>
 {% endblock %}

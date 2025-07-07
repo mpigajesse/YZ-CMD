@@ -1,5 +1,6 @@
 {% extends 'composant_generale/operatConfirme/base.html' %}
 {% load static %}
+{% load commande_filters %}
 
 {% block title %}Modifier Commande {{ commande.id_yz }} - YZ-CMD{% endblock %}
 
@@ -119,6 +120,56 @@
             grid-template-columns: 1fr;
         }
     }
+    
+    /* Styles pour la liste déroulante d'articles avec badges */
+    #articleSelect option {
+        padding: 8px 12px;
+        border-radius: 4px;
+        margin: 2px 0;
+    }
+    
+    /* Animations pour les badges de légende */
+    .filter-badge {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .filter-badge:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .filter-badge.active {
+        box-shadow: 0 0 0 2px #3b82f6;
+        transform: scale(1.1);
+        font-weight: bold;
+    }
+    
+    .filter-badge.active::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(255,255,255,0.2), transparent);
+        pointer-events: none;
+    }
+    
+    /* Animation de comptage */
+    .article-count {
+        display: inline-block;
+        background: #3b82f6;
+        color: white;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-left: 4px;
+        font-weight: bold;
+        min-width: 20px;
+        text-align: center;
+    }
 </style>
 {% endblock %}
 
@@ -137,6 +188,10 @@
             <div class="text-right">
                 <div class="text-2xl font-bold" style="color: #f7d9c4;">{{ commande.total_cmd|floatformat:2 }} DH</div>
                 <div class="text-sm opacity-80">Total commande</div>
+            </div>
+            <div class="text-right">
+                <div class="text-xl font-bold" style="color: #f7d9c4;">Niveau {{ commande.compteur }}</div>
+                <div class="text-sm opacity-80">Upsell actuel</div>
             </div>
         </div>
     </div>
@@ -427,7 +482,19 @@
                 <div class="verification-item bg-white rounded-xl shadow-lg p-4 animate-slideInUp" style="animation-delay: 0.8s;">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold" style="color: #4B352A;">
-                            <i class="fas fa-box mr-3" style="color: #6d4b3b;"></i>Articles de la Commande (<span id="articles-count">{{ commande.paniers.count }}</span> article<span id="articles-plural">{{ commande.paniers.count|pluralize }}</span>)
+                            <i class="fas fa-box mr-3" style="color: #6d4b3b;"></i>Articles de la Commande (<span id="articles-count">{{ commande.paniers.count }}</span> article<span id="articles-plural">{{ commande.paniers.count|pluralize }}</span>) 
+                        {% if commande.compteur > 0 %}
+                        <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium ml-2">
+                            <i class="fas fa-arrow-up mr-1"></i>Upsell Niveau {{ commande.compteur }}
+                        </span>
+                        {% endif %}
+                        
+                        <!-- Bouton de diagnostic du compteur -->
+                        <button type="button" onclick="diagnostiquerCompteur()" 
+                                class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium ml-2 hover:bg-blue-200"
+                                title="Diagnostiquer et corriger le compteur">
+                            <i class="fas fa-tools mr-1"></i>Diagnostic
+                        </button>
                         </h3>
                         <button type="button" onclick="ajouterNouvelArticle()" 
                                 class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all">
@@ -438,7 +505,9 @@
                     <!-- Liste des articles existants -->
                     <div id="articles-container" class="space-y-3 mb-6">
                         {% for panier in commande.paniers.all %}
-                        <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" data-article-id="{{ panier.id }}">
+                        <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" 
+                            data-article-id="{{ panier.id }}"
+                            data-article='{"id": {{ panier.article.id }}, "nom": "{{ panier.article.nom }}", "reference": "{{ panier.article.reference }}", "prix_actuel": {{ panier.article.prix_actuel|default:0 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0 }}, "isUpsell": {{ panier.article.isUpsell|yesno:"true,false" }}, "pointure": "{{ panier.article.pointure|default:'' }}", "couleur": "{{ panier.article.couleur|default:'' }}", "categorie": "{{ panier.article.categorie|default:'' }}", "qte_disponible": {{ panier.article.qte_disponible|default:0 }}}'>
                             <div class="flex items-center justify-between">
                                 <!-- Informations de l'article -->
                                 <div class="flex-1">
@@ -480,12 +549,11 @@
                                                     <i class="fas fa-tag mr-1"></i>Catégorie N/A
                                                 </span>
                                                 {% endif %}
-                                                
-                                                {% if panier.article.stock_disponible %}
+                                                                                    
                                                 <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                                                    <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.stock_disponible }}
+                                                    <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.qte_disponible }}
                                                 </span>
-                                                {% endif %}
+            
                                             </div>
                                         </div>
                                         
@@ -493,18 +561,31 @@
                                         <div class="text-center min-w-0">
                                             <div class="text-sm text-gray-500">Quantité</div>
                                             <div class="font-medium text-blue-600">{{ panier.quantite }} unité{{ panier.quantite|pluralize }}</div>
+                                            <button type="button" onclick="modifierQuantite({{ panier.id }}, {{ panier.quantite }})" 
+                                                    class="text-xs text-blue-500 hover:text-blue-700 mt-1">
+                                                <i class="fas fa-edit mr-1"></i>Modifier qté
+                                            </button>
                                         </div>
                                         
                                         <!-- Prix unitaire -->
                                         <div class="text-center min-w-0">
-                                            <div class="text-sm text-gray-500">Prix unitaire</div>
-                                            <div class="font-medium text-green-600">{{ panier.article.prix_unitaire }} DH</div>
+                                            <div class="text-sm text-gray-500">Prix actuel</div>
+                                            {% with panier.article|get_prix_avec_phase_info:commande.compteur as prix_info %}
+                                            <div class="font-medium {{ prix_info.couleur_classe }}">
+                                                {{ prix_info.prix|floatformat:2 }} DH
+                                            </div>
+                                            <div class="text-xs {{ prix_info.couleur_classe }} mt-1">
+                                                {{ prix_info.libelle }}
+                                            </div>
+                                            {% endwith %}
                                         </div>
                                         
                                         <!-- Sous-total -->
                                         <div class="text-center min-w-0">
                                             <div class="text-sm text-gray-500">Sous-total</div>
-                                            <div class="text-lg font-bold" style="color: #6d4b3b;">{{ panier.sous_total }} DH</div>
+                                            <div class="text-lg font-bold" style="color: #6d4b3b;">
+                                                {{ panier|calculer_sous_total_avec_compteur:commande.compteur|floatformat:2 }} DH
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -584,6 +665,7 @@
                     Annuler la Commande
                 </button>
                 {% endif %}
+  
                 
                 <button type="button" onclick="confirmerCommande()" 
                         class="btn-confirm px-6 py-3 rounded-lg font-medium">
@@ -644,6 +726,41 @@
                 <!-- Sélection d'article (pour nouveaux articles) -->
                 <div id="article-selection-field">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Article</label>
+                    
+                    <!-- Légende des badges -->
+                    <div class="mb-3 p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 shadow-sm">
+                        <div class="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-info-circle mr-1 text-blue-500"></i>
+                            Légende des types d'articles :
+                        </div>
+                        <div class="badge-legend flex flex-wrap gap-2 text-xs">
+                            <span id="filter-all" class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded-full font-medium cursor-pointer filter-badge active" 
+                                  onclick="filtrerArticles('all')" title="Afficher tous les articles">
+                                🔍 TOUS
+                            </span>
+                            <span id="filter-promo" class="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium cursor-pointer filter-badge" 
+                                  onclick="filtrerArticles('promo')" title="Filtrer les articles en promotion">
+                                🔥 PROMO
+                            </span>
+                            <span id="filter-liquidation" class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full font-medium cursor-pointer filter-badge" 
+                                  onclick="filtrerArticles('liquidation')" title="Filtrer les articles en liquidation">
+                                🏷️ LIQUIDATION
+                            </span>
+                            <span id="filter-test" class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium cursor-pointer filter-badge" 
+                                  onclick="filtrerArticles('test')" title="Filtrer les articles en test">
+                                🧪 TEST
+                            </span>
+                            <span id="filter-upsell" class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium cursor-pointer filter-badge" 
+                                  onclick="filtrerArticles('upsell')" title="Filtrer les articles upsell">
+                                ⬆️ UPSELL
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-2 italic">
+                            💡 Les articles sont colorés dans la liste selon leur type pour faciliter l'identification<br>
+                            ⌨️ Raccourcis: Alt+1 (Tous), Alt+2 (Promo), Alt+3 (Liquidation), Alt+4 (Test), Alt+5 (Upsell)
+                        </div>
+                    </div>
+                    
                     <select id="articleSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">-- Sélectionner un article --</option>
                         <!-- Les articles seront chargés dynamiquement -->
@@ -1784,6 +1901,44 @@ document.addEventListener('DOMContentLoaded', function() {
             chargerArticlesDisponibles();
         };
         
+        // Fonction pour tester le système de filtrage
+        window.testFiltrage = function() {
+            console.log('🧪 Test du système de filtrage...');
+            console.log('📊 Articles disponibles:', articlesDisponibles ? articlesDisponibles.length : 'Non chargés');
+            
+            if (!articlesDisponibles || articlesDisponibles.length === 0) {
+                console.log('❌ Aucun article chargé. Chargement...');
+                chargerArticlesDisponibles();
+                return;
+            }
+            
+            // Tester chaque type de filtre
+            const types = ['all', 'promo', 'liquidation', 'test', 'upsell'];
+            types.forEach(type => {
+                const count = compterArticlesParType(type);
+                console.log(`📊 ${type.toUpperCase()}: ${count} article(s)`);
+            });
+            
+            // Afficher quelques exemples d'articles par type
+            console.log('\n📋 Exemples d\'articles par type:');
+            
+            const promosExemples = articlesDisponibles.filter(a => a.has_promo_active).slice(0, 2);
+            console.log('🔥 PROMO:', promosExemples.map(a => `${a.nom} (${a.has_promo_active})`));
+            
+            const liquidationExemples = articlesDisponibles.filter(a => a.phase === 'LIQUIDATION').slice(0, 2);
+            console.log('🏷️ LIQUIDATION:', liquidationExemples.map(a => `${a.nom} (${a.phase})`));
+            
+            const testExemples = articlesDisponibles.filter(a => a.phase === 'EN_TEST').slice(0, 2);
+            console.log('🧪 TEST:', testExemples.map(a => `${a.nom} (${a.phase})`));
+            
+            const upsellExemples = articlesDisponibles.filter(a => a.isUpsell).slice(0, 2);
+            console.log('⬆️ UPSELL:', upsellExemples.map(a => `${a.nom} (${a.isUpsell})`));
+            
+            // Tester un filtrage
+            console.log('\n🔍 Test de filtrage par PROMO...');
+            filtrerArticles('promo');
+        };
+        
         // Fonction pour tester manuellement l'API des articles
         window.testApiArticles = function() {
             console.log('🧪 Test manuel de l\'API des articles...');
@@ -1833,7 +1988,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             id: article.id,
                             nom: article.nom,
                             reference: article.reference,
-                            prix: article.prix_unitaire,
+                            prix: article.prix_actuel,
                             pointure: article.pointure,
                             couleur: article.couleur,
                             stock: article.qte_disponible
@@ -1848,12 +2003,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         };
         
-        console.log('💡 Fonctions de test disponibles:');
-        console.log('   - testModal() : Tester la modale');
-        console.log('   - testNouveauSysteme() : Tester le système d\'opérations');
-        console.log('   - debugSysteme() : Debug complet du système');
-        console.log('   - debugArticles() : Debug et test des articles');
-        console.log('   - testApiArticles() : Test manuel de l\'API des articles');
+            console.log('💡 Fonctions de test disponibles:');
+    console.log('   - testModal() : Tester la modale');
+    console.log('   - testNouveauSysteme() : Tester le système d\'opérations');
+    console.log('   - debugSysteme() : Debug complet du système');
+    console.log('   - debugArticles() : Debug et test des articles');
+    console.log('   - testApiArticles() : Test manuel de l\'API des articles');
+    console.log('   - testFiltrage() : Tester le système de filtrage');
         
         // Afficher les informations sur les opérations
         console.log('🗃️ SYSTÈME D\'OPÉRATIONS:');
@@ -2290,6 +2446,8 @@ function confirmerCommande() {
 let articlesDisponibles = [];
 let currentArticleId = null;
 let isEditingArticle = false;
+let compteurCommande = {{ commande.compteur }};
+let filtreActuel = 'all'; // Filtre actuellement actif
 
 // Fonction pour ajouter un nouvel article
 function ajouterNouvelArticle() {
@@ -2404,14 +2562,26 @@ function preselectionnerArticle(reference) {
 
 // Fonction pour afficher les infos d'un article existant
 function afficherInfosArticleExistant(articleCard) {
-    const reference = articleCard.querySelector('.text-gray-500').textContent.replace('Réf: ', '').replace('Référence: ', '');
-    const prixText = articleCard.querySelector('.text-green-600').textContent;
-    const sousTotal = articleCard.querySelector('.text-lg.font-bold').textContent;
+    // Chercher la référence dans la section des informations de l'article
+    const referenceElement = articleCard.querySelector('.text-sm.text-gray-500');
+    const reference = referenceElement ? referenceElement.textContent.replace('Réf: ', '').replace('Référence: ', '') : '';
+    
+    // Chercher le prix dans la section "Prix actuel"
+    const prixElement = articleCard.querySelector('.text-center.min-w-0 .text-green-600, .text-center.min-w-0 .text-gray-600');
+    const prixText = prixElement ? prixElement.textContent : '';
+    
+    // Chercher le sous-total
+    const sousTotalElement = articleCard.querySelector('.text-lg.font-bold');
+    const sousTotal = sousTotalElement ? sousTotalElement.textContent : '';
     
     // Informations de base (récupérées du DOM)
-    document.getElementById('info-reference').textContent = reference;
-    document.getElementById('info-prix').textContent = prixText;
-    document.getElementById('info-sous-total').textContent = sousTotal;
+    const infoReference = document.getElementById('info-reference');
+    const infoPrix = document.getElementById('info-prix');
+    const infoSousTotal = document.getElementById('info-sous-total');
+    
+    if (infoReference) infoReference.textContent = reference;
+    if (infoPrix) infoPrix.textContent = prixText;
+    if (infoSousTotal) infoSousTotal.textContent = sousTotal;
     
     // Récupérer les caractéristiques depuis les badges
     const caracteristiques = extraireCaracteristiquesDepuisBadges(articleCard);
@@ -2423,22 +2593,29 @@ function afficherInfosArticleExistant(articleCard) {
         categorie: caracteristiques.categorie
     });
     
-    document.getElementById('info-pointure').textContent = caracteristiques.taille || 'Non spécifiée';
-    document.getElementById('info-couleur').textContent = caracteristiques.couleur || 'Non spécifiée';
-    document.getElementById('info-categorie').textContent = caracteristiques.categorie || 'Non spécifiée';
+    const infoPointure = document.getElementById('info-pointure');
+    const infoCouleur = document.getElementById('info-couleur');
+    const infoCategorie = document.getElementById('info-categorie');
+    
+    if (infoPointure) infoPointure.textContent = caracteristiques.taille || 'Non spécifiée';
+    if (infoCouleur) infoCouleur.textContent = caracteristiques.couleur || 'Non spécifiée';
+    if (infoCategorie) infoCategorie.textContent = caracteristiques.categorie || 'Non spécifiée';
     
     // Mettre à jour les badges dans la modale
     mettreAJourBadgesModale(caracteristiques);
     
     // Récupérer le stock depuis le badge vert s'il existe
-    if (caracteristiques.stock) {
-        document.getElementById('info-stock').textContent = caracteristiques.stock;
+    const infoStock = document.getElementById('info-stock');
+    const infoDescription = document.getElementById('info-description');
+    
+    if (caracteristiques.stock && infoStock) {
+        infoStock.textContent = caracteristiques.stock;
     } else {
         // Essayer de récupérer depuis l'API
         chargerInfosCompletesArticle(reference);
     }
     
-    document.getElementById('info-description').textContent = caracteristiques.description || '';
+    if (infoDescription) infoDescription.textContent = caracteristiques.description || '';
     
     console.log('📋 Caractéristiques extraites:', caracteristiques);
     
@@ -2591,10 +2768,15 @@ function chargerInfosCompletesArticle(reference) {
         const article = articlesDisponibles.find(a => a.reference === reference);
         if (article) {
             // Mettre à jour avec les informations complètes
-            document.getElementById('info-pointure').textContent = article.pointure || '-';
-            document.getElementById('info-couleur').textContent = article.couleur || '-';
-            document.getElementById('info-categorie').textContent = article.categorie || '-';
-            document.getElementById('info-stock').textContent = `${article.qte_disponible || 0} unité(s)`;
+            const infoPointure = document.getElementById('info-pointure');
+            const infoCouleur = document.getElementById('info-couleur');
+            const infoCategorie = document.getElementById('info-categorie');
+            const infoStock = document.getElementById('info-stock');
+            
+            if (infoPointure) infoPointure.textContent = article.pointure || '-';
+            if (infoCouleur) infoCouleur.textContent = article.couleur || '-';
+            if (infoCategorie) infoCategorie.textContent = article.categorie || '-';
+            if (infoStock) infoStock.textContent = `${article.qte_disponible || 0} unité(s)`;
             
             console.log('📋 Informations complètes trouvées pour:', reference, article);
             return;
@@ -2654,76 +2836,118 @@ function chargerArticlesDisponibles() {
     .then(data => {
         console.log('📊 Données reçues:', data);
         
-        if (data.success && data.articles) {
-            articlesDisponibles = data.articles;
-            
-            // Remplir le select
-            select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
-            
-            if (articlesDisponibles.length === 0) {
-                select.innerHTML = '<option value="">-- Aucun article disponible --</option>';
-                console.warn('⚠️ Aucun article trouvé dans la base de données');
-                showNotification('⚠️ Aucun article disponible', 'error');
-                return;
-            }
-            
-            articlesDisponibles.forEach((article, index) => {
-                try {
-                    const option = document.createElement('option');
-                    option.value = article.id;
-                    
-                    // Construire un texte plus informatif avec vérifications
-                    let optionText = article.nom || 'Article sans nom';
-                    
-                    if (article.prix_unitaire) {
-                        optionText += ` - ${article.prix_unitaire} DH`;
-                    }
-                    
-                    // Ajouter taille et couleur si disponibles
-                    const details = [];
-                    if (article.pointure && article.pointure.trim()) {
-                        details.push(`T:${article.pointure}`);
-                    }
-                    if (article.couleur && article.couleur.trim()) {
-                        details.push(`C:${article.couleur}`);
-                    }
-                    
-                    if (details.length > 0) {
-                        optionText += ` (${details.join(', ')})`;
-                    }
-                    
-                    option.textContent = optionText;
-                    option.dataset.article = JSON.stringify(article);
-                    select.appendChild(option);
-                    
-                    console.log(`📦 Article ${index + 1} ajouté:`, {
-                        id: article.id,
-                        nom: article.nom,
-                        prix: article.prix_unitaire,
-                        pointure: article.pointure,
-                        couleur: article.couleur
-                    });
-                    
-                } catch (error) {
-                    console.error(`❌ Erreur lors de l'ajout de l'article ${index + 1}:`, error, article);
-                }
-            });
-            
-            console.log(`✅ ${articlesDisponibles.length} articles chargés avec succès`);
-            showNotification(`✅ ${articlesDisponibles.length} article(s) chargé(s)`, 'success');
-            
-        } else {
-            // Gestion d'erreur plus détaillée
-            const errorMsg = data.error || 'Erreur inconnue lors du chargement';
-            select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
-            console.error('❌ Erreur API:', errorMsg);
-            showNotification(`❌ Erreur: ${errorMsg}`, 'error');
-            
-            // Afficher plus de détails pour le debug
-            if (data.error) {
-                console.error('📋 Détails de l\'erreur:', data);
-            }
+        // Modification pour gérer la réponse directe de l'API
+        articlesDisponibles = Array.isArray(data) ? data : [];
+        
+        // Remplir le select
+        select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
+        
+        if (articlesDisponibles.length === 0) {
+            select.innerHTML = '<option value="">-- Aucun article disponible --</option>';
+            console.warn('⚠️ Aucun article trouvé dans la base de données');
+            showNotification('⚠️ Aucun article disponible', 'error');
+            return;
         }
+        
+        articlesDisponibles.forEach((article, index) => {
+            try {
+                const option = document.createElement('option');
+                option.value = article.id;
+                
+                // Construire un texte plus informatif avec vérifications
+                let optionText = article.nom || 'Article sans nom';
+                
+                // Ajouter les badges de statut AVANT le prix
+                const badges = [];
+                
+                // Vérifier les différents statuts
+                if (article.has_promo_active) {
+                    badges.push('🔥PROMO');
+                }
+                if (article.phase === 'LIQUIDATION') {
+                    badges.push('🏷️LIQUIDATION');
+                }
+                if (article.phase === 'EN_TEST') {
+                    badges.push('🧪TEST');
+                }
+                if (article.isUpsell) {
+                    badges.push('⬆️UPSELL');
+                }
+                
+                // Ajouter les badges au nom
+                if (badges.length > 0) {
+                    optionText += ` [${badges.join(' ')}]`;
+                }
+                
+                if (article.prix_actuel) {
+                    optionText += ` - ${article.prix_actuel} DH`;
+                }
+                
+                // Ajouter taille et couleur si disponibles
+                const details = [];
+                if (article.pointure && article.pointure.trim()) {
+                    details.push(`T:${article.pointure}`);
+                }
+                if (article.couleur && article.couleur.trim()) {
+                    details.push(`C:${article.couleur}`);
+                }
+                
+                if (details.length > 0) {
+                    optionText += ` (${details.join(', ')})`;
+                }
+                
+                option.textContent = optionText;
+                option.dataset.article = JSON.stringify(article);
+                
+                // Ajouter des classes CSS pour styliser selon le type
+                if (article.has_promo_active) {
+                    option.style.backgroundColor = '#fef2f2';
+                    option.style.color = '#dc2626';
+                    option.style.fontWeight = 'bold';
+                } else if (article.phase === 'LIQUIDATION') {
+                    option.style.backgroundColor = '#fff7ed';
+                    option.style.color = '#ea580c';
+                    option.style.fontWeight = 'bold';
+                } else if (article.phase === 'EN_TEST') {
+                    option.style.backgroundColor = '#eff6ff';
+                    option.style.color = '#2563eb';
+                    option.style.fontWeight = 'bold';
+                } else if (article.isUpsell) {
+                    option.style.backgroundColor = '#f0fdf4';
+                    option.style.color = '#16a34a';
+                    option.style.fontWeight = 'bold';
+                }
+                
+                select.appendChild(option);
+                
+                console.log(`📦 Article ${index + 1} ajouté:`, {
+                    id: article.id,
+                    nom: article.nom,
+                    prix: article.prix_actuel,
+                    pointure: article.pointure,
+                    couleur: article.couleur
+                });
+                
+            } catch (error) {
+                console.error(`❌ Erreur lors de l'ajout de l'article ${index + 1}:`, error, article);
+            }
+        });
+        
+        console.log(`✅ ${articlesDisponibles.length} articles chargés avec succès`);
+        
+        // Debug des premiers articles pour vérifier les données
+        if (articlesDisponibles.length > 0) {
+            console.log('🔍 DEBUG: Premier article chargé:', articlesDisponibles[0]);
+            console.log('🔍 DEBUG: Champs disponibles:', Object.keys(articlesDisponibles[0]));
+        }
+        
+        // Sauvegarder dans la variable globale
+        window.articlesDisponibles = articlesDisponibles;
+        
+        showNotification(`✅ ${articlesDisponibles.length} article(s) chargé(s)`, 'success');
+        
+        // Mettre à jour les compteurs des badges
+        mettreAJourCompteursFiltre();
     })
     .catch(error => {
         select.innerHTML = '<option value="">-- Erreur de connexion --</option>';
@@ -2765,11 +2989,11 @@ function onArticleSelectionChange() {
 // Fonction pour afficher les informations d'un article
 function afficherInfosArticle(article) {
     const quantite = parseInt(document.getElementById('quantiteInput').value) || 1;
-    const sousTotal = (article.prix_unitaire * quantite).toFixed(2);
+    const sousTotal = (article.prix_actuel * quantite).toFixed(2);
     
     // Informations de base
     document.getElementById('info-reference').textContent = article.reference || '-';
-    document.getElementById('info-prix').textContent = `${article.prix_unitaire} DH`;
+    document.getElementById('info-prix').textContent = `${article.prix_actuel} DH`;
     document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
     
     // Nouvelles informations détaillées
@@ -2847,9 +3071,13 @@ function saveArticle() {
     if (!isEditingArticle) {
         // Ajout d'un nouvel article
         ajouterArticleAuContainer(article, quantite);
+        sauvegarderNouvelArticle(article, quantite);  // Sauvegarde en base
+        showNotification('✅ Article ajouté et sauvegardé', 'success');
     } else {
         // Modification d'un article existant - remplacer complètement l'article
         remplacerArticleExistant(article, quantite);
+        sauvegarderRemplacementArticle(currentArticleId, article, quantite);  // Sauvegarde en base
+        showNotification('🔄 Article remplacé et sauvegardé', 'success');
     }
     
     // Mettre à jour le total
@@ -2857,22 +3085,13 @@ function saveArticle() {
     
     // Fermer la modale
     closeArticleModal();
-    
-    // Sauvegarder immédiatement en base de données
-    if (!isEditingArticle) {
-        // Nouvel article - sauvegarder directement
-        sauvegarderNouvelArticle(article, quantite);
-        showNotification('✅ Article ajouté et sauvegardé', 'success');
-    } else {
-        // Article existant - remplacer en base de données
-        sauvegarderRemplacementArticle(currentArticleId, article, quantite);
-        showNotification('🔄 Article remplacé et sauvegardé', 'success');
-    }
 }
 
 // Fonction pour ajouter un article au container
 function ajouterArticleAuContainer(article, quantite) {
-    const sousTotal = (article.prix_unitaire * quantite).toFixed(2);
+    // Vérifier si le prix actuel est défini, sinon utiliser le prix unitaire
+    const prixActuel = article.prix_actuel !== undefined ? article.prix_actuel : article.prix_unitaire;
+    const sousTotal = (prixActuel * quantite).toFixed(2);
     const articleId = `new-${Date.now()}`; // ID temporaire pour les nouveaux articles
     
     const articleHTML = `
@@ -2930,10 +3149,16 @@ function ajouterArticleAuContainer(article, quantite) {
                             <div class="font-medium text-blue-600">${quantite} unité${quantite > 1 ? 's' : ''}</div>
                         </div>
                         
-                        <!-- Prix unitaire -->
+                        <!-- Prix détaillé -->
                         <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Prix unitaire</div>
-                            <div class="font-medium text-green-600">${article.prix_unitaire} DH</div>
+                            <div class="text-sm text-gray-500">Prix actuel</div>
+                            <div class="font-medium text-green-600">${prixActuel} DH</div>
+                            ${article.isUpsell && quantite > 1 ? 
+                                `<div class="text-xs text-orange-600 mt-1">
+                                    Prix upsell (remplace le prix unitaire)
+                                </div>` : 
+                                '<div class="text-xs text-gray-400 mt-1">Prix standard</div>'
+                            }
                         </div>
                         
                         <!-- Sous-total -->
@@ -2972,7 +3197,8 @@ function ajouterArticleAuContainer(article, quantite) {
 function remplacerArticleExistant(nouvelArticle, nouvelleQuantite) {
     const articleCard = document.querySelector(`[data-article-id="${currentArticleId}"]`);
     if (articleCard) {
-        const sousTotal = (nouvelArticle.prix_unitaire * nouvelleQuantite).toFixed(2);
+        const prixActuel = nouvelArticle.prix_actuel !== undefined ? nouvelArticle.prix_actuel : nouvelArticle.prix_unitaire;
+        const sousTotal = (prixActuel * nouvelleQuantite).toFixed(2);
         
         // Remplacer tout le contenu de la carte d'article
         const nouveauContenu = `
@@ -3029,10 +3255,16 @@ function remplacerArticleExistant(nouvelArticle, nouvelleQuantite) {
                             <div class="font-medium text-blue-600">${nouvelleQuantite} unité${nouvelleQuantite > 1 ? 's' : ''}</div>
                         </div>
                         
-                        <!-- Prix unitaire -->
+                        <!-- Prix détaillé -->
                         <div class="text-center min-w-0">
-                            <div class="text-sm text-gray-500">Prix unitaire</div>
-                            <div class="font-medium text-green-600">${nouvelArticle.prix_unitaire} DH</div>
+                            <div class="text-sm text-gray-500">Prix actuel</div>
+                            <div class="font-medium text-green-600">${prixActuel} DH</div>
+                            ${nouvelArticle.isUpsell && nouvelleQuantite > 1 ? 
+                                `<div class="text-xs text-orange-600 mt-1">
+                                    Prix upsell (remplace le prix unitaire)
+                                </div>` : 
+                                '<div class="text-xs text-gray-400 mt-1">Prix standard</div>'
+                            }
                         </div>
                         
                         <!-- Sous-total -->
@@ -3289,18 +3521,99 @@ function mettreAJourCompteurArticles() {
     document.getElementById('articles-plural').textContent = count > 1 ? 's' : '';
 }
 
-// Fonction pour mettre à jour le total de la commande
+function getPrixUpsell(article, compteur) {
+    // Utiliser le compteur de la commande pour déterminer le prix
+    const prixUnitaire = article.prix_actuel || article.prix_unitaire;
+    
+    if (compteur === 0) {
+        // Pas d'upsell actif
+        return prixUnitaire;
+    } else if (compteur === 1 && article.prix_upsell_1) {
+        // Niveau 1 d'upsell
+        return parseFloat(article.prix_upsell_1);
+    } else if (compteur === 2 && article.prix_upsell_2) {
+        // Niveau 2 d'upsell
+        return parseFloat(article.prix_upsell_2);
+    } else if (compteur === 3 && article.prix_upsell_3) {
+        // Niveau 3 d'upsell
+        return parseFloat(article.prix_upsell_3);
+    } else if (compteur >= 4 && article.prix_upsell_4) {
+        // Niveau 4 d'upsell (pour compteur >= 4)
+        return parseFloat(article.prix_upsell_4);
+    }
+    
+    // Si pas de prix upsell défini pour ce niveau, utiliser le prix unitaire
+    return prixUnitaire;
+}
+
 function mettreAJourTotalCommande() {
-    const articles = document.querySelectorAll('.article-card');
+    const articlesContainer = document.getElementById('articles-container');
+    if (!articlesContainer) {
+        console.error("L'élément 'articles-container' est introuvable.");
+        return;
+    }
+
+    const articles = articlesContainer.querySelectorAll('.article-card');
     let total = 0;
     
-    articles.forEach(article => {
-        const sousTotalText = article.querySelector('.text-lg.font-bold').textContent;
-        const sousTotal = parseFloat(sousTotalText.replace(' DH', ''));
-        total += sousTotal;
+    console.log(`🔄 Recalcul du total pour ${articles.length} article(s)`);
+    
+    articles.forEach((article, index) => {
+        const sousTotalElement = article.querySelector('.text-lg.font-bold');
+        
+        if (sousTotalElement) {
+            // Simplement additionner les sous-totaux déjà affichés
+            const sousTotalText = sousTotalElement.textContent;
+            const sousTotal = parseFloat(sousTotalText.replace(' DH', '').replace(',', '.'));
+            
+            if (!isNaN(sousTotal)) {
+                console.log(`   Article ${index + 1}: Sous-total = ${sousTotal} DH`);
+                total += sousTotal;
+            } else {
+                console.warn(`   ⚠️ Sous-total ${index + 1} non valide: "${sousTotalText}"`);
+            }
+        }
     });
     
-    document.getElementById('total-commande').textContent = `${total.toFixed(2)} DH`;
+    console.log(`💰 Total final calculé: ${total.toFixed(2)} DH`);
+    
+    const totalElement = document.getElementById('total-commande');
+    if (totalElement) {
+        const ancienTotal = totalElement.textContent;
+        totalElement.textContent = `${total.toFixed(2)} DH`;
+        console.log(`📊 Total mis à jour: ${ancienTotal} → ${total.toFixed(2)} DH`);
+    }
+}
+
+// Fonction alternative qui additionne directement les sous-totaux affichés
+function recalculerTotalDepuisSousTotaux() {
+    console.log('🧮 Recalcul du total en additionnant les sous-totaux affichés...');
+    
+    const sousTotalElements = document.querySelectorAll('.text-lg.font-bold');
+    let total = 0;
+    
+    sousTotalElements.forEach((element, index) => {
+        const texte = element.textContent;
+        const valeur = parseFloat(texte.replace(' DH', '').replace(',', '.'));
+        
+        if (!isNaN(valeur)) {
+            console.log(`   Sous-total ${index + 1}: ${valeur} DH`);
+            total += valeur;
+        } else {
+            console.warn(`   ⚠️ Sous-total ${index + 1} non valide: "${texte}"`);
+        }
+    });
+    
+    console.log(`💰 Total calculé depuis sous-totaux: ${total.toFixed(2)} DH`);
+    
+    const totalElement = document.getElementById('total-commande');
+    if (totalElement) {
+        const ancienTotal = totalElement.textContent;
+        totalElement.textContent = `${total.toFixed(2)} DH`;
+        console.log(`📊 Total mis à jour: ${ancienTotal} → ${total.toFixed(2)} DH`);
+    }
+    
+    return total;
 }
 
 // Fonction pour sauvegarder un nouvel article immédiatement
@@ -3498,7 +3811,318 @@ document.addEventListener('DOMContentLoaded', function() {
     // Charger les opérations existantes depuis la base de données
     chargerOperationsExistantes();
     
+    // Recalculer le total de la commande au chargement de la page
+    // pour s'assurer que l'affichage correspond à la nouvelle logique de calcul
+    console.log('🚀 Initialisation: Recalcul du total de la commande...');
+    mettreAJourTotalCommande();
+    
+    // Fonction alternative pour tester
+    window.recalculerTotal = recalculerTotalDepuisSousTotaux;
+    
+    // Fonction de debug pour tester le calcul des totaux
+    window.debugTotalCommande = function() {
+        console.log('🔍 Debug du calcul du total de la commande:');
+        
+        const articlesContainer = document.getElementById('articles-container');
+        if (!articlesContainer) {
+            console.error('❌ Conteneur des articles introuvable');
+            return;
+        }
+        
+        const articles = articlesContainer.querySelectorAll('.article-card');
+        console.log(`📦 ${articles.length} article(s) trouvé(s)`);
+        
+        let totalCalcule = 0;
+        articles.forEach((article, index) => {
+            const quantiteElement = article.querySelector('.text-blue-600');
+            const sousTotalElement = article.querySelector('.text-lg.font-bold');
+            const articleData = JSON.parse(article.dataset.article || '{}');
+            
+            if (quantiteElement && articleData) {
+                const quantite = parseInt(quantiteElement.textContent);
+                const prix = getPrixUpsell(articleData, quantite);
+                const sousTotal = articleData.isUpsell ? prix : prix * quantite;
+                
+                console.log(`   Article ${index + 1}: ${articleData.nom}`);
+                console.log(`      - Quantité: ${quantite}`);
+                console.log(`      - Prix unitaire: ${articleData.prix_unitaire} DH`);
+                console.log(`      - Prix upsell 1: ${articleData.prix_upsell_1} DH`);
+                console.log(`      - Prix upsell 2: ${articleData.prix_upsell_2} DH`);
+                console.log(`      - Prix upsell 3: ${articleData.prix_upsell_3} DH`);
+                console.log(`      - Prix upsell 4: ${articleData.prix_upsell_4} DH`);
+                console.log(`      - isUpsell: ${articleData.isUpsell}`);
+                console.log(`      - Prix calculé: ${prix} DH`);
+                console.log(`      - Sous-total calculé: ${sousTotal} DH`);
+                console.log(`      - Sous-total affiché: ${sousTotalElement ? sousTotalElement.textContent : 'Non trouvé'}`);
+                
+                totalCalcule += sousTotal;
+            }
+        });
+        
+        console.log(`💰 Total calculé: ${totalCalcule.toFixed(2)} DH`);
+        
+        const totalElement = document.getElementById('total-commande');
+        if (totalElement) {
+            console.log(`📊 Total affiché avant recalcul: ${totalElement.textContent}`);
+        }
+        
+        // Forcer le recalcul avec la méthode principale
+        mettreAJourTotalCommande();
+        
+        if (totalElement) {
+            console.log(`📊 Total affiché après recalcul principal: ${totalElement.textContent}`);
+        }
+        
+        // Essayer aussi la méthode alternative
+        console.log('\n🧮 Test de la méthode alternative...');
+        const totalAlternatif = recalculerTotalDepuisSousTotaux();
+        
+        console.log('🔄 Recalcul forcé effectué avec les deux méthodes');
+    };
+    
+    console.log('💡 Fonction de debug disponible: debugTotalCommande()');
 
+});
+
+// ================== SYSTÈME DE FILTRAGE DES ARTICLES ==================
+
+// Fonction principale de filtrage des articles
+function filtrerArticles(typeFiltre) {
+    console.log(`🔍 Filtrage des articles par type: ${typeFiltre}`);
+    
+    filtreActuel = typeFiltre;
+    
+    // Mettre à jour l'état visuel des badges
+    mettreAJourBadgesActifs(typeFiltre);
+    
+    // Appliquer le filtre sur la liste déroulante
+    appliquerFiltreSelect(typeFiltre);
+    
+    // Afficher une notification
+    const compteur = compterArticlesParType(typeFiltre);
+    const message = typeFiltre === 'all' ? 
+        `🔍 Affichage de tous les articles (${compteur} total)` :
+        `🔍 Filtrage par ${typeFiltre.toUpperCase()}: ${compteur} article(s) trouvé(s)`;
+    
+    showNotification(message, 'info', 2000);
+}
+
+// Fonction pour mettre à jour l'état visuel des badges
+function mettreAJourBadgesActifs(typeActif) {
+    // Retirer la classe active de tous les badges
+    document.querySelectorAll('.filter-badge').forEach(badge => {
+        badge.classList.remove('active');
+    });
+    
+    // Ajouter la classe active au badge sélectionné
+    const badgeActif = document.getElementById(`filter-${typeActif}`);
+    if (badgeActif) {
+        badgeActif.classList.add('active');
+    }
+}
+
+// Fonction pour appliquer le filtre sur la liste déroulante
+function appliquerFiltreSelect(typeFiltre) {
+    const select = document.getElementById('articleSelect');
+    if (!select) {
+        console.warn('⚠️ Select des articles introuvable');
+        return;
+    }
+    
+    // Sauvegarder la sélection actuelle
+    const selectionActuelle = select.value;
+    
+    // Vider et reconstruire la liste
+    select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
+    
+    if (!articlesDisponibles || articlesDisponibles.length === 0) {
+        select.innerHTML = '<option value="">-- Aucun article disponible --</option>';
+        return;
+    }
+    
+    let articlesAffiches = 0;
+    
+    articlesDisponibles.forEach((article, index) => {
+        // Vérifier si l'article correspond au filtre
+        if (typeFiltre === 'all' || correspondAuFiltre(article, typeFiltre)) {
+            try {
+                const option = document.createElement('option');
+                option.value = article.id;
+                
+                // Construire le texte de l'option
+                let optionText = article.nom || 'Article sans nom';
+                
+                // Ajouter les badges de statut
+                const badges = [];
+                if (article.has_promo_active) badges.push('🔥PROMO');
+                if (article.phase === 'LIQUIDATION') badges.push('🏷️LIQUIDATION');
+                if (article.phase === 'EN_TEST') badges.push('🧪TEST');
+                if (article.isUpsell) badges.push('⬆️UPSELL');
+                
+                if (badges.length > 0) {
+                    optionText += ` [${badges.join(' ')}]`;
+                }
+                
+                if (article.prix_actuel) {
+                    optionText += ` - ${article.prix_actuel} DH`;
+                }
+                
+                // Ajouter détails
+                const details = [];
+                if (article.pointure && article.pointure.trim()) {
+                    details.push(`T:${article.pointure}`);
+                }
+                if (article.couleur && article.couleur.trim()) {
+                    details.push(`C:${article.couleur}`);
+                }
+                
+                if (details.length > 0) {
+                    optionText += ` (${details.join(', ')})`;
+                }
+                
+                option.textContent = optionText;
+                option.dataset.article = JSON.stringify(article);
+                
+                // Appliquer le style selon le type
+                appliquerStyleOption(option, article);
+                
+                select.appendChild(option);
+                articlesAffiches++;
+                
+            } catch (error) {
+                console.error(`❌ Erreur lors de l'ajout de l'article filtré ${index + 1}:`, error);
+            }
+        }
+    });
+    
+    // Restaurer la sélection si elle est toujours visible
+    if (selectionActuelle) {
+        select.value = selectionActuelle;
+    }
+    
+    console.log(`📊 Filtrage terminé: ${articlesAffiches} article(s) affiché(s) sur ${articlesDisponibles.length} total`);
+}
+
+// Fonction pour vérifier si un article correspond au filtre
+function correspondAuFiltre(article, typeFiltre) {
+    switch (typeFiltre) {
+        case 'promo':
+            return Boolean(article.has_promo_active);
+        case 'liquidation':
+            return article.phase === 'LIQUIDATION';
+        case 'test':
+            return article.phase === 'EN_TEST';
+        case 'upsell':
+            return Boolean(article.isUpsell);
+        case 'all':
+        default:
+            return true;
+    }
+}
+
+// Fonction pour appliquer le style à une option selon le type d'article
+function appliquerStyleOption(option, article) {
+    if (article.has_promo_active) {
+        option.style.backgroundColor = '#fef2f2';
+        option.style.color = '#dc2626';
+        option.style.fontWeight = 'bold';
+    } else if (article.phase === 'LIQUIDATION') {
+        option.style.backgroundColor = '#fff7ed';
+        option.style.color = '#ea580c';
+        option.style.fontWeight = 'bold';
+    } else if (article.phase === 'EN_TEST') {
+        option.style.backgroundColor = '#eff6ff';
+        option.style.color = '#2563eb';
+        option.style.fontWeight = 'bold';
+    } else if (article.isUpsell) {
+        option.style.backgroundColor = '#f0fdf4';
+        option.style.color = '#16a34a';
+        option.style.fontWeight = 'bold';
+    }
+}
+
+// Fonction pour compter les articles par type
+function compterArticlesParType(typeFiltre) {
+    if (!articlesDisponibles || articlesDisponibles.length === 0) {
+        return 0;
+    }
+    
+    if (typeFiltre === 'all') {
+        return articlesDisponibles.length;
+    }
+    
+    return articlesDisponibles.filter(article => correspondAuFiltre(article, typeFiltre)).length;
+}
+
+// Fonction pour mettre à jour les compteurs sur les badges
+function mettreAJourCompteursFiltre() {
+    const types = ['all', 'promo', 'liquidation', 'test', 'upsell'];
+    
+    types.forEach(type => {
+        const badge = document.getElementById(`filter-${type}`);
+        if (badge) {
+            const compteur = compterArticlesParType(type);
+            
+            // Supprimer l'ancien compteur s'il existe
+            const ancienCompteur = badge.querySelector('.article-count');
+            if (ancienCompteur) {
+                ancienCompteur.remove();
+            }
+            
+            // Ajouter le nouveau compteur
+            if (compteur > 0) {
+                const compteurElement = document.createElement('span');
+                compteurElement.className = 'article-count';
+                compteurElement.textContent = compteur;
+                badge.appendChild(compteurElement);
+            }
+        }
+    });
+    
+    console.log('📊 Compteurs des filtres mis à jour:', {
+        tous: compterArticlesParType('all'),
+        promo: compterArticlesParType('promo'),
+        liquidation: compterArticlesParType('liquidation'),
+        test: compterArticlesParType('test'),
+        upsell: compterArticlesParType('upsell')
+    });
+}
+
+// Fonction pour réinitialiser le filtre
+function reinitialiserFiltre() {
+    filtrerArticles('all');
+}
+
+// Ajouter des raccourcis clavier pour le filtrage
+document.addEventListener('keydown', function(event) {
+    // Uniquement si la modale d'articles est ouverte
+    const articleModal = document.getElementById('articleModal');
+    if (articleModal && articleModal.style.display === 'flex') {
+        if (event.altKey) {
+            switch (event.key) {
+                case '1':
+                    event.preventDefault();
+                    filtrerArticles('all');
+                    break;
+                case '2':
+                    event.preventDefault();
+                    filtrerArticles('promo');
+                    break;
+                case '3':
+                    event.preventDefault();
+                    filtrerArticles('liquidation');
+                    break;
+                case '4':
+                    event.preventDefault();
+                    filtrerArticles('test');
+                    break;
+                case '5':
+                    event.preventDefault();
+                    filtrerArticles('upsell');
+                    break;
+            }
+        }
+    }
 });
 
 // ================== MODAL DE CONFIRMATION ==================
@@ -3749,6 +4373,89 @@ function getSectionName(sectionId) {
     return sectionNames[sectionId] || 'Section';
 }
 
+// Fonction pour diagnostiquer le compteur
+function diagnostiquerCompteur() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch(`{% url "operatConfirme:diagnostiquer_compteur" commande.id %}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Diagnostic:', data.message);
+            
+                         // Afficher le résultat
+             if (data.ancien_compteur !== undefined) {
+                 showToast(`🔧 Compteur corrigé: ${data.ancien_compteur} → ${data.nouveau_compteur}<br>📊 ${data.articles_upsell} articles upsell (${data.quantite_totale_upsell} unités)<br>📖 Logique: 0-1 unités = compteur 0 | 2+ unités = compteur total-1`, 'success', 7000);
+                 // Recharger la page pour voir les changements
+                 setTimeout(() => location.reload(), 3000);
+             } else {
+                 showToast(`✅ Compteur correct: ${data.compteur}<br>📊 ${data.articles_upsell} articles upsell (${data.quantite_totale_upsell} unités)<br>📖 Logique: 0-1 unités = compteur 0 | 2+ unités = compteur total-1`, 'info', 5000);
+             }
+        } else {
+            console.error('❌ Erreur:', data.error);
+            showToast('❌ Erreur lors du diagnostic: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erreur réseau:', error);
+        showToast('❌ Erreur de réseau lors du diagnostic', 'error');
+    });
+}
+
+// Fonction pour modifier la quantité d'un article
+function modifierQuantite(panierId, quantiteActuelle) {
+    const nouvelleQuantite = prompt(`Nouvelle quantité pour cet article (actuelle: ${quantiteActuelle}):`, quantiteActuelle);
+    
+    if (nouvelleQuantite === null || nouvelleQuantite === '') {
+        return; // Annulation
+    }
+    
+    const qte = parseInt(nouvelleQuantite);
+    if (isNaN(qte) || qte < 1) {
+        alert('Veuillez saisir une quantité valide (minimum 1)');
+        return;
+    }
+    
+    if (qte === quantiteActuelle) {
+        return; // Pas de changement
+    }
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken
+        },
+        body: new URLSearchParams({
+            'action': 'update_quantity',
+            'panier_id': panierId,
+            'nouvelle_quantite': qte
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`✅ ${data.message} - Nouveau compteur: ${data.compteur}`, 'success');
+            // Recharger la page pour voir les changements
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('❌ Erreur: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erreur:', error);
+        showToast('❌ Erreur de réseau', 'error');
+    });
+}
+
 // Fonction pour vérifier si toutes les sections sont validées
 function checkAllSectionsValidated() {
     const allSections = document.querySelectorAll('.verification-item');
@@ -3803,6 +4510,127 @@ function showToast(message, type = 'info', duration = 3000) {
         }, 300);
     }, duration);
 }
+
+// Dans le script JavaScript, ajouter une vérification pour le prix
+function afficherInfosArticle(article) {
+    const quantite = parseInt(document.getElementById('quantiteInput').value) || 1;
+    
+    // Vérifier si le prix actuel est défini, sinon utiliser le prix unitaire
+    const prixActuel = article.prix_actuel !== undefined ? article.prix_actuel : article.prix_unitaire;
+    const sousTotal = (prixActuel * quantite).toFixed(2);
+    
+    // Informations de base
+    document.getElementById('info-reference').textContent = article.reference || '-';
+    document.getElementById('info-prix').textContent = `${prixActuel} DH`;
+    document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
+}
+
+// Autres modifications similaires dans le script
+function mettreAJourSousTotal() {
+    const articleSelectionne = document.getElementById('articleSelect');
+    const quantiteInput = document.getElementById('quantiteInput');
+    
+    if (articleSelectionne && quantiteInput) {
+        const selectedArticle = JSON.parse(articleSelectionne.value);
+        const quantite = parseInt(quantiteInput.value) || 1;
+        
+        // Vérifier si le prix actuel est défini, sinon utiliser le prix unitaire
+        const prixActuel = selectedArticle.prix_actuel !== undefined ? selectedArticle.prix_actuel : selectedArticle.prix_unitaire;
+        const sousTotal = (prixActuel * quantite).toFixed(2);
+        
+        document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
+    }
+}
+
+function ajouterArticleAuPanier() {
+    const articleSelect = document.getElementById('articleSelect');
+    const quantiteInput = document.getElementById('quantiteInput');
+    const articlesContainer = document.getElementById('articles-container');
+
+    if (!articleSelect || !quantiteInput || !articlesContainer) {
+        console.error('❌ Éléments de sélection ou conteneur d\'articles introuvables');
+        showNotification('❌ Erreur de chargement des éléments', 'error');
+        return;
+    }
+
+    const selectedOption = articleSelect.options[articleSelect.selectedIndex];
+    if (!selectedOption || !selectedOption.value) {
+        showNotification('❌ Veuillez sélectionner un article', 'error');
+        return;
+    }
+
+    const article = JSON.parse(selectedOption.dataset.article);
+    const quantite = parseInt(quantiteInput.value) || 1;
+    const prixActuel = article.prix_actuel !== undefined ? article.prix_actuel : article.prix_unitaire;
+    const sousTotal = (prixActuel * quantite).toFixed(2);
+
+    // Créer la nouvelle carte d'article
+    const articleCard = document.createElement('div');
+    articleCard.className = 'article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm';
+    // On ajoute un attribut pour pouvoir le supprimer/modifier plus tard si besoin.
+    // NOTE: Cet ID est temporaire côté client. Il devra être mis à jour avec l'ID de la base de données après sauvegarde.
+    articleCard.dataset.articleId = `new-${Date.now()}`; 
+
+    articleCard.innerHTML = `
+        <div class="flex items-center justify-between">
+            <div class="flex-1">
+                <div class="flex items-center space-x-4">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-semibold text-lg" style="color: #4B352A;">${article.nom}</div>
+                        <div class="text-sm text-gray-500">
+                            <i class="fas fa-hashtag mr-1"></i>Réf: ${article.reference || 'N/A'}
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                                <i class="fas fa-ruler-vertical mr-1"></i>${article.pointure || 'N/A'}
+                            </span>
+                            <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                <i class="fas fa-palette mr-1"></i>${article.couleur || 'N/A'}
+                            </span>
+                             <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                <i class="fas fa-boxes mr-1"></i>Stock: ${article.qte_disponible}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="text-center min-w-0">
+                        <div class="text-sm text-gray-500">Quantité</div>
+                        <div class="font-medium text-blue-600">${quantite} unité${quantite > 1 ? 's' : ''}</div>
+                    </div>
+                    <div class="text-center min-w-0">
+                        <div class="text-sm text-gray-500">Prix actuel</div>
+                        <div class="font-medium text-green-600">${prixActuel} DH</div>
+                    </div>
+                    <div class="text-center min-w-0">
+                        <div class="text-sm text-gray-500">Sous-total</div>
+                        <div class="text-lg font-bold" style="color: #6d4b3b;">${sousTotal} DH</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-2 ml-4">
+                <button type="button" onclick="modifierArticle(${articleCard.dataset.articleId})" class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" title="Modifier">
+                    <i class="fas fa-edit mr-1"></i>Modifier
+                </button>
+                <button type="button" onclick="supprimerArticle(this)" class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" title="Supprimer">
+                    <i class="fas fa-trash mr-1"></i>Supprimer
+                </button>
+            </div>
+        </div>
+    `;
+
+    articlesContainer.appendChild(articleCard);
+
+    mettreAJourTotalCommande();
+
+    // Fermer la modale d'ajout
+    const modal = document.getElementById('addArticleModal');
+    if(modal) {
+        modal.classList.add('hidden');
+    }
+    
+    showNotification('✅ Article ajouté au panier', 'success');
+}
+
+// La fonction mettreAJourTotalCommande est déjà définie plus haut dans le fichier
 
 </script>
 

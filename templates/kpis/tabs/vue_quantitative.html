@@ -1,0 +1,460 @@
+<!-- Onglet État des commandes - Suivi des états de commandes -->
+<div class="space-y-6">
+  <!-- Section principale: Suivi de l'état des commandes -->
+  <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h3 class="text-xl font-bold text-gray-900 flex items-center gap-3">Suivi de l'état des commandes</h3>
+        <p class="text-gray-600 mt-1">Répartition des commandes par état de traitement</p>
+      </div>
+
+      <!-- Filtres temporels et export -->
+      <div class="flex flex-col sm:flex-row gap-4">
+        <!-- Filtres temporels -->
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-gray-700">Période :</label>
+          <select id="vue-quantitative-period-filter" class="text-sm border border-gray-300 rounded-lg px-3 py-1 bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+            <option value="aujourd_hui" selected>Aujourd'hui</option>
+            <option value="ce_mois">Ce mois</option>
+            <option value="cette_annee">Cette année</option>
+            <option value="personnalisee">Personnalisée</option>
+          </select>
+
+          <!-- Sélecteur de date pour période personnalisée -->
+          <div id="custom-date-container" class="hidden items-center gap-2 ml-2">
+            <label class="text-sm text-gray-600">Du :</label>
+            <input type="date" id="custom-date-from" class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
+            <label class="text-sm text-gray-600">au :</label>
+            <input type="date" id="custom-date-to" class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
+            <button id="apply-custom-date" class="text-sm bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 transition-colors">Appliquer</button>
+            <div id="date-error-message" class="hidden text-xs text-red-600 ml-2"></div>
+          </div>
+        </div>
+
+        <!-- Boutons d'export -->
+        <div class="flex items-center gap-2 border-l border-gray-300 pl-3">
+          <button id="export-excel-btn" class="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Exporter en Excel">
+            <i class="fas fa-download text-xs"></i>
+            <span>Exporter</span>
+          </button>
+        </div>
+
+        <!-- Bouton de rafraîchissement -->
+        <button id="refresh-vue-quantitative" class="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200" title="Actualiser les données">
+          <i class="fas fa-sync-alt text-xs"></i>
+          <span>Actualiser</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Grille des états de commandes -->
+    <div id="vue-quantitative-etats-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <!-- Contenu chargé dynamiquement -->
+      <div class="col-span-full flex items-center justify-center py-12">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p class="text-gray-500">Chargement des données...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Styles CSS spécifiques -->
+<style>
+  /* Styles pour la validation des dates */
+  .border-red-500 {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 1px #ef4444 !important;
+  }
+  
+  #date-error-message {
+    @apply text-xs text-red-600 font-medium;
+  }
+  
+  /* Améliorer l'apparence du conteneur de dates personnalisées */
+  #custom-date-container {
+    @apply bg-gray-50 rounded-lg p-3 border border-gray-200;
+  }
+</style>
+
+<!-- JavaScript pour le chargement des données -->
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    let currentData = null // Stocker les données actuelles pour l'export
+  
+    // Charger les données de l'onglet État des commandes
+    function loadVueQuantitativeData(period = 'aujourd_hui') {
+      // Afficher un indicateur de chargement
+      showLoadingState()
+  
+      const url = '/kpis/api/vue-quantitative/?period=' + period
+      console.log('🔍 Chargement des données pour la période:', period)
+      console.log('🌐 URL appelée:', url)
+  
+      fetch(url)
+        .then((response) => {
+          console.log('📡 Réponse reçue, status:', response.status)
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+          return response.json()
+        })
+        .then((data) => {
+          console.log('📊 Données reçues:', data)
+          if (data.success) {
+            currentData = data.data // Stocker pour l'export
+            renderEtatsCommandes(data.data.etats_commandes)
+            console.log('✅ Données rendues avec succès')
+            // updatePeriodInfo supprimé - plus de ligne de résumé selon demande client
+          } else {
+            console.error('❌ Échec API:', data.message || 'Erreur inconnue')
+            showError('Erreur lors du chargement des données: ' + (data.message || 'Erreur inconnue'))
+          }
+        })
+        .catch((error) => {
+          console.error('❌ Erreur complète:', error)
+          showError('Erreur de connexion: ' + error.message)
+        })
+    }
+  
+    // Afficher l'état de chargement
+    function showLoadingState() {
+      const container = document.getElementById('vue-quantitative-etats-grid')
+      container.innerHTML = '<div class="col-span-full flex items-center justify-center py-12">' + '<div class="text-center">' + '<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>' + '<p class="text-gray-500">Chargement des données...</p>' + '</div>' + '</div>'
+    }
+  
+    // Mettre à jour les informations de période
+    function updatePeriodInfo(period, totalCommandes) {
+      // Supprimer cette fonction car nous ne voulons plus afficher la ligne de résumé
+      // selon les demandes du client
+    }
+  
+    // Rendu des cartes d'états de commandes
+    function renderEtatsCommandes(etats) {
+      var container = document.getElementById('vue-quantitative-etats-grid')
+  
+      var etatsConfig = {
+        recue: { label: 'Reçues', icon: 'fas fa-inbox', bgClass: 'bg-blue-100', iconClass: 'text-blue-600', numberClass: 'text-blue-600' },
+        affectee: { label: 'Affectées', icon: 'fas fa-user-check', bgClass: 'bg-green-100', iconClass: 'text-green-600', numberClass: 'text-green-600' },
+        non_affectee: { label: 'Non affectées', icon: 'fas fa-user-times', bgClass: 'bg-yellow-100', iconClass: 'text-yellow-600', numberClass: 'text-yellow-600' },
+        erronnee: { label: 'Erronées', icon: 'fas fa-exclamation-triangle', bgClass: 'bg-red-100', iconClass: 'text-red-600', numberClass: 'text-red-600' },
+        doublon: { label: 'Doublons', icon: 'fas fa-copy', bgClass: 'bg-orange-100', iconClass: 'text-orange-600', numberClass: 'text-orange-600' },
+        en_cours_confirmation: { label: 'En confirmation', icon: 'fas fa-clock', bgClass: 'bg-indigo-100', iconClass: 'text-indigo-600', numberClass: 'text-indigo-600' },
+        confirmee: { label: 'Confirmées', icon: 'fas fa-check-circle', bgClass: 'bg-emerald-100', iconClass: 'text-emerald-600', numberClass: 'text-emerald-600' },
+        en_cours_preparation: { label: 'En préparation', icon: 'fas fa-box-open', bgClass: 'bg-cyan-100', iconClass: 'text-cyan-600', numberClass: 'text-cyan-600' },
+        preparee: { label: 'Préparées', icon: 'fas fa-box', bgClass: 'bg-teal-100', iconClass: 'text-teal-600', numberClass: 'text-teal-600' },
+        en_cours_livraison: { label: 'En livraison', icon: 'fas fa-truck', bgClass: 'bg-purple-100', iconClass: 'text-purple-600', numberClass: 'text-purple-600' },
+        livree: { label: 'Livrées', icon: 'fas fa-check-double', bgClass: 'bg-green-100', iconClass: 'text-green-700', numberClass: 'text-green-700' },
+        retournee: { label: 'Retournées', icon: 'fas fa-undo', bgClass: 'bg-gray-100', iconClass: 'text-gray-600', numberClass: 'text-gray-600' }
+      }
+  
+      var html = ''
+      for (var etat in etats) {
+        if (etats.hasOwnProperty(etat)) {
+          var count = etats[etat]
+          var config = etatsConfig[etat]
+          if (config) {
+            html += '<div class="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">'
+            html += '  <div class="flex items-center justify-between">'
+            html += '    <div>'
+            html += '      <p class="text-sm font-medium text-gray-600">' + config.label + '</p>'
+            html += '      <p class="text-2xl font-bold ' + config.numberClass + '">' + count.toLocaleString() + '</p>'
+            html += '    </div>'
+            html += '    <div class="w-12 h-12 ' + config.bgClass + ' rounded-lg flex items-center justify-center">'
+            html += '      <i class="' + config.icon + ' ' + config.iconClass + ' text-xl"></i>'
+            html += '    </div>'
+            html += '  </div>'
+            html += '</div>'
+          }
+        }
+      }
+  
+      container.innerHTML = html
+    }
+  
+    // Fonction d'erreur
+    function showError(message) {
+      var container = document.getElementById('vue-quantitative-etats-grid')
+      container.innerHTML = '<div class="col-span-full bg-red-50 border border-red-200 rounded-lg p-6 text-center">' + '  <div class="text-red-600 mb-2">' + '    <i class="fas fa-exclamation-triangle text-2xl"></i>' + '  </div>' + '  <p class="text-red-800 font-medium">' + message + '</p>' + '</div>'
+    }
+  
+    // Fonction pour valider les dates
+    function validateCustomDates(fromDate, toDate) {
+      const today = new Date().toISOString().split('T')[0]
+      const errorMessage = document.getElementById('date-error-message')
+  
+      // Réinitialiser les styles d'erreur
+      document.getElementById('custom-date-from').classList.remove('border-red-500')
+      document.getElementById('custom-date-to').classList.remove('border-red-500')
+      errorMessage.classList.add('hidden')
+  
+      // Vérifier que les dates sont saisies
+      if (!fromDate) {
+        showDateError('Veuillez sélectionner une date de début', 'from')
+        return false
+      }
+  
+      if (!toDate) {
+        showDateError('Veuillez sélectionner une date de fin', 'to')
+        return false
+      }
+  
+      // Vérifier que la date de début n'est pas après la date de fin
+      if (fromDate > toDate) {
+        showDateError('La date de début ne peut pas être après la date de fin', 'from')
+        return false
+      }
+  
+      // Vérifier que la date de fin ne dépasse pas aujourd'hui
+      if (toDate > today) {
+        showDateError('La date de fin ne peut pas être dans le futur', 'to')
+        return false
+      }
+  
+      return true
+    }
+  
+    function showDateError(message, field) {
+      const errorMessage = document.getElementById('date-error-message')
+      errorMessage.textContent = message
+      errorMessage.classList.remove('hidden')
+  
+      if (field === 'from') {
+        document.getElementById('custom-date-from').classList.add('border-red-500')
+      } else if (field === 'to') {
+        document.getElementById('custom-date-to').classList.add('border-red-500')
+      }
+    }
+  
+    // ...existing code... */
+    function exportToExcel() {
+      if (!currentData) {
+        alert("Aucune donnée à exporter. Veuillez charger les données d'abord.")
+        return
+      }
+  
+      const etats = currentData.etats_commandes
+      const periode = document.getElementById('vue-quantitative-period-filter').value
+      const total = currentData.total_commandes
+  
+      // Labels français corrects avec tous les accents
+      const etatsLabels = {
+        recue: 'Reçues',
+        affectee: 'Affectées',
+        non_affectee: 'Non affectées',
+        erronnee: 'Erronées',
+        doublon: 'Doublons',
+        en_cours_confirmation: 'En confirmation',
+        confirmee: 'Confirmées',
+        en_cours_preparation: 'En préparation',
+        preparee: 'Préparées',
+        en_cours_livraison: 'En livraison',
+        livree: 'Livrées',
+        retournee: 'Retournées'
+      }
+  
+      // Créer un vrai format Excel avec HTML table (Excel peut l'interpréter)
+      let htmlContent = `<?xml version="1.0"?>
+        <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+         xmlns:o="urn:schemas-microsoft-com:office:office"
+         xmlns:x="urn:schemas-microsoft-com:office:excel"
+         xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+         xmlns:html="http://www.w3.org/TR/REC-html40">
+         <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+          <Title>États des commandes</Title>
+         </DocumentProperties>
+         <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+          <WindowHeight>12000</WindowHeight>
+          <WindowWidth>18000</WindowWidth>
+          <WindowTopX>0</WindowTopX>
+          <WindowTopY>0</WindowTopY>
+         </ExcelWorkbook>
+         <Styles>
+          <Style ss:ID="header">
+           <Font ss:Bold="1"/>
+           <Interior ss:Color="#D3D3D3" ss:Pattern="Solid"/>
+          </Style>
+          <Style ss:ID="total">
+           <Font ss:Bold="1"/>
+           <Interior ss:Color="#F0F0F0" ss:Pattern="Solid"/>
+          </Style>
+         </Styles>
+         <Worksheet ss:Name="États des commandes">
+          <Table>
+           <Row>
+            <Cell ss:StyleID="header"><Data ss:Type="String">État de commande</Data></Cell>
+            <Cell ss:StyleID="header"><Data ss:Type="String">Nombre</Data></Cell>
+            <Cell ss:StyleID="header"><Data ss:Type="String">Pourcentage</Data></Cell>
+           </Row>`
+  
+      // Ajouter les données des états
+      for (const [etat, count] of Object.entries(etats)) {
+        const label = etatsLabels[etat] || etat
+        const pourcentage = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
+  
+        htmlContent += `
+           <Row>
+            <Cell><Data ss:Type="String">${label}</Data></Cell>
+            <Cell><Data ss:Type="Number">${count}</Data></Cell>
+            <Cell><Data ss:Type="String">${pourcentage}%</Data></Cell>
+           </Row>`
+      }
+  
+      // Ajouter une ligne vide et le total
+      htmlContent += `
+           <Row></Row>
+           <Row>
+            <Cell ss:StyleID="total"><Data ss:Type="String">Total</Data></Cell>
+            <Cell ss:StyleID="total"><Data ss:Type="Number">${total}</Data></Cell>
+            <Cell ss:StyleID="total"><Data ss:Type="String">100.0%</Data></Cell>
+           </Row>
+          </Table>
+         </Worksheet>
+        </Workbook>`
+  
+      // Créer et télécharger le fichier Excel (.xls format XML Excel)
+      const blob = new Blob(['\ufeff' + htmlContent], {
+        type: 'application/vnd.ms-excel;charset=utf-8;'
+      })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+  
+      // Nom de fichier avec extension .xls (format XML Excel)
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      link.setAttribute('download', 'etats_commandes_' + periode + '_' + dateStr + '.xls')
+  
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  
+    // Gestionnaires d'événements
+    document.getElementById('vue-quantitative-period-filter').addEventListener('change', function () {
+      const selectedPeriod = this.value
+      const customContainer = document.getElementById('custom-date-container')
+  
+      if (selectedPeriod === 'personnalisee') {
+        // Afficher le sélecteur de date personnalisé
+        customContainer.classList.remove('hidden')
+        customContainer.classList.add('flex')
+  
+        // Configurer les dates par défaut : aujourd'hui et il y a 7 jours
+        const today = new Date().toISOString().split('T')[0]
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        const weekAgoStr = weekAgo.toISOString().split('T')[0]
+  
+        // Définir les dates par défaut
+        const fromInput = document.getElementById('custom-date-from')
+        const toInput = document.getElementById('custom-date-to')
+  
+        if (!fromInput.value) {
+          fromInput.value = weekAgoStr
+        }
+        if (!toInput.value) {
+          toInput.value = today
+        }
+  
+        // Configurer les contraintes des inputs
+        fromInput.max = today
+        toInput.min = fromInput.value
+        toInput.max = today
+  
+        // Ne pas charger les données immédiatement, attendre l'application
+      } else {
+        // Masquer le sélecteur de date personnalisé
+        customContainer.classList.add('hidden')
+        customContainer.classList.remove('flex')
+  
+        // Réinitialiser les messages d'erreur
+        document.getElementById('date-error-message').classList.add('hidden')
+        document.getElementById('custom-date-from').classList.remove('border-red-500')
+        document.getElementById('custom-date-to').classList.remove('border-red-500')
+  
+        // Charger les données pour les périodes prédéfinies
+        loadVueQuantitativeData(selectedPeriod)
+      }
+    })
+  
+    // Gestionnaire pour la date personnalisée - date de début
+    document.getElementById('custom-date-from').addEventListener('change', function () {
+      const fromDate = this.value
+      const toDateInput = document.getElementById('custom-date-to')
+      const today = new Date().toISOString().split('T')[0]
+  
+      if (fromDate) {
+        // Définir la date minimum pour la date de fin (= date de début)
+        toDateInput.min = fromDate
+        // Définir la date maximum pour la date de fin (= aujourd'hui)
+        toDateInput.max = today
+  
+        // Si aucune date de fin n'est définie, utiliser aujourd'hui
+        if (!toDateInput.value) {
+          toDateInput.value = today
+        }
+  
+        // Si la date de fin actuelle est avant la nouvelle date de début, l'ajuster
+        if (toDateInput.value < fromDate) {
+          toDateInput.value = fromDate
+        }
+      }
+  
+      // Valider en temps réel
+      validateCustomDates(fromDate, toDateInput.value)
+    })
+  
+    // Gestionnaire pour la date personnalisée - date de fin
+    document.getElementById('custom-date-to').addEventListener('change', function () {
+      const toDate = this.value
+      const fromDate = document.getElementById('custom-date-from').value
+  
+      // Valider en temps réel
+      validateCustomDates(fromDate, toDate)
+    })
+  
+    document.getElementById('apply-custom-date').addEventListener('click', function () {
+      const fromDate = document.getElementById('custom-date-from').value
+      const toDate = document.getElementById('custom-date-to').value
+  
+      // Valider les dates avant d'appliquer
+      if (!validateCustomDates(fromDate, toDate)) {
+        return
+      }
+  
+      // Construire le paramètre de période personnalisée
+      const customPeriod = 'custom:' + fromDate + ':' + toDate
+      loadVueQuantitativeData(customPeriod)
+    })
+  
+    document.getElementById('export-excel-btn').addEventListener('click', exportToExcel)
+  
+    document.getElementById('refresh-vue-quantitative').addEventListener('click', function () {
+      const currentPeriod = document.getElementById('vue-quantitative-period-filter').value
+      loadVueQuantitativeData(currentPeriod)
+  
+      // Animation du bouton
+      const icon = this.querySelector('i')
+      icon.classList.add('animate-spin')
+      setTimeout(() => {
+        icon.classList.remove('animate-spin')
+      }, 1000)
+    })
+  
+    // Écouter l'événement de changement d'onglet
+    document.addEventListener('tabChanged', function (e) {
+      if (e.detail.tab === 'vue-quantitative') {
+        const currentPeriod = document.getElementById('vue-quantitative-period-filter').value
+        loadVueQuantitativeData(currentPeriod)
+      }
+    })
+  
+    // Charger les données si l'onglet est déjà actif
+    var activeTab = document.querySelector('.kpi-tab-button.active')
+    if (activeTab && activeTab.getAttribute('data-tab') === 'vue-quantitative') {
+      loadVueQuantitativeData()
+    }
+  })
+</script>

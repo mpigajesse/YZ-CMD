@@ -893,8 +893,13 @@ function lancerCommandes(commandeIds) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Rechargement de la page pour voir les modifications
-            location.reload();
+            if (data.redirect_url) {
+                // Si une URL de redirection est fournie, l'utiliser
+                window.location.href = data.redirect_url;
+            } else {
+                // Sinon, recharger la page (cas de la sélection multiple)
+                location.reload();
+            }
         } else {
             showErrorModal('Erreur : ' + data.message);
         }
@@ -1053,6 +1058,146 @@ function hideErrorModal() {
     }
 }
 
+// Gestion des modals
+function showConfirmModal() {
+    document.getElementById('confirmModal').classList.remove('hidden');
+    document.getElementById('confirmModal').classList.add('flex');
+}
+
+function hideConfirmModal() {
+    document.getElementById('confirmModal').classList.add('hidden');
+    document.getElementById('confirmModal').classList.remove('flex');
+    document.getElementById('confirmComment').value = '';
+}
+
+// Fonctions simplifiées - Les opérations sont maintenant automatisées
+
+// Fermer les modals en cliquant à l'extérieur
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        hideConfirmModal();
+    }
+});
+
+// ================== MODAL DE CONFIRMATION SIMPLE ==================
+
+// Fonction pour afficher le modal de confirmation simple
+function showConfirmationModalSimple() {
+    const modal = document.getElementById('confirmationModalSimple');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de confirmation simple
+function hideConfirmationModalSimple() {
+    const modal = document.getElementById('confirmationModalSimple');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour procéder à la confirmation simple
+function proceedWithSimpleConfirmation() {
+    hideConfirmationModalSimple();
+    
+    if (window.currentCommandeId) {
+        fetch(`/operateur-confirme/commandes/${window.currentCommandeId}/confirmer-ajax/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                'commentaire': 'Commande confirmée depuis la page confirmation'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Rechargement de la page pour voir les modifications
+                location.reload();
+            } else {
+                showErrorModal('Erreur : ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showErrorModal('Une erreur est survenue lors de la confirmation.');
+        });
+    }
+}
+
+// ================== MODAL DE CONFIRMATION EN MASSE ==================
+
+// Fonction pour afficher le modal de confirmation en masse
+function showMassConfirmationModal() {
+    const modal = document.getElementById('massConfirmationModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de confirmation en masse
+function hideMassConfirmationModal() {
+    const modal = document.getElementById('massConfirmationModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour procéder à la confirmation en masse
+function proceedWithMassConfirmation() {
+    hideMassConfirmationModal();
+    
+    if (window.selectedCommandes && window.selectedCommandes.length > 0) {
+        lancerCommandes(window.selectedCommandes);
+    }
+}
+
+// ================== MODALS D'ERREUR ET DE SÉLECTION ==================
+
+// Fonction pour afficher le modal d'erreur de sélection
+function showSelectionErrorModal() {
+    const modal = document.getElementById('selectionErrorModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal d'erreur de sélection
+function hideSelectionErrorModal() {
+    const modal = document.getElementById('selectionErrorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour afficher le modal d'erreur générique
+function showErrorModal(message) {
+    const modal = document.getElementById('errorModal');
+    const messageElement = document.getElementById('errorMessage');
+    if (modal && messageElement) {
+        messageElement.textContent = message;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal d'erreur générique
+function hideErrorModal() {
+    const modal = document.getElementById('errorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
 </script>
 
 <!-- Modal de Confirmation Simple Tailwind -->

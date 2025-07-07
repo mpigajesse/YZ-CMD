@@ -66,6 +66,7 @@ class Commande(models.Model):
     ville_init = models.CharField(max_length=100, blank=True, null=True)
     ville = models.ForeignKey(Ville, on_delete=models.CASCADE, null=True, blank=True, related_name='commandes')
     produit_init = models.TextField(blank=True, null=True)
+    compteur = models.IntegerField(default=0, verbose_name="Compteur d'utilisation")
     
     class Meta:
         verbose_name = "Commande"
@@ -134,6 +135,33 @@ class Commande(models.Model):
         """Retourne l'historique complet des états"""
         return self.etats.all().order_by('date_debut')
 
+    def recalculer_totaux_upsell(self):
+        """
+        Recalcule automatiquement les totaux de la commande selon le compteur upsell.
+        Tous les articles de la commande prennent le prix upsell correspondant au compteur.
+        """
+        from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+        
+        nouveau_total = 0
+        
+        # Recalculer chaque panier selon le compteur upsell
+        for panier in self.paniers.all():
+            # Calculer le prix selon le compteur de la commande
+            prix_unitaire = get_prix_upsell_avec_compteur(panier.article, self.compteur)
+            nouveau_sous_total = prix_unitaire * panier.quantite
+            
+            # Mettre à jour le sous-total du panier si nécessaire
+            if panier.sous_total != nouveau_sous_total:
+                panier.sous_total = nouveau_sous_total
+                panier.save()
+            
+            nouveau_total += nouveau_sous_total
+        
+        # Mettre à jour le total de la commande si nécessaire
+        if self.total_cmd != nouveau_total:
+            self.total_cmd = nouveau_total
+            self.save(update_fields=['total_cmd'])
+
 
 class Panier(models.Model):
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='paniers')
@@ -199,8 +227,7 @@ class Operation(models.Model):
         ("Message Whatsapp", "Appel Whatsapp "),
         ("Vocal Whatsapp", "Vocal Whatsapp "),
         ('ENVOI_SMS', 'Envoi de SMS'),
-        ('REMPLACEMENT', 'Remplacement'),
-        ('MODIFICATION_PREPA', 'Modification (Préparation)'),
+        ('MODIFICATION', 'Modification'),
     ]
     Type_Commentaire_CHOICES=[
         ("Commande Annulée", "Commande Annulée"),
@@ -213,7 +240,7 @@ class Operation(models.Model):
         
     ]
     
-    type_operation = models.CharField(max_length=50, choices=TYPE_OPERATION_CHOICES)
+    type_operation = models.CharField(max_length=30, choices=TYPE_OPERATION_CHOICES)
     date_operation = models.DateTimeField(default=timezone.now)
     conclusion = models.TextField()
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='operations')

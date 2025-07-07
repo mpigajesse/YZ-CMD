@@ -33,6 +33,8 @@ ALLOWED_HOSTS = [
     '192.168.216.128',  # Votre adresse IP locale
     '192.168.66.128',
     '192.168.216.*',    # Toutes les adresses de votre sous-réseau
+    '192.168.8.114',
+    '192.168.145.129',
 ]
 
 
@@ -201,7 +203,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://192.168.216.128:8000",
-    "http://192.168.66.128:8000",
+    "http://192.168.66.128:8000",    
+    "http://192.168.8.114:8000",
+    "http://192.168.145.129:8000",
     
 ]
 
@@ -229,6 +233,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://192.168.216.128:8000',
     'http://192.168.216.*:8000',
     'http://192.168.66.128:8000',
+    "http://192.168.8.114:8000",
+    "http://192.168.145.129:8000",
     # Ajout de toutes les origines possibles pour le développement local
     'http://localhost',
     'http://127.0.0.1',
@@ -236,6 +242,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:*',
     'http://127.0.0.1:*',
     'http://192.168.66.128:*',
+    "http://192.168.8.114:*",
+
 ]
 # Désactiver l'utilisation des sessions pour le CSRF token en développement
 CSRF_USE_SESSIONS = False

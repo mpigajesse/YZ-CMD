@@ -11,10 +11,32 @@ class YoozakKPIManager {
     this.charts = new Map();
     this.chartsLoaded = new Set(); // Cache des graphiques déjà chargés
     this.filters = {};
-    this.activeTab = 'vue-generale';
+    this.activeTab = 'ventes';
     this.isLoading = false;
+    this.selectedPeriod = '30j'; // Persistance de la période sélectionnée
 
     this.init();
+  }
+
+  // Fonction utilitaire pour le formatage des nombres en français
+  formatNumberFR(number, decimals = 0) {
+    if (typeof number !== 'number' || isNaN(number)) {
+      return '0';
+    }
+    return number.toLocaleString('fr-FR', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    });
+  }
+
+  // Fonction utilitaire pour obtenir le libellé d'une période
+  getPeriodLabel(period) {
+    const periodeLabels = {
+      '7j': '7 derniers jours',
+      '30j': '30 derniers jours',
+      '90j': '90 derniers jours'
+    };
+    return periodeLabels[period] || period;
   }
 
   init() {
@@ -38,10 +60,16 @@ class YoozakKPIManager {
       }
     });
 
-    // Bouton actualiser
+    // Bouton actualiser principal
     const refreshBtn = document.querySelector('[data-action="refresh"]');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => this.refreshCurrentTab());
+    }
+
+    // Bouton actualiser dans l'en-tête KPIs
+    const refreshKpisBtn = document.getElementById('refresh-kpis');
+    if (refreshKpisBtn) {
+      refreshKpisBtn.addEventListener('click', () => this.refreshCurrentTab());
     }
   }
 
@@ -57,69 +85,15 @@ class YoozakKPIManager {
 
     // Charger les données appropriées selon l'onglet actif
     switch (this.activeTab) {
-      case 'vue-generale':
-        await this.loadVueGeneraleData();
-        break;
       case 'ventes':
         // CORRECTION : Les KPIs ne sont PAS chargés côté serveur !
         // Il faut toujours appeler l'API pour charger les KPIs + graphiques
         await this.loadVentesData();
         break;
       default:
-        console.log('⚠️ Onglet non implémenté, chargement vue générale par défaut');
-        await this.loadVueGeneraleData();
+        console.log('⚠️ Onglet non implémenté, chargement des données par défaut');
+        // Pas de chargement par défaut, les données seront chargées lors du changement d'onglet
     }
-  }
-
-  async loadVueGeneraleData() {
-    if (this.isLoading) return;
-
-    this.isLoading = true;
-    this.showLoadingState();
-
-    try {
-      const response = await fetch(this.apiEndpoint + 'vue-generale/', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        this.updateVueGeneraleKPIs(data);
-        this.updateLastUpdateTime(data.timestamp);
-        console.log('✅ Données Vue Générale chargées avec succès');
-      } else {
-        throw new Error(data.message || 'Erreur lors du chargement des données');
-      }
-
-    } catch (error) {
-      console.error('❌ Erreur chargement Vue Générale:', error);
-      this.showErrorState('Impossible de charger les données KPIs. Veuillez actualiser la page.');
-    } finally {
-      this.isLoading = false;
-      this.hideLoadingState();
-    }
-  }
-
-  updateVueGeneraleKPIs(data) {
-    // Mettre à jour les KPIs principaux
-    this.updateKPICard('ca-mois', data.kpis_principaux.ca_mois);
-    this.updateKPICard('commandes-jour', data.kpis_principaux.commandes_jour);
-    this.updateKPICard('stock-critique', data.kpis_principaux.stock_critique);
-    this.updateKPICard('taux-conversion', data.kpis_principaux.taux_conversion);    // Mettre à jour les KPIs secondaires
-    this.updateKPICard('panier-moyen', data.kpis_secondaires.panier_moyen);
-    this.updateKPICard('delai-livraison', data.kpis_secondaires.delai_livraison);
-    this.updateKPICard('satisfaction', data.kpis_secondaires.satisfaction);
-    this.updateKPICard('support-24-7', data.kpis_secondaires.support_24_7);
-    this.updateKPICard('stock-total', data.kpis_secondaires.stock_total);
   }
 
   updateKPICard(cardId, kpiData) {
@@ -279,9 +253,6 @@ class YoozakKPIManager {
   async refreshData() {
     console.log('🔄 Actualisation des données...');
     switch (this.activeTab) {
-      case 'vue-generale':
-        await this.loadVueGeneraleData();
-        break;
       case 'ventes':
         await this.loadVentesData();
         break;
@@ -294,9 +265,6 @@ class YoozakKPIManager {
     console.log('🔄 Actualisation de l\'onglet actuel:', this.activeTab);
 
     switch (this.activeTab) {
-      case 'vue-generale':
-        await this.loadVueGeneraleData();
-        break;
       case 'ventes':
         await this.loadVentesData(); // Actualisation complète
         break;
@@ -395,7 +363,7 @@ class YoozakKPIManager {
 
         // Mettre à jour les graphiques
         await Promise.all([
-          this.updateEvolutionCAChart(),
+          this.updateVentesEvolutionCAChart(),
           this.updateTopModelesChart()
         ]);
 
@@ -434,7 +402,7 @@ class YoozakKPIManager {
 
       // Les KPIs sont déjà chargés côté serveur, on charge juste les graphiques
       await Promise.all([
-        this.updateEvolutionCAChart(), // API call interne
+        this.updateVentesEvolutionCAChart(), // API call interne
         this.updateTopModelesChart()   // API call interne
       ]);
 
@@ -448,21 +416,25 @@ class YoozakKPIManager {
     }
   }
 
-  async updateEvolutionCAChart(data) {
-    const chartId = 'evolution-ca-chart';
+  async updateVentesEvolutionCAChart(data) {
+    const chartId = 'ventes-evolution-ca-chart';
     let canvasElement = document.getElementById(chartId);
 
     if (!canvasElement) {
       const container = document.querySelector('.evolution-ca-container');
       if (!container) return;
 
+      // Créer le HTML avec la période persistée
       container.innerHTML = `
         <div class="flex items-center justify-between mb-4">
+          <div>
           <h3 class="text-lg font-semibold text-gray-900">📈 Evolution du CA</h3>
+            <p id="periode-indicator" class="text-sm text-blue-600 font-medium">Période: ${this.getPeriodLabel(this.selectedPeriod)}</p>
+          </div>
           <div class="flex gap-2">
-            <button onclick="window.yoozakKPI.changeEvolutionPeriod('7j')" class="text-xs px-2 py-1 bg-blue-100 text-blue-600 rounded period-btn" data-period="7j">7j</button>
-            <button onclick="window.yoozakKPI.changeEvolutionPeriod('30j')" class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded period-btn active" data-period="30j">30j</button>
-            <button onclick="window.yoozakKPI.changeEvolutionPeriod('90j')" class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded period-btn" data-period="90j">90j</button>
+            <button onclick="window.yoozakKPI.changeEvolutionPeriod('7j')" class="text-xs px-3 py-1.5 ${this.selectedPeriod === '7j' ? 'bg-blue-100 text-blue-600 font-medium' : 'bg-gray-100 text-gray-600'} rounded-lg period-btn hover:bg-blue-50 transition-colors" data-period="7j">7 jours</button>
+            <button onclick="window.yoozakKPI.changeEvolutionPeriod('30j')" class="text-xs px-3 py-1.5 ${this.selectedPeriod === '30j' ? 'bg-blue-100 text-blue-600 font-medium' : 'bg-gray-100 text-gray-600'} rounded-lg period-btn hover:bg-blue-50 transition-colors" data-period="30j">30 jours</button>
+            <button onclick="window.yoozakKPI.changeEvolutionPeriod('90j')" class="text-xs px-3 py-1.5 ${this.selectedPeriod === '90j' ? 'bg-blue-100 text-blue-600 font-medium' : 'bg-gray-100 text-gray-600'} rounded-lg period-btn hover:bg-blue-50 transition-colors" data-period="90j">90 jours</button>
           </div>
         </div>
         <div class="relative">
@@ -476,7 +448,37 @@ class YoozakKPIManager {
     }
 
     try {
-      const evolutionData = await this.fetchEvolutionCAData('30j');
+      // Utiliser la période sélectionnée au lieu de '30j' en dur
+      const evolutionData = await this.fetchEvolutionCAData(this.selectedPeriod);
+
+      // Vérifier s'il y a des données
+      if (!evolutionData || !evolutionData.values || evolutionData.values.length === 0 || evolutionData.values.every(val => val === 0)) {
+        const container = document.querySelector('.evolution-ca-container');
+        if (container) {
+          container.innerHTML = `
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900">📈 Evolution du CA</h3>
+                <p class="text-sm text-blue-600 font-medium">Période: ${this.getPeriodLabel(this.selectedPeriod)}</p>
+              </div>
+              <div class="flex gap-2">
+                <button onclick="window.yoozakKPI.changeEvolutionPeriod('7j')" class="text-xs px-3 py-1.5 ${this.selectedPeriod === '7j' ? 'bg-blue-100 text-blue-600 font-medium' : 'bg-gray-100 text-gray-600'} rounded-lg period-btn hover:bg-blue-50 transition-colors" data-period="7j">7 jours</button>
+                <button onclick="window.yoozakKPI.changeEvolutionPeriod('30j')" class="text-xs px-3 py-1.5 ${this.selectedPeriod === '30j' ? 'bg-blue-100 text-blue-600 font-medium' : 'bg-gray-100 text-gray-600'} rounded-lg period-btn hover:bg-blue-50 transition-colors" data-period="30j">30 jours</button>
+                <button onclick="window.yoozakKPI.changeEvolutionPeriod('90j')" class="text-xs px-3 py-1.5 ${this.selectedPeriod === '90j' ? 'bg-blue-100 text-blue-600 font-medium' : 'bg-gray-100 text-gray-600'} rounded-lg period-btn hover:bg-blue-50 transition-colors" data-period="90j">90 jours</button>
+              </div>
+            </div>
+            <div class="h-64 bg-blue-50 border-2 border-dashed border-blue-200 rounded-lg flex items-center justify-center">
+              <div class="text-center">
+                <i class="fas fa-chart-line text-blue-400 text-3xl mb-3"></i>
+                <h4 class="text-lg font-semibold text-blue-900 mb-2">Aucune donnée de ventes</h4>
+                <p class="text-blue-700 text-sm">Aucune commande livrée sur la période sélectionnée</p>
+                <p class="text-blue-600 text-xs mt-1">Les données apparaîtront dès qu'il y aura des livraisons</p>
+              </div>
+            </div>
+          `;
+        }
+        return;
+      }
 
       if (this.charts.has(chartId)) {
         this.charts.get(chartId).destroy();
@@ -519,7 +521,7 @@ class YoozakKPIManager {
               displayColors: false,
               callbacks: {
                 label: function (context) {
-                  return `CA: ${context.parsed.y.toLocaleString()} DH`;
+                  return `CA: ${context.parsed.y.toLocaleString('fr-FR')} DH`;
                 }
               }
             }
@@ -543,7 +545,7 @@ class YoozakKPIManager {
                 color: '#6b7280',
                 font: { size: 11 },
                 callback: function (value) {
-                  return value.toLocaleString() + ' DH';
+                  return value.toLocaleString('fr-FR') + ' DH';
                 }
               }
             }
@@ -600,7 +602,23 @@ class YoozakKPIManager {
       }
 
       if (!modeles || modeles.length === 0) {
-        canvasElement.parentElement.innerHTML = '<div class="h-64 flex items-center justify-center text-gray-500"><i class="fas fa-box-open mr-2"></i>Aucun modèle trouvé</div>';
+        const container = document.querySelector('.top-modeles-container');
+        if (container) {
+          container.innerHTML = `
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-gray-900">🏆 Top Modèles (CA)</h3>
+              <div class="text-xs text-gray-500">Top 5 par chiffre d'affaires</div>
+            </div>
+            <div class="h-64 bg-yellow-50 border-2 border-dashed border-yellow-200 rounded-lg flex items-center justify-center">
+              <div class="text-center">
+                <i class="fas fa-crown text-yellow-400 text-3xl mb-3"></i>
+                <h4 class="text-lg font-semibold text-yellow-900 mb-2">Aucun modèle vendu</h4>
+                <p class="text-yellow-700 text-sm">Aucune commande livrée pour cette période</p>
+                <p class="text-yellow-600 text-xs mt-1">Le classement apparaîtra dès qu'il y aura des livraisons</p>
+              </div>
+            </div>
+          `;
+        }
         return;
       }
 
@@ -608,13 +626,36 @@ class YoozakKPIManager {
         this.charts.get(chartId).destroy();
       }
 
-      // Prendre seulement les 5 premiers
-      const topModeles = modeles.slice(0, 5);
+      // Prendre seulement les 5 premiers et valider
+      const topModeles = Array.isArray(modeles) ? modeles.slice(0, 5) : [];
+      
+      // Vérifier qu'il y a des données valides
+      if (topModeles.length === 0) {
+        const container = document.querySelector('.top-modeles-container');
+        if (container) {
+          container.innerHTML = `
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-gray-900">🏆 Top Modèles (CA)</h3>
+              <div class="text-xs text-gray-500">Top 5 par chiffre d'affaires</div>
+            </div>
+            <div class="h-64 bg-yellow-50 border-2 border-dashed border-yellow-200 rounded-lg flex items-center justify-center">
+              <div class="text-center">
+                <i class="fas fa-crown text-yellow-400 text-3xl mb-3"></i>
+                <h4 class="text-lg font-semibold text-yellow-900 mb-2">Aucun modèle vendu</h4>
+                <p class="text-yellow-700 text-sm">Aucune commande livrée pour cette période</p>
+                <p class="text-yellow-600 text-xs mt-1">Le classement apparaîtra dès qu'il y aura des livraisons</p>
+              </div>
+            </div>
+          `;
+        }
+        return;
+      }
+
       const labels = topModeles.map(model =>
-        model.nom.length > 15 ? model.nom.substring(0, 15) + '...' : model.nom
+        model && model.nom ? (model.nom.length > 15 ? model.nom.substring(0, 15) + '...' : model.nom) : 'Sans nom'
       );
-      const values = topModeles.map(model => model.ca);
-      const backgroundColors = topModeles.map(model => model.couleur || '#3b82f6');
+      const values = topModeles.map(model => model && typeof model.ca === 'number' ? model.ca : 0);
+      const backgroundColors = topModeles.map(model => model && model.couleur ? model.couleur : '#3b82f6');
 
       const ctx = canvasElement.getContext('2d');
       const chart = new Chart(ctx, {
@@ -624,7 +665,7 @@ class YoozakKPIManager {
           datasets: [{
             label: 'Chiffre d\'Affaires (DH)',
             data: values,
-            backgroundColor: backgroundColors.map(color => color + '20'),
+            backgroundColor: backgroundColors.map(color => (color || '#3b82f6') + '20'),
             borderColor: backgroundColors,
             borderWidth: 2,
             borderRadius: 6,
@@ -655,7 +696,7 @@ class YoozakKPIManager {
                 label: function (context) {
                   const model = topModeles[context.dataIndex];
                   return [
-                    `CA: ${context.parsed.y.toLocaleString()} DH`,
+                    `CA: ${context.parsed.y.toLocaleString('fr-FR')} DH`,
                     `Ventes: ${model.nb_ventes} unités`,
                     `Réf: ${model.reference}`
                   ];
@@ -684,7 +725,7 @@ class YoozakKPIManager {
                 color: '#6b7280',
                 font: { size: 11 },
                 callback: function (value) {
-                  return value.toLocaleString() + ' DH';
+                  return value.toLocaleString('fr-FR') + ' DH';
                 }
               }
             }
@@ -758,12 +799,17 @@ class YoozakKPIManager {
       const data = await response.json();
 
       if (data.success) {
+        // Vérifier que data.evolution est un tableau
+        if (!Array.isArray(data.evolution)) {
+          throw new Error('Format de données d\'évolution invalide');
+        }
+
         // Transformer les données API en format Chart.js
         const chartData = {
-          labels: data.evolution.map(item => item.date_formatee),
-          values: data.evolution.map(item => item.ca),
+          labels: data.evolution.map(item => item && item.date_formatee ? item.date_formatee : 'N/A'),
+          values: data.evolution.map(item => item && typeof item.ca === 'number' ? item.ca : 0),
           raw: data.evolution,
-          resume: data.resume
+          resume: data.resume || { ca_total: 0, ca_moyen: 0, tendance: 0 }
         };
         return chartData;
       } else {
@@ -793,7 +839,7 @@ class YoozakKPIManager {
           date: date.toISOString().split('T')[0],
           date_formatee: date.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' }),
           ca: ca,
-          ca_formate: `${ca.toLocaleString()} DH`
+          ca_formate: `${ca.toLocaleString('fr-FR')} DH`
         });
       }
 
@@ -807,17 +853,28 @@ class YoozakKPIManager {
   async changeEvolutionPeriod(period) {
     console.log(`🔄 Changement période évolution CA: ${period}`);
 
+    // Persister la période sélectionnée
+    this.selectedPeriod = period;
+
+    // Mise à jour visuelle des boutons
     document.querySelectorAll('.period-btn').forEach(btn => {
-      btn.classList.remove('active', 'bg-blue-100', 'text-blue-600');
+      btn.classList.remove('bg-blue-100', 'text-blue-600', 'font-medium');
       btn.classList.add('bg-gray-100', 'text-gray-600');
     });
 
     const activeBtn = document.querySelector(`[data-period="${period}"]`);
     if (activeBtn) {
       activeBtn.classList.remove('bg-gray-100', 'text-gray-600');
-      activeBtn.classList.add('active', 'bg-blue-100', 'text-blue-600');
+      activeBtn.classList.add('bg-blue-100', 'text-blue-600', 'font-medium');
     }
 
+    // Mise à jour de l'indicateur de période
+    const periodeIndicator = document.getElementById('periode-indicator');
+    if (periodeIndicator) {
+      periodeIndicator.textContent = `Période: ${this.getPeriodLabel(period)}`;
+    }
+
+    // Affichage du loading
     const loadingElement = document.getElementById('evolution-ca-loading');
     if (loadingElement) {
       loadingElement.classList.remove('hidden');
@@ -826,7 +883,7 @@ class YoozakKPIManager {
     try {
       const evolutionData = await this.fetchEvolutionCAData(period);
 
-      const chartId = 'evolution-ca-chart';
+      const chartId = 'ventes-ca-evolution-chart';
       if (this.charts.has(chartId)) {
         const chart = this.charts.get(chartId);
         chart.data.labels = evolutionData.labels;
@@ -834,8 +891,22 @@ class YoozakKPIManager {
         chart.update('active');
       }
 
+      console.log('✅ Période mise à jour avec succès:', period);
+
     } catch (error) {
       console.error('❌ Erreur changement période:', error);
+
+      // Notification d'erreur à l'utilisateur
+      if (periodeIndicator) {
+        const originalText = periodeIndicator.textContent;
+        periodeIndicator.textContent = '❌ Erreur lors du changement de période';
+        periodeIndicator.classList.add('text-red-600');
+
+        setTimeout(() => {
+          periodeIndicator.textContent = originalText;
+          periodeIndicator.classList.remove('text-red-600');
+        }, 3000);
+      }
     } finally {
       if (loadingElement) {
         loadingElement.classList.add('hidden');
@@ -856,50 +927,155 @@ class YoozakKPIManager {
   updateVentesKPIs(data) {
     console.log('🔄 Mise à jour des KPIs Ventes...', data);
 
-    try {      // KPIs principaux
+    try {
+      // Afficher le contenu principal et masquer le loading
+      document.getElementById('ventes-loading')?.classList.add('hidden');
+      document.getElementById('ventes-main-content')?.classList.remove('hidden');
+
+      // KPIs principaux
       if (data.kpis_principaux) {
-        this.updateKPICard('ca_total', data.kpis_principaux.ca_periode);
-        this.updateKPICard('panier_moyen', data.kpis_principaux.panier_moyen);
-        this.updateKPICard('nb_commandes', data.kpis_principaux.nb_commandes);
-        this.updateKPICard('taux_confirmation', data.kpis_principaux.taux_confirmation);
+        this.updateVentesKPICard('ca_periode', data.kpis_principaux.ca_periode);
+        this.updateVentesKPICard('panier_moyen', data.kpis_principaux.panier_moyen);
+        this.updateVentesKPICard('nb_commandes', data.kpis_principaux.nb_commandes);
       }
 
       // KPIs secondaires
       if (data.kpis_secondaires) {
-        const topModeles = data.kpis_secondaires.top_modeles;
-        const topRegions = data.kpis_secondaires.ventes_geographique;
-
-        if (topModeles && topModeles.length > 0) {
-          const topModele = topModeles[0];
-          this.updateKPICard('top_modele', {
-            valeur_formatee: topModele.nom,
-            sub_value: `${topModele.ca.toLocaleString()} DH`,
-            tendance: ((topModele.ca / data.kpis_principaux.ca_periode.valeur) * 100).toFixed(1)
+        // Top modèle avec vérification des données
+        if (data.kpis_secondaires.top_modele && data.kpis_secondaires.top_modele.nom) {
+          this.updateVentesKPICard('top_modele', {
+            nom: data.kpis_secondaires.top_modele.nom,
+            valeur_formatee: data.kpis_secondaires.top_modele.nom,
+            sub_value: data.kpis_secondaires.top_modele.ca ? `${data.kpis_secondaires.top_modele.ca.toLocaleString('fr-FR')} DH` : 'N/A',
+            tendance: data.kpis_secondaires.top_modele.pourcentage || 0,
+            pourcentage: data.kpis_secondaires.top_modele.pourcentage || 0,
+            unite: ''
           });
         }
 
-        if (topRegions && topRegions.length > 0) {
-          const topRegion = topRegions[0];
-          this.updateKPICard('top_region', {
-            valeur_formatee: topRegion.ville,
-            sub_value: `${topRegion.ca.toLocaleString()} DH`,
-            tendance: ((topRegion.ca / data.kpis_principaux.ca_periode.valeur) * 100).toFixed(1)
+        // Top région avec vérification des données
+        if (data.kpis_secondaires.top_region && data.kpis_secondaires.top_region.nom) {
+          this.updateVentesKPICard('top_region', {
+            nom: data.kpis_secondaires.top_region.nom,
+            valeur_formatee: data.kpis_secondaires.top_region.nom,
+            sub_value: data.kpis_secondaires.top_region.ca ? `${data.kpis_secondaires.top_region.ca.toLocaleString('fr-FR')} DH` : 'N/A',
+            tendance: data.kpis_secondaires.top_region.pourcentage || 0,
+            pourcentage: data.kpis_secondaires.top_region.pourcentage || 0,
+            unite: '',
+            est_donnees_manquantes: data.kpis_secondaires.top_region.est_donnees_manquantes || false
           });
         }
 
-        const commandeMax = Math.max(...data.kpis_secondaires.ventes_geographique.map(v => v.ca / v.commandes));
-        this.updateKPICard('commande_max', {
-          valeur_formatee: commandeMax.toLocaleString(),
-          sub_value: 'Record période',
-          tendance: 0
+        // Commande max avec vérification des données
+        if (data.kpis_secondaires.commande_max && data.kpis_secondaires.commande_max.valeur_formatee) {
+          this.updateVentesKPICard('commande_max', {
+            valeur_formatee: data.kpis_secondaires.commande_max.valeur_formatee,
+            sub_value: 'Record ce mois',
+            tendance: 0,
+            unite: 'DH'
         });
+        }
       }
 
       console.log('✅ KPIs Ventes mis à jour avec succès');
     } catch (error) {
-      console.error('❌ Erreur mise à jour KPIs Ventes:', error);
+      console.error('❌ Erreur lors de la mise à jour des KPIs Ventes:', error);
     }
   }
+
+  // Nouvelle fonction pour mettre à jour les KPIs avec la structure des cartes Ventes
+  updateVentesKPICard(kpiId, kpiData) {
+    console.log(`🔄 Mise à jour KPI Ventes: ${kpiId}`, kpiData);
+
+    // Vérifier que les données KPI sont valides
+    if (!kpiData) {
+      console.warn(`❌ Données KPI manquantes pour ${kpiId}`);
+      return;
+    }
+
+    // Gestion spéciale pour les KPIs secondaires avec données manquantes
+    if (kpiId === 'top_region' && kpiData.est_donnees_manquantes) {
+      // Cas spécial : affichage simple pour données géographiques manquantes
+      const valueElement = document.querySelector(`[data-kpi="${kpiId}"]`);
+      const subValueElement = document.querySelector(`[data-kpi-sub="${kpiId}"]`);
+      const trendElement = document.querySelector(`[data-kpi-trend="${kpiId}"]`);
+      const uniteElement = document.querySelector(`[data-kpi-unite="${kpiId}"]`);
+
+      if (valueElement) {
+        valueElement.textContent = kpiData.nom || 'Données manquantes';
+        valueElement.className = valueElement.className.replace('text-gray-900', 'text-orange-600');
+        valueElement.style.fontSize = '14px';
+      }
+      if (subValueElement) {
+        subValueElement.style.display = 'none'; // Masquer complètement
+      }
+      if (uniteElement) {
+        uniteElement.style.display = 'none'; // Masquer complètement
+      }
+      if (trendElement) {
+        // Masquer complètement toute la section tendance
+        const trendParent = trendElement.closest('.text-right');
+        if (trendParent) {
+          trendParent.style.display = 'none';
+        }
+      }
+      return;
+    }
+
+    // Mettre à jour la valeur principale
+    const valueElement = document.querySelector(`[data-kpi="${kpiId}"]`);
+    if (valueElement) {
+      if (kpiId === 'top_modele' || kpiId === 'top_region') {
+        // Pour les KPIs secondaires, afficher le nom
+        valueElement.textContent = kpiData.nom || kpiData.valeur_formatee || kpiData.valeur || '-';
+      } else {
+        // Pour les KPIs principaux, afficher la valeur formatée
+        valueElement.textContent = kpiData.valeur_formatee || kpiData.valeur || '-';
+      }
+      console.log(`✅ Valeur mise à jour pour ${kpiId}: ${valueElement.textContent}`);
+    } else {
+      console.warn(`❌ Élément [data-kpi="${kpiId}"] introuvable`);
+    }
+
+    // Mettre à jour l'unité
+    const uniteElement = document.querySelector(`[data-kpi-unite="${kpiId}"]`);
+    if (uniteElement && kpiData.unite) {
+      uniteElement.textContent = kpiData.unite;
+    }
+
+    // Mettre à jour la sous-valeur
+    const subValueElement = document.querySelector(`[data-kpi-sub="${kpiId}"]`);
+    if (subValueElement && kpiData.sub_value) {
+      subValueElement.textContent = kpiData.sub_value;
+    }
+
+    // Mettre à jour la tendance
+    const trendElement = document.querySelector(`[data-kpi-trend="${kpiId}"]`);
+    if (trendElement && kpiData.tendance !== undefined && kpiData.tendance !== null) {
+      const trend = parseFloat(kpiData.tendance);
+      const isPositive = trend > 0;
+      const isNegative = trend < 0;
+
+      // Mettre à jour l'icône
+      const iconElement = trendElement.querySelector('i');
+      if (iconElement) {
+        iconElement.className = `fas ${isPositive ? 'fa-arrow-up text-green-600' : isNegative ? 'fa-arrow-down text-red-600' : 'fa-minus text-gray-600'}`;
+      }
+
+      // Mettre à jour le texte de la tendance
+      const spanElement = trendElement.querySelector('span');
+      if (spanElement) {
+        // Pour les KPIs secondaires, on affiche le pourcentage
+        if (kpiId === 'top_modele' || kpiId === 'top_region') {
+          spanElement.textContent = kpiData.pourcentage ? `${kpiData.pourcentage}%` : '-';
+        } else {
+          spanElement.textContent = isPositive ? `+${trend}%` : `${trend}%`;
+        }
+        spanElement.className = isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-gray-600';
+      }
+    }
+  }
+
   // ===== MÉTHODES CLIENTS =====
   async loadClientsData() {
     console.log('👥 Chargement des données Clients...');
@@ -1040,23 +1216,14 @@ class YoozakKPIManager {
       if (data.analyses_detaillees && data.analyses_detaillees.performance_mensuelle) {
         const perf = data.analyses_detaillees.performance_mensuelle;
         this.updateElement('[data-perf="commandes_mois"]', `${perf.commandes_mois} commandes`);
-        this.updateElement('[data-perf="ca_par_client"]', `${perf.ca_par_client} DH`);
-      }
-
-      // Segmentation comportementale
-      if (data.analyses_detaillees && data.analyses_detaillees.segmentation) {
-        const segmentation = data.analyses_detaillees.segmentation;
-        this.updateElement('[data-segment="acheteurs_reguliers"]', `${segmentation.acheteurs_reguliers}%`);
-        this.updateElement('[data-segment="nouveaux_testeurs"]', `${segmentation.nouveaux_testeurs}%`);
-        this.updateElement('[data-segment="clients_occasionnels"]', `${segmentation.clients_occasionnels}%`);
-        this.updateElement('[data-segment="vip_premium"]', `${segmentation.vip_premium}%`);
+        this.updateElement('[data-perf="ca_par_client"]', `${this.formatNumberFR(perf.ca_par_client, 2)} DH`);
       }
 
       // Statistiques globales
       if (data.stats_globales) {
-        this.updateElement('[data-stats="total_clients"]', data.stats_globales.total_clients.toLocaleString());
+        this.updateElement('[data-stats="total_clients"]', this.formatNumberFR(data.stats_globales.total_clients));
         this.updateElement('[data-stats="taux_activite"]', `${data.stats_globales.taux_activite}%`);
-        this.updateElement('[data-stats="panier_moyen_clients"]', `${data.stats_globales.panier_moyen_clients.toLocaleString()} DH`);
+        this.updateElement('[data-stats="panier_moyen_clients"]', `${this.formatNumberFR(data.stats_globales.panier_moyen_clients, 2)} DH`);
       }
 
       console.log('✅ Analyses Clients mises à jour avec succès');
@@ -1176,9 +1343,6 @@ class YoozakKPIManager {
 
   loadDataForTab(tabName) {
     switch (tabName) {
-      case 'vue-generale':
-        this.loadVueGeneraleData();
-        break;
       case 'ventes':
         // Lors du changement d'onglet vers Ventes, charger TOUTES les données
         console.log('📊 Chargement de l\'onglet Ventes...');
@@ -1196,7 +1360,12 @@ class YoozakKPIManager {
 // Initialisation au chargement du DOM
 document.addEventListener('DOMContentLoaded', () => {
     window.kpiManager = new YoozakKPIManager();
+  window.yoozakKPI = window.kpiManager; // Alias pour compatibilité avec le HTML généré
     window.kpiCharts = new KPICharts();
+
+  // Vérification de l'attachement pour debug
+  console.log('🔗 window.yoozakKPI attaché:', !!window.yoozakKPI);
+  console.log('🔗 changeEvolutionPeriod disponible:', typeof window.yoozakKPI.changeEvolutionPeriod);
 });
 
 // Export pour utilisation dans d'autres modules
