@@ -31,6 +31,7 @@ class Article(models.Model):
     couleur = models.CharField(max_length=50)
     pointure = models.CharField(max_length=10)
     prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
+    prix_achat = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     prix_actuel = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     categorie = models.CharField(max_length=100)
     phase = models.CharField(
@@ -53,6 +54,7 @@ class Article(models.Model):
     prix_upsell_1 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Prix upsell 1")
     prix_upsell_2 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Prix upsell 2")
     prix_upsell_3 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Prix upsell 3")
+    prix_upsell_4 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Prix upsell 4")
     
     class Meta:
         verbose_name = "Article"
@@ -71,7 +73,12 @@ class Article(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.nom} - {self.couleur} - {self.pointure}"
+        base_str = f"{self.nom} - {self.couleur} - {self.pointure}"
+        if self.isUpsell:
+            base_str += f" (Upsell - PA: {self.prix_achat} MAD)"
+        elif self.prix_achat > 0:
+            base_str += f" (PA: {self.prix_achat} MAD)"
+        return base_str
     
     def clean(self):
         # Vérifier que le prix actuel a exactement 2 décimales
@@ -173,6 +180,8 @@ class Article(models.Model):
             prices.append(self.prix_upsell_2)
         if self.prix_upsell_3 is not None:
             prices.append(self.prix_upsell_3)
+        if self.prix_upsell_4 is not None:
+            prices.append(self.prix_upsell_4)
         return prices
 
     @property
@@ -208,8 +217,10 @@ class Article(models.Model):
             return self.prix_upsell_1
         elif quantite == 3 and self.prix_upsell_2:
             return self.prix_upsell_2
-        elif quantite > 3 and self.prix_upsell_3:
+        elif quantite == 4 and self.prix_upsell_3:
             return self.prix_upsell_3
+        elif quantite > 4 and self.prix_upsell_4:
+            return self.prix_upsell_4
         else:
             return self.prix_actuel if self.prix_actuel is not None else self.prix_unitaire
             
@@ -226,8 +237,10 @@ class Article(models.Model):
             return 1 if self.prix_upsell_1 else 0
         elif quantite == 3:
             return 2 if self.prix_upsell_2 else 0
-        elif quantite > 3:
+        elif quantite == 4:
             return 3 if self.prix_upsell_3 else 0
+        elif quantite > 4:
+            return 4 if self.prix_upsell_4 else 0
         return 0
 
 

@@ -54,6 +54,11 @@
                     {% endif %}
                 </div>
                 <div>
+                    <label for="id_prix_achat" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix d'Achat (DH):</label>
+                    <input type="number" name="prix_achat" id="id_prix_achat" value="{% if form_data.prix_achat %}{{ form_data.prix_achat }}{% else %}{{ article.prix_achat|stringformat:".2f"|default:0 }}{% endif %}" step="0.01" min="0.01" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: 150.00, 200.00, 75.00..." required>
+                    <small class="text-gray-600">Le prix d'achat doit être supérieur à 0 DH</small>
+                </div>
+                <div>
                     <label for="id_categorie" class="block text-sm font-semibold mb-2" style="color: #023535;">Catégorie:</label>
                     <input type="text" name="categorie" id="id_categorie" value="{% if form_data.categorie %}{{ form_data.categorie }}{% else %}{{ article.categorie|default_if_none:'' }}{% endif %}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: femme, homme, enfant, sport..." required>
                 </div>
@@ -115,9 +120,9 @@
             
             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
                 <h3 class="text-lg font-semibold mb-3" style="color: #023535;">Prix de substitution (Upsell)</h3>
-                <p class="text-sm text-gray-600 mb-4">Vous pouvez définir jusqu'à 3 prix alternatifs pour cet article</p>
+                <p class="text-sm text-gray-600 mb-4">Vous pouvez définir jusqu'à 4 prix alternatifs pour cet article</p>
                 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label for="id_prix_upsell_1" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix upsell 1 (DH):</label>
                         <input type="number" name="prix_upsell_1" id="id_prix_upsell_1" 
@@ -141,6 +146,14 @@
                                step="0.01" min="0" 
                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" 
                                placeholder="Ex: 449.99">
+                    </div>
+                    <div>
+                        <label for="id_prix_upsell_4" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix upsell 4 (DH):</label>
+                        <input type="number" name="prix_upsell_4" id="id_prix_upsell_4" 
+                               value="{{ article.prix_upsell_4|floatformat:"-2"|default:0 }}" 
+                               step="0.01" min="0" 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" 
+                               placeholder="Ex: 499.99">
                     </div>
                 </div>
             </div>

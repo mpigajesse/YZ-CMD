@@ -89,9 +89,12 @@ def get_prix_upsell(article, quantite):
     elif quantite == 3 and article.prix_upsell_2:
         # Prix upsell 2 remplace le prix actuel
         return article.prix_upsell_2
-    elif quantite > 3 and article.prix_upsell_3:
+    elif quantite == 4 and article.prix_upsell_3:
         # Prix upsell 3 remplace le prix actuel
         return article.prix_upsell_3
+    elif quantite > 4 and article.prix_upsell_4:
+        # Prix upsell 4 remplace le prix actuel
+        return article.prix_upsell_4
     else:
         # Si pas de prix upsell défini, utiliser le prix actuel
         return article.prix_actuel if article.prix_actuel is not None else article.prix_unitaire
@@ -104,7 +107,8 @@ def get_prix_upsell_avec_compteur(article, compteur):
     - 0-1 unités upsell → compteur = 0 → prix normal
     - 2 unités upsell → compteur = 1 → prix upsell 1
     - 3 unités upsell → compteur = 2 → prix upsell 2
-    - 4+ unités upsell → compteur = 3+ → prix upsell 3
+    - 4 unités upsell → compteur = 3 → prix upsell 3
+    - 5+ unités upsell → compteur = 4+ → prix upsell 4
     
     Note: Les unités incluent les quantités (ex: 1 article qté 2 = 2 unités)
     Seuls les articles avec isUpsell=True utilisent les prix upsell.
@@ -124,9 +128,12 @@ def get_prix_upsell_avec_compteur(article, compteur):
     elif compteur == 2 and article.prix_upsell_2:
         # 3 articles upsell → prix upsell 2
         return article.prix_upsell_2
-    elif compteur >= 3 and article.prix_upsell_3:
-        # 4+ articles upsell → prix upsell 3
+    elif compteur == 3 and article.prix_upsell_3:
+        # 4 articles upsell → prix upsell 3
         return article.prix_upsell_3
+    elif compteur >= 4 and article.prix_upsell_4:
+        # 5+ articles upsell → prix upsell 4
+        return article.prix_upsell_4
     else:
         # Si pas de prix upsell défini pour ce niveau, utiliser le prix actuel
         return article.prix_actuel if article.prix_actuel is not None else article.prix_unitaire
@@ -143,8 +150,10 @@ def get_prix_upsell_supplement(article, quantite):
         return article.prix_upsell_1
     elif quantite == 3 and article.prix_upsell_2:
         return article.prix_upsell_2
-    elif quantite > 3 and article.prix_upsell_3:
+    elif quantite == 4 and article.prix_upsell_3:
         return article.prix_upsell_3
+    elif quantite > 4 and article.prix_upsell_4:
+        return article.prix_upsell_4
     else:
         # Si pas de prix upsell défini, pas de supplément
         return 0
@@ -183,3 +192,62 @@ def has_articles_upsell(commande):
     Retourne True si la commande contient au moins un article avec isUpsell=True
     """
     return commande.paniers.filter(article__isUpsell=True).exists()
+
+@register.filter
+def get_prix_avec_phase_info(article, compteur=None):
+    """
+    Retourne un dictionnaire avec le prix et le libellé selon la phase de l'article.
+    Gère les phases : EN_COURS, LIQUIDATION, EN_TEST et les promotions.
+    """
+    # Déterminer le prix de base
+    if compteur is not None and article.isUpsell:
+        prix = get_prix_upsell_avec_compteur(article, compteur)
+    else:
+        prix = article.prix_actuel if article.prix_actuel is not None else article.prix_unitaire
+    
+    # Déterminer le libellé selon la phase et les promotions
+    if article.has_promo_active:
+        libelle = "Prix promotion"
+        couleur_classe = "text-red-600"
+    elif article.phase == 'LIQUIDATION':
+        libelle = "Prix liquidation"
+        couleur_classe = "text-orange-600"
+    elif article.phase == 'EN_TEST':
+        libelle = "Prix test"
+        couleur_classe = "text-blue-600"
+    elif compteur is not None and compteur > 0 and article.isUpsell:
+        libelle = f"Prix upsell niveau {compteur}"
+        couleur_classe = "text-green-600"
+    else:
+        libelle = "Prix normal"
+        couleur_classe = "text-gray-600"
+    
+    return {
+        'prix': prix,
+        'libelle': libelle,
+        'couleur_classe': couleur_classe
+    }
+
+@register.filter
+def get_prix_avec_phase_simple(article):
+    """
+    Version simplifiée pour les templates sans compteur.
+    Retourne un dictionnaire avec le prix et le libellé selon la phase de l'article.
+    """
+    return get_prix_avec_phase_info(article, compteur=None)
+
+@register.filter
+def get_phase_libelle(article):
+    """
+    Retourne uniquement le libellé de la phase pour l'affichage.
+    """
+    info = get_prix_avec_phase_info(article, compteur=None)
+    return info['libelle']
+
+@register.filter
+def get_phase_couleur(article):
+    """
+    Retourne uniquement la classe de couleur pour l'affichage.
+    """
+    info = get_prix_avec_phase_info(article, compteur=None)
+    return info['couleur_classe']

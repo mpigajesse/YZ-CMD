@@ -1,5 +1,6 @@
 {% extends 'composant_generale/admin/base.html' %}
 {% load static %}
+{% load commande_filters %}
 
 {% block title %}Détail de l'Article: {{ article.nom }} - YZ-CMD{% endblock %}
 
@@ -63,14 +64,15 @@
                     <div class="flex items-center text-lg">
                         <i class="fas fa-tag w-6 text-center mr-3" style="color: #034a4a;"></i>
                         <strong style="color: #023535;">Prix:</strong>
-                        {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
+                        {% with article|get_prix_avec_phase_simple as prix_info %}
                         <div class="ml-2 flex flex-col">
-                            <span class="{% if article.has_promo_active %}text-red-500{% else %}text-orange-500{% endif %} font-bold">{{ article.prix_actuel|floatformat:2 }} DH</span>
+                            <span class="{{ prix_info.couleur_classe }} font-bold text-lg">{{ prix_info.prix|floatformat:2 }} DH</span>
+                            <span class="{{ prix_info.couleur_classe }} text-sm">{{ prix_info.libelle }}</span>
+                            {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
                             <span class="text-gray-500 text-sm line-through">{{ article.prix_unitaire|floatformat:2 }} DH</span>
+                            {% endif %}
                         </div>
-                        {% else %}
-                        <span class="ml-2 text-gray-700">{{ article.prix_unitaire|floatformat:2 }} DH</span>
-                        {% endif %}
+                        {% endwith %}
                     </div>
                     <div class="flex items-center text-lg">
                         <i class="fas fa-cubes w-6 text-center mr-3" style="color: #034a4a;"></i>
@@ -91,6 +93,11 @@
                         <i class="fas fa-shoe-prints w-6 text-center mr-3" style="color: #034a4a;"></i>
                         <strong style="color: #023535;">Pointure:</strong>
                         <span class="ml-2 text-gray-700">{{ article.pointure }}</span>
+                    </div>
+                    <div class="flex items-center text-lg">
+                        <i class="fas fa-money-bill-wave w-6 text-center mr-3" style="color: #034a4a;"></i>
+                        <strong style="color: #023535;">Prix d'achat:</strong>
+                        <span class="ml-2 text-gray-700">{{ article.prix_achat|floatformat:2 }} DH</span>
                     </div>
                     <div class="flex items-center text-lg">
                         <i class="fas fa-arrow-up w-6 text-center mr-3" style="color: #034a4a;"></i>

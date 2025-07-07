@@ -1,5 +1,6 @@
 {% extends 'composant_generale/admin/base.html' %}
 {% load static %}
+{% load commande_filters %}
 
 {% block title %}Liste des Articles - YZ-CMD{% endblock %}
 
@@ -325,16 +326,13 @@
                 
                                         <div class="flex justify-between items-center pt-3 border-t" style="border-color: #99dddd;">
                         <div class="flex flex-col">
+                            {% with article|get_prix_avec_phase_simple as prix_info %}
+                            <div class="text-xl font-bold {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</div>
+                            <div class="text-xs {{ prix_info.couleur_classe }}">{{ prix_info.libelle }}</div>
                             {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
-                                {% if article.has_promo_active %}
-                                <div class="text-xl font-bold text-red-500">{{ article.prix_actuel|floatformat:2 }} DH</div>
-                                {% else %}
-                                <div class="text-xl font-bold text-orange-500">{{ article.prix_actuel|floatformat:2 }} DH</div>
-                                {% endif %}
                                 <div class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</div>
-                            {% else %}
-                                <div class="text-xl font-bold" style="color: #023535;">{{ article.prix_unitaire|floatformat:2 }} DH</div>
                             {% endif %}
+                            {% endwith %}
                         </div>
                         <a href="{% url 'article:detail' article.id %}" class="inline-flex items-center text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: #023535;">
                         <i class="fas fa-eye mr-1"></i>Détails
@@ -376,16 +374,13 @@
                 </div>
                                     <div class="flex items-center gap-4">
                     <div class="flex flex-col items-end">
+                        {% with article|get_prix_avec_phase_simple as prix_info %}
+                        <div class="text-xl font-bold {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</div>
+                        <div class="text-xs {{ prix_info.couleur_classe }}">{{ prix_info.libelle }}</div>
                         {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
-                            {% if article.has_promo_active %}
-                            <div class="text-xl font-bold text-red-500">{{ article.prix_actuel|floatformat:2 }} DH</div>
-                            {% else %}
-                            <div class="text-xl font-bold text-orange-500">{{ article.prix_actuel|floatformat:2 }} DH</div>
-                            {% endif %}
                             <div class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</div>
-                        {% else %}
-                            <div class="text-xl font-bold" style="color: #023535;">{{ article.prix_unitaire|floatformat:2 }} DH</div>
                         {% endif %}
+                        {% endwith %}
                     </div>
                     <div class="flex items-center gap-2">
                         <a href="{% url 'article:detail' article.id %}" class="text-blue-500 hover:text-blue-700" title="Voir Détails">
@@ -444,20 +439,22 @@
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.pointure }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
                             <div class="flex flex-col">
-                                {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
+                                {% with article|get_prix_avec_phase_simple as prix_info %}
                                 <div class="flex items-center gap-2">
                                     {% if article.has_promo_active %}
                                     <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
-                                    <span class="font-bold text-red-500">{{ article.prix_actuel|floatformat:2 }} DH</span>
-                                    {% else %}
+                                    {% elif article.phase == 'LIQUIDATION' %}
                                     <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">LIQUIDATION</span>
-                                    <span class="font-bold text-orange-500">{{ article.prix_actuel|floatformat:2 }} DH</span>
+                                    {% elif article.phase == 'EN_TEST' %}
+                                    <span class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">TEST</span>
                                     {% endif %}
+                                    <span class="font-bold {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</span>
                                 </div>
+                                <span class="text-xs {{ prix_info.couleur_classe }}">{{ prix_info.libelle }}</span>
+                                {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
                                 <span class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</span>
-                                {% else %}
-                                {{ article.prix_unitaire|floatformat:2 }} DH
                                 {% endif %}
+                                {% endwith %}
                             </div>
                         </td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.qte_disponible }}</td>

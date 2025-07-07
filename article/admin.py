@@ -3,11 +3,11 @@ from .models import Article, Promotion
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'reference','nom', 'couleur', 'pointure', 'prix_unitaire','prix_actuel','phase', 'qte_disponible', 'actif', 'est_disponible')
-    list_filter = ('categorie', 'couleur', 'phase', 'actif', 'date_creation')
+    list_display = ('id', 'reference','nom', 'couleur', 'pointure', 'prix_unitaire', 'prix_achat', 'prix_actuel','phase', 'qte_disponible', 'actif', 'est_disponible', 'isUpsell')
+    list_filter = ('categorie', 'couleur', 'phase', 'actif', 'date_creation', 'isUpsell')
     search_fields = ('nom', 'couleur', 'pointure', 'categorie')
     ordering = ('nom', 'couleur', 'pointure')
-    list_editable = ('prix_unitaire','qte_disponible', 'actif', 'phase')
+    list_editable = ('prix_unitaire', 'prix_achat', 'qte_disponible', 'actif', 'phase', 'isUpsell')
     readonly_fields = ('date_creation', 'date_modification')
     
     fieldsets = (
@@ -15,8 +15,12 @@ class ArticleAdmin(admin.ModelAdmin):
             'fields': ('nom', 'couleur', 'pointure', 'categorie', 'phase', 'description')
         }),
         ('Prix', {
-            'fields': ('prix_unitaire', 'prix_upsell_1', 'prix_upsell_2', 'prix_upsell_3'),
-            'description': 'Prix unitaire standard et prix de substitution (upsell)'
+            'fields': ('prix_unitaire', 'prix_achat', 'prix_upsell_1', 'prix_upsell_2', 'prix_upsell_3', 'prix_upsell_4'),
+            'description': 'Prix unitaire, prix d\'achat et prix de substitution (upsell)'
+        }),
+        ('Configuration Upsell', {
+            'fields': ('isUpsell',),
+            'description': 'Configuration pour les articles upsell'
         }),
         ('Stock', {
             'fields': ('qte_disponible', 'actif')

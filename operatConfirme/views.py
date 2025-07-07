@@ -18,6 +18,7 @@ from django.db import models, transaction
 from client.models import Client
 from article.models import Article
 import logging
+from django.urls import reverse
 
 # Create your views here.
 
@@ -1147,6 +1148,7 @@ def lancer_confirmations_masse(request):
                 })
             
             launched_count = 0
+            redirect_url = None
             
             # État "En cours de confirmation"
             try:
@@ -1157,6 +1159,10 @@ def lancer_confirmations_masse(request):
                     'message': 'État "En cours de confirmation" non trouvé dans le système'
                 })
             
+            # Si une seule commande est lancée, préparer l'URL de redirection
+            if len(commande_ids) == 1:
+                redirect_url = reverse('operatConfirme:modifier_commande', args=[commande_ids[0]])
+
             for commande_id in commande_ids:
                 try:
                     # Récupérer la commande
@@ -1195,10 +1201,13 @@ def lancer_confirmations_masse(request):
                     continue  # Ignorer les erreurs individuelles
             
             if launched_count > 0:
-                return JsonResponse({
+                response_data = {
                     'success': True,
                     'message': f'{launched_count} confirmation(s) lancée(s) avec succès'
-                })
+                }
+                if redirect_url:
+                    response_data['redirect_url'] = redirect_url
+                return JsonResponse(response_data)
             else:
                 return JsonResponse({
                     'success': False,
@@ -2024,7 +2033,6 @@ def api_articles_disponibles(request):
         articles = Article.objects.filter(
             qte_disponible__gt=0, 
             actif=True, 
-            phase='EN_COURS'
         ).order_by('nom')
         
         # Préparer les données des articles
@@ -2039,11 +2047,20 @@ def api_articles_disponibles(request):
                 'id': article.id,
                 'nom': article.nom,
                 'reference': article.reference or '',
-                'pointure': article.pointure,
-                'couleur': article.couleur,
+                'pointure': article.pointure or '',
+                'couleur': article.couleur or '',
+                'categorie': article.categorie or '',
                 'prix_unitaire': float(article.prix_unitaire),
                 'prix_actuel': float(article.prix_actuel or article.prix_unitaire),
+                'prix_upsell_1': float(article.prix_upsell_1) if article.prix_upsell_1 else None,
+                'prix_upsell_2': float(article.prix_upsell_2) if article.prix_upsell_2 else None,
+                'prix_upsell_3': float(article.prix_upsell_3) if article.prix_upsell_3 else None,
+                'prix_upsell_4': float(article.prix_upsell_4) if article.prix_upsell_4 else None,
                 'qte_disponible': article.qte_disponible,
+                'isUpsell': bool(article.isUpsell),
+                'phase': article.phase,
+                'has_promo_active': article.has_promo_active,
+                'description': article.description or '',
             })
         
         return JsonResponse(articles_data, safe=False)

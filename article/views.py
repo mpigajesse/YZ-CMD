@@ -208,6 +208,17 @@ def creer_article(request):
             article.qte_disponible = qte_disponible
             article.categorie = request.POST.get('categorie')
             
+            # Gérer le prix d'achat
+            prix_achat_str = request.POST.get('prix_achat', '').strip().replace(',', '.')
+            if prix_achat_str:
+                try:
+                    prix_achat = float(prix_achat_str)
+                    if prix_achat >= 0:
+                        article.prix_achat = prix_achat
+                except ValueError:
+                    # Ignorer les valeurs non numériques
+                    pass
+            
             # Gérer les nouveaux champs
             article.isUpsell = request.POST.get('isUpsell') == 'on'
             article.Compteur = 0  # Initialiser le compteur à 0
@@ -217,7 +228,7 @@ def creer_article(request):
                 article.image = request.FILES['image']
             
             # Gérer les prix de substitution (upsell)
-            for i in range(1, 4):
+            for i in range(1, 5):
                 prix_upsell_str = request.POST.get(f'prix_upsell_{i}', '').strip().replace(',', '.')
                 if prix_upsell_str:
                     try:
@@ -294,6 +305,17 @@ def modifier_article(request, id):
             article.qte_disponible = qte_disponible
             article.categorie = request.POST.get('categorie')
             
+            # Gérer le prix d'achat
+            prix_achat_str = request.POST.get('prix_achat', '').strip().replace(',', '.')
+            if prix_achat_str:
+                try:
+                    prix_achat = float(prix_achat_str)
+                    if prix_achat >= 0:
+                        article.prix_achat = prix_achat
+                except ValueError:
+                    # Ignorer les valeurs non numériques
+                    pass
+            
             # Gérer les nouveaux champs
             article.isUpsell = request.POST.get('isUpsell') == 'on'
             # Ne pas modifier le compteur existant - il est géré par d'autres processus
@@ -332,8 +354,9 @@ def modifier_article(request, id):
             article.prix_upsell_1 = None
             article.prix_upsell_2 = None
             article.prix_upsell_3 = None
+            article.prix_upsell_4 = None
             
-            for i in range(1, 4):
+            for i in range(1, 5):
                 prix_upsell_str = request.POST.get(f'prix_upsell_{i}', '').strip().replace(',', '.')
                 if prix_upsell_str:
                     try:

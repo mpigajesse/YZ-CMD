@@ -120,6 +120,56 @@
             grid-template-columns: 1fr;
         }
     }
+    
+    /* Styles pour la liste déroulante d'articles avec badges */
+    #articleSelect option {
+        padding: 8px 12px;
+        border-radius: 4px;
+        margin: 2px 0;
+    }
+    
+    /* Animations pour les badges de légende */
+    .filter-badge {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .filter-badge:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .filter-badge.active {
+        box-shadow: 0 0 0 2px #3b82f6;
+        transform: scale(1.1);
+        font-weight: bold;
+    }
+    
+    .filter-badge.active::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(255,255,255,0.2), transparent);
+        pointer-events: none;
+    }
+    
+    /* Animation de comptage */
+    .article-count {
+        display: inline-block;
+        background: #3b82f6;
+        color: white;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-left: 4px;
+        font-weight: bold;
+        min-width: 20px;
+        text-align: center;
+    }
 </style>
 {% endblock %}
 
@@ -520,21 +570,14 @@
                                         <!-- Prix unitaire -->
                                         <div class="text-center min-w-0">
                                             <div class="text-sm text-gray-500">Prix actuel</div>
-                                            {% if commande.compteur > 0 and panier.article.isUpsell %}
-                                            <div class="font-medium text-green-600">
-                                                {{ panier.article|get_prix_upsell_avec_compteur:commande.compteur|floatformat:2 }} DH
+                                            {% with panier.article|get_prix_avec_phase_info:commande.compteur as prix_info %}
+                                            <div class="font-medium {{ prix_info.couleur_classe }}">
+                                                {{ prix_info.prix|floatformat:2 }} DH
                                             </div>
-                                            <div class="text-xs text-orange-600 mt-1">
-                                                Prix upsell niveau {{ commande.compteur }}
+                                            <div class="text-xs {{ prix_info.couleur_classe }} mt-1">
+                                                {{ prix_info.libelle }}
                                             </div>
-                                            {% else %}
-                                            <div class="font-medium text-gray-600">
-                                                {{ panier.article.prix_actuel|floatformat:2 }} DH
-                                            </div>
-                                            <div class="text-xs text-gray-500 mt-1">
-                                                Prix normal
-                                            </div>
-                                            {% endif %}
+                                            {% endwith %}
                                         </div>
                                         
                                         <!-- Sous-total -->
@@ -622,6 +665,7 @@
                     Annuler la Commande
                 </button>
                 {% endif %}
+  
                 
                 <button type="button" onclick="confirmerCommande()" 
                         class="btn-confirm px-6 py-3 rounded-lg font-medium">
@@ -682,6 +726,41 @@
                 <!-- Sélection d'article (pour nouveaux articles) -->
                 <div id="article-selection-field">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Article</label>
+                    
+                    <!-- Légende des badges -->
+                    <div class="mb-3 p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 shadow-sm">
+                        <div class="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-info-circle mr-1 text-blue-500"></i>
+                            Légende des types d'articles :
+                        </div>
+                        <div class="badge-legend flex flex-wrap gap-2 text-xs">
+                            <span id="filter-all" class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded-full font-medium cursor-pointer filter-badge active" 
+                                  onclick="filtrerArticles('all')" title="Afficher tous les articles">
+                                🔍 TOUS
+                            </span>
+                            <span id="filter-promo" class="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium cursor-pointer filter-badge" 
+                                  onclick="filtrerArticles('promo')" title="Filtrer les articles en promotion">
+                                🔥 PROMO
+                            </span>
+                            <span id="filter-liquidation" class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full font-medium cursor-pointer filter-badge" 
+                                  onclick="filtrerArticles('liquidation')" title="Filtrer les articles en liquidation">
+                                🏷️ LIQUIDATION
+                            </span>
+                            <span id="filter-test" class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium cursor-pointer filter-badge" 
+                                  onclick="filtrerArticles('test')" title="Filtrer les articles en test">
+                                🧪 TEST
+                            </span>
+                            <span id="filter-upsell" class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium cursor-pointer filter-badge" 
+                                  onclick="filtrerArticles('upsell')" title="Filtrer les articles upsell">
+                                ⬆️ UPSELL
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-2 italic">
+                            💡 Les articles sont colorés dans la liste selon leur type pour faciliter l'identification<br>
+                            ⌨️ Raccourcis: Alt+1 (Tous), Alt+2 (Promo), Alt+3 (Liquidation), Alt+4 (Test), Alt+5 (Upsell)
+                        </div>
+                    </div>
+                    
                     <select id="articleSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">-- Sélectionner un article --</option>
                         <!-- Les articles seront chargés dynamiquement -->
@@ -1822,6 +1901,44 @@ document.addEventListener('DOMContentLoaded', function() {
             chargerArticlesDisponibles();
         };
         
+        // Fonction pour tester le système de filtrage
+        window.testFiltrage = function() {
+            console.log('🧪 Test du système de filtrage...');
+            console.log('📊 Articles disponibles:', articlesDisponibles ? articlesDisponibles.length : 'Non chargés');
+            
+            if (!articlesDisponibles || articlesDisponibles.length === 0) {
+                console.log('❌ Aucun article chargé. Chargement...');
+                chargerArticlesDisponibles();
+                return;
+            }
+            
+            // Tester chaque type de filtre
+            const types = ['all', 'promo', 'liquidation', 'test', 'upsell'];
+            types.forEach(type => {
+                const count = compterArticlesParType(type);
+                console.log(`📊 ${type.toUpperCase()}: ${count} article(s)`);
+            });
+            
+            // Afficher quelques exemples d'articles par type
+            console.log('\n📋 Exemples d\'articles par type:');
+            
+            const promosExemples = articlesDisponibles.filter(a => a.has_promo_active).slice(0, 2);
+            console.log('🔥 PROMO:', promosExemples.map(a => `${a.nom} (${a.has_promo_active})`));
+            
+            const liquidationExemples = articlesDisponibles.filter(a => a.phase === 'LIQUIDATION').slice(0, 2);
+            console.log('🏷️ LIQUIDATION:', liquidationExemples.map(a => `${a.nom} (${a.phase})`));
+            
+            const testExemples = articlesDisponibles.filter(a => a.phase === 'EN_TEST').slice(0, 2);
+            console.log('🧪 TEST:', testExemples.map(a => `${a.nom} (${a.phase})`));
+            
+            const upsellExemples = articlesDisponibles.filter(a => a.isUpsell).slice(0, 2);
+            console.log('⬆️ UPSELL:', upsellExemples.map(a => `${a.nom} (${a.isUpsell})`));
+            
+            // Tester un filtrage
+            console.log('\n🔍 Test de filtrage par PROMO...');
+            filtrerArticles('promo');
+        };
+        
         // Fonction pour tester manuellement l'API des articles
         window.testApiArticles = function() {
             console.log('🧪 Test manuel de l\'API des articles...');
@@ -1886,12 +2003,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         };
         
-        console.log('💡 Fonctions de test disponibles:');
-        console.log('   - testModal() : Tester la modale');
-        console.log('   - testNouveauSysteme() : Tester le système d\'opérations');
-        console.log('   - debugSysteme() : Debug complet du système');
-        console.log('   - debugArticles() : Debug et test des articles');
-        console.log('   - testApiArticles() : Test manuel de l\'API des articles');
+            console.log('💡 Fonctions de test disponibles:');
+    console.log('   - testModal() : Tester la modale');
+    console.log('   - testNouveauSysteme() : Tester le système d\'opérations');
+    console.log('   - debugSysteme() : Debug complet du système');
+    console.log('   - debugArticles() : Debug et test des articles');
+    console.log('   - testApiArticles() : Test manuel de l\'API des articles');
+    console.log('   - testFiltrage() : Tester le système de filtrage');
         
         // Afficher les informations sur les opérations
         console.log('🗃️ SYSTÈME D\'OPÉRATIONS:');
@@ -2329,6 +2447,7 @@ let articlesDisponibles = [];
 let currentArticleId = null;
 let isEditingArticle = false;
 let compteurCommande = {{ commande.compteur }};
+let filtreActuel = 'all'; // Filtre actuellement actif
 
 // Fonction pour ajouter un nouvel article
 function ajouterNouvelArticle() {
@@ -2718,7 +2837,7 @@ function chargerArticlesDisponibles() {
         console.log('📊 Données reçues:', data);
         
         // Modification pour gérer la réponse directe de l'API
-        const articlesDisponibles = Array.isArray(data) ? data : [];
+        articlesDisponibles = Array.isArray(data) ? data : [];
         
         // Remplir le select
         select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
@@ -2737,6 +2856,28 @@ function chargerArticlesDisponibles() {
                 
                 // Construire un texte plus informatif avec vérifications
                 let optionText = article.nom || 'Article sans nom';
+                
+                // Ajouter les badges de statut AVANT le prix
+                const badges = [];
+                
+                // Vérifier les différents statuts
+                if (article.has_promo_active) {
+                    badges.push('🔥PROMO');
+                }
+                if (article.phase === 'LIQUIDATION') {
+                    badges.push('🏷️LIQUIDATION');
+                }
+                if (article.phase === 'EN_TEST') {
+                    badges.push('🧪TEST');
+                }
+                if (article.isUpsell) {
+                    badges.push('⬆️UPSELL');
+                }
+                
+                // Ajouter les badges au nom
+                if (badges.length > 0) {
+                    optionText += ` [${badges.join(' ')}]`;
+                }
                 
                 if (article.prix_actuel) {
                     optionText += ` - ${article.prix_actuel} DH`;
@@ -2757,6 +2898,26 @@ function chargerArticlesDisponibles() {
                 
                 option.textContent = optionText;
                 option.dataset.article = JSON.stringify(article);
+                
+                // Ajouter des classes CSS pour styliser selon le type
+                if (article.has_promo_active) {
+                    option.style.backgroundColor = '#fef2f2';
+                    option.style.color = '#dc2626';
+                    option.style.fontWeight = 'bold';
+                } else if (article.phase === 'LIQUIDATION') {
+                    option.style.backgroundColor = '#fff7ed';
+                    option.style.color = '#ea580c';
+                    option.style.fontWeight = 'bold';
+                } else if (article.phase === 'EN_TEST') {
+                    option.style.backgroundColor = '#eff6ff';
+                    option.style.color = '#2563eb';
+                    option.style.fontWeight = 'bold';
+                } else if (article.isUpsell) {
+                    option.style.backgroundColor = '#f0fdf4';
+                    option.style.color = '#16a34a';
+                    option.style.fontWeight = 'bold';
+                }
+                
                 select.appendChild(option);
                 
                 console.log(`📦 Article ${index + 1} ajouté:`, {
@@ -2773,7 +2934,20 @@ function chargerArticlesDisponibles() {
         });
         
         console.log(`✅ ${articlesDisponibles.length} articles chargés avec succès`);
+        
+        // Debug des premiers articles pour vérifier les données
+        if (articlesDisponibles.length > 0) {
+            console.log('🔍 DEBUG: Premier article chargé:', articlesDisponibles[0]);
+            console.log('🔍 DEBUG: Champs disponibles:', Object.keys(articlesDisponibles[0]));
+        }
+        
+        // Sauvegarder dans la variable globale
+        window.articlesDisponibles = articlesDisponibles;
+        
         showNotification(`✅ ${articlesDisponibles.length} article(s) chargé(s)`, 'success');
+        
+        // Mettre à jour les compteurs des badges
+        mettreAJourCompteursFiltre();
     })
     .catch(error => {
         select.innerHTML = '<option value="">-- Erreur de connexion --</option>';
@@ -3360,9 +3534,12 @@ function getPrixUpsell(article, compteur) {
     } else if (compteur === 2 && article.prix_upsell_2) {
         // Niveau 2 d'upsell
         return parseFloat(article.prix_upsell_2);
-    } else if (compteur >= 3 && article.prix_upsell_3) {
-        // Niveau 3 d'upsell (pour compteur >= 3)
+    } else if (compteur === 3 && article.prix_upsell_3) {
+        // Niveau 3 d'upsell
         return parseFloat(article.prix_upsell_3);
+    } else if (compteur >= 4 && article.prix_upsell_4) {
+        // Niveau 4 d'upsell (pour compteur >= 4)
+        return parseFloat(article.prix_upsell_4);
     }
     
     // Si pas de prix upsell défini pour ce niveau, utiliser le prix unitaire
@@ -3670,6 +3847,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log(`      - Quantité: ${quantite}`);
                 console.log(`      - Prix unitaire: ${articleData.prix_unitaire} DH`);
                 console.log(`      - Prix upsell 1: ${articleData.prix_upsell_1} DH`);
+                console.log(`      - Prix upsell 2: ${articleData.prix_upsell_2} DH`);
+                console.log(`      - Prix upsell 3: ${articleData.prix_upsell_3} DH`);
+                console.log(`      - Prix upsell 4: ${articleData.prix_upsell_4} DH`);
                 console.log(`      - isUpsell: ${articleData.isUpsell}`);
                 console.log(`      - Prix calculé: ${prix} DH`);
                 console.log(`      - Sous-total calculé: ${sousTotal} DH`);
@@ -3702,6 +3882,247 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('💡 Fonction de debug disponible: debugTotalCommande()');
 
+});
+
+// ================== SYSTÈME DE FILTRAGE DES ARTICLES ==================
+
+// Fonction principale de filtrage des articles
+function filtrerArticles(typeFiltre) {
+    console.log(`🔍 Filtrage des articles par type: ${typeFiltre}`);
+    
+    filtreActuel = typeFiltre;
+    
+    // Mettre à jour l'état visuel des badges
+    mettreAJourBadgesActifs(typeFiltre);
+    
+    // Appliquer le filtre sur la liste déroulante
+    appliquerFiltreSelect(typeFiltre);
+    
+    // Afficher une notification
+    const compteur = compterArticlesParType(typeFiltre);
+    const message = typeFiltre === 'all' ? 
+        `🔍 Affichage de tous les articles (${compteur} total)` :
+        `🔍 Filtrage par ${typeFiltre.toUpperCase()}: ${compteur} article(s) trouvé(s)`;
+    
+    showNotification(message, 'info', 2000);
+}
+
+// Fonction pour mettre à jour l'état visuel des badges
+function mettreAJourBadgesActifs(typeActif) {
+    // Retirer la classe active de tous les badges
+    document.querySelectorAll('.filter-badge').forEach(badge => {
+        badge.classList.remove('active');
+    });
+    
+    // Ajouter la classe active au badge sélectionné
+    const badgeActif = document.getElementById(`filter-${typeActif}`);
+    if (badgeActif) {
+        badgeActif.classList.add('active');
+    }
+}
+
+// Fonction pour appliquer le filtre sur la liste déroulante
+function appliquerFiltreSelect(typeFiltre) {
+    const select = document.getElementById('articleSelect');
+    if (!select) {
+        console.warn('⚠️ Select des articles introuvable');
+        return;
+    }
+    
+    // Sauvegarder la sélection actuelle
+    const selectionActuelle = select.value;
+    
+    // Vider et reconstruire la liste
+    select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
+    
+    if (!articlesDisponibles || articlesDisponibles.length === 0) {
+        select.innerHTML = '<option value="">-- Aucun article disponible --</option>';
+        return;
+    }
+    
+    let articlesAffiches = 0;
+    
+    articlesDisponibles.forEach((article, index) => {
+        // Vérifier si l'article correspond au filtre
+        if (typeFiltre === 'all' || correspondAuFiltre(article, typeFiltre)) {
+            try {
+                const option = document.createElement('option');
+                option.value = article.id;
+                
+                // Construire le texte de l'option
+                let optionText = article.nom || 'Article sans nom';
+                
+                // Ajouter les badges de statut
+                const badges = [];
+                if (article.has_promo_active) badges.push('🔥PROMO');
+                if (article.phase === 'LIQUIDATION') badges.push('🏷️LIQUIDATION');
+                if (article.phase === 'EN_TEST') badges.push('🧪TEST');
+                if (article.isUpsell) badges.push('⬆️UPSELL');
+                
+                if (badges.length > 0) {
+                    optionText += ` [${badges.join(' ')}]`;
+                }
+                
+                if (article.prix_actuel) {
+                    optionText += ` - ${article.prix_actuel} DH`;
+                }
+                
+                // Ajouter détails
+                const details = [];
+                if (article.pointure && article.pointure.trim()) {
+                    details.push(`T:${article.pointure}`);
+                }
+                if (article.couleur && article.couleur.trim()) {
+                    details.push(`C:${article.couleur}`);
+                }
+                
+                if (details.length > 0) {
+                    optionText += ` (${details.join(', ')})`;
+                }
+                
+                option.textContent = optionText;
+                option.dataset.article = JSON.stringify(article);
+                
+                // Appliquer le style selon le type
+                appliquerStyleOption(option, article);
+                
+                select.appendChild(option);
+                articlesAffiches++;
+                
+            } catch (error) {
+                console.error(`❌ Erreur lors de l'ajout de l'article filtré ${index + 1}:`, error);
+            }
+        }
+    });
+    
+    // Restaurer la sélection si elle est toujours visible
+    if (selectionActuelle) {
+        select.value = selectionActuelle;
+    }
+    
+    console.log(`📊 Filtrage terminé: ${articlesAffiches} article(s) affiché(s) sur ${articlesDisponibles.length} total`);
+}
+
+// Fonction pour vérifier si un article correspond au filtre
+function correspondAuFiltre(article, typeFiltre) {
+    switch (typeFiltre) {
+        case 'promo':
+            return Boolean(article.has_promo_active);
+        case 'liquidation':
+            return article.phase === 'LIQUIDATION';
+        case 'test':
+            return article.phase === 'EN_TEST';
+        case 'upsell':
+            return Boolean(article.isUpsell);
+        case 'all':
+        default:
+            return true;
+    }
+}
+
+// Fonction pour appliquer le style à une option selon le type d'article
+function appliquerStyleOption(option, article) {
+    if (article.has_promo_active) {
+        option.style.backgroundColor = '#fef2f2';
+        option.style.color = '#dc2626';
+        option.style.fontWeight = 'bold';
+    } else if (article.phase === 'LIQUIDATION') {
+        option.style.backgroundColor = '#fff7ed';
+        option.style.color = '#ea580c';
+        option.style.fontWeight = 'bold';
+    } else if (article.phase === 'EN_TEST') {
+        option.style.backgroundColor = '#eff6ff';
+        option.style.color = '#2563eb';
+        option.style.fontWeight = 'bold';
+    } else if (article.isUpsell) {
+        option.style.backgroundColor = '#f0fdf4';
+        option.style.color = '#16a34a';
+        option.style.fontWeight = 'bold';
+    }
+}
+
+// Fonction pour compter les articles par type
+function compterArticlesParType(typeFiltre) {
+    if (!articlesDisponibles || articlesDisponibles.length === 0) {
+        return 0;
+    }
+    
+    if (typeFiltre === 'all') {
+        return articlesDisponibles.length;
+    }
+    
+    return articlesDisponibles.filter(article => correspondAuFiltre(article, typeFiltre)).length;
+}
+
+// Fonction pour mettre à jour les compteurs sur les badges
+function mettreAJourCompteursFiltre() {
+    const types = ['all', 'promo', 'liquidation', 'test', 'upsell'];
+    
+    types.forEach(type => {
+        const badge = document.getElementById(`filter-${type}`);
+        if (badge) {
+            const compteur = compterArticlesParType(type);
+            
+            // Supprimer l'ancien compteur s'il existe
+            const ancienCompteur = badge.querySelector('.article-count');
+            if (ancienCompteur) {
+                ancienCompteur.remove();
+            }
+            
+            // Ajouter le nouveau compteur
+            if (compteur > 0) {
+                const compteurElement = document.createElement('span');
+                compteurElement.className = 'article-count';
+                compteurElement.textContent = compteur;
+                badge.appendChild(compteurElement);
+            }
+        }
+    });
+    
+    console.log('📊 Compteurs des filtres mis à jour:', {
+        tous: compterArticlesParType('all'),
+        promo: compterArticlesParType('promo'),
+        liquidation: compterArticlesParType('liquidation'),
+        test: compterArticlesParType('test'),
+        upsell: compterArticlesParType('upsell')
+    });
+}
+
+// Fonction pour réinitialiser le filtre
+function reinitialiserFiltre() {
+    filtrerArticles('all');
+}
+
+// Ajouter des raccourcis clavier pour le filtrage
+document.addEventListener('keydown', function(event) {
+    // Uniquement si la modale d'articles est ouverte
+    const articleModal = document.getElementById('articleModal');
+    if (articleModal && articleModal.style.display === 'flex') {
+        if (event.altKey) {
+            switch (event.key) {
+                case '1':
+                    event.preventDefault();
+                    filtrerArticles('all');
+                    break;
+                case '2':
+                    event.preventDefault();
+                    filtrerArticles('promo');
+                    break;
+                case '3':
+                    event.preventDefault();
+                    filtrerArticles('liquidation');
+                    break;
+                case '4':
+                    event.preventDefault();
+                    filtrerArticles('test');
+                    break;
+                case '5':
+                    event.preventDefault();
+                    filtrerArticles('upsell');
+                    break;
+            }
+        }
+    }
 });
 
 // ================== MODAL DE CONFIRMATION ==================
