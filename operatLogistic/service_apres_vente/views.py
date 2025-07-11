@@ -3,8 +3,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.utils import timezone
-from commande.models import Commande, EtatCommande, EnumEtatCmd
+from commande.models import Commande, EtatCommande, EnumEtatCmd, Envoi
 from django.db import transaction
+from datetime import datetime
+from article.models import Article
 
 @login_required
 @require_POST
@@ -19,62 +21,109 @@ def changer_etat_livraison(request, commande_id):
         
         # Vérifier que l'opérateur est bien un opérateur logistique
         if not operateur or not operateur.is_logistique:
-            messages.error(request, "Accès non autorisé.")
+            messages.error(request, "Vous n'avez pas les droits pour effectuer cette action.")
             return redirect('operatLogistic:detail_commande', commande_id=commande_id)
-
-        nouvel_etat_libelle = request.POST.get('nouvel_etat')
+        
+        nouvel_etat = request.POST.get('nouvel_etat')
         commentaire = request.POST.get('commentaire')
-
-        if not nouvel_etat_libelle or not commentaire:
+        
+        if not nouvel_etat or not commentaire:
             messages.error(request, "L'état et le commentaire sont obligatoires.")
             return redirect('operatLogistic:detail_commande', commande_id=commande_id)
-            
-        # Logique de changement d'état
+
         with transaction.atomic():
-            # 1. Trouver et terminer l'état actuel
-            etat_actuel = commande.etats.filter(date_fin__isnull=True).first()
+            # Fermer l'état actuel s'il existe
+            etat_actuel = commande.etat_actuel
             if etat_actuel:
                 etat_actuel.date_fin = timezone.now()
                 etat_actuel.save()
 
-            # 2. Créer le nouvel état
-            nouvel_etat_enum = EnumEtatCmd.objects.get(libelle=nouvel_etat_libelle)
+            # Créer le nouvel état
+            enum_etat = EnumEtatCmd.objects.get(libelle=nouvel_etat)
+            
+            # Traitement spécifique selon l'état
+            details_supplementaires = ""
+            
+            # Récupérer ou créer l'envoi en cours
+            envoi = commande.envois.filter(status='en_attente').first()
+            if not envoi:
+                envoi = Envoi.objects.create(
+                    commande=commande,
+                    date_livraison_prevue=timezone.now().date(),
+                    operateur=operateur
+                )
+            
+            if nouvel_etat == 'Reportée':
+                # Récupérer et valider la date de report
+                date_str = request.POST.get('date_report')
+                if not date_str:
+                    messages.error(request, "La date de report est obligatoire.")
+                    return redirect('operatLogistic:detail_commande', commande_id=commande_id)
+                
+                try:
+                    date_report = datetime.strptime(date_str, '%Y-%m-%d').date()
+                    if date_report < timezone.now().date():
+                        messages.error(request, "La date de report ne peut pas être dans le passé")
+                        return redirect('operatLogistic:detail_commande', commande_id=commande_id)
+                    
+                    # Mettre à jour l'envoi
+                    envoi.reporter(date_report, commentaire, operateur)
+                    
+                    # Ajouter la date de report au commentaire
+                    details_supplementaires = f"\n\nDate de report : {date_report.strftime('%d/%m/%Y')}"
+                    details_supplementaires += "\nArticles concernés :"
+                    for panier in commande.paniers.all():
+                        details_supplementaires += f"\n- {panier.article.nom} (Quantité: {panier.quantite})"
+                except ValueError:
+                    messages.error(request, "Format de date invalide")
+                    return redirect('operatLogistic:detail_commande', commande_id=commande_id)
+
+            elif nouvel_etat == 'Livrée':
+                # Marquer l'envoi comme livré
+                envoi.marquer_comme_livre(operateur)
+                details_supplementaires = f"\nLivraison effectuée le : {timezone.now().strftime('%d/%m/%Y à %H:%M')}"
+
+            elif nouvel_etat == 'Annulée (SAV)':
+                type_annulation = request.POST.get('type_annulation')
+                if not type_annulation:
+                    messages.error(request, "Le type d'annulation est obligatoire.")
+                    return redirect('operatLogistic:detail_commande', commande_id=commande_id)
+                
+                # Annuler l'envoi
+                envoi.annuler(operateur, commentaire)
+                
+                details_supplementaires = f"\nType d'annulation : {type_annulation}"
+                
+                # Réincrémenter le stock si c'est une bonne annulation
+                if type_annulation == 'bonne':
+                    for panier in commande.paniers.all():
+                        article = panier.article
+                        article.stock += panier.quantite
+                        article.save()
+                        details_supplementaires += f"\nStock réincrémenté pour {article.nom} : +{panier.quantite}"
+
+            # Créer le nouvel état avec le commentaire complet
+            commentaire_complet = commentaire + details_supplementaires
             EtatCommande.objects.create(
                 commande=commande,
-                enum_etat=nouvel_etat_enum,
+                enum_etat=enum_etat,
                 operateur=operateur,
-                commentaire=commentaire
+                date_debut=timezone.now(),
+                commentaire=commentaire_complet
             )
-        
-        messages.success(request, f"L'état de la commande {commande.id_yz} a été mis à jour avec succès.")
-        
-        # Redirection intelligente vers la page appropriée selon l'action SAV
-        if nouvel_etat_libelle == 'Livrée':
-            return redirect('operatLogistic:commandes_livrees')
-        elif nouvel_etat_libelle == 'Reportée':
-            return redirect('operatLogistic:commandes_reportees')
-        elif nouvel_etat_libelle == 'Livrée Partiellement':
-            return redirect('operatLogistic:commandes_livrees_partiellement')
-        elif nouvel_etat_libelle == 'Livrée avec changement':
-            return redirect('operatLogistic:commandes_livrees_avec_changement')
-        elif nouvel_etat_libelle == 'Annulée (SAV)':
-            return redirect('operatLogistic:commandes_annulees_sav')
-        else:
-            # Fallback vers la page de détail de la commande
-            return redirect('operatLogistic:detail_commande', commande_id=commande_id)
 
-    except Commande.DoesNotExist:
-        messages.error(request, "Commande non trouvée.")
-        return redirect('operatLogistic:home')
-    except EnumEtatCmd.DoesNotExist:
-        messages.error(request, "L'état demandé n'existe pas.")
-        return redirect('operatLogistic:detail_commande', commande_id=commande_id)
+            messages.success(request, f"État de la commande mis à jour : {nouvel_etat}")
+            
     except Exception as e:
-        messages.error(request, f"Une erreur est survenue : {e}")
-        return redirect('operatLogistic:detail_commande', commande_id=commande_id)
+        messages.error(request, f"Une erreur est survenue : {str(e)}")
+    
+    return redirect('operatLogistic:detail_commande', commande_id=commande_id)
 
 def _render_sav_list(request, queryset, page_title, page_subtitle):
     """Fonction helper pour rendre les templates des listes SAV."""
+    # Ajouter les envois au queryset
+    queryset = queryset.prefetch_related('envois')
+    
     context = {
         'commandes': queryset,
         'page_title': page_title,
@@ -89,7 +138,8 @@ def commandes_reportees(request):
         etats__enum_etat__libelle='Reportée',
         etats__date_fin__isnull=True
     ).select_related('client', 'ville').prefetch_related(
-        'etats__enum_etat', 'etats__operateur'
+        'etats__enum_etat', 'etats__operateur',
+        'envois'  # Ajouter les envois
     ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes Reportées', 'Liste des livraisons reportées.')
 
@@ -100,7 +150,8 @@ def commandes_livrees_partiellement(request):
         etats__enum_etat__libelle='Livrée Partiellement',
         etats__date_fin__isnull=True
     ).select_related('client', 'ville').prefetch_related(
-        'etats__enum_etat', 'etats__operateur'
+        'etats__enum_etat', 'etats__operateur',
+        'envois'  # Ajouter les envois
     ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes Livrées Partiellement', 'Liste des commandes livrées en partie.')
 
@@ -111,7 +162,8 @@ def commandes_livrees_avec_changement(request):
         etats__enum_etat__libelle='Livrée avec changement',
         etats__date_fin__isnull=True
     ).select_related('client', 'ville').prefetch_related(
-        'etats__enum_etat', 'etats__operateur'
+        'etats__enum_etat', 'etats__operateur',
+        'envois'  # Ajouter les envois
     ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes avec Changement', 'Liste des commandes livrées avec un article différent.')
 
@@ -122,7 +174,8 @@ def commandes_annulees_sav(request):
         etats__enum_etat__libelle='Annulée (SAV)',
         etats__date_fin__isnull=True
     ).select_related('client', 'ville').prefetch_related(
-        'etats__enum_etat', 'etats__operateur'
+        'etats__enum_etat', 'etats__operateur',
+        'envois'  # Ajouter les envois
     ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes Annulées (SAV)', 'Liste des commandes annulées lors de la livraison.')
 
@@ -133,6 +186,7 @@ def commandes_livrees(request):
         etats__enum_etat__libelle='Livrée',
         etats__date_fin__isnull=True
     ).select_related('client', 'ville').prefetch_related(
-        'etats__enum_etat', 'etats__operateur'
+        'etats__enum_etat', 'etats__operateur',
+        'envois'  # Ajouter les envois
     ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes Livrées', 'Liste des commandes livrées avec succès.') 

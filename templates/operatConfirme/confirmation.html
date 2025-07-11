@@ -842,12 +842,16 @@ function annulerCommandeConfirmation(commandeId) {
                     location.reload();
                 }, 1500);
             } else {
-                alert('Erreur lors de l\'annulation : ' + data.message);
+                alert(data.message || 'Erreur lors de l\'annulation de la commande.');
             }
         })
         .catch(error => {
             console.error('Erreur:', error);
-            alert('Une erreur est survenue lors de l\'annulation de la commande.');
+            if (error && error.message) {
+                alert(error.message);
+            } else {
+                alert('Une erreur est survenue lors de l\'annulation de la commande.');
+            }
         })
         .finally(() => {
             document.body.removeChild(modal);
@@ -927,6 +931,29 @@ function hideConfirmModal() {
     document.getElementById('confirmModal').classList.add('hidden');
     document.getElementById('confirmModal').classList.remove('flex');
     document.getElementById('confirmComment').value = '';
+}
+
+// Toast notification simple
+function showNotification(message, type) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.style.background = type === 'success' ? '#22c55e' : '#ef4444';
+    toast.style.color = 'white';
+    toast.style.position = 'fixed';
+    toast.style.top = '30px';
+    toast.style.right = '30px';
+    toast.style.zIndex = 9999;
+    toast.style.padding = '16px 28px';
+    toast.style.borderRadius = '8px';
+    toast.style.fontWeight = 'bold';
+    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.transition = 'opacity 0.4s';
+        toast.style.opacity = 0;
+        setTimeout(() => toast.remove(), 400);
+    }, 2500);
 }
 
 // Fonctions simplifiées - Les opérations sont maintenant automatisées

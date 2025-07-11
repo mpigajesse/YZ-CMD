@@ -43,6 +43,36 @@ class YoozakKPIManager {
     console.log('🏭 Initialisation KPI Manager Yoozak v' + this.version);
     this.bindEvents();
     this.loadInitialData();
+    this.initExportButtons();
+  }
+
+  initExportButtons() {
+    // Gestion des boutons d'export
+    document.querySelectorAll('.export-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const button = e.currentTarget;
+        const btnText = button.querySelector('.btn-text');
+        const loadingText = button.querySelector('.loading-text');
+        
+        // Afficher l'état de chargement
+        btnText.classList.add('hidden');
+        loadingText.classList.remove('hidden');
+        
+        // Réactiver le bouton après le téléchargement
+        setTimeout(() => {
+          btnText.classList.remove('hidden');
+          loadingText.classList.add('hidden');
+        }, 2000);
+      });
+    });
+  }
+
+  updateExportUrls(period) {
+    // Mettre à jour les URLs des boutons d'export avec la nouvelle période
+    document.querySelectorAll('.export-btn').forEach(btn => {
+      const baseUrl = btn.href.split('?')[0];
+      btn.href = `${baseUrl}?period=${period}`;
+    });
   }
 
   bindEvents() {

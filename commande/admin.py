@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import EnumEtatCmd, Commande, Panier, EtatCommande, Operation
+from .models import EnumEtatCmd, Commande, Panier, EtatCommande, Operation, Envoi
 
 @admin.register(EnumEtatCmd)
 class EnumEtatCmdAdmin(admin.ModelAdmin):
@@ -82,3 +82,11 @@ class OperationAdmin(admin.ModelAdmin):
     search_fields = ('commande__num_cmd', 'operateur__nom', 'operateur__prenom', 'type_operation')
     ordering = ('-date_operation',)
     readonly_fields = ('date_operation',)
+    
+@admin.register(Envoi)
+class EnvoiAdmin(admin.ModelAdmin):
+    list_display = ('id', 'commande', 'date_livraison_prevue', 'date_report', 'motif_report', 'status', 'operateur')
+    list_filter = ('status', 'date_livraison_prevue')
+    search_fields = ('commande__num_cmd', 'operateur__nom', 'operateur__prenom')
+    ordering = ('-date_livraison_prevue',)
+    readonly_fields = ('date_livraison_prevue', 'date_report', 'motif_report', 'status', 'operateur')

@@ -29,133 +29,118 @@ def home_view(request):
         messages.error(request, "Votre profil opérateur n'existe pas.")
         return redirect('login')
 
-    # Dates pour les statistiques
+    # Date de référence
     today = timezone.now().date()
+    # Début de la semaine (lundi)
     start_of_week = today - timedelta(days=today.weekday())
-    start_of_month = today.replace(day=1)
 
-    # États spécifiques à la préparation
+    # Récupérer les états nécessaires
     try:
-        etat_en_preparation = EnumEtatCmd.objects.get(libelle__icontains='préparation')
-    except EnumEtatCmd.DoesNotExist:
-        etat_en_preparation = None
-    
-    try:
-        etat_confirmee = EnumEtatCmd.objects.get(libelle__icontains='confirmée')
-    except EnumEtatCmd.DoesNotExist:
-        etat_confirmee = None
+        etat_confirmee = EnumEtatCmd.objects.get(libelle__iexact='Confirmée')
+        etat_en_preparation = EnumEtatCmd.objects.get(libelle__iexact='En préparation')
+        etat_preparee = EnumEtatCmd.objects.get(libelle__iexact='Préparée')
+    except EnumEtatCmd.DoesNotExist as e:
+        messages.error(request, f"État manquant dans le système: {str(e)}")
+        return redirect('login')
 
-    # Statistiques principales
-    stats = {}
-    
-    # Commandes à préparer (confirmées mais non encore en préparation)
-    if etat_confirmee and etat_en_preparation:
-        commandes_a_preparer = Commande.objects.filter(
-            etats__enum_etat=etat_confirmee,
-            etats__date_fin__isnull=True
-        ).exclude(
-            etats__enum_etat=etat_en_preparation,
-            etats__date_fin__isnull=True
-        ).count()
-    else:
-        commandes_a_preparer = 0
-    
-    # Commandes en cours de préparation
-    if etat_en_preparation:
-        commandes_en_preparation = Commande.objects.filter(
-            etats__enum_etat=etat_en_preparation,
-            etats__date_fin__isnull=True
-        ).count()
-    else:
-        commandes_en_preparation = 0
-    
-    # Commandes préparées aujourd'hui
-    commandes_preparees_today = 0
-    if etat_en_preparation:
-        commandes_preparees_today = EtatCommande.objects.filter(
-            enum_etat=etat_en_preparation,
-            date_fin__date=today
-        ).count()
-    
-    # Commandes préparées cette semaine
-    commandes_preparees_week = 0
-    if etat_en_preparation:
-        commandes_preparees_week = EtatCommande.objects.filter(
-            enum_etat=etat_en_preparation,
-            date_fin__date__gte=start_of_week,
-            date_fin__date__lte=today
-        ).count()
-    
-    # Valeur totale des commandes préparées aujourd'hui
-    valeur_preparees_today = 0
-    if etat_en_preparation:
-        commandes_ids = EtatCommande.objects.filter(
-            enum_etat=etat_en_preparation,
-            date_fin__date=today
-        ).values_list('commande_id', flat=True)
-        
-        valeur_preparees_today = Commande.objects.filter(
-            id__in=commandes_ids
-        ).aggregate(
-            total=Sum('total_cmd')
-        )['total'] or 0
-    
-    # Commandes urgentes (plus de 2 jours d'attente)
-    date_limite_urgence = today - timedelta(days=2)
-    commandes_urgentes = 0
-    if etat_confirmee:
-        commandes_urgentes = Commande.objects.filter(
-            etats__enum_etat=etat_confirmee,
-            etats__date_fin__isnull=True,
-            etats__date_debut__date__lte=date_limite_urgence
-        ).count()
-    
-    # Articles les plus préparés cette semaine
-    articles_populaires = []
-    if etat_en_preparation:
-        commandes_preparees_ids = EtatCommande.objects.filter(
-            enum_etat=etat_en_preparation,
-            date_fin__date__gte=start_of_week,
-            date_fin__date__lte=today
-        ).values_list('commande_id', flat=True)
-        
-        articles_populaires = Panier.objects.filter(
-            commande_id__in=commandes_preparees_ids
-        ).values(
-            'article__nom', 'article__reference'
-        ).annotate(
-            total_quantite=Sum('quantite'),
-            total_commandes=Count('commande', distinct=True)
-        ).order_by('-total_quantite')[:5]
-    
-    # Performance quotidienne de l'opérateur
-    ma_performance_today = 0
-    if etat_en_preparation:
-        ma_performance_today = EtatCommande.objects.filter(
-            enum_etat=etat_en_preparation,
-            date_fin__date=today,
-            operateur=operateur_profile
-        ).count()
-    
-    # Activité récente
-    activite_recente = []
-    if etat_en_preparation:
-        activite_recente = EtatCommande.objects.filter(
-            enum_etat=etat_en_preparation,
-            operateur=operateur_profile,
-            date_fin__isnull=False
-        ).select_related('commande', 'commande__client').order_by('-date_fin')[:5]
+    # 1. Commandes à préparer (à imprimer et affectées à cet opérateur)
+    commandes_a_preparer = Commande.objects.filter(
+        etats__enum_etat__libelle='En préparation',
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True
+    ).distinct().count()
 
+
+    
+    # 2. Commandes préparées aujourd'hui par cet opérateur
+    commandes_preparees = EtatCommande.objects.filter(
+        enum_etat__libelle='Préparée',
+        date_debut__date=today,
+        operateur=operateur_profile
+    ).distinct().count()
+
+    # 3. Commandes en cours de préparation
+    commandes_en_cours = Commande.objects.filter(
+        etats__enum_etat=etat_en_preparation,
+        etats__date_fin__isnull=True,
+        etats__operateur=operateur_profile
+    ).distinct().count()
+
+    # 4. Performance de l'opérateur aujourd'hui
+    ma_performance = EtatCommande.objects.filter(
+        enum_etat=etat_preparee,
+        date_debut__date=today,
+        operateur=operateur_profile
+    ).distinct().count()
+
+    # === Calculs supplémentaires pour le tableau de bord ===
+    # Commandes préparées aujourd'hui (toutes)
+    commandes_preparees_today = EtatCommande.objects.filter(
+        enum_etat=etat_en_preparation,
+        date_fin__date=today
+    ).count()
+
+    # Commandes préparées cette semaine (toutes)
+    commandes_preparees_week = EtatCommande.objects.filter(
+        enum_etat=etat_en_preparation,
+        date_fin__date__gte=start_of_week,
+        date_fin__date__lte=today
+    ).count()
+
+    # Commandes actuellement en préparation (toutes)
+    commandes_en_preparation = Commande.objects.filter(
+        etats__enum_etat=etat_en_preparation,
+        etats__date_fin__isnull=True
+    ).count()
+
+    # Performance de l'opérateur aujourd'hui (commandes préparées par lui)
+    ma_performance_today = EtatCommande.objects.filter(
+        enum_etat=etat_en_preparation,
+        date_fin__date=today,
+        operateur=operateur_profile
+    ).count()
+
+    # Valeur totale (DH) des commandes préparées aujourd'hui
+    commandes_ids_today = EtatCommande.objects.filter(
+        enum_etat=etat_en_preparation,
+        date_fin__date=today
+    ).values_list('commande_id', flat=True)
+    valeur_preparees_today = Commande.objects.filter(id__in=commandes_ids_today).aggregate(total=Sum('total_cmd'))['total'] or 0
+
+    # Articles populaires (semaine en cours)
+    commandes_ids_week = EtatCommande.objects.filter(
+        enum_etat=etat_en_preparation,
+        date_fin__date__gte=start_of_week,
+        date_fin__date__lte=today
+    ).values_list('commande_id', flat=True)
+    articles_populaires = Panier.objects.filter(
+        commande_id__in=commandes_ids_week
+    ).values('article__nom', 'article__reference').annotate(
+        total_quantite=Sum('quantite'),
+        total_commandes=Count('commande', distinct=True)
+    ).order_by('-total_quantite')[:5]
+
+    # Activité récente (5 dernières préparations de l'opérateur)
+    activite_recente = EtatCommande.objects.filter(
+        enum_etat=etat_en_preparation,
+        operateur=operateur_profile,
+        date_fin__isnull=False
+    ).select_related('commande', 'commande__client').order_by('-date_fin')[:5]
+
+    # Préparer les statistiques
     stats = {
         'commandes_a_preparer': commandes_a_preparer,
-        'commandes_en_preparation': commandes_en_preparation,
+        'commandes_preparees': commandes_preparees,
+        'commandes_en_cours': commandes_en_cours,
+        'ma_performance': ma_performance,
+        # Ajout des nouvelles statistiques
         'commandes_preparees_today': commandes_preparees_today,
         'commandes_preparees_week': commandes_preparees_week,
-        'valeur_preparees_today': valeur_preparees_today,
-        'commandes_urgentes': commandes_urgentes,
+        'commandes_en_preparation': commandes_en_preparation,
         'ma_performance_today': ma_performance_today,
+        'valeur_preparees_today': valeur_preparees_today,
         'articles_populaires': articles_populaires,
-        'activite_recente': activite_recente,
+        'activite_recente': activite_recente
     }
 
     context = {
@@ -163,7 +148,7 @@ def home_view(request):
         'page_subtitle': 'Interface Opérateur de Préparation',
         'profile': operateur_profile,
         'stats': stats,
-        'today': today,
+        'total_commandes': commandes_a_preparer  # Ajout du total des commandes à préparer
     }
     return render(request, 'composant_generale/operatPrepa/home.html', context)
 

@@ -6,6 +6,7 @@ app_name = 'synchronisation'
 urlpatterns = [
     path('dashboard/', views.sync_dashboard, name='dashboard'),
     path('sync-now/<int:config_id>/', views.sync_now, name='sync_now'),
+    path('sync-all/', views.sync_all, name='sync_all'),
     path('configs/', views.config_list, name='config_list'),
     path('configs/create/', views.config_create, name='config_create'),
     path('configs/edit/<int:pk>/', views.config_edit, name='config_edit'),

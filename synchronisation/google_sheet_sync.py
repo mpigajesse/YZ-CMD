@@ -339,7 +339,8 @@ class GoogleSheetSync:
                 ville=None,
                 ville_init=data.get('Ville', '').strip(),
                 produit_init=data.get('Produit', ''),
-                origine='GSheet'
+                origine='GSheet',
+                last_sync_date=timezone.now() # Définir la date de dernière synchronisation
             )
             self._log(f"✅ NOUVELLE commande créée avec ID YZ: {commande.id_yz} et numéro externe: {commande.num_cmd}", "info")
             self.new_orders_created += 1
@@ -518,6 +519,7 @@ class GoogleSheetSync:
             
             # Sauvegarder les changements de la commande
             if updated:
+                existing_commande.last_sync_date = timezone.now() # Mettre à jour la date de dernière synchronisation
                 existing_commande.save()
                 print(f"📝 Commande mise à jour: ID YZ {existing_commande.id_yz} - Changements: {', '.join(changes_made)}")
             

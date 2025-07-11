@@ -10,11 +10,52 @@
 
       <!-- Actions disponibles -->
       <div class="flex items-center gap-3">
-        <!-- Bouton d'export -->
-        <button id="export-perf-operateurs" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 border border-gray-300" title="Exporter en Excel">
-          <i class="fas fa-download text-xs"></i>
-          <span>Exporter</span>
-        </button>
+        <!-- Boutons d'export CSV et Excel -->
+        <a href="{% url 'kpis:export_performance_operateurs_csv' %}?period=ce_mois" class="bg-green-600 text-white px-4 py-1.5 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 export-btn flex items-center gap-2 text-sm" data-export="csv">
+          <i class="fas fa-file-csv"></i>
+          <span class="btn-text">CSV</span>
+          <span class="loading-text hidden">
+            <i class="fas fa-spinner fa-spin"></i>
+          </span>
+        </a>
+        <a href="{% url 'kpis:export_performance_operateurs_excel' %}?period=ce_mois" class="bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 export-btn flex items-center gap-2 text-sm" data-export="excel">
+          <i class="fas fa-file-excel"></i>
+          <span class="btn-text">Excel</span>
+          <span class="loading-text hidden">
+            <i class="fas fa-spinner fa-spin"></i>
+          </span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section Temps en Temps Réel -->
+  <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-lg font-bold text-gray-900 flex items-center gap-3">
+          <i class="fas fa-clock text-blue-600"></i>
+          Temps de Confirmation en Temps Réel
+        </h3>
+        <p class="text-gray-600 mt-1">Mise à jour automatique toutes les 30 secondes</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div id="realtime-status" class="flex items-center gap-2 text-sm">
+          <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span class="text-green-600">En temps réel</span>
+        </div>
+        <div id="last-update-time" class="text-xs text-gray-500"></div>
+      </div>
+    </div>
+
+    <!-- Métriques de temps en temps réel -->
+    <div id="realtime-times-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Les métriques seront chargées ici -->
+      <div class="flex items-center justify-center py-8">
+        <div class="flex items-center gap-3 text-gray-500">
+          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400"></div>
+          <span>Chargement des temps en temps réel...</span>
+        </div>
       </div>
     </div>
   </div>
@@ -51,6 +92,7 @@
                 <th class="px-6 py-2 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-300" rowspan="2">OPÉRATEUR</th>
                 <th class="px-6 py-2 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-300" colspan="2">ÉTAT ACTUEL</th>
                 <th class="px-6 py-2 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-300" colspan="6">HISTORIQUE (30 JOURS)</th>
+                <th class="px-6 py-2 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-300" colspan="2">TEMPS MOYEN (TEMPS RÉEL)</th>
                 <th class="px-6 py-2 text-center text-xs font-bold text-gray-700 uppercase" rowspan="2">DÉTAILS</th>
               </tr>
               <tr class="border-b border-gray-300 bg-gray-50">
@@ -62,6 +104,8 @@
                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase border-r border-gray-300">PANIER MOY.</th>
                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase border-r border-gray-300">PANIER MIN.</th>
                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase border-r border-gray-300">PANIER MAX.</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase border-r border-gray-300">CONFIRMATION</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase border-r border-gray-300">ARRIVÉE→CONF.</th>
               </tr>
             </thead>
             <tbody id="perf-operateurs-table-body" class="divide-y divide-gray-300">
@@ -167,6 +211,14 @@
                 <span class="text-sm text-gray-600">Eff. Contact <i class="fas fa-info-circle text-gray-400 ml-1" title="Nombre moyen d'opérations effectuées par commande confirmée sur les 30 derniers jours"></i></span>
                 <span class="font-medium text-sm text-blue-600" id="modal-efficiency">-</span>
               </div>
+              <div class="flex justify-between items-center py-1">
+                <span class="text-sm text-gray-600">Temps Confirmation <i class="fas fa-info-circle text-gray-400 ml-1" title="Temps moyen entre le début de la confirmation et la validation (toutes les commandes confirmées)"></i></span>
+                <span class="font-medium text-sm text-orange-600" id="modal-confirmation-time">-</span>
+              </div>
+              <div class="flex justify-between items-center py-1">
+                <span class="text-sm text-gray-600">Temps Arrivée→Conf. <i class="fas fa-info-circle text-gray-400 ml-1" title="Temps moyen entre l'arrivée de la commande et sa confirmation (toutes les commandes confirmées)"></i></span>
+                <span class="font-medium text-sm text-red-600" id="modal-arrival-time">-</span>
+              </div>
             </div>
           </div>
         </div>
@@ -205,44 +257,195 @@
 <!-- Scripts spécifiques à la performance des opérateurs -->
 <script>
   document.addEventListener('DOMContentLoaded', function () {
+    console.log("Performance Opérateurs: DOM chargé et script initialisé.");
+
     // Éléments DOM
-    const exportButton = document.getElementById('export-perf-operateurs')
-    const loadingDiv = document.getElementById('perf-operateurs-loading')
-    const tableContainer = document.getElementById('perf-operateurs-table-container')
-    const noDataDiv = document.getElementById('perf-operateurs-no-data')
-    const tableBody = document.getElementById('perf-operateurs-table-body')
-    const globalMetricsContainer = document.getElementById('perf-operateurs-global-metrics')
+    const exportButtons = document.querySelectorAll('.export-btn');
+    const loadingDiv = document.getElementById('perf-operateurs-loading');
+    const tableContainer = document.getElementById('perf-operateurs-table-container');
+    const noDataDiv = document.getElementById('perf-operateurs-no-data');
+    const tableBody = document.getElementById('perf-operateurs-table-body');
+    const globalMetricsContainer = document.getElementById('perf-operateurs-global-metrics');
+    const realtimeStatus = document.getElementById('realtime-status');
+    const lastUpdateTime = document.getElementById('last-update-time');
+    const realtimeTimesContainer = document.getElementById('realtime-times-container');
   
-    // Event listeners
-    exportButton.addEventListener('click', function () {
-      exportPerfOperateursToExcel()
-    })
+    // Event listeners pour les boutons d'export
+    exportButtons.forEach(button => {
+        button.addEventListener('click', function (e) {
+            e.preventDefault(); // Empêche la navigation directe
+            const btnText = this.querySelector('.btn-text');
+            const loadingText = this.querySelector('.loading-text');
+            const exportUrl = this.href;
+
+            // Afficher le spinner
+            btnText.classList.add('hidden');
+            loadingText.classList.remove('hidden');
+
+            // Simuler le téléchargement
+            console.log(`Export demandé vers : ${exportUrl}`);
+            window.location.href = exportUrl;
+
+            // Masquer le spinner après un délai
+            setTimeout(() => {
+                btnText.classList.remove('hidden');
+                loadingText.classList.add('hidden');
+            }, 2000); // 2 secondes
+        });
+    });
   
     // Écouter l'événement de rafraîchissement global
     document.addEventListener('kpiUpdated', function () {
-      loadPerfOperateursData()
-    })
+      console.log("Performance Opérateurs: Événement 'kpiUpdated' reçu, rafraîchissement des données.");
+      loadPerfOperateursData();
+      loadRealtimeTimesData();
+    });
+
+    // Variables pour le temps réel
+    let realtimeUpdateInterval = null;
+
+    // Fonction pour charger les données de temps en temps réel
+    function loadRealtimeTimesData() {
+      console.log("Temps Réel: Chargement des données...");
+      fetch('/kpis/api/operator-realtime-times/')
+        .then((response) => {
+          console.log("Temps Réel: Réponse reçue du serveur.", response);
+          if (!response.ok) {
+            throw new Error(`Erreur HTTP ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log("Temps Réel: Données JSON reçues.", data);
+          if (data.success) {
+            displayRealtimeTimesData(data.realtime_data);
+            updateLastUpdateTime(data.timestamp);
+          } else {
+            console.error('Temps Réel: Erreur applicative.', data.message);
+            showRealtimeError();
+          }
+        })
+        .catch((error) => {
+          console.error('Temps Réel: Erreur critique lors du chargement.', error);
+          showRealtimeError();
+        });
+    }
+
+    // Fonction pour afficher les données de temps en temps réel
+    function displayRealtimeTimesData(realtimeData) {
+      console.log("Temps Réel: Affichage des données.", realtimeData);
+      if (!realtimeData || realtimeData.length === 0) {
+        realtimeTimesContainer.innerHTML = '<div class="col-span-full text-center text-gray-500 py-8">Aucune donnée de temps disponible</div>';
+        return;
+      }
+
+      // Calculer les moyennes globales
+      let totalConfirmationTime = 0
+      let totalArrivalTime = 0
+      let totalConfirmationToday = 0
+      let totalConfirmationTimeToday = 0
+      let nbOperateurs = realtimeData.length
+
+      realtimeData.forEach(operator => {
+        totalConfirmationTime += operator.temps_confirmation_global_minutes || 0
+        totalArrivalTime += operator.temps_arrivee_confirmation_global_minutes || 0
+        totalConfirmationToday += operator.nb_commandes_confirmees_aujourd_hui || 0
+        totalConfirmationTimeToday += operator.temps_confirmation_aujourd_hui_minutes || 0
+      })
+
+      const avgConfirmationTime = nbOperateurs > 0 ? totalConfirmationTime / nbOperateurs : 0
+      const avgArrivalTime = nbOperateurs > 0 ? totalArrivalTime / nbOperateurs : 0
+      const avgConfirmationTimeToday = totalConfirmationToday > 0 ? totalConfirmationTimeToday / totalConfirmationToday : 0
+
+      // Générer les cartes de métriques
+      const metricsHtml = `
+        <div class="bg-blue-50 rounded-lg p-6 text-center">
+          <div class="text-3xl font-bold text-blue-600">${avgConfirmationTime.toFixed(1)}</div>
+          <div class="text-sm text-gray-600 font-medium">Temps Confirmation Moyen</div>
+          <div class="text-xs text-blue-500 mt-1">Toutes commandes (min)</div>
+        </div>
+        <div class="bg-green-50 rounded-lg p-6 text-center">
+          <div class="text-3xl font-bold text-green-600">${avgArrivalTime.toFixed(1)}</div>
+          <div class="text-sm text-gray-600 font-medium">Temps Arrivée→Conf. Moyen</div>
+          <div class="text-xs text-green-500 mt-1">Toutes commandes (min)</div>
+        </div>
+        <div class="bg-orange-50 rounded-lg p-6 text-center">
+          <div class="text-3xl font-bold text-orange-600">${avgConfirmationTimeToday.toFixed(1)}</div>
+          <div class="text-sm text-gray-600 font-medium">Temps Confirmation Aujourd'hui</div>
+          <div class="text-xs text-orange-500 mt-1">Moyenne (min)</div>
+        </div>
+        <div class="bg-purple-50 rounded-lg p-6 text-center">
+          <div class="text-3xl font-bold text-purple-600">${totalConfirmationToday}</div>
+          <div class="text-sm text-gray-600 font-medium">Confirmations Aujourd'hui</div>
+          <div class="text-xs text-purple-500 mt-1">Total</div>
+        </div>
+      `
+
+      realtimeTimesContainer.innerHTML = metricsHtml
+    }
+
+    // Fonction pour mettre à jour l'heure de dernière mise à jour
+    function updateLastUpdateTime(timestamp) {
+      const date = new Date(timestamp)
+      const timeString = date.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+      lastUpdateTime.textContent = `Dernière mise à jour: ${timeString}`
+    }
+
+    // Fonction pour afficher une erreur de temps réel
+    function showRealtimeError() {
+      realtimeTimesContainer.innerHTML = '<div class="col-span-full text-center text-red-500 py-8">Erreur lors du chargement des données en temps réel</div>'
+      realtimeStatus.innerHTML = '<div class="w-2 h-2 bg-red-500 rounded-full"></div><span class="text-red-600">Erreur</span>'
+    }
+
+    // Fonction pour démarrer les mises à jour automatiques
+    function startRealtimeUpdates() {
+      // Charger les données initiales
+      loadRealtimeTimesData()
+      
+      // Mettre à jour toutes les 30 secondes
+      realtimeUpdateInterval = setInterval(loadRealtimeTimesData, 30000)
+    }
+
+    // Fonction pour arrêter les mises à jour automatiques
+    function stopRealtimeUpdates() {
+      if (realtimeUpdateInterval) {
+        clearInterval(realtimeUpdateInterval)
+        realtimeUpdateInterval = null
+      }
+    }
   
     // Fonction pour charger les données de performance des opérateurs
     function loadPerfOperateursData() {
       showPerfOperateursLoading()
+      console.log("Perf Opérateurs: Chargement des données de performance...");
   
       fetch('/kpis/performance-operateurs-data/')
-        .then((response) => response.json())
+        .then((response) => {
+          console.log("Perf Opérateurs: Réponse reçue du serveur.", response);
+          if (!response.ok) {
+              throw new Error(`Erreur HTTP ${response.status}`);
+          }
+          return response.json()
+        })
         .then((data) => {
-          hideLoadingAndShowData()
+          console.log("Perf Opérateurs: Données JSON reçues.", data);
+          hideLoadingAndShowData();
           if (data.success) {
-            displayPerfOperateursData(data)
+            displayPerfOperateursData(data);
           } else {
-            console.error('Erreur serveur:', data.message)
-            showNoDataMessage()
+            console.error('Perf Opérateurs: Erreur applicative.', data.message);
+            showNoDataMessage();
           }
         })
         .catch((error) => {
           hideLoadingAndShowData()
-          console.error('Erreur lors du chargement des données:', error)
-          showNoDataMessage()
-        })
+          console.error('Perf Opérateurs: Erreur critique lors du chargement.', error);
+          showNoDataMessage();
+        });
     }
   
     // Fonction pour afficher les métriques globales - Style coloré avec icône à droite
@@ -291,9 +494,10 @@
   
     // Fonction pour afficher les données des opérateurs - Style simple comme l'image
     function displayPerfOperateursData(data) {
+      console.log("Perf Opérateurs: Affichage des données de performance.", data);
       if (!data.operators || data.operators.length === 0) {
-        showNoDataMessage()
-        return
+        showNoDataMessage();
+        return;
       }
   
       // Stocker les données globalement pour la modal
@@ -302,7 +506,7 @@
       // Afficher les métriques globales
       displayGlobalMetrics(data.global_metrics)
       // Générer les lignes du tableau - Style simple avec bordures et couleurs neutres
-      tableBody.innerHTML = data.operators.map((operator) => '<tr class="hover:bg-gray-50 border-b border-gray-300">' + '<td class="px-4 py-4 border-r border-gray-300 text-center">' + '<div class="font-medium text-gray-900">' + (operator.nom || 'N/A') + '</div>' + '<div class="text-sm text-gray-500">' + (operator.username || 'N/A') + '</div>' + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_affected || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_in_progress || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_confirmed || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center font-medium">' + (operator.confirmation_rate || 0).toFixed(1) + '%</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.upsell_count || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.average_basket || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.min_basket || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.max_basket || 0) + '</td>' + '<td class="px-4 py-4 text-center">' + '<button class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded transition-colors text-sm" onclick="viewOperatorDetails(' + operator.id + ')">Détails</button>' + '</td>' + '</tr>').join('')
+      tableBody.innerHTML = data.operators.map((operator) => '<tr class="hover:bg-gray-50 border-b border-gray-300">' + '<td class="px-4 py-4 border-r border-gray-300 text-center">' + '<div class="font-medium text-gray-900">' + (operator.nom || 'N/A') + '</div>' + '<div class="text-sm text-gray-500">' + (operator.username || 'N/A') + '</div>' + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_affected || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_in_progress || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_confirmed || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center font-medium">' + (operator.confirmation_rate || 0).toFixed(1) + '%</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.upsell_count || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.average_basket || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.min_basket || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.max_basket || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.avg_confirmation_time_minutes || 0).toFixed(1) + ' min</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.avg_arrival_to_confirmation_minutes || 0).toFixed(1) + ' min</td>' + '<td class="px-4 py-4 text-center">' + '<button class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded transition-colors text-sm" onclick="viewOperatorDetails(' + operator.id + ')">Détails</button>' + '</td>' + '</tr>').join('')
     }
   
     // Fonctions utilitaires
@@ -389,6 +593,13 @@
       // Calculer l'efficacité (nombre moyen d'opérations par commande confirmée sur 30j)
       const efficiency = operator.operations_per_command_30d || 0
       document.getElementById('modal-efficiency').textContent = `${efficiency.toFixed(1)} ops/conf`
+      
+      // Afficher les métriques de temps
+      const confirmationTime = operator.avg_confirmation_time_minutes || 0
+      document.getElementById('modal-confirmation-time').textContent = `${confirmationTime.toFixed(1)} min`
+      
+      const arrivalTime = operator.avg_arrival_to_confirmation_minutes || 0
+      document.getElementById('modal-arrival-time').textContent = `${arrivalTime.toFixed(1)} min`
   
       // Charger l'historique récent
       loadOperatorHistory(operatorId)
@@ -438,6 +649,7 @@
     // Charger l'historique récent de l'opérateur
     function loadOperatorHistory(operatorId) {
       const historyContainer = document.getElementById('modal-recent-history')
+      console.log(`Historique Opérateur: Chargement pour l'opérateur ID ${operatorId}`);
   
       // Afficher le loader
       historyContainer.innerHTML = '<div class="text-center text-gray-500 py-4">' + '<i class="fas fa-spinner fa-spin"></i>' + " Chargement de l'historique..." + '</div>'
@@ -449,18 +661,26 @@
       })
   
       fetch('/kpis/operator-history/?' + params.toString())
-        .then((response) => response.json())
+        .then((response) => {
+            console.log(`Historique Opérateur: Réponse reçue pour l'opérateur ID ${operatorId}`, response);
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP ${response.status}`);
+            }
+            return response.json();
+        })
         .then((data) => {
+          console.log(`Historique Opérateur: Données JSON reçues pour l'opérateur ID ${operatorId}`, data);
           if (data.success) {
-            displayOperatorHistory(data.history)
+            displayOperatorHistory(data.history);
           } else {
-            historyContainer.innerHTML = '<div class="text-center text-red-500 py-4">Erreur lors du chargement de l\'historique</div>'
+            console.error(`Historique Opérateur: Erreur applicative pour ID ${operatorId}`, data.message);
+            historyContainer.innerHTML = '<div class="text-center text-red-500 py-4">Erreur lors du chargement de l\'historique</div>';
           }
         })
         .catch((error) => {
-          console.error('Erreur historique:', error)
-          historyContainer.innerHTML = '<div class="text-center text-red-500 py-4">Erreur lors du chargement de l\'historique</div>'
-        })
+          console.error(`Historique Opérateur: Erreur critique pour ID ${operatorId}`, error);
+          historyContainer.innerHTML = '<div class="text-center text-red-500 py-4">Erreur lors du chargement de l\'historique</div>';
+        });
     }
   
     // Afficher l'historique de l'opérateur
@@ -513,7 +733,22 @@
     })
   
     // Charger les données initiales
-    loadPerfOperateursData()
+    console.log("Performance Opérateurs: Chargement initial des données.");
+    loadPerfOperateursData();
+    startRealtimeUpdates(); // Démarrer les mises à jour en temps réel
+
+    // Gestion de la visibilité de la page pour optimiser les mises à jour
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        // Page cachée, arrêter les mises à jour
+        stopRealtimeUpdates()
+        realtimeStatus.innerHTML = '<div class="w-2 h-2 bg-gray-500 rounded-full"></div><span class="text-gray-600">Pause</span>'
+      } else {
+        // Page visible, redémarrer les mises à jour
+        startRealtimeUpdates()
+        realtimeStatus.innerHTML = '<div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span class="text-green-600">En temps réel</span>'
+      }
+    })
   })
 </script>
 

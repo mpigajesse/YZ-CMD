@@ -33,15 +33,25 @@
 
         <!-- Boutons d'export -->
         <div class="flex items-center gap-2 border-l border-gray-300 pl-3">
-          <button id="export-excel-btn" class="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Exporter en Excel">
-            <i class="fas fa-download text-xs"></i>
-            <span>Exporter</span>
-          </button>
+          <a href="{% url 'kpis:export_performance_operateurs_csv' %}?period={{ selected_period }}" class="bg-green-600 text-white px-4 py-1.5 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 export-btn flex items-center gap-2 text-sm" data-export="csv">
+            <i class="fas fa-file-csv"></i> 
+            <span class="btn-text">CSV</span>
+            <span class="loading-text hidden">
+              <i class="fas fa-spinner fa-spin"></i>
+            </span>
+          </a>
+          <a href="{% url 'kpis:export_performance_operateurs_excel' %}?period={{ selected_period }}" class="bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 export-btn flex items-center gap-2 text-sm" data-export="excel">
+            <i class="fas fa-file-excel"></i> 
+            <span class="btn-text">Excel</span>
+            <span class="loading-text hidden">
+              <i class="fas fa-spinner fa-spin"></i>
+            </span>
+          </a>
         </div>
 
         <!-- Bouton de rafraîchissement -->
-        <button id="refresh-vue-quantitative" class="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200" title="Actualiser les données">
-          <i class="fas fa-sync-alt text-xs"></i>
+        <button id="refresh-vue-quantitative" class="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200" title="Actualiser les données">
+          <i class="fas fa-sync-alt"></i>
           <span>Actualiser</span>
         </button>
       </div>
@@ -88,7 +98,18 @@
       // Afficher un indicateur de chargement
       showLoadingState()
   
-      const url = '/kpis/api/vue-quantitative/?period=' + period
+      let url = '/kpis/api/vue-quantitative/?period=' + period
+      
+      // Si c'est une période personnalisée, construire l'URL correctement
+      if (period.startsWith('personnalisee')) {
+        const params = new URLSearchParams(period.substring(period.indexOf('?')))
+        const fromDate = params.get('from')
+        const toDate = params.get('to')
+        if (fromDate && toDate) {
+          url = `/kpis/api/vue-quantitative/?period=custom:${fromDate}:${toDate}`
+        }
+      }
+      
       console.log('🔍 Chargement des données pour la période:', period)
       console.log('🌐 URL appelée:', url)
   
@@ -106,7 +127,6 @@
             currentData = data.data // Stocker pour l'export
             renderEtatsCommandes(data.data.etats_commandes)
             console.log('✅ Données rendues avec succès')
-            // updatePeriodInfo supprimé - plus de ligne de résumé selon demande client
           } else {
             console.error('❌ Échec API:', data.message || 'Erreur inconnue')
             showError('Erreur lors du chargement des données: ' + (data.message || 'Erreur inconnue'))
@@ -122,6 +142,14 @@
     function showLoadingState() {
       const container = document.getElementById('vue-quantitative-etats-grid')
       container.innerHTML = '<div class="col-span-full flex items-center justify-center py-12">' + '<div class="text-center">' + '<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>' + '<p class="text-gray-500">Chargement des données...</p>' + '</div>' + '</div>'
+    }
+
+    // Cacher l'état de chargement
+    function hideLoadingState() {
+      const container = document.getElementById('vue-quantitative-etats-grid')
+      if (container.querySelector('.animate-spin')) {
+        container.innerHTML = ''
+      }
     }
   
     // Mettre à jour les informations de période
@@ -331,130 +359,43 @@
       document.body.removeChild(link)
     }
   
-    // Gestionnaires d'événements
-    document.getElementById('vue-quantitative-period-filter').addEventListener('change', function () {
-      const selectedPeriod = this.value
-      const customContainer = document.getElementById('custom-date-container')
-  
-      if (selectedPeriod === 'personnalisee') {
-        // Afficher le sélecteur de date personnalisé
-        customContainer.classList.remove('hidden')
-        customContainer.classList.add('flex')
-  
-        // Configurer les dates par défaut : aujourd'hui et il y a 7 jours
-        const today = new Date().toISOString().split('T')[0]
-        const weekAgo = new Date()
-        weekAgo.setDate(weekAgo.getDate() - 7)
-        const weekAgoStr = weekAgo.toISOString().split('T')[0]
-  
-        // Définir les dates par défaut
-        const fromInput = document.getElementById('custom-date-from')
-        const toInput = document.getElementById('custom-date-to')
-  
-        if (!fromInput.value) {
-          fromInput.value = weekAgoStr
+    // Initialiser les gestionnaires d'événements
+    const periodFilter = document.getElementById('vue-quantitative-period-filter')
+    if (periodFilter) {
+      periodFilter.addEventListener('change', function() {
+        const selectedPeriod = this.value
+        if (selectedPeriod === 'personnalisee') {
+          document.getElementById('custom-date-container').classList.remove('hidden')
+        } else {
+          document.getElementById('custom-date-container').classList.add('hidden')
+          loadVueQuantitativeData(selectedPeriod)
         }
-        if (!toInput.value) {
-          toInput.value = today
-        }
-  
-        // Configurer les contraintes des inputs
-        fromInput.max = today
-        toInput.min = fromInput.value
-        toInput.max = today
-  
-        // Ne pas charger les données immédiatement, attendre l'application
-      } else {
-        // Masquer le sélecteur de date personnalisé
-        customContainer.classList.add('hidden')
-        customContainer.classList.remove('flex')
-  
-        // Réinitialiser les messages d'erreur
-        document.getElementById('date-error-message').classList.add('hidden')
-        document.getElementById('custom-date-from').classList.remove('border-red-500')
-        document.getElementById('custom-date-to').classList.remove('border-red-500')
-  
-        // Charger les données pour les périodes prédéfinies
-        loadVueQuantitativeData(selectedPeriod)
-      }
-    })
-  
-    // Gestionnaire pour la date personnalisée - date de début
-    document.getElementById('custom-date-from').addEventListener('change', function () {
-      const fromDate = this.value
-      const toDateInput = document.getElementById('custom-date-to')
-      const today = new Date().toISOString().split('T')[0]
-  
-      if (fromDate) {
-        // Définir la date minimum pour la date de fin (= date de début)
-        toDateInput.min = fromDate
-        // Définir la date maximum pour la date de fin (= aujourd'hui)
-        toDateInput.max = today
-  
-        // Si aucune date de fin n'est définie, utiliser aujourd'hui
-        if (!toDateInput.value) {
-          toDateInput.value = today
-        }
-  
-        // Si la date de fin actuelle est avant la nouvelle date de début, l'ajuster
-        if (toDateInput.value < fromDate) {
-          toDateInput.value = fromDate
-        }
-      }
-  
-      // Valider en temps réel
-      validateCustomDates(fromDate, toDateInput.value)
-    })
-  
-    // Gestionnaire pour la date personnalisée - date de fin
-    document.getElementById('custom-date-to').addEventListener('change', function () {
-      const toDate = this.value
-      const fromDate = document.getElementById('custom-date-from').value
-  
-      // Valider en temps réel
-      validateCustomDates(fromDate, toDate)
-    })
-  
-    document.getElementById('apply-custom-date').addEventListener('click', function () {
-      const fromDate = document.getElementById('custom-date-from').value
-      const toDate = document.getElementById('custom-date-to').value
-  
-      // Valider les dates avant d'appliquer
-      if (!validateCustomDates(fromDate, toDate)) {
-        return
-      }
-  
-      // Construire le paramètre de période personnalisée
-      const customPeriod = 'custom:' + fromDate + ':' + toDate
-      loadVueQuantitativeData(customPeriod)
-    })
-  
-    document.getElementById('export-excel-btn').addEventListener('click', exportToExcel)
-  
-    document.getElementById('refresh-vue-quantitative').addEventListener('click', function () {
-      const currentPeriod = document.getElementById('vue-quantitative-period-filter').value
-      loadVueQuantitativeData(currentPeriod)
-  
-      // Animation du bouton
-      const icon = this.querySelector('i')
-      icon.classList.add('animate-spin')
-      setTimeout(() => {
-        icon.classList.remove('animate-spin')
-      }, 1000)
-    })
-  
-    // Écouter l'événement de changement d'onglet
-    document.addEventListener('tabChanged', function (e) {
-      if (e.detail.tab === 'vue-quantitative') {
-        const currentPeriod = document.getElementById('vue-quantitative-period-filter').value
-        loadVueQuantitativeData(currentPeriod)
-      }
-    })
-  
-    // Charger les données si l'onglet est déjà actif
-    var activeTab = document.querySelector('.kpi-tab-button.active')
-    if (activeTab && activeTab.getAttribute('data-tab') === 'vue-quantitative') {
-      loadVueQuantitativeData()
+      })
     }
+
+    // Gestionnaire pour le bouton Actualiser
+    const refreshButton = document.getElementById('refresh-vue-quantitative')
+    if (refreshButton) {
+      refreshButton.addEventListener('click', function() {
+        const selectedPeriod = document.getElementById('vue-quantitative-period-filter').value
+        loadVueQuantitativeData(selectedPeriod)
+      })
+    }
+
+    // Gestionnaire pour les dates personnalisées
+    const applyCustomDate = document.getElementById('apply-custom-date')
+    if (applyCustomDate) {
+      applyCustomDate.addEventListener('click', function() {
+        const fromDate = document.getElementById('custom-date-from').value
+        const toDate = document.getElementById('custom-date-to').value
+        
+        if (validateCustomDates(fromDate, toDate)) {
+          loadVueQuantitativeData(`personnalisee?from=${fromDate}&to=${toDate}`)
+        }
+      })
+    }
+
+    // Charger les données initiales
+    loadVueQuantitativeData()
   })
 </script>
