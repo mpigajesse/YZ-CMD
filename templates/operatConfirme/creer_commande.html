@@ -258,6 +258,13 @@
                     </div>
                 </div>
 
+                <!-- Recherche rapide par numéro de téléphone -->
+                <div class="mb-3">
+                    <label for="search_phone" class="label-style">Rechercher par numéro de téléphone</label>
+                    <input type="tel" id="search_phone" class="input-field w-full" placeholder="Saisir un numéro de téléphone...">
+                    <div id="search_phone_results" class="bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-50 absolute w-full hidden"></div>
+                </div>
+
                 <!-- Section pour sélectionner un client existant -->
                 <div id="section-client-existant">
                     <label for="client" class="label-style">Sélectionner un client</label>
@@ -330,6 +337,13 @@
                     Sélection des articles
                 </h3>
                 
+                <!-- Recherche rapide par référence d'article -->
+                <div class="mb-3 relative">
+                    <label for="search_article_ref" class="label-style">Rechercher par référence d'article</label>
+                    <input type="text" id="search_article_ref" class="input-field w-full" placeholder="Saisir une référence d'article...">
+                    <div id="search_article_results" class="bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-50 absolute w-full hidden"></div>
+                </div>
+
                 <div class="flex items-center gap-2 mb-4">
                     <select id="article-select" class="input-field flex-grow">
                         <option value="">Sélectionner un article…</option>
@@ -634,6 +648,120 @@
     setupClientToggle();
     setupVilleSelection();
     chargerArticles();
+</script>
+
+<script>
+// --- SÉCURISATION DES VARIABLES ET ÉVITEMENT DES DOUBLONS ---
+(function() {
+    // Recherche client par numéro de téléphone
+    var searchPhoneInput = document.getElementById('search_phone');
+    var searchPhoneResults = document.getElementById('search_phone_results');
+    var clientSelect = document.getElementById('client');
+    var searchTimeout = null;
+
+    if (searchPhoneInput && searchPhoneResults && clientSelect) {
+        searchPhoneInput.addEventListener('input', function() {
+            var query = this.value.trim();
+            if (searchTimeout) clearTimeout(searchTimeout);
+            if (query.length < 3) {
+                searchPhoneResults.classList.add('hidden');
+                searchPhoneResults.innerHTML = '';
+                return;
+            }
+            searchTimeout = setTimeout(function() {
+                fetch('/operateur-confirme/api/recherche-client-tel/?q=' + encodeURIComponent(query))
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data.results && data.results.length > 0) {
+                            searchPhoneResults.innerHTML = data.results.map(function(client) {
+                                return '<div class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100" data-client-id="' + client.id + '"><span class="font-semibold">' + client.full_name + '</span> <span class="text-gray-500">(' + client.numero_tel + ')</span></div>';
+                            }).join('');
+                            searchPhoneResults.classList.remove('hidden');
+                            Array.prototype.forEach.call(searchPhoneResults.children, function(item) {
+                                item.addEventListener('click', function() {
+                                    var clientId = this.getAttribute('data-client-id');
+                                    clientSelect.value = clientId;
+                                    clientSelect.dispatchEvent(new Event('change'));
+                                    searchPhoneResults.classList.add('hidden');
+                                    searchPhoneResults.innerHTML = '';
+                                    searchPhoneInput.value = '';
+                                });
+                            });
+                        } else {
+                            searchPhoneResults.innerHTML = '<div class="px-4 py-2 text-gray-500">Aucun client trouvé</div>';
+                            searchPhoneResults.classList.remove('hidden');
+                        }
+                    })
+                    .catch(function() {
+                        searchPhoneResults.innerHTML = '<div class="px-4 py-2 text-red-500">Erreur de recherche</div>';
+                        searchPhoneResults.classList.remove('hidden');
+                    });
+            }, 300);
+        });
+        document.addEventListener('click', function(e) {
+            if (!searchPhoneResults.contains(e.target) && e.target !== searchPhoneInput) {
+                searchPhoneResults.classList.add('hidden');
+            }
+        });
+    }
+})();
+</script>
+
+<script>
+// --- Recherche d'article par référence ---
+(function() {
+    var searchArticleInput = document.getElementById('search_article_ref');
+    var searchArticleResults = document.getElementById('search_article_results');
+    var articleSelect = document.getElementById('article-select');
+    var searchTimeout = null;
+
+    if (searchArticleInput && searchArticleResults && articleSelect) {
+        searchArticleInput.addEventListener('input', function() {
+            var query = this.value.trim();
+            if (searchTimeout) clearTimeout(searchTimeout);
+            if (query.length < 2) {
+                searchArticleResults.classList.add('hidden');
+                searchArticleResults.innerHTML = '';
+                return;
+            }
+            searchTimeout = setTimeout(function() {
+                fetch('/operateur-confirme/api/recherche-article-ref/?q=' + encodeURIComponent(query))
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data.results && data.results.length > 0) {
+                            searchArticleResults.innerHTML = data.results.map(function(article) {
+                                return '<div class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100" data-article-id="' + article.id + '"><span class="font-semibold">' + article.nom + '</span> <span class="text-gray-500">(' + article.reference + ')</span> <span class="text-green-700 font-bold">' + article.prix_unitaire.toFixed(2) + ' DH</span></div>';
+                            }).join('');
+                            searchArticleResults.classList.remove('hidden');
+                            Array.prototype.forEach.call(searchArticleResults.children, function(item) {
+                                item.addEventListener('click', function() {
+                                    var articleId = this.getAttribute('data-article-id');
+                                    // Sélectionner l'article dans le select
+                                    articleSelect.value = articleId;
+                                    articleSelect.dispatchEvent(new Event('change'));
+                                    searchArticleResults.classList.add('hidden');
+                                    searchArticleResults.innerHTML = '';
+                                    searchArticleInput.value = '';
+                                });
+                            });
+                        } else {
+                            searchArticleResults.innerHTML = '<div class="px-4 py-2 text-gray-500">Aucun article trouvé</div>';
+                            searchArticleResults.classList.remove('hidden');
+                        }
+                    })
+                    .catch(function() {
+                        searchArticleResults.innerHTML = '<div class="px-4 py-2 text-red-500">Erreur de recherche</div>';
+                        searchArticleResults.classList.remove('hidden');
+                    });
+            }, 300);
+        });
+        document.addEventListener('click', function(e) {
+            if (!searchArticleResults.contains(e.target) && e.target !== searchArticleInput) {
+                searchArticleResults.classList.add('hidden');
+            }
+        });
+    }
+})();
 </script>
 {% endblock %}
 

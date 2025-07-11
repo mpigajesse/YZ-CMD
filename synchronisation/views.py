@@ -92,6 +92,52 @@ def sync_now(request, config_id):
         return redirect('synchronisation:dashboard')
 
 @login_required
+@user_passes_test(is_admin)
+def sync_all(request):
+    """Déclenche la synchronisation de toutes les configurations actives."""
+    active_configs = GoogleSheetConfig.objects.filter(is_active=True)
+    
+    total_new_orders = 0
+    total_updated_orders = 0
+    total_skipped_orders = 0
+    total_duplicate_orders = 0
+    total_errors = 0
+    all_errors = []
+    
+    for config in active_configs:
+        syncer = GoogleSheetSync(config, triggered_by=request.user.username, verbose=False)
+        syncer.sync()
+        
+        total_new_orders += syncer.new_orders_created
+        total_updated_orders += syncer.existing_orders_updated
+        total_skipped_orders += syncer.existing_orders_skipped
+        total_duplicate_orders += syncer.duplicate_orders_found
+        if syncer.errors:
+            total_errors += len(syncer.errors)
+            all_errors.extend(syncer.errors)
+            
+    summary = (
+        f"{len(active_configs)} configs traitées. "
+        f"Nouvelles commandes: {total_new_orders}, "
+        f"Mises à jour: {total_updated_orders}, "
+        f"Doublons: {total_duplicate_orders}, "
+        f"Erreurs: {total_errors}."
+    )
+    
+    return JsonResponse({
+        'success': total_errors == 0,
+        'message': 'Toutes les synchronisations actives ont été exécutées.',
+        'sync_summary': summary,
+        'new_orders_created': total_new_orders,
+        'existing_orders_updated': total_updated_orders,
+        'existing_orders_skipped': total_skipped_orders,
+        'duplicate_orders_found': total_duplicate_orders,
+        'errors': all_errors,
+        'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+    })
+
+
+@login_required
 def config_list(request):
     """Liste des configurations de synchronisation"""
     # Récupérer les paramètres de filtrage

@@ -262,6 +262,48 @@
                      {% endif %}
                  </p>
              </div>
+
+             <!-- Informations de livraison -->
+             {% with dernier_envoi=commande.envois.last %}
+             {% if dernier_envoi %}
+             <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                 <label class="block text-sm font-semibold mb-2 text-blue-600">Informations de livraison :</label>
+                 <div class="space-y-2">
+                     <p class="text-sm text-blue-800">
+                         <i class="fas fa-calendar-alt mr-2"></i>
+                         Date de livraison prévue : {{ dernier_envoi.date_livraison_prevue|date:"d/m/Y" }}
+                     </p>
+                     
+                     {% if dernier_envoi.status == 'reporte' and dernier_envoi.date_report %}
+                     <div class="mt-2">
+                         <p class="text-sm text-orange-800">
+                             <i class="fas fa-clock mr-2"></i>
+                             Reportée au : {{ dernier_envoi.date_report|date:"d/m/Y" }}
+                         </p>
+                         {% if dernier_envoi.motif_report %}
+                         <p class="text-xs text-orange-600 mt-1">
+                             <i class="fas fa-info-circle mr-1"></i>
+                             Motif : {{ dernier_envoi.motif_report }}
+                         </p>
+                         {% endif %}
+                     </div>
+                     {% endif %}
+
+                     {% if dernier_envoi.status == 'livre' %}
+                     <p class="text-sm text-green-800">
+                         <i class="fas fa-check-circle mr-2"></i>
+                         Livrée le : {{ dernier_envoi.date_modification|date:"d/m/Y" }}
+                     </p>
+                     {% endif %}
+
+                     <p class="text-xs text-gray-600 mt-1">
+                         <i class="fas fa-user mr-1"></i>
+                         Opérateur : {{ dernier_envoi.operateur.nom_complet|default:"Non assigné" }}
+                     </p>
+                 </div>
+             </div>
+             {% endif %}
+             {% endwith %}
          </div>
     </div>
 
@@ -357,6 +399,7 @@
     </div>
 
     <!-- Section Actions de Livraison (SAV) -->
+    {% if commande.etat_actuel.enum_etat.libelle != 'Annulée (SAV)' %}
     <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mt-6" style="border-color: var(--logistic-border);">
         <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--logistic-primary);">
             <i class="fas fa-shipping-fast mr-2"></i>Actions de Livraison (SAV)
@@ -379,6 +422,7 @@
             </button>
         </div>
     </div>
+    {% endif %}
 
     <!-- Modale de Confirmation SAV -->
     <div id="savModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
@@ -390,6 +434,65 @@
                         {% csrf_token %}
                         <input type="hidden" name="nouvel_etat" id="nouvel_etat_input">
                         <div class="text-left">
+                            <!-- Champ date de report (caché par défaut) -->
+                            <div id="dateReportDiv" class="mb-4 hidden">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Date de report de la commande</h3>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <label for="date_report" class="block text-sm font-medium text-gray-700">
+                                        Nouvelle date de livraison pour tous les articles
+                                    </label>
+                                    <input type="date" 
+                                           name="date_report" 
+                                           id="date_report"
+                                           class="w-full mt-2 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                           required>
+                                    <p class="mt-2 text-sm text-gray-500">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Cette date sera appliquée à tous les articles de la commande
+                                    </p>
+                                    <!-- Résumé des articles -->
+                                    <div class="mt-4 border-t border-gray-200 pt-4">
+                                        <p class="text-sm font-medium text-gray-700 mb-2">Articles concernés :</p>
+                                        <ul class="space-y-2">
+                                        {% for panier in commande.paniers.all %}
+                                            <li class="text-sm text-gray-600">
+                                                <i class="fas fa-box mr-2"></i>
+                                                {{ panier.article.nom }}
+                                                {% if panier.article.reference %}
+                                                    <span class="text-xs text-gray-500">(Réf: {{ panier.article.reference }})</span>
+                                                {% endif %}
+                                                <span class="text-xs text-gray-500 ml-2">Quantité: {{ panier.quantite }}</span>
+                                            </li>
+                                        {% endfor %}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Options d'annulation (cachées par défaut) -->
+                            <div id="annulationOptionsDiv" class="mb-4 hidden">
+                                <label class="text-sm font-medium text-gray-700 block mb-2">Type d'annulation</label>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="bonneAnnulation" name="type_annulation" value="bonne" 
+                                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                                        <label for="bonneAnnulation" class="ml-2 block text-sm text-gray-700">
+                                            Produit en bonne état (réincrémenter le stock)
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="mauvaiseAnnulation" name="type_annulation" value="mauvaise" 
+                                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                                        <label for="mauvaiseAnnulation" class="ml-2 block text-sm text-gray-700">
+                                            Produit en mauvaise état
+                                        </label>
+                                    </div>
+                                </div>
+                                <p class="mt-1 text-sm text-gray-500">
+                                Un Produit en bonne état  réincrementera automatiquement le stock des articles.
+                                </p>
+                            </div>
+
                             <label for="commentaire" class="text-sm font-medium text-gray-700">Commentaire (obligatoire)</label>
                             <textarea name="commentaire" id="commentaire" rows="4" class="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" required></textarea>
                         </div>
@@ -416,6 +519,27 @@ function openSavModal(etat) {
     document.getElementById('nouvel_etat_input').value = etat;
     document.getElementById('savModalTitle').innerText = 'Mettre à jour vers : ' + etat;
     document.getElementById('savModal').classList.remove('hidden');
+    
+    // Afficher/masquer le champ de date selon l'état
+    const dateReportDiv = document.getElementById('dateReportDiv');
+    const annulationOptionsDiv = document.getElementById('annulationOptionsDiv');
+    
+    // Masquer tous les champs spéciaux d'abord
+    dateReportDiv.classList.add('hidden');
+    annulationOptionsDiv.classList.add('hidden');
+    
+    // Afficher les champs appropriés selon l'état
+    if (etat === 'Reportée') {
+        dateReportDiv.classList.remove('hidden');
+        // Définir la date minimale à aujourd'hui pour tous les champs de date
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date_report').min = today;
+        document.getElementById('date_report').required = true;
+    } else if (etat === 'Annulée (SAV)') {
+        annulationOptionsDiv.classList.remove('hidden');
+        // Réinitialiser la sélection
+        document.querySelectorAll('input[name="type_annulation"]').forEach(radio => radio.checked = false);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -426,6 +550,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     cancelBtn.addEventListener('click', function() {
         modal.classList.add('hidden');
+        // Réinitialiser le formulaire
+        form.reset();
     });
 
     confirmBtn.addEventListener('click', function() {
@@ -435,6 +561,26 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Le commentaire est obligatoire.');
             return;
         }
+
+        // Valider la date si l'état est "Reportée"
+        const etat = document.getElementById('nouvel_etat_input').value;
+        if (etat === 'Reportée') {
+            const dateReportInput = document.getElementById('date_report');
+            if (!dateReportInput.value) {
+                alert('Veuillez sélectionner une date de report pour la commande.');
+                return;
+            }
+        }
+        
+        // Valider le type d'annulation si l'état est "Annulée (SAV)"
+        if (etat === 'Annulée (SAV)') {
+            const typeAnnulation = document.querySelector('input[name="type_annulation"]:checked');
+            if (!typeAnnulation) {
+                alert('Veuillez sélectionner le type d\'annulation.');
+                return;
+            }
+        }
+        
         form.submit();
     });
 
@@ -442,6 +588,8 @@ document.addEventListener('DOMContentLoaded', function() {
     modal.addEventListener('click', function(e) {
         if (e.target === modal) {
             modal.classList.add('hidden');
+            // Réinitialiser le formulaire
+            form.reset();
         }
     });
 });

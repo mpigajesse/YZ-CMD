@@ -7,15 +7,16 @@ from django.db import models, transaction
 from django.core.paginator import Paginator
 from django.contrib import messages
 from django.core import serializers
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse # Import HttpResponse for partial rendering
 import json
 from .models import Commande, Panier, EnumEtatCmd
 from client.models import Client
-from parametre.models import Ville, Operateur
+from parametre.models import Ville, Operateur, Region # Import Region
 from article.models import Article
 from django.urls import reverse
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
+from django.template.loader import render_to_string # Import render_to_string
 
 # Create your views here.
 
@@ -27,6 +28,8 @@ def liste_commandes(request):
     ville_init_filter = request.GET.get('ville_init_filter', '')
     region_filter = request.GET.get('region_filter', '')
     etat_filter = request.GET.get('etat_filter', '')
+    sync_filter = request.GET.get('sync_filter', '') # Nouveau filtre
+    custom_sync_date = request.GET.get('custom_sync_date', '') # Nouvelle date personnalisée
     
     # Recherche par texte général
     if search_query:
@@ -76,6 +79,27 @@ def liste_commandes(request):
             etats__date_fin__isnull=True  # État actuel
         ).distinct()
 
+    # Nouveau filtre pour les commandes synchronisées
+    if sync_filter:
+        commandes = commandes.filter(origine='GSheet') # Ensure we only filter GSheet origin commands
+        if sync_filter == 'last_minute':
+            commandes = commandes.filter(last_sync_date__gte=timezone.now() - timedelta(minutes=1))
+        elif sync_filter == 'last_hour':
+            commandes = commandes.filter(last_sync_date__gte=timezone.now() - timedelta(hours=1))
+        elif sync_filter == 'today':
+            commandes = commandes.filter(last_sync_date__date=timezone.now().date())
+        elif sync_filter == 'last_24_hours':
+            commandes = commandes.filter(last_sync_date__gte=timezone.now() - timedelta(hours=24))
+        elif sync_filter == 'last_7_days':
+            commandes = commandes.filter(last_sync_date__gte=timezone.now() - timedelta(days=7))
+        elif sync_filter == 'custom_date' and custom_sync_date:
+            try:
+                filter_date = datetime.strptime(custom_sync_date, '%Y-%m-%d').date()
+                # Filter for orders synced on the selected date
+                commandes = commandes.filter(last_sync_date__date=filter_date)
+            except ValueError:
+                pass # Ignore invalid date
+
     # Triez par ID YZ croissant (1, 2, 3, ...)
     commandes = commandes.order_by('id_yz')
 
@@ -115,7 +139,7 @@ def liste_commandes(request):
     operateurs = Operateur.objects.filter(actif=True)
     
     # Récupérer les listes pour les filtres
-    from parametre.models import Ville, Region
+    # from parametre.models import Ville, Region # Already imported
     villes = Ville.objects.all().order_by('nom')
     regions = Region.objects.all().order_by('nom_region')
     etats = EnumEtatCmd.objects.all().order_by('ordre', 'libelle')
@@ -130,6 +154,8 @@ def liste_commandes(request):
         'ville_init_filter': ville_init_filter,
         'region_filter': region_filter,
         'etat_filter': etat_filter,
+        'sync_filter': sync_filter, # Ajouter le nouveau filtre au contexte
+        'custom_sync_date': custom_sync_date, # Ajouter la date personnalisée au contexte
         'villes': villes,
         'villes_init': villes_init,
         'regions': regions,
@@ -142,6 +168,20 @@ def liste_commandes(request):
         'commandes_nouvelles': commandes_nouvelles,
         'operateurs': operateurs,
     }
+    
+    # Check if the request is AJAX
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        # Render only the table body and pagination as HTML
+        html_table_body = render_to_string('commande/partials/_commande_table_body.html', context, request=request)
+        html_pagination = render_to_string('commande/partials/_pagination.html', context, request=request)
+        
+        return JsonResponse({
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'total_commands_display': f"Affichage de {page_obj.start_index()} à {page_obj.end_index()} sur {page_obj.paginator.count} commandes.",
+            'total_commands_count': page_obj.paginator.count # Add this to the JSON response
+        })
+        
     return render(request, 'commande/liste.html', context)
 
 @login_required

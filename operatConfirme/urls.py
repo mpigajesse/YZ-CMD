@@ -32,4 +32,6 @@ urlpatterns = [
     path('api/commande/<int:commande_id>/panier/', views.api_panier_commande, name='api_panier_commande'),
     path('commandes/<int:commande_id>/diagnostiquer-compteur/', views.diagnostiquer_compteur_commande, name='diagnostiquer_compteur'),
     path('api/commande/<int:commande_id>/rafraichir-articles/', views.rafraichir_articles_section, name='api_rafraichir_articles'),
+    path('api/recherche-client-tel/', views.api_recherche_client_tel, name='api_recherche_client_tel'),
+    path('api/recherche-article-ref/', views.api_recherche_article_ref, name='api_recherche_article_ref'),
 ] 

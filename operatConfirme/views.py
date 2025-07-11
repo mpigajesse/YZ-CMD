@@ -1531,14 +1531,14 @@ def modifier_commande(request, commande_id):
                         'error': str(e)
                     })
             
-            elif action == 'delete_article':
+            elif action == 'delete_panier':
                 # Supprimer un article
                 from commande.models import Panier
                 
-                article_id = request.POST.get('article_id')
+                panier_id = request.POST.get('panier_id')
                 
                 try:
-                    panier = Panier.objects.get(id=article_id, commande=commande)
+                    panier = Panier.objects.get(id=panier_id, commande=commande)
                     
                     # Sauvegarder l'info avant suppression
                     etait_upsell = panier.article.isUpsell
@@ -1592,6 +1592,22 @@ def modifier_commande(request, commande_id):
                         'success': False,
                         'error': str(e)
                     })
+            
+            elif action == 'save_client_info':
+                # Sauvegarder les informations du client
+                nom = request.POST.get('nom')
+                prenom = request.POST.get('prenom')
+                telephone = request.POST.get('telephone')
+
+                try:
+                    client = commande.client
+                    client.nom = nom
+                    client.prenom = prenom
+                    client.numero_tel = telephone
+                    client.save()
+                    return JsonResponse({'success': True, 'message': 'Informations client sauvegardées'})
+                except Exception as e:
+                    return JsonResponse({'success': False, 'error': str(e)})
             
             elif action == 'update_quantity':
                 # Modifier la quantité d'un article
@@ -2501,6 +2517,45 @@ def rafraichir_articles_section(request, commande_id):
         return JsonResponse({'success': False, 'error': 'Commande non trouvée'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required
+def api_recherche_client_tel(request):
+    """API pour rechercher un client par numéro de téléphone (recherche partielle)"""
+    if request.method == 'GET':
+        query = request.GET.get('q', '').strip()
+        results = []
+        if query and len(query) >= 3:
+            from client.models import Client
+            clients = Client.objects.filter(numero_tel__icontains=query).order_by('prenom', 'nom')[:10]
+            for c in clients:
+                results.append({
+                    'id': c.pk,
+                    'nom': c.nom,
+                    'prenom': c.prenom,
+                    'numero_tel': c.numero_tel,
+                    'full_name': f"{c.prenom} {c.nom}",
+                })
+        return JsonResponse({'results': results})
+    return JsonResponse({'results': []}, status=405)
+
+@login_required
+def api_recherche_article_ref(request):
+    """API pour rechercher un article par référence (recherche partielle)"""
+    if request.method == 'GET':
+        query = request.GET.get('q', '').strip()
+        results = []
+        if query and len(query) >= 2:
+            from article.models import Article
+            articles = Article.objects.filter(reference__icontains=query).order_by('reference', 'nom')[:10]
+            for a in articles:
+                results.append({
+                    'id': a.pk,
+                    'nom': a.nom,
+                    'reference': a.reference,
+                    'prix_unitaire': float(a.prix_unitaire),
+                })
+        return JsonResponse({'results': results})
+    return JsonResponse({'results': []})
 
 
 

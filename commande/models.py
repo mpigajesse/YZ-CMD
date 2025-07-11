@@ -62,11 +62,13 @@ class Commande(models.Model):
     is_upsell = models.BooleanField(default=False)
     date_creation = models.DateTimeField(default=timezone.now)
     date_modification = models.DateTimeField(auto_now=True)
+    last_sync_date = models.DateTimeField(null=True, blank=True, verbose_name="Date de dernière synchronisation")
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='commandes')
     ville_init = models.CharField(max_length=100, blank=True, null=True)
     ville = models.ForeignKey(Ville, on_delete=models.CASCADE, null=True, blank=True, related_name='commandes')
     produit_init = models.TextField(blank=True, null=True)
     compteur = models.IntegerField(default=0, verbose_name="Compteur d'utilisation")
+  
     
     class Meta:
         verbose_name = "Commande"
@@ -254,3 +256,52 @@ class Operation(models.Model):
     
     def __str__(self):
         return f"{self.get_type_operation_display()} - {self.commande.num_cmd} par {self.operateur}"
+
+
+class Envoi(models.Model):
+    STATUS_CHOICES = [
+        ('en_attente', 'En attente de livraison'),
+        ('reporte', 'Reporté'),
+        ('livre', 'Livré'),
+        ('annule', 'Annulé')
+    ]
+
+    commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='envois')
+    date_livraison_prevue = models.DateField(verbose_name="Date de livraison prévue")
+    date_report = models.DateField(null=True, blank=True, verbose_name="Date de report")
+    motif_report = models.TextField(null=True, blank=True, verbose_name="Motif du report")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='en_attente')
+    operateur = models.ForeignKey(Operateur, on_delete=models.SET_NULL, null=True, blank=True, related_name='envois')
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    commentaire = models.TextField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Envoi"
+        verbose_name_plural = "Envois"
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        return f"Envoi {self.commande.id_yz} - Prévu le {self.date_livraison_prevue}"
+
+    def reporter(self, nouvelle_date, motif, operateur):
+        """Reporter la livraison à une nouvelle date"""
+        self.date_report = nouvelle_date
+        self.motif_report = motif
+        self.status = 'reporte'
+        self.operateur = operateur
+        self.save()
+
+    def marquer_comme_livre(self, operateur):
+        """Marquer l'envoi comme livré"""
+        self.status = 'livre'
+        self.operateur = operateur
+        self.save()
+
+    def annuler(self, operateur, commentaire=None):
+        """Annuler l'envoi"""
+        self.status = 'annule'
+        self.operateur = operateur
+        if commentaire:
+            self.commentaire = commentaire
+        self.save()

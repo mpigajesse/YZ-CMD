@@ -2957,12 +2957,12 @@ function saveArticle() {
         return;
     }
     
-    const select = document.getElementById('articleSelect');
-    if (!select.value) {
-        alert('⚠️ Veuillez sélectionner un article');
-        return;
-    }
-    
+        const select = document.getElementById('articleSelect');
+        if (!select.value) {
+            alert('⚠️ Veuillez sélectionner un article');
+            return;
+        }
+        
     const articleId = select.value;
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     let action = isEditingArticle ? 'update_article' : 'add_article';
@@ -3039,36 +3039,70 @@ function rafraichirSectionArticles() {
 
 // Fonction pour supprimer un article
 function supprimerArticle(panierId) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet article de la commande ?')) {
-        return;
-    }
+    currentPanierIdToDelete = panierId; // Stocke l'ID du panier à supprimer
+    showDeleteArticleModal();
+}
 
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+// Variables globales pour la suppression
+let currentPanierIdToDelete = null;
 
-    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': csrfToken
-        },
-        body: new URLSearchParams({
-            'action': 'delete_panier',
-            'panier_id': panierId
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('✅ Article supprimé avec succès', 'success');
-            rafraichirSectionArticles();
-        } else {
-            showToast('❌ Erreur: ' + data.error, 'error');
+// Fonction pour afficher la modale de suppression d'article
+function showDeleteArticleModal() {
+    const modal = document.getElementById('deleteArticleModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        // Mettre à jour l'ID sur le bouton de confirmation
+        const confirmBtn = document.getElementById('confirmDeleteArticleBtn');
+        if (confirmBtn) {
+            confirmBtn.onclick = function() { proceedWithArticleDeletion(); };
         }
-    })
-    .catch(error => {
-        console.error('❌ Erreur:', error);
-        showToast('❌ Erreur de réseau', 'error');
-    });
+    }
+}
+
+// Fonction pour masquer la modale de suppression d'article
+function hideDeleteArticleModal() {
+    const modal = document.getElementById('deleteArticleModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    currentPanierIdToDelete = null; // Réinitialise l'ID
+}
+
+// Fonction pour procéder à la suppression après confirmation
+function proceedWithArticleDeletion() {
+    if (currentPanierIdToDelete) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken
+            },
+            body: new URLSearchParams({
+                'action': 'delete_panier',
+                'panier_id': currentPanierIdToDelete
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('✅ Article supprimé avec succès', 'success');
+                rafraichirSectionArticles();
+                hideDeleteArticleModal(); // Masquer la modale après succès
+            } else {
+                showToast('❌ Erreur: ' + data.error, 'error');
+                hideDeleteArticleModal(); // Masquer la modale même en cas d'erreur
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erreur:', error);
+            showToast('❌ Erreur de réseau', 'error');
+            hideDeleteArticleModal(); // Masquer la modale en cas d'erreur réseau
+        });
+    }
 }
 
 // Fonction pour fermer la modale d'article
@@ -3848,13 +3882,19 @@ function validerSection(sectionId) {
         sauvegarderInformationsLivraison(sectionElement, sectionName);
         return;
     }
-    
+
+    // Traitement spécifique pour les informations client
+    if (sectionId === 'informations-client') {
+        sauvegarderInformationsClient(sectionElement, sectionName);
+        return;
+    }
+
     // Animation de validation pour les autres sections
     sectionElement.classList.add('verified');
-    
+
     // Afficher une notification de succès
     showToast(`✅ ${sectionName} validée avec succès !`, 'success');
-    
+
     // Optionnel : Désactiver le bouton après validation
     const button = event.target;
     button.innerHTML = '<i class="fas fa-check-double mr-2"></i>Validé';
@@ -3862,9 +3902,80 @@ function validerSection(sectionId) {
     button.style.background = '#6b7280';
     button.style.cursor = 'not-allowed';
     button.classList.add('cursor-not-allowed');
-    
+
     // Vérifier si toutes les sections sont validées
     checkAllSectionsValidated();
+}
+
+// Nouvelle fonction pour sauvegarder les informations client
+function sauvegarderInformationsClient(sectionElement, sectionName) {
+    const button = event.target;
+
+    // Récupérer les données des champs
+    const nom = document.querySelector('[name="client_nom"]').value.trim();
+    const prenom = document.querySelector('[name="client_prenom"]').value.trim();
+    const telephone = document.querySelector('[name="client_telephone"]').value.trim();
+
+    // Simple validation côté client
+    if (!nom || !prenom || !telephone) {
+        showToast('⚠️ Tous les champs client (Nom, Prénom, Téléphone) sont obligatoires.', 'warning');
+        return;
+    }
+
+    // Désactiver le bouton pendant la sauvegarde
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sauvegarde...';
+
+    // Préparer les données à envoyer
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    formData.append('action', 'save_client_info');
+    formData.append('nom', nom);
+    formData.append('prenom', prenom);
+    formData.append('telephone', telephone);
+
+    // Envoyer la requête AJAX
+    fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Animation de validation
+            sectionElement.classList.add('verified');
+
+            // Afficher une notification de succès
+            showToast(`✅ ${sectionName} sauvegardée avec succès !`, 'success');
+
+            // Mettre à jour le bouton
+            button.innerHTML = '<i class="fas fa-check-double mr-2"></i>Validé';
+            button.style.background = '#6b7280';
+            button.style.cursor = 'not-allowed';
+            button.classList.add('cursor-not-allowed');
+
+            // Vérifier si toutes les sections sont validées
+            checkAllSectionsValidated();
+        } else {
+            // Erreur lors de la sauvegarde
+            showToast(`❌ Erreur lors de la sauvegarde : ${data.error || 'Erreur inconnue'}`, 'error');
+
+            // Réactiver le bouton
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-user-check mr-2"></i>Valider les infos client';
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de la sauvegarde des informations client:', error);
+        showToast('❌ Erreur de connexion lors de la sauvegarde', 'error');
+
+        // Réactiver le bouton
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-user-check mr-2"></i>Valider les infos client';
+    });
 }
 
 // Fonction pour sauvegarder les informations de livraison
@@ -4357,5 +4468,55 @@ function ajouterArticleAuPanier() {
         </div>
     </div>
 </div>
+
+<!-- Modal de Suppression d'Article Tailwind -->
+<div id="deleteArticleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #ef4444;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b border-red-200">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mr-4">
+                    <i class="fas fa-trash-alt text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-red-700">Confirmer la Suppression</h3>
+            </div>
+            <button onclick="hideDeleteArticleModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-start space-x-4 mb-6">
+                <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 text-lg"></i>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Êtes-vous sûr de vouloir supprimer cet article ?</h4>
+                    <p class="text-gray-600">Cette action est irréversible et l'article sera retiré de la commande.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button onclick="hideDeleteArticleModal()" 
+                    class="px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 bg-gray-200 text-gray-700">
+                <i class="fas fa-times mr-2"></i>
+                Annuler
+            </button>
+            <button id="confirmDeleteArticleBtn"
+                    class="px-6 py-3 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5" 
+                    style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                <i class="fas fa-trash-alt mr-2"></i>
+                Confirmer la suppression
+            </button>
+        </div>
+    </div>
+</div>
+
+</script>
 
 {% endblock %} 
