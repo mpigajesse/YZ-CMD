@@ -307,55 +307,83 @@
          </div>
     </div>
 
-    <!-- Section 3: Articles du Panier -->
+    <!-- Section 3: Articles du Panier (Modifiable) -->
     <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--logistic-border);">
-        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--logistic-primary);">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold flex items-center" style="color: var(--logistic-primary);">
             <i class="fas fa-shopping-basket mr-2"></i>Articles du Panier
+                (<span id="articles-count">{{ commande.paniers.count }}</span> article<span id="articles-plural">{{ commande.paniers.count|pluralize }}</span>)
+                {% if commande.compteur > 0 %}
+                <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium ml-2">
+                    <i class="fas fa-arrow-up mr-1"></i>
+                    {% if commande.compteur == 1 %}
+                        Upsell Niveau 1
+                    {% elif commande.compteur == 2 %}
+                        Upsell Niveau 2
+                    {% elif commande.compteur == 3 %}
+                        Upsell Niveau 3
+                    {% elif commande.compteur >= 4 %}
+                        Upsell Niveau 4+
+                    {% endif %}
+                </span>
+                {% endif %}
+                
+                <!-- Bouton de diagnostic du compteur -->
+                <button type="button" onclick="diagnostiquerCompteur()" 
+                        class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium ml-2 hover:bg-blue-200"
+                        title="Diagnostiquer et corriger le compteur">
+                    <i class="fas fa-tools mr-1"></i>Diagnostic
+                </button>
+                
+                <!-- Bouton pour l'historique des mouvements de stock -->
+                <button type="button" onclick="afficherHistoriqueStock()" 
+                        class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium ml-2 hover:bg-purple-200"
+                        title="Voir l'historique des mouvements de stock">
+                    <i class="fas fa-history mr-1"></i>Historique Stock
+                </button>
         </h2>
+            <button type="button" onclick="ajouterNouvelArticle()" 
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all">
+                <i class="fas fa-plus mr-2"></i>Ajouter un article
+            </button>
+        </div>
         
-                 <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
-             <table class="min-w-full divide-y divide-gray-200">
-                 <thead style="background-color: var(--logistic-primary);">
-                     <tr>
-                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Produit</th>
-                         <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Quantité</th>
-                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Prix Unitaire</th>
-                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Total</th>
-                     </tr>
-                 </thead>
-                 <tbody class="bg-white divide-y divide-gray-200">
-                     {% for panier in commande.paniers.all %}
-                         <tr class="hover:bg-gray-50">
-                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                 {{ panier.article.nom }}
-                                 {% if panier.article.reference %}
-                                     <span class="text-xs text-gray-500 block">Réf: {{ panier.article.reference }}</span>
+        <!-- Avertissement pour les commandes confirmées -->
+        {% if commande_confirmee %}
+            <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
+                    <h3 class="font-semibold text-yellow-800">Commande confirmée - Impact sur le stock</h3>
+                </div>
+                <p class="text-sm text-yellow-700 mt-2">
+                    <strong>Cette commande a déjà été confirmée et a impacté le stock.</strong> 
+                    Toute modification d'articles (ajout, suppression, modification de quantité) 
+                    mettra automatiquement à jour le stock des articles concernés.
+                </p>
+                <ul class="list-disc list-inside text-xs text-yellow-600 mt-2 space-y-1">
+                    <li><strong>Ajout d'articles :</strong> Le stock sera décrémenté</li>
+                    <li><strong>Suppression d'articles :</strong> Le stock sera incrémenté</li>
+                    <li><strong>Augmentation de quantité :</strong> Le stock sera décrémenté pour la différence</li>
+                    <li><strong>Diminution de quantité :</strong> Le stock sera incrémenté pour la différence</li>
+                </ul>
+            </div>
                                  {% endif %}
-                             </td>
-                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                     {{ panier.quantite }}
-                                 </span>
-                             </td>
-                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{{ panier.prix_unitaire|floatformat:2 }} DH</td>
-                             <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">{{ panier.total_ligne|floatformat:2 }} DH</td>
-                         </tr>
-                     {% empty %}
-                         <tr>
-                             <td colspan="4" class="px-4 py-8 text-center text-gray-500">
-                                 <i class="fas fa-inbox text-4xl mb-2 opacity-50"></i>
-                                 <p>Aucun article dans cette commande.</p>
-                             </td>
-                         </tr>
-                     {% endfor %}
-                 </tbody>
-                 <tfoot class="bg-gray-50">
-                     <tr>
-                         <td colspan="3" class="px-4 py-3 text-right text-sm font-bold text-gray-700">Total Commande :</td>
-                         <td class="px-4 py-3 text-right text-lg font-bold text-gray-900">{{ commande.total_cmd|floatformat:2 }} DH</td>
-                     </tr>
-                 </tfoot>
-             </table>
+        
+        <!-- Liste des articles existants -->
+        <div id="articles-container" class="space-y-3 mb-6">
+            {% include 'operatLogistic/partials/_articles_section.html' %}
+        </div>
+
+        <!-- Résumé total -->
+        <div class="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border">
+            <div class="flex justify-between items-center">
+                <div class="text-lg font-semibold text-gray-700">
+                    <i class="fas fa-calculator mr-2"></i>Total de la commande:
+                </div>
+                <div class="text-2xl font-bold" style="color: var(--logistic-primary);" id="total-commande">
+                    {{ commande.total_cmd|floatformat:2 }} DH
+                </div>
+            </div>
          </div>
     </div>
 
@@ -399,7 +427,7 @@
     </div>
 
     <!-- Section Actions de Livraison (SAV) -->
-    {% if commande.etat_actuel.enum_etat.libelle != 'Annulée (SAV)' %}
+    {% if commande.etat_actuel.enum_etat.libelle != 'Retournée' %}
     <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mt-6" style="border-color: var(--logistic-border);">
         <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--logistic-primary);">
             <i class="fas fa-shipping-fast mr-2"></i>Actions de Livraison (SAV)
@@ -417,8 +445,8 @@
             <button onclick="openSavModal('Livrée avec changement')" class="sav-action-btn" style="background-color: #8B5CF6;">
                 <i class="fas fa-exchange-alt mr-2"></i>Avec Changement
             </button>
-            <button onclick="openSavModal('Annulée (SAV)')" class="sav-action-btn" style="background-color: #EF4444;">
-                <i class="fas fa-times-circle mr-2"></i>Annuler (SAV)
+            <button onclick="openSavModal('Retournée')" class="sav-action-btn" style="background-color: #EF4444;">
+                <i class="fas fa-times-circle mr-2"></i>Retournée
             </button>
         </div>
     </div>
@@ -509,12 +537,181 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal d'ajout/modification d'articles -->
+    <div id="addArticleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="articleModalTitle">Ajouter un article</h3>
+                <div class="mt-2 px-7 py-3">
+                    <form id="articleForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Sélection d'article -->
+                            <div id="article-selection-field">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Article</label>
+                                
+                                <!-- Légende des badges -->
+                                <div class="mb-3 p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 shadow-sm">
+                                    <div class="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+                                        <i class="fas fa-info-circle mr-1 text-blue-500"></i>
+                                        Légende des types d'articles :
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 mb-2">
+                                        <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium cursor-pointer hover:bg-blue-200" 
+                                              onclick="filtrerArticles('all')" id="filter-all">
+                                            <i class="fas fa-search mr-1"></i>TOUS <span class="ml-1 bg-blue-200 px-1 rounded" id="count-all">0</span>
+                                        </span>
+                                        <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium cursor-pointer hover:bg-red-200" 
+                                              onclick="filtrerArticles('promo')" id="filter-promo">
+                                            <i class="fas fa-fire mr-1"></i>PROMO <span class="ml-1 bg-red-200 px-1 rounded" id="count-promo">0</span>
+                                        </span>
+                                        <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium cursor-pointer hover:bg-orange-200" 
+                                              onclick="filtrerArticles('liquidation')" id="filter-liquidation">
+                                            <i class="fas fa-tags mr-1"></i>LIQUIDATION <span class="ml-1 bg-orange-200 px-1 rounded" id="count-liquidation">0</span>
+                                        </span>
+                                        <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium cursor-pointer hover:bg-purple-200" 
+                                              onclick="filtrerArticles('test')" id="filter-test">
+                                            <i class="fas fa-flask mr-1"></i>TEST <span class="ml-1 bg-purple-200 px-1 rounded" id="count-test">0</span>
+                                        </span>
+                                        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium cursor-pointer hover:bg-green-200" 
+                                              onclick="filtrerArticles('upsell')" id="filter-upsell">
+                                            <i class="fas fa-arrow-up mr-1"></i>UPSELL <span class="ml-1 bg-green-200 px-1 rounded" id="count-upsell">0</span>
+                                        </span>
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-2 italic">
+                                        💡 Les articles sont colorés dans la liste selon leur type pour faciliter l'identification<br>
+                                        ⌨️ Raccourcis: Alt+1 (Tous), Alt+2 (Promo), Alt+3 (Liquidation), Alt+4 (Test), Alt+5 (Upsell)
+                                    </div>
+                                </div>
+                                
+                                <select id="articleSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">-- Sélectionner un article --</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Affichage du nom d'article (pour modifications) -->
+                            <div id="article-display-field" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Article</label>
+                                <input type="text" id="articleDisplay" readonly class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-600">
+                            </div>
+                            
+                            <!-- Quantité -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Quantité</label>
+                                <input type="number" id="quantiteInput" min="1" step="1" value="1" 
+                                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                        
+                        <!-- Informations de l'article sélectionné -->
+                        <div id="article-info" class="hidden mt-4">
+                            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4">
+                                <h4 class="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+                                    <i class="fas fa-info-circle mr-2"></i>Détails de l'article
+                                </h4>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                                        <h5 class="font-medium text-gray-800 mb-3 flex items-center">
+                                            <i class="fas fa-tag mr-2 text-blue-600"></i>Informations produit
+                                        </h5>
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Référence :</span>
+                                                <span id="info-reference" class="font-medium text-gray-800"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Prix actuel :</span>
+                                                <span id="info-prix" class="font-bold text-green-600"></span>
+                                            </div>
+                                            <div class="flex justify-between border-t pt-2">
+                                                <span class="text-gray-700 font-medium">Sous-total :</span>
+                                                <span id="info-sous-total" class="font-bold text-blue-600 text-lg"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                                        <h5 class="font-medium text-gray-800 mb-3 flex items-center">
+                                            <i class="fas fa-boxes mr-2 text-green-600"></i>Détails techniques
+                                        </h5>
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Taille :</span>
+                                                <span id="info-pointure" class="font-medium text-gray-800"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Couleur :</span>
+                                                <span id="info-couleur" class="font-medium text-gray-800"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Catégorie :</span>
+                                                <span id="info-categorie" class="font-medium text-gray-800"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Stock :</span>
+                                                <span id="info-stock" class="font-medium text-green-600"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="confirmerArticleBtn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        Confirmer
+                    </button>
+                    <button id="annulerArticleBtn" class="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 mt-2">
+                        Annuler
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Variables globales pour les articles
+let articlesDisponibles = [];
+let currentArticleId = null;
+let isEditingArticle = false;
+let compteurCommande = {{ commande.compteur }};
+let filtreActuel = 'all'; // Filtre actuellement actif
+let commandeId = {{ commande.id }};
+
+// Fonction pour calculer le prix upsell selon le compteur
+function getPrixUpsell(article, compteur) {
+    // Utiliser le compteur de la commande pour déterminer le prix
+    const prixUnitaire = article.prix_actuel || article.prix_unitaire;
+    
+    if (compteur === 0) {
+        // Pas d'upsell actif
+        return prixUnitaire;
+    } else if (compteur === 1 && article.prix_upsell_1) {
+        // Niveau 1 d'upsell
+        return parseFloat(article.prix_upsell_1);
+    } else if (compteur === 2 && article.prix_upsell_2) {
+        // Niveau 2 d'upsell
+        return parseFloat(article.prix_upsell_2);
+    } else if (compteur === 3 && article.prix_upsell_3) {
+        // Niveau 3 d'upsell
+        return parseFloat(article.prix_upsell_3);
+    } else if (compteur >= 4 && article.prix_upsell_4) {
+        // Niveau 4 d'upsell (pour compteur >= 4)
+        return parseFloat(article.prix_upsell_4);
+    }
+    
+    // Si pas de prix upsell défini pour ce niveau, utiliser le prix unitaire
+    return prixUnitaire;
+}
+
+// ================== GESTION DU SAV ==================
+
 function openSavModal(etat) {
     document.getElementById('nouvel_etat_input').value = etat;
     document.getElementById('savModalTitle').innerText = 'Mettre à jour vers : ' + etat;
@@ -535,34 +732,532 @@ function openSavModal(etat) {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('date_report').min = today;
         document.getElementById('date_report').required = true;
-    } else if (etat === 'Annulée (SAV)') {
+    } else if (etat === 'Retournée') {
         annulationOptionsDiv.classList.remove('hidden');
         // Réinitialiser la sélection
         document.querySelectorAll('input[name="type_annulation"]').forEach(radio => radio.checked = false);
     }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    const modal = document.getElementById('savModal');
-    const cancelBtn = document.getElementById('cancelSavBtn');
-    const confirmBtn = document.getElementById('confirmSavBtn');
-    const form = document.getElementById('savForm');
+// ================== GESTION DES ARTICLES ==================
 
-    cancelBtn.addEventListener('click', function() {
-        modal.classList.add('hidden');
+function ajouterNouvelArticle() {
+    isEditingArticle = false;
+    currentArticleId = null;
+    
         // Réinitialiser le formulaire
-        form.reset();
-    });
+    document.getElementById('articleForm').reset();
+    document.getElementById('articleModalTitle').textContent = 'Ajouter un article';
+    document.getElementById('confirmerArticleBtn').textContent = 'Ajouter';
+    
+    // Afficher le champ de sélection d'article
+    document.getElementById('article-selection-field').classList.remove('hidden');
+    document.getElementById('article-display-field').classList.add('hidden');
+    
+    // Masquer les informations de l'article
+    document.getElementById('article-info').classList.add('hidden');
+    
+    // Charger la liste des articles
+    chargerArticles();
+    
+    // Afficher la modale
+    document.getElementById('addArticleModal').classList.remove('hidden');
+}
 
-    confirmBtn.addEventListener('click', function() {
-        // Valider que le commentaire n'est pas vide
+function modifierArticle(panierId) {
+    isEditingArticle = true;
+    currentArticleId = panierId;
+    
+    // Trouver l'article correspondant dans le DOM
+    const articleCard = document.querySelector(`[data-article-id="${panierId}"]`);
+    if (!articleCard) {
+        showNotification('Article non trouvé', 'error');
+        return;
+    }
+    
+    const articleData = JSON.parse(articleCard.dataset.article);
+    const quantiteActuelle = articleCard.querySelector('.text-blue-600').textContent.match(/\d+/)[0];
+    
+    // Remplir le formulaire avec les données actuelles
+    document.getElementById('articleModalTitle').textContent = 'Modifier l\'article';
+    document.getElementById('confirmerArticleBtn').textContent = 'Modifier';
+    document.getElementById('quantiteInput').value = quantiteActuelle;
+    
+    // Afficher le champ de nom d'article (lecture seule)
+    document.getElementById('article-selection-field').classList.add('hidden');
+    document.getElementById('article-display-field').classList.remove('hidden');
+    document.getElementById('articleDisplay').value = articleData.nom;
+    
+    // Afficher les informations de l'article
+    afficherInfosArticle(articleData);
+    
+    // Afficher la modale
+    document.getElementById('addArticleModal').classList.remove('hidden');
+}
+
+function supprimerArticle(panierId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Récupérer les informations de l'article avant suppression de manière sécurisée
+        const articleCard = document.querySelector(`[data-article-id="${panierId}"]`);
+        if (!articleCard) {
+            showNotification('❌ Article non trouvé dans l\'interface', 'error');
+            return;
+        }
+        
+        let articleData = null;
+        let quantiteActuelle = 0;
+        
+        try {
+            const articleDataString = articleCard.dataset.article;
+            articleData = JSON.parse(articleDataString);
+            
+            const quantiteElement = articleCard.querySelector('.text-blue-600');
+            if (quantiteElement) {
+                const match = quantiteElement.textContent.match(/\d+/);
+                quantiteActuelle = match ? parseInt(match[0]) : 0;
+            }
+        } catch (jsonError) {
+            console.error('Erreur de parsing JSON:', jsonError);
+            console.log('Données brutes:', articleCard.dataset.article);
+            showNotification('❌ Erreur de données article', 'error');
+            return;
+        }
+        
+        fetch(`/operateur-logistique/commande/{{ commande.id }}/supprimer-article/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken
+            },
+            body: new URLSearchParams({
+                'panier_id': panierId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Afficher une notification adaptée selon le statut de la commande
+                if (isCommandeConfirmee()) {
+                    showStockNotification('suppression', articleData.nom, quantiteActuelle, true);
+                } else {
+                    showNotification('✅ Article supprimé avec succès', 'success');
+                }
+                
+                rafraichirSectionArticles();
+            } else {
+                showNotification('❌ Erreur: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showNotification('❌ Erreur de réseau: ' + error.message, 'error');
+        });
+    }
+}
+
+function modifierQuantite(panierId, quantiteActuelle) {
+    const nouvelleQuantite = prompt('Nouvelle quantité:', quantiteActuelle);
+    
+    if (nouvelleQuantite !== null && nouvelleQuantite !== '' && parseInt(nouvelleQuantite) > 0) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Récupérer les informations de l'article de manière sécurisée
+        const articleCard = document.querySelector(`[data-article-id="${panierId}"]`);
+        if (!articleCard) {
+            showNotification('❌ Article non trouvé dans l\'interface', 'error');
+            return;
+        }
+        
+        let articleData = null;
+        try {
+            const articleDataString = articleCard.dataset.article;
+            articleData = JSON.parse(articleDataString);
+        } catch (jsonError) {
+            console.error('Erreur de parsing JSON:', jsonError);
+            console.log('Données brutes:', articleCard.dataset.article);
+            showNotification('❌ Erreur de données article', 'error');
+            return;
+        }
+        
+        fetch(`/operateur-logistique/commande/{{ commande.id }}/modifier-quantite/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken
+            },
+            body: new URLSearchParams({
+                'panier_id': panierId,
+                'quantite': nouvelleQuantite
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Afficher une notification adaptée selon le statut de la commande
+                if (isCommandeConfirmee()) {
+                    const difference = parseInt(nouvelleQuantite) - parseInt(quantiteActuelle);
+                    showStockNotification('modification', articleData.nom, nouvelleQuantite, difference);
+                } else {
+                    showNotification('✅ Quantité modifiée avec succès', 'success');
+                }
+                
+                rafraichirSectionArticles();
+            } else {
+                // Vérifier si c'est une erreur de stock
+                if (data.error && data.error.includes('Stock insuffisant')) {
+                    const difference = parseInt(nouvelleQuantite) - parseInt(quantiteActuelle);
+                    showStockNotification('stock_insuffisant', articleData.nom, Math.abs(difference));
+                } else {
+                    showNotification('❌ Erreur: ' + data.error, 'error');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showNotification('❌ Erreur de réseau: ' + error.message, 'error');
+        });
+    }
+}
+
+function chargerArticles() {
+    fetch(`/operateur-logistique/api/articles/?commande_id=${commandeId}`)
+        .then(response => response.json())
+        .then(data => {
+            articlesDisponibles = data.articles;
+            remplirSelectArticles();
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des articles:', error);
+            showNotification('❌ Erreur lors du chargement des articles', 'error');
+        });
+}
+
+function remplirSelectArticles() {
+    const select = document.getElementById('articleSelect');
+    select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
+    
+    // Compter les articles par type
+    const counts = {
+        all: 0,
+        promo: 0,
+        liquidation: 0,
+        test: 0,
+        upsell: 0
+    };
+    
+    let articlesAffiches = 0;
+    
+    articlesDisponibles.forEach(article => {
+        // Compter tous les articles
+        counts.all++;
+        
+        // Compter par type
+        if (article.has_promo_active || article.phase === 'PROMO') counts.promo++;
+        if (article.phase === 'LIQUIDATION') counts.liquidation++;
+        if (article.phase === 'EN_TEST') counts.test++;
+        if (article.isUpsell) counts.upsell++;
+        
+        // Appliquer le filtre
+        let afficher = false;
+        switch (filtreActuel) {
+            case 'all':
+                afficher = true;
+                break;
+            case 'promo':
+                afficher = article.has_promo_active || article.phase === 'PROMO';
+                break;
+            case 'liquidation':
+                afficher = article.phase === 'LIQUIDATION';
+                break;
+            case 'test':
+                afficher = article.phase === 'EN_TEST';
+                break;
+            case 'upsell':
+                afficher = article.isUpsell;
+                break;
+        }
+        
+        if (afficher) {
+            const option = document.createElement('option');
+            option.value = article.id;
+            
+            // Construire le texte de l'option
+            let optionText = article.nom || 'Article sans nom';
+            
+            // Ajouter les badges de statut
+            const badges = [];
+            if (article.has_promo_active || article.phase === 'PROMO') badges.push('🔥PROMO');
+            if (article.phase === 'LIQUIDATION') badges.push('🏷️LIQUIDATION');
+            if (article.phase === 'EN_TEST') badges.push('🧪TEST');
+            if (article.isUpsell) badges.push('⬆️UPSELL');
+            
+            if (badges.length > 0) {
+                optionText += ` [${badges.join(' ')}]`;
+            }
+            
+            // Utiliser getPrixUpsell pour calculer le prix à afficher
+            const prixAffiche = getPrixUpsell(article, compteurCommande);
+            if (prixAffiche > 0) {
+                optionText += ` - ${prixAffiche.toFixed(2)} DH`;
+            }
+            
+            // Ajouter détails
+            const details = [];
+            if (article.pointure && article.pointure.trim()) {
+                details.push(`T:${article.pointure}`);
+            }
+            if (article.couleur && article.couleur.trim()) {
+                details.push(`C:${article.couleur}`);
+            }
+            
+            if (details.length > 0) {
+                optionText += ` (${details.join(', ')})`;
+            }
+            
+            option.textContent = optionText;
+            option.dataset.article = JSON.stringify(article);
+            
+            // Appliquer le style selon le type
+            appliquerStyleOption(option, article);
+            
+            select.appendChild(option);
+            articlesAffiches++;
+        }
+    });
+    
+    // Mettre à jour les compteurs
+    document.getElementById('count-all').textContent = counts.all;
+    document.getElementById('count-promo').textContent = counts.promo;
+    document.getElementById('count-liquidation').textContent = counts.liquidation;
+    document.getElementById('count-test').textContent = counts.test;
+    document.getElementById('count-upsell').textContent = counts.upsell;
+    
+    // Mettre à jour l'apparence des filtres
+    mettreAJourFiltres();
+}
+
+function appliquerStyleOption(option, article) {
+    // Couleurs selon le type d'article
+    if (article.has_promo_active || article.phase === 'PROMO') {
+        option.style.backgroundColor = '#fee2e2';
+        option.style.color = '#dc2626';
+        option.style.fontWeight = 'bold';
+    } else if (article.phase === 'LIQUIDATION') {
+        option.style.backgroundColor = '#fed7aa';
+        option.style.color = '#ea580c';
+        option.style.fontWeight = 'bold';
+    } else if (article.phase === 'EN_TEST') {
+        option.style.backgroundColor = '#e9d5ff';
+        option.style.color = '#9333ea';
+        option.style.fontWeight = 'bold';
+    } else if (article.isUpsell) {
+        option.style.backgroundColor = '#dcfce7';
+        option.style.color = '#16a34a';
+        option.style.fontWeight = 'bold';
+    } else {
+        option.style.backgroundColor = '#f8fafc';
+        option.style.color = '#374151';
+    }
+}
+
+function filtrerArticles(type) {
+    filtreActuel = type;
+    remplirSelectArticles();
+}
+
+function mettreAJourFiltres() {
+    // Réinitialiser tous les filtres
+    document.querySelectorAll('[id^="filter-"]').forEach(filter => {
+        filter.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-200');
+        filter.classList.add('hover:bg-blue-200');
+    });
+    
+    // Mettre en évidence le filtre actuel
+    const filtreActif = document.getElementById(`filter-${filtreActuel}`);
+    if (filtreActif) {
+        filtreActif.classList.add('ring-2', 'ring-blue-500', 'bg-blue-200');
+        filtreActif.classList.remove('hover:bg-blue-200');
+    }
+}
+
+function afficherInfosArticle(article) {
+    const quantite = parseInt(document.getElementById('quantiteInput').value) || 1;
+    const prixActuel = getPrixUpsell(article, compteurCommande);
+    const sousTotal = (prixActuel * quantite).toFixed(2);
+    
+    // Informations de base
+    document.getElementById('info-reference').textContent = article.reference || '-';
+    document.getElementById('info-prix').textContent = `${prixActuel.toFixed(2)} DH`;
+    document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
+    
+    // Informations détaillées
+    document.getElementById('info-pointure').textContent = article.pointure || 'Non spécifiée';
+    document.getElementById('info-couleur').textContent = article.couleur || 'Non spécifiée';
+    document.getElementById('info-categorie').textContent = article.categorie || 'Non spécifiée';
+    document.getElementById('info-stock').textContent = `${article.qte_disponible || 0} unité(s)`;
+    
+    // Afficher la section des informations
+    document.getElementById('article-info').classList.remove('hidden');
+}
+
+function rafraichirSectionArticles() {
+    const container = document.getElementById('articles-container');
+    container.innerHTML = '<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-500"></i><p class="mt-2">Chargement des articles...</p></div>';
+
+    fetch(`/operateur-logistique/commande/{{ commande.id }}/rafraichir-articles/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                container.innerHTML = data.html;
+                
+                // Mettre à jour le compteur d'articles
+                document.getElementById('articles-count').textContent = data.count;
+                document.getElementById('articles-plural').textContent = data.count > 1 ? 's' : '';
+                
+                // Mettre à jour le total
+                document.getElementById('total-commande').textContent = `${parseFloat(data.total).toFixed(2)} DH`;
+                
+                // Mettre à jour le compteur upsell global
+                if (data.compteur !== undefined) {
+                    compteurCommande = data.compteur;
+                    console.log(`🎯 Compteur upsell mis à jour: ${compteurCommande}`);
+                    
+                    // Mettre à jour l'affichage du compteur dans l'interface
+                    const compteurSpan = document.querySelector('.bg-orange-100');
+                    if (compteurSpan) {
+                        if (data.compteur > 0) {
+                            compteurSpan.style.display = 'inline-flex';
+                            if (data.compteur == 1) {
+                                compteurSpan.innerHTML = '<i class="fas fa-arrow-up mr-1"></i>Upsell Niveau 1';
+                            } else if (data.compteur == 2) {
+                                compteurSpan.innerHTML = '<i class="fas fa-arrow-up mr-1"></i>Upsell Niveau 2';
+                            } else if (data.compteur == 3) {
+                                compteurSpan.innerHTML = '<i class="fas fa-arrow-up mr-1"></i>Upsell Niveau 3';
+                            } else if (data.compteur >= 4) {
+                                compteurSpan.innerHTML = '<i class="fas fa-arrow-up mr-1"></i>Upsell Niveau 4+';
+                            }
+                        } else {
+                            compteurSpan.style.display = 'none';
+                        }
+                    }
+                }
+            } else {
+                container.innerHTML = '<div class="text-center p-8 text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><p>Erreur lors du chargement des articles</p></div>';
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            container.innerHTML = '<div class="text-center p-8 text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><p>Erreur de réseau</p></div>';
+        });
+}
+
+function showNotification(message, type = 'info') {
+    // Créer et afficher une notification toast
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        type === 'warning' ? 'bg-yellow-500 text-white' :
+        'bg-blue-500 text-white'
+    }`;
+    
+    // Permettre les retours à la ligne
+    toast.style.whiteSpace = 'pre-line';
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Supprimer automatiquement après 3 secondes (plus long pour les avertissements)
+    const duration = type === 'warning' ? 7000 : 3000;
+    setTimeout(() => {
+        toast.remove();
+    }, duration);
+}
+
+function showStockNotification(action, articleName, quantite, stockChange = null) {
+    let message = '';
+    let type = 'info';
+    
+    switch(action) {
+        case 'ajout':
+            message = `✅ Article ajouté: ${articleName}`;
+            if (stockChange) {
+                message += `\n📦 Stock décrémenté: -${quantite} unités`;
+            }
+            type = 'success';
+            break;
+        case 'suppression':
+            message = `🗑️ Article supprimé: ${articleName}`;
+            if (stockChange) {
+                message += `\n📦 Stock incrémenté: +${quantite} unités`;
+            }
+            type = 'success';
+            break;
+        case 'modification':
+            message = `📝 Quantité modifiée: ${articleName}`;
+            if (stockChange && stockChange > 0) {
+                message += `\n📦 Stock décrémenté: -${stockChange} unités`;
+            } else if (stockChange && stockChange < 0) {
+                message += `\n📦 Stock incrémenté: +${Math.abs(stockChange)} unités`;
+            }
+            type = 'success';
+            break;
+        case 'stock_insuffisant':
+            message = `❌ Stock insuffisant pour ${articleName}`;
+            if (quantite) {
+                message += `\nStock demandé: ${quantite} unités`;
+            }
+            type = 'error';
+            break;
+        default:
+            message = `Action effectuée: ${articleName}`;
+    }
+    
+    showNotification(message, type);
+}
+
+function isCommandeConfirmee() {
+    // Utiliser la variable définie côté serveur
+    return {{ commande_confirmee|yesno:"true,false" }};
+}
+
+// ================== GESTIONNAIRES D'ÉVÉNEMENTS ==================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestionnaires pour le modal SAV
+    const savModal = document.getElementById('savModal');
+    const cancelSavBtn = document.getElementById('cancelSavBtn');
+    const confirmSavBtn = document.getElementById('confirmSavBtn');
+    const savForm = document.getElementById('savForm');
+
+    if (cancelSavBtn) {
+        cancelSavBtn.addEventListener('click', function() {
+            savModal.classList.add('hidden');
+            savForm.reset();
+        });
+    }
+
+    if (confirmSavBtn) {
+        confirmSavBtn.addEventListener('click', function() {
+            // Validation du formulaire SAV
         const commentaire = document.getElementById('commentaire').value.trim();
         if (commentaire === '') {
             alert('Le commentaire est obligatoire.');
             return;
         }
 
-        // Valider la date si l'état est "Reportée"
         const etat = document.getElementById('nouvel_etat_input').value;
         if (etat === 'Reportée') {
             const dateReportInput = document.getElementById('date_report');
@@ -572,7 +1267,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Valider le type d'annulation si l'état est "Annulée (SAV)"
+        if (etat === 'Retournée') {
+            const typeAnnulation = document.querySelector('input[name="type_annulation"]:checked');
+            if (!typeAnnulation) {
+                alert('Veuillez sélectionner le type d\'annulation.');
+                return;
+            }
+        }
+        
         if (etat === 'Annulée (SAV)') {
             const typeAnnulation = document.querySelector('input[name="type_annulation"]:checked');
             if (!typeAnnulation) {
@@ -581,38 +1283,264 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        form.submit();
-    });
+            savForm.submit();
+        });
+    }
+
+    // Gestionnaires pour le modal d'articles
+    const articleModal = document.getElementById('addArticleModal');
+    const annulerArticleBtn = document.getElementById('annulerArticleBtn');
+    const confirmerArticleBtn = document.getElementById('confirmerArticleBtn');
+    const articleSelect = document.getElementById('articleSelect');
+    const quantiteInput = document.getElementById('quantiteInput');
+
+    if (annulerArticleBtn) {
+        annulerArticleBtn.addEventListener('click', function() {
+            articleModal.classList.add('hidden');
+            document.getElementById('articleForm').reset();
+            document.getElementById('article-info').classList.add('hidden');
+        });
+    }
+
+    if (confirmerArticleBtn) {
+        confirmerArticleBtn.addEventListener('click', function() {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            if (isEditingArticle) {
+                // Modifier l'article
+                const quantite = parseInt(quantiteInput.value);
+                if (!quantite || quantite <= 0) {
+                    alert('Veuillez saisir une quantité valide.');
+                    return;
+                }
+                
+                fetch(`/operateur-logistique/commande/{{ commande.id }}/modifier-quantite/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: new URLSearchParams({
+                        'panier_id': currentArticleId,
+                        'quantite': quantite
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Afficher une notification adaptée selon le statut de la commande
+                        const articleCard = document.querySelector(`[data-article-id="${currentArticleId}"]`);
+                        
+                        if (articleCard) {
+                            try {
+                                const articleData = JSON.parse(articleCard.dataset.article);
+                                
+                                if (isCommandeConfirmee()) {
+                                    const quantiteElement = articleCard.querySelector('.text-blue-600');
+                                    let quantiteActuelle = 0;
+                                    if (quantiteElement) {
+                                        const match = quantiteElement.textContent.match(/\d+/);
+                                        quantiteActuelle = match ? parseInt(match[0]) : 0;
+                                    }
+                                    
+                                    const difference = quantite - quantiteActuelle;
+                                    showStockNotification('modification', articleData.nom, quantite, difference);
+                                } else {
+                                    showNotification('✅ Article modifié avec succès', 'success');
+                                }
+                            } catch (jsonError) {
+                                console.error('Erreur de parsing JSON:', jsonError);
+                                showNotification('✅ Article modifié avec succès', 'success');
+                            }
+                        } else {
+                            showNotification('✅ Article modifié avec succès', 'success');
+                        }
+                        
+                        rafraichirSectionArticles();
+                        articleModal.classList.add('hidden');
+                    } else {
+                        // Vérifier si c'est une erreur de stock
+                        if (data.error && data.error.includes('Stock insuffisant')) {
+                            const articleCard = document.querySelector(`[data-article-id="${currentArticleId}"]`);
+                            
+                            if (articleCard) {
+                                try {
+                                    const articleData = JSON.parse(articleCard.dataset.article);
+                                    showStockNotification('stock_insuffisant', articleData.nom, quantite);
+                                } catch (jsonError) {
+                                    showNotification('❌ Stock insuffisant', 'error');
+                                }
+                            } else {
+                                showNotification('❌ Stock insuffisant', 'error');
+                            }
+                        } else {
+                            showNotification('❌ Erreur: ' + data.error, 'error');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    showNotification('❌ Erreur de réseau: ' + error.message, 'error');
+                });
+            } else {
+                // Ajouter un nouvel article
+                const articleId = articleSelect.value;
+                const quantite = parseInt(quantiteInput.value);
+                
+                if (!articleId) {
+                    alert('Veuillez sélectionner un article.');
+                    return;
+                }
+                
+                if (!quantite || quantite <= 0) {
+                    alert('Veuillez saisir une quantité valide.');
+                    return;
+                }
+                
+                fetch(`/operateur-logistique/commande/{{ commande.id }}/ajouter-article/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: new URLSearchParams({
+                        'article_id': articleId,
+                        'quantite': quantite
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Afficher une notification adaptée selon le statut de la commande
+                        const selectedOption = articleSelect.options[articleSelect.selectedIndex];
+                        let articleData = null;
+                        
+                        try {
+                            articleData = JSON.parse(selectedOption.dataset.article);
+                        } catch (jsonError) {
+                            console.error('Erreur de parsing JSON article:', jsonError);
+                            showNotification('✅ Article ajouté avec succès', 'success');
+                            rafraichirSectionArticles();
+                            articleModal.classList.add('hidden');
+                            return;
+                        }
+                        
+                        if (isCommandeConfirmee()) {
+                            showStockNotification('ajout', articleData.nom, quantite, true);
+                        } else {
+                            showNotification('✅ Article ajouté avec succès', 'success');
+                        }
+                        
+                        rafraichirSectionArticles();
+                        articleModal.classList.add('hidden');
+                    } else {
+                        // Vérifier si c'est une erreur de stock
+                        if (data.error && data.error.includes('Stock insuffisant')) {
+                            const selectedOption = articleSelect.options[articleSelect.selectedIndex];
+                            try {
+                                const articleData = JSON.parse(selectedOption.dataset.article);
+                                showStockNotification('stock_insuffisant', articleData.nom, quantite);
+                            } catch (jsonError) {
+                                showNotification('❌ Stock insuffisant', 'error');
+                            }
+                        } else {
+                            showNotification('❌ Erreur: ' + data.error, 'error');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    showNotification('❌ Erreur de réseau: ' + error.message, 'error');
+                });
+            }
+        });
+    }
+
+    // Gestionnaire pour le changement d'article sélectionné
+    if (articleSelect) {
+        articleSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                const articleData = JSON.parse(selectedOption.dataset.article);
+                afficherInfosArticle(articleData);
+            } else {
+                document.getElementById('article-info').classList.add('hidden');
+            }
+        });
+    }
+
+    // Gestionnaire pour le changement de quantité
+    if (quantiteInput) {
+        quantiteInput.addEventListener('input', function() {
+            const selectedOption = articleSelect.options[articleSelect.selectedIndex];
+            if (selectedOption.value) {
+                const articleData = JSON.parse(selectedOption.dataset.article);
+                afficherInfosArticle(articleData);
+            }
+        });
+    }
 
     // Fermer la modale si on clique en dehors
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            modal.classList.add('hidden');
-            // Réinitialiser le formulaire
-            form.reset();
+    savModal.addEventListener('click', function(e) {
+        if (e.target === savModal) {
+            savModal.classList.add('hidden');
+            savForm.reset();
         }
     });
-});
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-masquer les messages de succès après 5 secondes
+    // Raccourcis clavier pour les filtres
+    document.addEventListener('keydown', function(e) {
+        if (e.altKey) {
+            switch(e.key) {
+                case '1':
+                    e.preventDefault();
+                    filtrerArticles('all');
+                    break;
+                case '2':
+                    e.preventDefault();
+                    filtrerArticles('promo');
+                    break;
+                case '3':
+                    e.preventDefault();
+                    filtrerArticles('liquidation');
+                    break;
+                case '4':
+                    e.preventDefault();
+                    filtrerArticles('test');
+                    break;
+                case '5':
+                    e.preventDefault();
+                    filtrerArticles('upsell');
+                    break;
+            }
+        }
+    });
+
+    // Auto-masquer les messages
     const successMessages = document.querySelectorAll('.alert-dismissible');
     successMessages.forEach(function(message, index) {
-        // Auto-masquer les messages de succès après 5 secondes
         if (message.classList.contains('bg-green-50')) {
             setTimeout(function() {
                 dismissMessage(message.getAttribute('data-message-id'));
             }, 5000);
         }
         
-        // Auto-masquer les messages d'erreur après 10 secondes
         if (message.classList.contains('bg-red-50')) {
             setTimeout(function() {
                 dismissMessage(message.getAttribute('data-message-id'));
             }, 10000);
         }
         
-        // Auto-masquer les messages d'avertissement après 7 secondes
         if (message.classList.contains('bg-yellow-50')) {
             setTimeout(function() {
                 dismissMessage(message.getAttribute('data-message-id'));
@@ -642,5 +1570,156 @@ function dismissAllMessages() {
         dismissMessage(messageId);
     });
 }
+
+// Fonction pour diagnostiquer et corriger le compteur upsell
+function diagnostiquerCompteur() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch(`/operateur-logistique/commande/{{ commande.id }}/diagnostiquer-compteur/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Diagnostic:', data.message);
+            
+            // Afficher le résultat
+            if (data.ancien_compteur !== undefined) {
+                showNotification(`🔧 Compteur corrigé: ${data.ancien_compteur} → ${data.nouveau_compteur}\n📊 ${data.articles_upsell} articles upsell (${data.quantite_totale_upsell} unités)\n📖 Logique: 0-1 unités = compteur 0 | 2+ unités = compteur total-1`, 'success');
+                // Recharger la page pour voir les changements
+                setTimeout(() => location.reload(), 3000);
+            } else {
+                showNotification(`✅ Compteur correct: ${data.compteur}\n📊 ${data.articles_upsell} articles upsell (${data.quantite_totale_upsell} unités)\n📖 Logique: 0-1 unités = compteur 0 | 2+ unités = compteur total-1`, 'info');
+            }
+        } else {
+            console.error('❌ Erreur:', data.error);
+            showNotification('❌ Erreur lors du diagnostic: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erreur réseau:', error);
+        showNotification('❌ Erreur de réseau lors du diagnostic', 'error');
+    });
+}
+
+// Fonction pour afficher l'historique des mouvements de stock
+function afficherHistoriqueStock() {
+    fetch(`/operateur-logistique/commande/{{ commande.id }}/historique-stock/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                afficherModalHistoriqueStock(data.mouvements, data.commande_id);
+            } else {
+                showNotification('❌ Erreur: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showNotification('❌ Erreur lors du chargement de l\'historique', 'error');
+        });
+}
+
+// Fonction pour créer et afficher le modal d'historique des mouvements de stock
+function afficherModalHistoriqueStock(mouvements, commandeId) {
+    // Créer le modal
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+    modal.id = 'historiqueStockModal';
+    
+    let historiqueHTML = '';
+    
+    if (mouvements.length === 0) {
+        historiqueHTML = `
+            <div class="text-center py-8">
+                <i class="fas fa-info-circle text-4xl text-gray-400 mb-2"></i>
+                <p class="text-gray-500">Aucun mouvement de stock enregistré pour cette commande.</p>
+            </div>
+        `;
+    } else {
+        historiqueHTML = `
+            <div class="space-y-3">
+                ${mouvements.map(mouvement => `
+                    <div class="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="flex-shrink-0 mr-3">
+                            <i class="fas ${mouvement.type_mouvement === 'Sortie' ? 'fa-arrow-down text-red-500' : 
+                                          mouvement.type_mouvement === 'Retour Client' ? 'fa-arrow-up text-green-500' :
+                                          'fa-exchange-alt text-blue-500'} text-lg"></i>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">${mouvement.article_nom}</h4>
+                                    ${mouvement.article_reference ? `<p class="text-xs text-gray-500">Réf: ${mouvement.article_reference}</p>` : ''}
+                                </div>
+                                <div class="text-right">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                        mouvement.type_mouvement === 'Sortie' ? 'bg-red-100 text-red-800' :
+                                        mouvement.type_mouvement === 'Retour Client' ? 'bg-green-100 text-green-800' :
+                                        'bg-blue-100 text-blue-800'
+                                    }">
+                                        ${mouvement.type_mouvement}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600">
+                                <div class="flex justify-between items-center">
+                                    <span>Quantité: <strong>${mouvement.quantite > 0 ? '+' : ''}${mouvement.quantite}</strong></span>
+                                    <span>Stock après: <strong>${mouvement.qte_apres_mouvement}</strong></span>
+                                </div>
+                                <div class="flex justify-between items-center mt-1">
+                                    <span class="text-xs text-gray-500">${mouvement.date_mouvement}</span>
+                                    <span class="text-xs text-gray-500">Par: ${mouvement.operateur}</span>
+                                </div>
+                                ${mouvement.commentaire ? `<p class="text-xs text-gray-500 mt-1 italic">${mouvement.commentaire}</p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    modal.innerHTML = `
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    <i class="fas fa-history mr-2 text-purple-600"></i>
+                    Historique des mouvements de stock - Commande ${commandeId}
+                </h3>
+                <div class="max-h-96 overflow-y-auto">
+                    ${historiqueHTML}
+                </div>
+                <div class="mt-6 text-center">
+                    <button onclick="fermerModalHistoriqueStock()" 
+                            class="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Ajouter le modal au body
+    document.body.appendChild(modal);
+    
+    // Fermer le modal si on clique en dehors
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            fermerModalHistoriqueStock();
+        }
+    });
+}
+
+// Fonction pour fermer le modal d'historique des mouvements de stock
+function fermerModalHistoriqueStock() {
+    const modal = document.getElementById('historiqueStockModal');
+    if (modal) {
+        modal.remove();
+    }
+}
 </script>
-{% endblock %} 
+{% endblock %}

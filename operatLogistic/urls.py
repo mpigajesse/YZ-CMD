@@ -25,7 +25,7 @@ urlpatterns = [
     path('export/region/<str:nom_region>/excel/', views.export_region_excel, name='export_region_excel'),
     path('export/region/<str:nom_region>/csv/', views.export_region_csv, name='export_region_csv'),
     # URL pour le SAV
-    path('commande/<int:commande_id>/changer-etat-sav/', sav_views.changer_etat_livraison, name='changer_etat_sav'),
+    path('commande/<int:commande_id>/changer-etat-sav/', views.changer_etat_sav, name='changer_etat_sav'),
     # URLs pour les listes SAV
     path('sav/reportees/', sav_views.commandes_reportees, name='commandes_reportees'),
     path('sav/livrees-partiellement/', sav_views.commandes_livrees_partiellement, name='commandes_livrees_partiellement'),
@@ -43,4 +43,19 @@ urlpatterns = [
     path('stock/alertes/', stock_views.alertes_stock, name='stock_alertes'),
     path('stock/statistiques/', stock_views.statistiques_stock, name='stock_statistiques'),
     path('stock/statistiques/export/', stock_views.export_statistiques_stock, name='export_statistiques_stock'),
+    # URLs pour la gestion des articles des commandes
+    path('api/articles/', views.api_articles_disponibles, name='api_articles_disponibles'),
+    path('commande/<int:commande_id>/ajouter-article/', views.ajouter_article_commande, name='ajouter_article_commande'),
+    path('commande/<int:commande_id>/modifier-quantite/', views.modifier_quantite_article, name='modifier_quantite_article'),
+    path('commande/<int:commande_id>/supprimer-article/', views.supprimer_article_commande, name='supprimer_article_commande'),
+    path('commande/<int:commande_id>/rafraichir-articles/', views.rafraichir_articles_commande, name='rafraichir_articles_commande'),
+    
+    # URL pour le SAV
+    path('commande/<int:commande_id>/changer-etat-sav/', views.changer_etat_sav, name='changer_etat_sav'),
+    
+    # URL pour diagnostiquer le compteur
+    path('commande/<int:commande_id>/diagnostiquer-compteur/', views.diagnostiquer_compteur, name='diagnostiquer_compteur'),
+    
+    # URL pour l'historique des mouvements de stock
+    path('commande/<int:commande_id>/historique-stock/', views.historique_stock_commande, name='historique_stock_commande'),
 ] 

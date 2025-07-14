@@ -113,7 +113,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-"""
+
+# Configuration SQLite3 (active)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -122,9 +123,7 @@ DATABASES = {
 }
 
 """
-
 # Configuration PostgreSQL (commentée)
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -135,6 +134,7 @@ DATABASES = {
         'PORT': config('DB_PORT', default='5432'),
     }
 }
+"""
 
 
 
