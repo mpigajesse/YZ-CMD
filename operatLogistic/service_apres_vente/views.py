@@ -119,13 +119,10 @@ def changer_etat_livraison(request, commande_id):
     
     return redirect('operatLogistic:detail_commande', commande_id=commande_id)
 
-def _render_sav_list(request, queryset, page_title, page_subtitle):
-    """Fonction helper pour rendre les templates des listes SAV."""
-    # Ajouter les envois au queryset
-    queryset = queryset.prefetch_related('envois')
-    
+def _render_sav_list(request, commandes, page_title, page_subtitle):
+    """Fonction utilitaire pour rendre la liste SAV avec le template standard."""
     context = {
-        'commandes': queryset,
+        'commandes': commandes,
         'page_title': page_title,
         'page_subtitle': page_subtitle,
     }
@@ -153,11 +150,11 @@ def commandes_livrees_partiellement(request):
         'etats__enum_etat', 'etats__operateur',
         'envois'  # Ajouter les envois
     ).order_by('-etats__date_debut').distinct()
-    return _render_sav_list(request, commandes, 'Commandes Livrées Partiellement', 'Liste des commandes livrées en partie.')
+    return _render_sav_list(request, commandes, 'Commandes Livrées Partiellement', 'Liste des livraisons partielles.')
 
 @login_required
 def commandes_livrees_avec_changement(request):
-    """Affiche les commandes livrées avec un changement d'article."""
+    """Affiche les commandes livrées avec des changements."""
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Livrée avec changement',
         etats__date_fin__isnull=True
@@ -165,7 +162,7 @@ def commandes_livrees_avec_changement(request):
         'etats__enum_etat', 'etats__operateur',
         'envois'  # Ajouter les envois
     ).order_by('-etats__date_debut').distinct()
-    return _render_sav_list(request, commandes, 'Commandes avec Changement', 'Liste des commandes livrées avec un article différent.')
+    return _render_sav_list(request, commandes, 'Commandes Livrées avec Changement', 'Liste des livraisons avec modifications.')
 
 @login_required
 def commandes_annulees_sav(request):
@@ -178,6 +175,18 @@ def commandes_annulees_sav(request):
         'envois'  # Ajouter les envois
     ).order_by('-etats__date_debut').distinct()
     return _render_sav_list(request, commandes, 'Commandes Annulées (SAV)', 'Liste des commandes annulées lors de la livraison.')
+
+@login_required
+def commandes_retournees(request):
+    """Affiche les commandes retournées par l'opérateur logistique."""
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Retournée',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville').prefetch_related(
+        'etats__enum_etat', 'etats__operateur',
+        'envois'  # Ajouter les envois
+    ).order_by('-etats__date_debut').distinct()
+    return _render_sav_list(request, commandes, 'Commandes Retournées', 'Liste des commandes retournées par l\'opérateur logistique.')
 
 @login_required
 def commandes_livrees(request):

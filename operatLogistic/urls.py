@@ -32,6 +32,7 @@ urlpatterns = [
     path('sav/avec-changement/', sav_views.commandes_livrees_avec_changement, name='commandes_livrees_avec_changement'),
     path('sav/annulees/', sav_views.commandes_annulees_sav, name='commandes_annulees_sav'),
     path('sav/commandes-annulees/', sav_views.commandes_annulees_sav, name='commandes_annulees_sav'),
+    path('sav/retournees/', sav_views.commandes_retournees, name='commandes_retournees'),
     path('sav/livrees/', sav_views.commandes_livrees, name='commandes_livrees'),
     # Nouvelles URLs pour la gestion de stock
     path('stock/articles/', stock_views.liste_articles, name='stock_articles'),

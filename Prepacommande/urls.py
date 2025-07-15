@@ -15,6 +15,7 @@ urlpatterns = [
     path('detail-prepa/<int:pk>/', views.detail_prepa, name='detail_prepa'),
     path('etiquettes/', views.etiquette_view, name='etiquette'),
     path('impression-etiquettes/', views.impression_etiquettes_view, name='impression_etiquettes'),
+    path('impression-tickets-preparation/', views.imprimer_tickets_preparation, name='imprimer_tickets_preparation'),
     path('modifier-commande/<int:commande_id>/', views.modifier_commande_prepa, name='modifier_commande'),
 
     path('api/commande/<int:commande_id>/produits/', views.api_commande_produits, name='api_commande_produits'),

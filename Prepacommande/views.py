@@ -1172,3 +1172,63 @@ def api_panier_commande_prepa(request, commande_id):
         'total_commande': float(commande.total_cmd),
         'nb_articles': len(paniers_data)
     })
+
+@login_required
+def imprimer_tickets_preparation(request):
+    """
+    Vue pour imprimer les tickets de préparation SANS changer l'état des commandes.
+    Permet d'imprimer ou de réimprimer des tickets pour les commandes en préparation.
+    """
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            return HttpResponse("Accès non autorisé.", status=403)
+    except Operateur.DoesNotExist:
+        return HttpResponse("Profil opérateur non trouvé.", status=403)
+
+    commande_ids_str = request.GET.get('ids')
+    if not commande_ids_str:
+        return HttpResponse("Aucun ID de commande fourni.", status=400)
+
+    try:
+        commande_ids = [int(id) for id in commande_ids_str.split(',') if id.isdigit()]
+    except ValueError:
+        return HttpResponse("IDs de commande invalides.", status=400)
+    
+    # Récupérer les commandes en préparation affectées à cet opérateur
+    commandes = Commande.objects.filter(
+        id__in=commande_ids,
+        etats__operateur=operateur_profile,
+        etats__enum_etat__libelle='En préparation',
+        etats__date_fin__isnull=True
+    ).distinct()
+
+    if not commandes.exists():
+        return HttpResponse("Aucune commande en préparation trouvée pour cet opérateur.", status=404)
+
+    # Génération du code-barres pour chaque commande (sans transition d'état)
+    code128 = barcode.get_barcode_class('code128')
+    
+    for commande in commandes:
+        # Générer le code-barres uniquement si pas déjà présent
+        if not hasattr(commande, 'barcode_base64') or not commande.barcode_base64:
+            barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
+            buffer = BytesIO()
+            barcode_instance.write(buffer, options={
+                'write_text': False, 
+                'module_height': 15.0, 
+                'module_width': 0.3
+            })
+            barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            commande.barcode_base64 = barcode_base64
+        
+        # Définir la date de préparation pour l'affichage (sans sauvegarder en DB)
+        if not hasattr(commande, 'date_preparation') or not commande.date_preparation:
+            commande.date_preparation = timezone.now()
+
+    context = {
+        'commandes': commandes,
+        'is_reprint': True,  # Indicateur pour différencier des impressions initiales
+    }
+    
+    return render(request, 'Prepacommande/tickets_preparation.html', context)

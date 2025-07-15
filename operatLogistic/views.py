@@ -433,7 +433,7 @@ def detail_commande(request, commande_id):
 
     # Déterminer si la commande a déjà été confirmée (impact sur le stock)
     commande_confirmee = commande_a_impacte_stock(commande)
-    
+
     context = {
         'commande': commande,
         'commande_confirmee': commande_confirmee,
