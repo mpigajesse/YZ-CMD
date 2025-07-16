@@ -68,7 +68,7 @@ class Commande(models.Model):
     ville = models.ForeignKey(Ville, on_delete=models.CASCADE, null=True, blank=True, related_name='commandes')
     produit_init = models.TextField(blank=True, null=True)
     compteur = models.IntegerField(default=0, verbose_name="Compteur d'utilisation")
-    
+  
     # Relation avec Envoi pour les exports journaliers
     envoi = models.ForeignKey('Envoi', on_delete=models.SET_NULL, null=True, blank=True, related_name='commandes_associees')
   

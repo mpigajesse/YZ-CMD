@@ -135,7 +135,7 @@ def liste_commandes(request):
     # Commandes à afficher :
     # Celles qui sont explicitement affectées à l'opérateur avec un état actif.
     commandes_list = Commande.objects.filter(
-        etats__operateur=operateur, 
+        etats__operateur=operateur,
         etats__date_fin__isnull=True,
         etats__enum_etat__libelle__in=['Affectée', 'En cours de confirmation', 'Retour Confirmation']
     ).distinct().select_related(
@@ -166,13 +166,13 @@ def liste_commandes(request):
         ).distinct().count(),
         
         'en_cours': Commande.objects.filter(
-            etats__operateur=operateur, 
+        etats__operateur=operateur,
             etats__date_fin__isnull=True, 
             etats__enum_etat__libelle='En cours de confirmation'
         ).distinct().count(),
-
+    
         'retournees': Commande.objects.filter(
-            etats__operateur=operateur,
+        etats__operateur=operateur,
             etats__date_fin__isnull=True, 
             etats__enum_etat__libelle='Retour Confirmation'
         ).distinct().count()

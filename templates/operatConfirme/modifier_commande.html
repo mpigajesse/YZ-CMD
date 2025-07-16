@@ -2008,16 +2008,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Afficher les informations des articles
                 articles.forEach((article, index) => {
-                    console.log(`   Article ${index + 1}:`, {
-                        id: article.id,
-                        nom: article.nom,
-                        reference: article.reference,
-                        prix: article.prix_actuel,
-                        pointure: article.pointure,
-                        couleur: article.couleur,
-                        stock: article.qte_disponible
+                        console.log(`   Article ${index + 1}:`, {
+                            id: article.id,
+                            nom: article.nom,
+                            reference: article.reference,
+                            prix: article.prix_actuel,
+                            pointure: article.pointure,
+                            couleur: article.couleur,
+                            stock: article.qte_disponible
+                        });
                     });
-                });
             })
             .catch(error => {
                 console.error('❌ Erreur lors du test:', error);
@@ -2817,7 +2817,7 @@ function mettreAJourBadgesModale(caracteristiques) {
             createBadge('Stock épuisé', 'fa-times-circle', 'bg-red-100 text-red-800');
         } else if (stockValue < 10) {
             createBadge(`Stock: ${stockValue} (faible)`, 'fa-exclamation-triangle', 'bg-yellow-100 text-yellow-800');
-        } else {
+    } else {
             createBadge(`${caracteristiques.stock}`, 'fa-check-circle', 'bg-green-100 text-green-800');
         }
     } else {
@@ -3150,7 +3150,7 @@ function onArticleSelectionChange() {
                         selectedOption.dataset.article = JSON.stringify(article);
                         
                         // Réafficher les informations avec les données mises à jour
-                        afficherInfosArticle(article);
+        afficherInfosArticle(article);
                     } else {
                         // Si l'API n'a pas retourné de données, utiliser les données existantes
                         console.log('⚠️ Utilisation des données existantes pour le stock');
@@ -3184,7 +3184,7 @@ function afficherInfosArticle(article) {
                          (article.prix_unitaire ? parseFloat(article.prix_unitaire) : 0));
         
         const sousTotal = (prixActuel * quantite).toFixed(2);
-        
+    
         // Informations de base avec vérification des éléments DOM
         const refElement = document.getElementById('info-reference');
         const prixElement = document.getElementById('info-prix');
@@ -3213,8 +3213,8 @@ function afficherInfosArticle(article) {
             console.error('❌ Erreur lors de la conversion du stock:', e);
             stock = 0;
         }
-        
-        // Nouvelles informations détaillées
+    
+    // Nouvelles informations détaillées
         if (pointureElement) pointureElement.textContent = article.pointure || 'Non spécifiée';
         if (couleurElement) couleurElement.textContent = article.couleur || 'Non spécifiée';
         if (categorieElement) categorieElement.textContent = typeof article.categorie === 'string' ? article.categorie : 'Non spécifiée';
@@ -3255,29 +3255,29 @@ function afficherInfosArticle(article) {
                 stockPercentage.className = 'ml-2 text-xs font-medium text-teal-700';
             }
         }
-        
-        // Mettre à jour les badges avec les informations de l'article
+    
+    // Mettre à jour les badges avec les informations de l'article
         try {
-            const caracteristiques = {
-                taille: article.pointure || null,
-                couleur: article.couleur || null,
+    const caracteristiques = {
+        taille: article.pointure || null,
+        couleur: article.couleur || null,
                 categorie: typeof article.categorie === 'string' ? article.categorie : null,
                 stock: `Stock: ${stock}`,
-                description: article.description || ''
-            };
-            mettreAJourBadgesModale(caracteristiques);
+        description: article.description || ''
+    };
+    mettreAJourBadgesModale(caracteristiques);
         } catch (e) {
             console.warn('⚠️ Erreur lors de la mise à jour des badges:', e);
         }
-        
-        // Description
+    
+    // Description
         if (descriptionElement) descriptionElement.textContent = article.description || '';
-        
-        // Afficher la section des informations
+    
+    // Afficher la section des informations
         const articleInfoSection = document.getElementById('article-info');
         if (articleInfoSection) articleInfoSection.classList.remove('hidden');
-        
-        console.log('📋 Informations article affichées:', {
+    
+    console.log('📋 Informations article affichées:', {
             nom: article.nom || 'Sans nom',
             reference: article.reference || '-',
             pointure: article.pointure || '-',
