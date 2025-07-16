@@ -276,7 +276,7 @@
                     <td class="px-3 py-4 whitespace-nowrap">
                         <div class="text-sm font-bold text-green-600" 
                              title="Total incluant {{ commande.sous_total_articles|floatformat:2 }} DH d'articles + {{ commande.frais_livraison|floatformat:2 }} DH de frais de livraison">
-                            {{ commande.total_cmd|floatformat:2 }} DH
+                            {% with total_final=commande.sous_total_articles|add:commande.frais_livraison %}{{ total_final|floatformat:2 }}{% endwith %} DH
                         </div>
                     </td>
                     <td class="px-3 py-4 whitespace-nowrap">
@@ -564,26 +564,27 @@ function buildCartHTML(data) {
             </div>`;
     }
     
+    // Utiliser directement le total_final calculé par l'API
     html += `
-            <div class="rounded-lg p-4 mt-4" style="background: linear-gradient(135deg, #f8f4f0, #fff5f0); border: 1px solid #e5d5c8;">
-                <div class="space-y-2">
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-600">Sous-total articles:</span>
-                        <span class="text-sm font-medium">${commande.total_montant.toFixed(2)} DH</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-600">Frais de livraison:</span>
-                        <span class="text-sm font-medium">${commande.frais_livraison.toFixed(2)} DH</span>
-                    </div>
-                    <hr class="border-gray-300">
-                    <div class="flex justify-between">
-                        <span class="text-lg font-semibold" style="color: #4B352A;">Total commande:</span>
-                        <span class="text-lg font-bold text-green-600">${commande.total_final.toFixed(2)} DH</span>
-                    </div>
-                </div>
+    <div class="rounded-lg p-4 mt-4" style="background: linear-gradient(135deg, #f8f4f0, #fff5f0); border: 1px solid #e5d5c8;">
+        <div class="space-y-2">
+            <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Sous-total articles:</span>
+                <span class="text-sm font-medium">${commande.total_montant.toFixed(2)} DH</span>
             </div>
-        </div>`;
-    
+            <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Frais de livraison:</span>
+                <span class="text-sm font-medium">${commande.frais_livraison.toFixed(2)} DH</span>
+            </div>
+            <hr class="border-gray-300">
+            <div class="flex justify-between">
+                <span class="text-lg font-semibold" style="color: #4B352A;">Total commande:</span>
+                <span class="text-lg font-bold text-green-600">${commande.total_final.toFixed(2)} DH</span>
+            </div>
+        </div>
+    </div>
+</div>`;
+
     return html;
 }
 

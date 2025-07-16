@@ -1,0 +1,164 @@
+{% load commande_filters %}
+
+{% for panier in commande.paniers.all %}
+<div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" 
+    data-article-id="{{ panier.id }}"
+    data-article='{"id": {{ panier.article.id }}, "nom": "{{ panier.article.nom }}", "reference": "{{ panier.article.reference }}", "prix_actuel": {{ panier.article.prix_actuel|default:0 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0 }}, "prix_upsell_4": {{ panier.article.prix_upsell_4|default:0 }}, "isUpsell": {{ panier.article.isUpsell|yesno:"true,false" }}, "pointure": "{{ panier.article.pointure|default:'' }}", "couleur": "{{ panier.article.couleur|default:'' }}", "categorie": "{{ panier.article.categorie|default:'' }}", "qte_disponible": {{ panier.article.qte_disponible|default:0 }}, "phase": "{{ panier.article.phase|default:'' }}", "has_promo_active": {{ panier.article.has_promo_active|yesno:"true,false" }}}'>
+    <div class="flex items-center justify-between">
+        <!-- Informations de l'article -->
+        <div class="flex-1">
+            <div class="flex items-center space-x-4">
+                <!-- Nom et référence -->
+                <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-lg" style="color: var(--logistic-primary, #2C5454);">{{ panier.article.nom }}</div>
+                    <div class="text-sm text-gray-500">
+                        <i class="fas fa-hashtag mr-1"></i>Réf: {{ panier.article.reference }}
+                    </div>
+                    <!-- Informations détaillées -->
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        {% if panier.article.pointure %}
+                        <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-ruler-vertical mr-1"></i>{{ panier.article.pointure }}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                            <i class="fas fa-ruler-vertical mr-1"></i>Taille N/A
+                        </span>
+                        {% endif %}
+                        
+                        {% if panier.article.couleur %}
+                        <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-palette mr-1"></i>{{ panier.article.couleur }}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                            <i class="fas fa-palette mr-1"></i>Couleur N/A
+                        </span>
+                        {% endif %}
+                        
+                        {% if panier.article.categorie %}
+                        <span class="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-tag mr-1"></i>{{ panier.article.categorie }}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                            <i class="fas fa-tag mr-1"></i>Catégorie N/A
+                        </span>
+                        {% endif %}
+                                            
+                        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.qte_disponible|default:0 }}
+                        </span>
+                        
+                        <!-- Badge de statut pour les opérateurs logistiques -->
+                        {% if panier.article.phase == 'PROMO' or panier.article.has_promo_active %}
+                        <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-fire mr-1"></i>PROMO
+                        </span>
+                        {% endif %}
+                        
+                        {% if panier.article.isUpsell %}
+                        <span class="inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-arrow-up mr-1"></i>UPSELL
+                        </span>
+                        {% endif %}
+
+                    </div>
+                </div>
+                
+                <!-- Quantité -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">Quantité</div>
+                    <div class="flex items-center justify-center space-x-2">
+                        <button type="button" 
+                                class="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 flex items-center justify-center transition-colors"
+                                onclick="modifierQuantite({{ panier.id }}, -1)">
+                            <i class="fas fa-minus text-xs"></i>
+                        </button>
+                        <input type="number" 
+                               value="{{ panier.quantite }}" 
+                               min="1" 
+                               max="{{ panier.article.qte_disponible|add:panier.quantite }}"
+                               class="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm font-medium"
+                               onchange="modifierQuantite({{ panier.id }}, 0, this.value)"
+                               data-panier-id="{{ panier.id }}">
+                        <button type="button" 
+                                class="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 flex items-center justify-center transition-colors"
+                                onclick="modifierQuantite({{ panier.id }}, 1)">
+                            <i class="fas fa-plus text-xs"></i>
+                        </button>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-edit mr-1"></i>Modifiable
+                    </div>
+                </div>
+                
+                <!-- Prix unitaire -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">Prix unitaire</div>
+                    {% with panier.article|get_prix_avec_phase_info:commande.compteur as prix_info %}
+                    <div class="font-medium {{ prix_info.couleur_classe }}">
+                        {{ prix_info.prix|floatformat:2 }} DH
+                    </div>
+                    <div class="text-xs {{ prix_info.couleur_classe }} mt-1">
+                        {{ prix_info.libelle }}
+                    </div>
+                    {% endwith %}
+                </div>
+                
+                <!-- Sous-total -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">Sous-total</div>
+                    <div class="text-lg font-bold" style="color: var(--logistic-accent, #66b3b3);">
+                        {{ panier|calculer_sous_total_avec_compteur:commande.compteur|floatformat:2 }} DH
+                    </div>
+                </div>
+                
+                <!-- État de préparation pour logistique -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">État</div>
+                    {% if commande.etat_actuel.enum_etat.libelle == 'Préparée' %}
+                        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-check mr-1"></i>Préparé
+                        </span>
+                    {% elif commande.etat_actuel.enum_etat.libelle == 'Préparation en cours' %}
+                        <span class="inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-clock mr-1"></i>En préparation
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-info mr-1"></i>{{ commande.etat_actuel.enum_etat.libelle|default:"N/A" }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Informations de livraison -->
+        <div class="flex flex-col space-y-2 ml-4 text-right">
+            <div class="text-xs text-gray-500">
+                <i class="fas fa-truck mr-1"></i>Destination
+            </div>
+            <div class="text-sm font-medium" style="color: var(--logistic-primary, #2C5454);">
+                {{ commande.ville.nom|default:"Ville non définie" }}
+            </div>
+            <div class="text-xs text-gray-500">
+                {{ commande.ville.region.nom_region|default:"Région inconnue" }}
+            </div>
+            {% if commande.ville.frais_livraison %}
+            <div class="text-xs text-green-600">
+                <i class="fas fa-euro-sign mr-1"></i>{{ commande.ville.frais_livraison }} DH
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Message si aucun article -->
+{% if not commande.paniers.all %}
+<div class="text-center py-8">
+    <i class="fas fa-shopping-basket text-4xl text-gray-300 mb-4"></i>
+    <p class="text-gray-500">Aucun article dans cette commande.</p>
+</div>
+{% endif %} 

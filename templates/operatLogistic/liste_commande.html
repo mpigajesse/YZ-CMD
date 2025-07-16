@@ -169,16 +169,33 @@
                         <div class="text-sm text-gray-700">{{ commande.num_cmd|default:"Non spécifié" }}</div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
-                        {% if commande.client.email %}
-                        <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                        {% if commande.client %}
+                            <div class="text-sm font-medium text-gray-900">
+                                {{ commande.client.prenom|default:"" }} {{ commande.client.nom|default:"Client anonyme" }}
+                            </div>
+                            {% if commande.client.email %}
+                            <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                            {% endif %}
+                            {% if commande.client.adresse %}
+                            <div class="text-xs text-gray-500">{{ commande.client.adresse|truncatechars:30 }}</div>
+                            {% endif %}
+                        {% else %}
+                            <div class="text-sm text-gray-500 italic">
+                                <i class="fas fa-user-slash mr-1"></i>Client non défini
+                            </div>
                         {% endif %}
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm text-gray-700">
-                            <i class="fas fa-phone mr-1"></i>
-                            {{ commande.client.numero_tel }}
-                        </div>
+                        {% if commande.client and commande.client.numero_tel %}
+                            <div class="text-sm text-gray-700">
+                                <i class="fas fa-phone mr-1"></i>
+                                {{ commande.client.numero_tel }}
+                            </div>
+                        {% else %}
+                            <div class="text-sm text-gray-500 italic">
+                                <i class="fas fa-phone-slash mr-1"></i>Non renseigné
+                            </div>
+                        {% endif %}
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
                         {% if commande.ville %}

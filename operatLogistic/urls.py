@@ -19,6 +19,20 @@ urlpatterns = [
 
     # URL pour le SAV
     path('commande/<int:commande_id>/changer-etat-sav/', views.changer_etat_sav, name='changer_etat_sav'),
+    
+    # URLs pour les nouvelles fonctionnalités
+    path('commande/<int:commande_id>/creer-envoi/', views.creer_envoi, name='creer_envoi'),
+    path('commande/<int:commande_id>/rafraichir-articles/', views.rafraichir_articles, name='rafraichir_articles'),
+    path('commande/<int:commande_id>/creer-commande-sav/', views.creer_commande_sav, name='creer_commande_sav'),
+    
+    # URLs pour les opérations sur les articles
+    path('commande/<int:commande_id>/ajouter-article/', views.ajouter_article, name='ajouter_article'),
+    path('commande/<int:commande_id>/modifier-quantite/', views.modifier_quantite_article, name='modifier_quantite_article'),
+    path('commande/<int:commande_id>/supprimer-article/', views.supprimer_article, name='supprimer_article'),
+    
+    # API pour les articles
+    path('api/articles/', views.api_articles, name='api_articles'),
+    
     # URLs pour les listes SAV
     path('sav/reportees/', sav_views.commandes_reportees, name='commandes_reportees'),
     path('sav/livrees-partiellement/', sav_views.commandes_livrees_partiellement, name='commandes_livrees_partiellement'),

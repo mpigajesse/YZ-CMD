@@ -209,7 +209,9 @@
                                     <hr class="border-gray-300">
                                     <div class="flex justify-between">
                                         <span class="font-bold text-gray-900">Total commande:</span>
-                                        <span class="font-bold text-lg" style="color: #4B352A;">{{ commande.total_cmd|floatformat:2 }} DH</span>
+                                        <span class="font-bold text-lg" style="color: #4B352A;">
+                                            {% with total_final=commande.sous_total_articles|add:commande.frais_livraison %}{{ total_final|floatformat:2 }}{% endwith %} DH
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -513,7 +515,7 @@
                                     Total commande:
                                 </td>
                                 <td class="px-4 py-3 font-bold text-lg text-white">
-                                    {{ commande.total_cmd|floatformat:2 }} DH
+                                    {% with total_final=total_articles|add:commande.frais_livraison %}{{ total_final|floatformat:2 }}{% endwith %} DH
                                 </td>
                             </tr>
                         </tfoot>
