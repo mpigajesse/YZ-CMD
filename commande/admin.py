@@ -85,8 +85,33 @@ class OperationAdmin(admin.ModelAdmin):
     
 @admin.register(Envoi)
 class EnvoiAdmin(admin.ModelAdmin):
-    list_display = ('id', 'commande', 'date_livraison_prevue', 'date_report', 'motif_report', 'status', 'operateur')
-    list_filter = ('status', 'date_livraison_prevue')
-    search_fields = ('commande__num_cmd', 'operateur__nom', 'operateur__prenom')
-    ordering = ('-date_livraison_prevue',)
-    readonly_fields = ('date_livraison_prevue', 'date_report', 'motif_report', 'status', 'operateur')
+    list_display = ('numero_envoi', 'date_envoi', 'livreur', 'region', 'nb_commandes', 'status', 'date_creation')
+    list_filter = ('status', 'date_envoi', 'region')
+    search_fields = ('numero_envoi', 'livreur__nom', 'livreur__prenom', 'region__nom')
+    ordering = ('-date_creation',)
+    readonly_fields = ('numero_envoi', 'date_creation', 'date_modification', 'nb_commandes', 'valeur_totale')
+    
+    fieldsets = (
+        ('Informations principales', {
+            'fields': ('numero_envoi', 'date_envoi', 'date_livraison_prevue', 'status')
+        }),
+        ('Assignation', {
+            'fields': ('livreur', 'region')
+        }),
+        ('Statistiques', {
+            'fields': ('nb_commandes', 'valeur_totale', 'poids_total'),
+            'classes': ('collapse',)
+        }),
+        ('Reports et livraison', {
+            'fields': ('date_report', 'motif_report', 'date_livraison_effective'),
+            'classes': ('collapse',)
+        }),
+        ('Notes', {
+            'fields': ('notes_preparation', 'notes_livraison', 'commentaire'),
+            'classes': ('collapse',)
+        }),
+        ('Traçabilité', {
+            'fields': ('operateur_creation', 'operateur_modification', 'date_creation', 'date_modification'),
+            'classes': ('collapse',)
+        }),
+    )

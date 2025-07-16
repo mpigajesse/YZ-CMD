@@ -170,6 +170,25 @@
         min-width: 20px;
         text-align: center;
     }
+    
+    /* Animations pour les notifications */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes fadeOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-20px); }
+    }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    .animate-fade-out {
+        animation: fadeOut 0.3s ease-in-out;
+    }
 </style>
 {% endblock %}
 
@@ -507,11 +526,30 @@
                         {% include 'operatConfirme/partials/_articles_section.html' %}
                     </div>
 
-                    <!-- Résumé total -->
+                    <!-- Résumé total avec détail -->
                     <div class="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border">
+                        <!-- Détail du calcul -->
+                        <div class="space-y-2 mb-3 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Sous-total articles:</span>
+                                <span class="font-medium" id="sous-total-articles">{{ commande.sous_total_articles|floatformat:2 }} DH</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Frais de livraison:</span>
+                                <span class="font-medium">{{ commande.frais_livraison|floatformat:2 }} DH</span>
+                            </div>
+                            <hr class="border-gray-300">
+                        </div>
+                        
+                        <!-- Total final -->
                         <div class="flex justify-between items-center">
-                            <div class="text-lg font-semibold text-gray-700">
+                            <div class="text-lg font-semibold text-gray-700 flex items-center">
                                 <i class="fas fa-calculator mr-2"></i>Total de la commande:
+                                <button type="button" onclick="afficherModalExplicationTotal()" 
+                                        class="ml-2 w-5 h-5 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600 transition-colors"
+                                        title="Comprendre le calcul du total">
+                                    <i class="fas fa-info"></i>
+                                </button>
                             </div>
                             <div class="text-2xl font-bold" style="color: #4B352A;" id="total-commande">
                                 {{ commande.total_cmd|floatformat:2 }} DH
@@ -741,7 +779,17 @@
                             <h5 class="font-medium text-gray-800 flex items-center">
                                 <i class="fas fa-boxes mr-2 text-teal-600"></i>Stock disponible
                             </h5>
-                            <span id="info-stock" class="px-3 py-1 bg-teal-100 text-teal-700 rounded-full font-medium"></span>
+                            <span id="info-stock" class="px-3 py-1 rounded-full font-medium transition-all duration-300"></span>
+                        </div>
+                        <div class="flex items-center mt-2 mb-2">
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div id="stock-progress" class="h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <div id="stock-percentage" class="ml-2 text-xs font-medium"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mb-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Le stock affiché est mis à jour en temps réel depuis la base de données
                         </div>
                         <div id="info-description" class="text-sm text-gray-600 italic"></div>
                     </div>
@@ -776,9 +824,17 @@ function chargerRegionEtFrais() {
         
         document.getElementById('region-display').value = region;
         document.getElementById('frais-display').value = frais + ' DH';
+        
+        // Recalculer le total avec les nouveaux frais de livraison
+        mettreAJourTotalCommande();
+        
+        console.log(`🏙️ Ville changée: ${selectedOption.text}, Frais: ${frais} DH, Région: ${region}`);
     } else {
         document.getElementById('region-display').value = '';
-        document.getElementById('frais-display').value = '';
+        document.getElementById('frais-display').value = '0 DH';
+        
+        // Recalculer le total sans frais de livraison
+        mettreAJourTotalCommande();
     }
 }
 
@@ -1390,14 +1446,19 @@ function rechargerOperationsDepuisBase() {
     console.log(`📊 DEBUG: État actuel du tableau: ${operationsTable.length} opération(s)`);
     
     // Faire une requête AJAX pour récupérer les opérations mises à jour
-    fetch(`/operateur-confirme/api/commandes/{{ commande.id }}/operations/`, {
+    fetch(`{% url 'operatConfirme:api_operations_commande' commande.id %}`, {
         method: 'GET',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
-        }
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+        },
+        credentials: 'same-origin'
     })
     .then(response => {
         console.log(`🌐 DEBUG: Réponse API reçue, status: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         return response.json();
     })
     .then(data => {
@@ -1446,12 +1507,16 @@ function rechargerOperationsDepuisBase() {
             showNotification('🔄 Tableau rechargé depuis la base de données', 'info');
         } else {
             console.error('❌ DEBUG: Erreur lors du rechargement:', data.error);
-            showNotification('❌ Erreur lors du rechargement: ' + data.error, 'error');
+            showNotification('❌ Erreur lors du rechargement: ' + (data.error || 'Erreur inconnue'), 'error');
         }
     })
     .catch(error => {
         console.error('❌ DEBUG: Erreur de connexion:', error);
-        showNotification('❌ Erreur lors du rechargement des opérations', 'error');
+        showNotification('❌ Erreur lors du rechargement des opérations: ' + (error.message || 'Erreur de connexion'), 'error');
+        
+        // Continuer avec les opérations locales uniquement
+        console.log('⚠️ Continuez avec les opérations locales uniquement en raison de l\'erreur réseau');
+        mettreAJourTableauOperations();
     });
 }
 
@@ -1800,6 +1865,54 @@ document.addEventListener('DOMContentLoaded', function() {
             chargerArticlesDisponibles();
         };
         
+        // Fonction pour vérifier les stocks des articles
+        window.verifierStocks = function() {
+            console.log('📊 Vérification des stocks:');
+            
+            if (!articlesDisponibles || articlesDisponibles.length === 0) {
+                console.log('❌ Aucun article chargé. Chargement...');
+                chargerArticlesDisponibles();
+                setTimeout(() => verifierStocks(), 1000);
+                return;
+            }
+            
+            console.log(`📦 ${articlesDisponibles.length} articles chargés`);
+            
+            // Afficher les articles avec stock > 0
+            const articlesAvecStock = articlesDisponibles.filter(a => a.qte_disponible > 0);
+            console.log(`✅ ${articlesAvecStock.length} articles avec stock > 0:`);
+            articlesAvecStock.slice(0, 5).forEach((article, i) => {
+                console.log(`   ${i+1}. ${article.nom} (ID: ${article.id}): Stock = ${article.qte_disponible}`);
+            });
+            
+            // Afficher les articles sans stock
+            const articlesSansStock = articlesDisponibles.filter(a => !a.qte_disponible || a.qte_disponible === 0);
+            console.log(`❌ ${articlesSansStock.length} articles avec stock = 0:`);
+            articlesSansStock.slice(0, 5).forEach((article, i) => {
+                console.log(`   ${i+1}. ${article.nom} (ID: ${article.id}): Stock = ${article.qte_disponible}`);
+            });
+            
+            // Vérifier l'affichage dans le DOM
+            const articleCards = document.querySelectorAll('.article-card');
+            console.log(`🔍 ${articleCards.length} cartes d'articles dans le DOM`);
+            
+            articleCards.forEach((card, i) => {
+                const stockBadge = card.querySelector('.bg-green-100.text-green-700');
+                const stockText = stockBadge ? stockBadge.textContent.trim() : 'Non trouvé';
+                const articleData = JSON.parse(card.dataset.article || '{}');
+                
+                console.log(`   Article ${i+1}: ${articleData.nom || 'Sans nom'}`);
+                console.log(`      - Stock affiché: ${stockText}`);
+                console.log(`      - Stock dans data: ${articleData.qte_disponible}`);
+            });
+            
+            return {
+                total: articlesDisponibles.length,
+                avecStock: articlesAvecStock.length,
+                sansStock: articlesSansStock.length
+            };
+        };
+        
         // Fonction pour tester le système de filtrage
         window.testFiltrage = function() {
             console.log('🧪 Test du système de filtrage...');
@@ -1880,22 +1993,31 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('✅ Données reçues:', data);
                 
-                if (data.success && data.articles) {
-                    console.log(`📦 ${data.articles.length} article(s) trouvé(s)`);
-                    data.articles.forEach((article, index) => {
-                        console.log(`   Article ${index + 1}:`, {
-                            id: article.id,
-                            nom: article.nom,
-                            reference: article.reference,
-                            prix: article.prix_actuel,
-                            pointure: article.pointure,
-                            couleur: article.couleur,
-                            stock: article.qte_disponible
-                        });
-                    });
+                // Gestion des deux formats possibles (tableau direct ou objet avec propriété articles)
+                let articles = [];
+                if (Array.isArray(data)) {
+                    articles = data;
+                    console.log(`📦 ${articles.length} article(s) trouvé(s) (format tableau)`);
+                } else if (data.success && data.articles) {
+                    articles = data.articles;
+                    console.log(`📦 ${articles.length} article(s) trouvé(s) (format objet)`);
                 } else {
-                    console.error('❌ Pas d\'articles ou erreur:', data.error || 'Erreur inconnue');
+                    console.warn('⚠️ Format de données inattendu:', data);
+                    return;
                 }
+                
+                // Afficher les informations des articles
+                articles.forEach((article, index) => {
+                    console.log(`   Article ${index + 1}:`, {
+                        id: article.id,
+                        nom: article.nom,
+                        reference: article.reference,
+                        prix: article.prix_actuel,
+                        pointure: article.pointure,
+                        couleur: article.couleur,
+                        stock: article.qte_disponible
+                    });
+                });
             })
             .catch(error => {
                 console.error('❌ Erreur lors du test:', error);
@@ -2408,13 +2530,28 @@ function modifierArticle(panierId) {
         const referenceText = articleCard.querySelector('.text-gray-500').textContent;
         const reference = referenceText.replace('Réf: ', '').replace('Référence: ', '').trim();
         
+        // Récupérer les données complètes de l'article depuis le dataset
+        try {
+            const articleData = JSON.parse(articleCard.dataset.article || '{}');
+            console.log('📊 Données article récupérées:', articleData);
+            
+            // Afficher les informations de l'article avec les données complètes
+            if (articleData && articleData.id) {
+                afficherInfosArticle(articleData);
+            } else {
+                // Fallback à l'ancienne méthode si les données ne sont pas disponibles
+                afficherInfosArticleExistant(articleCard);
+            }
+        } catch (error) {
+            console.error('❌ Erreur lors de la récupération des données article:', error);
+            // Fallback à l'ancienne méthode
+            afficherInfosArticleExistant(articleCard);
+        }
+        
         // Attendre que les articles soient chargés puis pré-sélectionner l'article actuel
         setTimeout(() => {
             preselectionnerArticle(reference);
         }, 500);
-        
-        // Afficher les informations de l'article
-        afficherInfosArticleExistant(articleCard);
     }
     
     // Afficher la modale
@@ -2531,6 +2668,32 @@ function extraireCaracteristiquesDepuisBadges(articleCard) {
         description: ''
     };
     
+    // Essayer d'abord de récupérer les données depuis le dataset de la carte
+    try {
+        const articleData = JSON.parse(articleCard.dataset.article || '{}');
+        if (articleData && articleData.id) {
+            console.log('📊 Utilisation des données du dataset pour les caractéristiques');
+            
+            // Récupérer les données directement depuis le dataset
+            caracteristiques.taille = articleData.pointure || null;
+            caracteristiques.couleur = articleData.couleur || null;
+            caracteristiques.categorie = articleData.categorie || null;
+            
+            // Convertir le stock en nombre
+            const stock = typeof articleData.qte_disponible === 'number' ? 
+                          articleData.qte_disponible : 
+                          (articleData.qte_disponible ? parseInt(articleData.qte_disponible) : 0);
+            
+            caracteristiques.stock = `Stock: ${stock}`;
+            console.log('📦 Stock récupéré depuis dataset:', stock);
+            
+            return caracteristiques;
+        }
+    } catch (error) {
+        console.warn('⚠️ Erreur lors de la récupération des données depuis le dataset:', error);
+        // Continuer avec la méthode des badges
+    }
+    
     // Chercher la section contenant les badges
     const badgesContainer = articleCard.querySelector('.flex.flex-wrap.gap-2');
     
@@ -2563,6 +2726,7 @@ function extraireCaracteristiquesDepuisBadges(articleCard) {
                 } else if (iconClasses.includes('fa-boxes')) {
                     // Badge de stock - garde le format complet "Stock: X"
                     caracteristiques.stock = badgeText.trim();
+                    console.log('📦 Stock récupéré depuis badge:', badgeText.trim());
                 }
             }
         });
@@ -2592,13 +2756,21 @@ function extraireCaracteristiquesDepuisBadges(articleCard) {
             const tailleMatch = infoText.match(/Taille:\s*([^,\s]+)/i);
             const couleurMatch = infoText.match(/Couleur:\s*([^,\s]+)/i);
             const categorieMatch = infoText.match(/Catégorie:\s*([^,\s]+)/i);
+            const stockMatch = infoText.match(/Stock:\s*(\d+)/i);
             
             if (tailleMatch) caracteristiques.taille = tailleMatch[1];
             if (couleurMatch) caracteristiques.couleur = couleurMatch[1];
             if (categorieMatch) caracteristiques.categorie = categorieMatch[1];
+            if (stockMatch) caracteristiques.stock = `Stock: ${stockMatch[1]}`;
             
             console.log('🔄 Fallback vers ancien format utilisé');
         }
+    }
+    
+    // Si aucun stock n'a été trouvé, mettre une valeur par défaut
+    if (!caracteristiques.stock) {
+        caracteristiques.stock = 'Stock: 0';
+        console.log('⚠️ Aucun stock trouvé, valeur par défaut utilisée');
     }
     
     return caracteristiques;
@@ -2609,55 +2781,51 @@ function mettreAJourBadgesModale(caracteristiques) {
     const badgesContainer = document.getElementById('caracteristiques-badges');
     
     if (!badgesContainer) {
-        console.warn('⚠️ Conteneur de badges de la modale non trouvé');
+        console.warn('⚠️ Conteneur de badges de la modale non trouvé (ID: caracteristiques-badges)');
         return;
     }
     
     // Vider le conteneur
     badgesContainer.innerHTML = '';
     
-    // Badge Taille
-    const tailleBadge = document.createElement('span');
-    if (caracteristiques.taille) {
-        tailleBadge.className = 'inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium';
-        tailleBadge.innerHTML = `<i class="fas fa-ruler-vertical mr-1"></i>${caracteristiques.taille}`;
-    } else {
-        tailleBadge.className = 'inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs';
-        tailleBadge.innerHTML = '<i class="fas fa-ruler-vertical mr-1"></i>Taille N/A';
-    }
-    badgesContainer.appendChild(tailleBadge);
+    // Créer un fragment pour améliorer les performances
+    const fragment = document.createDocumentFragment();
+
+    // Fonction pour créer un badge
+    const createBadge = (text, iconClass, colorClass) => {
+        if (!text) return;
+        const badge = document.createElement('span');
+        badge.className = `inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}`;
+        badge.innerHTML = `<i class="fas ${iconClass} mr-1.5"></i>${text}`;
+        fragment.appendChild(badge);
+    };
+
+    // Ajouter les badges pour chaque caractéristique
+    createBadge(caracteristiques.taille, 'fa-ruler-vertical', 'bg-purple-100 text-purple-800');
+    createBadge(caracteristiques.couleur, 'fa-palette', 'bg-orange-100 text-orange-800');
+    createBadge(caracteristiques.categorie, 'fa-tag', 'bg-indigo-100 text-indigo-800');
     
-    // Badge Couleur
-    const couleurBadge = document.createElement('span');
-    if (caracteristiques.couleur) {
-        couleurBadge.className = 'inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium';
-        couleurBadge.innerHTML = `<i class="fas fa-palette mr-1"></i>${caracteristiques.couleur}`;
-    } else {
-        couleurBadge.className = 'inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs';
-        couleurBadge.innerHTML = '<i class="fas fa-palette mr-1"></i>Couleur N/A';
-    }
-    badgesContainer.appendChild(couleurBadge);
-    
-    // Badge Catégorie
-    const categorieBadge = document.createElement('span');
-    if (caracteristiques.categorie) {
-        categorieBadge.className = 'inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium';
-        categorieBadge.innerHTML = `<i class="fas fa-tag mr-1"></i>${caracteristiques.categorie}`;
-    } else {
-        categorieBadge.className = 'inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs';
-        categorieBadge.innerHTML = '<i class="fas fa-tag mr-1"></i>Catégorie N/A';
-    }
-    badgesContainer.appendChild(categorieBadge);
-    
-    // Badge Stock (seulement si disponible)
+    // Badge Stock avec couleur selon la quantité
     if (caracteristiques.stock) {
-        const stockBadge = document.createElement('span');
-        stockBadge.className = 'inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium';
-        stockBadge.innerHTML = `<i class="fas fa-boxes mr-1"></i>${caracteristiques.stock}`;
-        badgesContainer.appendChild(stockBadge);
+        let stockValue = 0;
+        const stockMatch = caracteristiques.stock.match(/-?\d+/); // Gère les nombres négatifs au cas où
+        if (stockMatch) {
+            stockValue = parseInt(stockMatch[0], 10);
+        }
+        
+        if (stockValue <= 0) {
+            createBadge('Stock épuisé', 'fa-times-circle', 'bg-red-100 text-red-800');
+        } else if (stockValue < 10) {
+            createBadge(`Stock: ${stockValue} (faible)`, 'fa-exclamation-triangle', 'bg-yellow-100 text-yellow-800');
+        } else {
+            createBadge(`${caracteristiques.stock}`, 'fa-check-circle', 'bg-green-100 text-green-800');
+        }
+    } else {
+        createBadge('Stock inconnu', 'fa-question-circle', 'bg-gray-100 text-gray-800');
     }
     
-    console.log('🏷️ Badges de la modale mis à jour:', caracteristiques);
+    // Ajouter tous les badges au DOM en une seule fois
+    badgesContainer.appendChild(fragment);
 }
 
 // Fonction pour charger les informations complètes d'un article par sa référence
@@ -2672,12 +2840,17 @@ function chargerInfosCompletesArticle(reference) {
             const infoCategorie = document.getElementById('info-categorie');
             const infoStock = document.getElementById('info-stock');
             
+            // Vérifier que qte_disponible est bien défini et convertir en nombre
+            const stock = typeof article.qte_disponible === 'number' ? article.qte_disponible : 
+                         (article.qte_disponible ? parseInt(article.qte_disponible) : 0);
+            
             if (infoPointure) infoPointure.textContent = article.pointure || '-';
             if (infoCouleur) infoCouleur.textContent = article.couleur || '-';
             if (infoCategorie) infoCategorie.textContent = article.categorie || '-';
-            if (infoStock) infoStock.textContent = `${article.qte_disponible || 0} unité(s)`;
+            if (infoStock) infoStock.textContent = `${stock} unité(s)`;
             
             console.log('📋 Informations complètes trouvées pour:', reference, article);
+            console.log('📊 Stock affiché:', stock, 'Type:', typeof stock);
             return;
         }
     }
@@ -2686,7 +2859,7 @@ function chargerInfosCompletesArticle(reference) {
     document.getElementById('info-pointure').textContent = '-';
     document.getElementById('info-couleur').textContent = '-';
     document.getElementById('info-categorie').textContent = '-';
-    document.getElementById('info-stock').textContent = '-';
+    document.getElementById('info-stock').textContent = '0 unité(s)';
     
     console.log('⚠️ Informations complètes non trouvées pour:', reference);
 }
@@ -2735,8 +2908,15 @@ function chargerArticlesDisponibles() {
     .then(data => {
         console.log('📊 Données reçues:', data);
         
-        // Modification pour gérer la réponse directe de l'API
-        articlesDisponibles = Array.isArray(data) ? data : [];
+        // Correction: La vue renvoie directement un tableau d'articles, pas un objet avec une propriété 'success'
+        // Vérifier si data est un tableau ou un objet avec une propriété 'articles'
+        if (Array.isArray(data)) {
+            articlesDisponibles = data;
+        } else if (data && data.articles) {
+            articlesDisponibles = data.articles;
+        } else {
+            articlesDisponibles = [];
+        }
         
         // Remplir le select
         select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
@@ -2869,7 +3049,63 @@ function chargerArticlesDisponibles() {
         console.log('   1. Vérifiez que vous êtes connecté comme opérateur de confirmation');
         console.log('   2. Vérifiez qu\'il y a des articles dans la base de données');
         console.log('   3. Vérifiez les logs Django pour plus de détails');
+        
+        // Utiliser des données de fallback pour permettre de continuer à travailler
+        utiliserArticlesFallback();
     });
+}
+
+// Fonction de fallback pour les articles en cas d'erreur de chargement
+function utiliserArticlesFallback() {
+    console.log('⚠️ Utilisation des articles de fallback pour permettre de continuer à travailler');
+    
+    // Créer quelques articles de base pour pouvoir continuer
+    articlesDisponibles = [
+        {
+            id: 'fallback-1',
+            nom: '[FALLBACK] Article test 1',
+            reference: 'REF001',
+            prix_unitaire: 299,
+            prix_actuel: 299,
+            pointure: '37',
+            couleur: 'Noir',
+            categorie: 'Chaussure',
+            qte_disponible: 10,
+            has_promo_active: false,
+            phase: 'NORMAL',
+            isUpsell: false
+        },
+        {
+            id: 'fallback-2',
+            nom: '[FALLBACK] Article test 2',
+            reference: 'REF002',
+            prix_unitaire: 399,
+            prix_actuel: 399,
+            pointure: '38',
+            couleur: 'Blanc',
+            categorie: 'Chaussure',
+            qte_disponible: 5,
+            has_promo_active: false,
+            phase: 'NORMAL',
+            isUpsell: true
+        }
+    ];
+    
+    // Mettre à jour l'interface avec ces articles de fallback
+    const select = document.getElementById('articleSelect');
+    if (select) {
+        select.innerHTML = '<option value="">-- Données de fallback --</option>';
+        
+        articlesDisponibles.forEach((article, index) => {
+            const option = document.createElement('option');
+            option.value = article.id;
+            option.textContent = `${article.nom} - ${article.prix_actuel} DH (T:${article.pointure}, C:${article.couleur})`;
+            option.dataset.article = JSON.stringify(article);
+            select.appendChild(option);
+        });
+    }
+    
+    showNotification('⚠️ Utilisation de données de fallback pour continuer à travailler', 'warning');
 }
 
 // Fonction appelée quand un article est sélectionné
@@ -2879,7 +3115,55 @@ function onArticleSelectionChange() {
     
     if (selectedOption.value) {
         const article = JSON.parse(selectedOption.dataset.article);
+        
+        // Afficher d'abord les informations disponibles
         afficherInfosArticle(article);
+        
+        // Puis rafraîchir les données de stock en temps réel
+        if (article.id && !article.id.toString().startsWith('fallback-')) {
+            // Indiquer que le stock est en cours de rafraîchissement
+            const infoStock = document.getElementById('info-stock');
+            const stockProgressBar = document.getElementById('stock-progress');
+            const stockPercentage = document.getElementById('stock-percentage');
+            
+            if (infoStock) {
+                infoStock.innerHTML = '<i class="fas fa-sync fa-spin mr-1"></i> Actualisation...';
+                infoStock.className = 'px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-medium';
+            }
+            
+            if (stockProgressBar) {
+                stockProgressBar.className = 'h-2.5 rounded-full bg-blue-500 animate-pulse';
+                stockProgressBar.style.width = '50%';
+            }
+            
+            if (stockPercentage) {
+                stockPercentage.textContent = '...';
+                stockPercentage.className = 'ml-2 text-xs font-medium text-blue-700';
+            }
+            
+            // Appeler l'API pour obtenir les données à jour
+            rafraichirStockArticle(article.id)
+                .then(articleMisAJour => {
+                    if (articleMisAJour) {
+                        // Mettre à jour les données de l'article dans le dataset de l'option
+                        article.qte_disponible = articleMisAJour.qte_disponible;
+                        selectedOption.dataset.article = JSON.stringify(article);
+                        
+                        // Réafficher les informations avec les données mises à jour
+                        afficherInfosArticle(article);
+                    } else {
+                        // Si l'API n'a pas retourné de données, utiliser les données existantes
+                        console.log('⚠️ Utilisation des données existantes pour le stock');
+                        afficherInfosArticle(article);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Erreur lors du rafraîchissement du stock:', error);
+                    // En cas d'erreur, utiliser les données existantes sans notification d'erreur
+                    // pour ne pas perturber l'expérience utilisateur
+                    afficherInfosArticle(article);
+                });
+        }
     } else {
         document.getElementById('article-info').classList.add('hidden');
     }
@@ -2887,44 +3171,124 @@ function onArticleSelectionChange() {
 
 // Fonction pour afficher les informations d'un article
 function afficherInfosArticle(article) {
-    const quantite = parseInt(document.getElementById('quantiteInput').value) || 1;
-    const sousTotal = (article.prix_actuel * quantite).toFixed(2);
-    
-    // Informations de base
-    document.getElementById('info-reference').textContent = article.reference || '-';
-    document.getElementById('info-prix').textContent = `${article.prix_actuel} DH`;
-    document.getElementById('info-sous-total').textContent = `${sousTotal} DH`;
-    
-    // Nouvelles informations détaillées
-    document.getElementById('info-pointure').textContent = article.pointure || 'Non spécifiée';
-    document.getElementById('info-couleur').textContent = article.couleur || 'Non spécifiée';
-    document.getElementById('info-categorie').textContent = article.categorie || 'Non spécifiée';
-    document.getElementById('info-stock').textContent = `${article.qte_disponible || 0} unité(s)`;
-    
-    // Mettre à jour les badges avec les informations de l'article
-    const caracteristiques = {
-        taille: article.pointure || null,
-        couleur: article.couleur || null,
-        categorie: article.categorie || null,
-        stock: article.qte_disponible ? `Stock: ${article.qte_disponible}` : null,
-        description: article.description || ''
-    };
-    mettreAJourBadgesModale(caracteristiques);
-    
-    // Description
-    document.getElementById('info-description').textContent = article.description || '';
-    
-    // Afficher la section des informations
-    document.getElementById('article-info').classList.remove('hidden');
-    
-    console.log('📋 Informations article affichées:', {
-        nom: article.nom,
-        reference: article.reference,
-        pointure: article.pointure,
-        couleur: article.couleur,
-        categorie: article.categorie,
-        stock: article.qte_disponible
-    });
+    try {
+        if (!article) {
+            console.error('❌ Article non défini dans afficherInfosArticle');
+            return;
+        }
+        
+        // Vérifier et récupérer les valeurs avec sécurité
+        const quantite = parseInt(document.getElementById('quantiteInput')?.value) || 1;
+        const prixActuel = typeof article.prix_actuel === 'number' ? article.prix_actuel : 
+                         (article.prix_actuel ? parseFloat(article.prix_actuel) : 
+                         (article.prix_unitaire ? parseFloat(article.prix_unitaire) : 0));
+        
+        const sousTotal = (prixActuel * quantite).toFixed(2);
+        
+        // Informations de base avec vérification des éléments DOM
+        const refElement = document.getElementById('info-reference');
+        const prixElement = document.getElementById('info-prix');
+        const sousTotalElement = document.getElementById('info-sous-total');
+        const pointureElement = document.getElementById('info-pointure');
+        const couleurElement = document.getElementById('info-couleur');
+        const categorieElement = document.getElementById('info-categorie');
+        const descriptionElement = document.getElementById('info-description');
+        
+        if (refElement) refElement.textContent = article.reference || '-';
+        if (prixElement) prixElement.textContent = `${prixActuel} DH`;
+        if (sousTotalElement) sousTotalElement.textContent = `${sousTotal} DH`;
+        
+        // Vérifier que qte_disponible est bien défini et convertir en nombre
+        let stock = 0;
+        try {
+            stock = typeof article.qte_disponible === 'number' ? article.qte_disponible : 
+                   (article.qte_disponible ? parseInt(article.qte_disponible) : 0);
+            
+            // Si la conversion a échoué, utiliser 0
+            if (isNaN(stock)) {
+                console.warn('⚠️ Valeur de stock non numérique:', article.qte_disponible);
+                stock = 0;
+            }
+        } catch (e) {
+            console.error('❌ Erreur lors de la conversion du stock:', e);
+            stock = 0;
+        }
+        
+        // Nouvelles informations détaillées
+        if (pointureElement) pointureElement.textContent = article.pointure || 'Non spécifiée';
+        if (couleurElement) couleurElement.textContent = article.couleur || 'Non spécifiée';
+        if (categorieElement) categorieElement.textContent = typeof article.categorie === 'string' ? article.categorie : 'Non spécifiée';
+        
+        // Mettre à jour l'affichage du stock avec style conditionnel
+        const stockElement = document.getElementById('info-stock');
+        const stockProgressBar = document.getElementById('stock-progress');
+        const stockPercentage = document.getElementById('stock-percentage');
+        
+        if (stockElement && stockProgressBar && stockPercentage) {
+            // Définir une capacité maximale théorique pour la barre de progression (ajuster selon vos besoins)
+            const capaciteMaximale = Math.max(stock, 100); // Au moins 100 ou la valeur actuelle du stock
+            
+            // Calculer le pourcentage du stock
+            const pourcentage = Math.min(Math.round((stock / capaciteMaximale) * 100), 100);
+            
+            // Mettre à jour le texte et la couleur selon le niveau de stock
+            if (stock <= 0) {
+                stockElement.textContent = 'Épuisé';
+                stockElement.className = 'px-3 py-1 bg-red-100 text-red-700 rounded-full font-medium';
+                stockProgressBar.style.width = '0%';
+                stockProgressBar.className = 'h-2.5 rounded-full bg-red-500';
+                stockPercentage.textContent = '0%';
+                stockPercentage.className = 'ml-2 text-xs font-medium text-red-700';
+            } else if (stock < 5) {
+                stockElement.textContent = `${stock} unité(s) - Faible`;
+                stockElement.className = 'px-3 py-1 bg-orange-100 text-orange-700 rounded-full font-medium';
+                stockProgressBar.style.width = `${pourcentage}%`;
+                stockProgressBar.className = 'h-2.5 rounded-full bg-orange-500';
+                stockPercentage.textContent = `${pourcentage}%`;
+                stockPercentage.className = 'ml-2 text-xs font-medium text-orange-700';
+            } else {
+                stockElement.textContent = `${stock} unité(s)`;
+                stockElement.className = 'px-3 py-1 bg-teal-100 text-teal-700 rounded-full font-medium';
+                stockProgressBar.style.width = `${pourcentage}%`;
+                stockProgressBar.className = 'h-2.5 rounded-full bg-teal-600';
+                stockPercentage.textContent = `${pourcentage}%`;
+                stockPercentage.className = 'ml-2 text-xs font-medium text-teal-700';
+            }
+        }
+        
+        // Mettre à jour les badges avec les informations de l'article
+        try {
+            const caracteristiques = {
+                taille: article.pointure || null,
+                couleur: article.couleur || null,
+                categorie: typeof article.categorie === 'string' ? article.categorie : null,
+                stock: `Stock: ${stock}`,
+                description: article.description || ''
+            };
+            mettreAJourBadgesModale(caracteristiques);
+        } catch (e) {
+            console.warn('⚠️ Erreur lors de la mise à jour des badges:', e);
+        }
+        
+        // Description
+        if (descriptionElement) descriptionElement.textContent = article.description || '';
+        
+        // Afficher la section des informations
+        const articleInfoSection = document.getElementById('article-info');
+        if (articleInfoSection) articleInfoSection.classList.remove('hidden');
+        
+        console.log('📋 Informations article affichées:', {
+            nom: article.nom || 'Sans nom',
+            reference: article.reference || '-',
+            pointure: article.pointure || '-',
+            couleur: article.couleur || '-',
+            categorie: typeof article.categorie === 'string' ? article.categorie : '-',
+            stock: stock
+        });
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'affichage des informations de l\'article:', error);
+        // Ne pas laisser l'erreur se propager pour éviter de bloquer l'interface
+    }
 }
 
 // Fonction pour mettre à jour le sous-total quand la quantité change
@@ -2964,17 +3328,23 @@ function saveArticle() {
         }
         
     const articleId = select.value;
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+    if (!csrfToken) {
+        showToast('❌ Erreur: Token de sécurité manquant. Veuillez rafraîchir la page.', 'error');
+        return;
+    }
+
     let action = isEditingArticle ? 'update_article' : 'add_article';
     
-    let body = {
+    let body = new URLSearchParams({
         'action': action,
         'article_id': articleId,
         'quantite': quantite,
-    };
+    });
 
     if(isEditingArticle) {
-        body.panier_id = currentArticleId; // currentArticleId est l'ID du *panier*
+        body.append('panier_id', currentArticleId); // currentArticleId est l'ID du *panier*
     }
 
     fetch('{% url "operatConfirme:modifier_commande" commande.id %}', {
@@ -2983,56 +3353,97 @@ function saveArticle() {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-CSRFToken': csrfToken
         },
-        body: new URLSearchParams(body)
+        body: body
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            // Si le statut est une erreur (4xx, 5xx), lire en tant que texte
+            return response.text().then(text => { 
+                throw new Error(`Erreur ${response.status}: ${text}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            showToast(isEditingArticle ? '✅ Article modifié avec succès' : '✅ Article ajouté avec succès', 'success');
+            // Afficher un message approprié selon l'action et le résultat
+            let message = data.message || (isEditingArticle ? '✅ Article modifié' : '✅ Article ajouté');
+            
+            showToast(message, 'success');
             rafraichirSectionArticles();
             closeArticleModal();
         } else {
-            showToast('❌ Erreur: ' + data.error, 'error');
+            showToast(`❌ Erreur: ${data.error}`, 'error');
         }
     })
     .catch(error => {
-        console.error('❌ Erreur:', error);
-        showToast('❌ Erreur de réseau', 'error');
+        console.error('❌ Erreur Fetch:', error);
+        // Essayer d'extraire un message d'erreur plus clair de l'HTML
+        const match = error.message.match(/<title>(.*?)<\/title>/);
+        const htmlTitle = match ? match[1] : 'Erreur de communication avec le serveur.';
+        showToast(`❌ Erreur: ${htmlTitle}`, 'error');
     });
 }
 
 // Nouvelle fonction pour rafraîchir la section des articles
 function rafraichirSectionArticles() {
     const container = document.getElementById('articles-container');
+    if (!container) {
+        console.error('❌ Conteneur d\'articles introuvable');
+        showToast('❌ Erreur lors du rafraîchissement: conteneur introuvable', 'error');
+        return;
+    }
+    
     container.innerHTML = '<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-500"></i><p class="mt-2">Chargement des articles...</p></div>';
 
     fetch(`{% url 'operatConfirme:api_rafraichir_articles' commande.id %}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 // Mettre à jour la liste des articles
                 container.innerHTML = data.html;
 
                 // Mettre à jour les autres éléments de la page
-                document.getElementById('total-commande').textContent = `${data.total_commande.toFixed(2)} DH`;
-                document.getElementById('articles-count').textContent = data.articles_count;
+                const totalElement = document.getElementById('total-commande');
+                if (totalElement) {
+                    totalElement.textContent = `${data.total_commande.toFixed(2)} DH`;
+                }
+                
+                const countElement = document.getElementById('articles-count');
+                if (countElement) {
+                    countElement.textContent = data.articles_count;
+                }
+                
+                const pluralElement = document.getElementById('articles-plural');
+                if (pluralElement) {
+                    pluralElement.textContent = data.articles_count > 1 ? 's' : '';
+                }
                 
                 const compteurSpan = document.getElementById('compteur-display');
                 if (compteurSpan) {
                     compteurSpan.textContent = data.compteur;
-                } else if (data.compteur > 0) {
-                    // Si le span n'existait pas, on peut le créer (logique plus complexe, à voir si nécessaire)
                 }
 
                 showToast('🔄 Section des articles mise à jour.', 'info', 1500);
             } else {
-                container.innerHTML = `<div class="text-center p-4 bg-red-100 text-red-700 rounded-lg">${data.error}</div>`;
-                showToast(`❌ Erreur de rafraîchissement: ${data.error}`, 'error');
+                container.innerHTML = `<div class="text-center p-4 bg-red-100 text-red-700 rounded-lg">${data.error || 'Erreur inconnue'}</div>`;
+                showToast(`❌ Erreur de rafraîchissement: ${data.error || 'Erreur inconnue'}`, 'error');
             }
         })
         .catch(error => {
             console.error('Erreur de rafraîchissement:', error);
-            container.innerHTML = '<div class="text-center p-4 bg-red-100 text-red-700 rounded-lg">Erreur de connexion.</div>';
+            container.innerHTML = `<div class="text-center p-4 bg-red-100 text-red-700 rounded-lg">
+                <div class="font-bold mb-2">Erreur de connexion</div>
+                <div class="text-sm">${error.message || 'Impossible de contacter le serveur'}</div>
+                <button onclick="rafraichirSectionArticles()" class="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
+                    <i class="fas fa-sync-alt mr-1"></i>Réessayer
+                </button>
+            </div>`;
             showToast('❌ Erreur de connexion lors du rafraîchissement.', 'error');
         });
 }
@@ -3159,7 +3570,7 @@ function mettreAJourTotalCommande() {
     }
 
     const articles = articlesContainer.querySelectorAll('.article-card');
-    let total = 0;
+    let sousTotal = 0;
     
     console.log(`🔄 Recalcul du total pour ${articles.length} article(s)`);
     
@@ -3169,24 +3580,42 @@ function mettreAJourTotalCommande() {
         if (sousTotalElement) {
             // Simplement additionner les sous-totaux déjà affichés
             const sousTotalText = sousTotalElement.textContent;
-            const sousTotal = parseFloat(sousTotalText.replace(' DH', '').replace(',', '.'));
+            const sousTotal_article = parseFloat(sousTotalText.replace(' DH', '').replace(',', '.'));
             
-            if (!isNaN(sousTotal)) {
-                console.log(`   Article ${index + 1}: Sous-total = ${sousTotal} DH`);
-                total += sousTotal;
+            if (!isNaN(sousTotal_article)) {
+                console.log(`   Article ${index + 1}: Sous-total = ${sousTotal_article} DH`);
+                sousTotal += sousTotal_article;
             } else {
                 console.warn(`   ⚠️ Sous-total ${index + 1} non valide: "${sousTotalText}"`);
             }
         }
     });
     
-    console.log(`💰 Total final calculé: ${total.toFixed(2)} DH`);
+    // Récupérer les frais de livraison
+    const fraisElement = document.getElementById('frais-display');
+    let fraisLivraison = 0;
+    if (fraisElement) {
+        const fraisText = fraisElement.value.replace(' DH', '').replace(',', '.');
+        fraisLivraison = parseFloat(fraisText) || 0;
+    }
+    
+    const totalFinal = sousTotal + fraisLivraison;
+    
+    console.log(`📊 Sous-total articles: ${sousTotal.toFixed(2)} DH`);
+    console.log(`🚚 Frais de livraison: ${fraisLivraison.toFixed(2)} DH`);
+    console.log(`💰 Total final calculé: ${totalFinal.toFixed(2)} DH`);
     
     const totalElement = document.getElementById('total-commande');
     if (totalElement) {
         const ancienTotal = totalElement.textContent;
-        totalElement.textContent = `${total.toFixed(2)} DH`;
-        console.log(`📊 Total mis à jour: ${ancienTotal} → ${total.toFixed(2)} DH`);
+        totalElement.textContent = `${totalFinal.toFixed(2)} DH`;
+        console.log(`📊 Total mis à jour: ${ancienTotal} → ${totalFinal.toFixed(2)} DH`);
+    }
+    
+    // Mettre à jour le sous-total des articles dans le détail si l'élément existe
+    const sousTotalElement = document.getElementById('sous-total-articles');
+    if (sousTotalElement) {
+        sousTotalElement.textContent = `${sousTotal.toFixed(2)} DH`;
     }
 }
 
@@ -3982,18 +4411,28 @@ function sauvegarderInformationsClient(sectionElement, sectionName) {
 function sauvegarderInformationsLivraison(sectionElement, sectionName) {
     const button = event.target;
     
-    // Récupérer seulement l'adresse de livraison (saisie manuelle)
+    // Récupérer les données de livraison
+    const villeSelect = document.querySelector('select[name="ville_livraison"]');
     const adresseTextarea = document.querySelector('textarea[name="adresse_livraison"]');
+    
+    const villeId = villeSelect ? villeSelect.value : '';
     const adresse = adresseTextarea ? adresseTextarea.value.trim() : '';
+    
+    // Validation simple côté client
+    if (!villeId) {
+        showToast('⚠️ Veuillez sélectionner une ville de livraison.', 'warning');
+        return;
+    }
     
     // Désactiver le bouton pendant la sauvegarde
     button.disabled = true;
     button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sauvegarde...';
     
-    // Préparer les données à envoyer (seulement l'adresse)
+    // Préparer les données à envoyer (ville + adresse)
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
     formData.append('action', 'save_livraison');
+    formData.append('ville_livraison', villeId);
     formData.append('adresse_livraison', adresse);
     
     // Envoyer la requête AJAX
@@ -4010,11 +4449,37 @@ function sauvegarderInformationsLivraison(sectionElement, sectionName) {
             // Animation de validation
             sectionElement.classList.add('verified');
             
-            // Afficher une notification de succès
-            const message = adresse ? 
-                `✅ ${sectionName} sauvegardée avec succès ! Adresse: ${adresse.substring(0, 50)}${adresse.length > 50 ? '...' : ''}` :
-                `✅ ${sectionName} validée avec succès !`;
-            showToast(message, 'success');
+            // Mettre à jour les champs affichés si des données sont retournées
+            if (data.ville_nom) {
+                const regionDisplay = document.getElementById('region-display');
+                if (regionDisplay && data.region_nom) {
+                    regionDisplay.value = data.region_nom;
+                }
+                
+                const fraisDisplay = document.getElementById('frais-display');
+                if (fraisDisplay && data.frais_livraison !== null) {
+                    fraisDisplay.value = `${data.frais_livraison} DH`;
+                }
+                
+                // Mettre à jour le total avec les nouveaux calculs du serveur
+                if (data.nouveau_total !== undefined) {
+                    const totalElement = document.getElementById('total-commande');
+                    if (totalElement) {
+                        totalElement.textContent = `${data.nouveau_total.toFixed(2)} DH`;
+                    }
+                }
+                
+                // Mettre à jour le sous-total des articles
+                if (data.sous_total_articles !== undefined) {
+                    const sousTotalElement = document.getElementById('sous-total-articles');
+                    if (sousTotalElement) {
+                        sousTotalElement.textContent = `${data.sous_total_articles.toFixed(2)} DH`;
+                    }
+                }
+            }
+            
+            // Afficher une notification de succès avec le message du serveur
+            showToast(`✅ ${data.message}`, 'success');
             
             // Mettre à jour le bouton
             button.innerHTML = '<i class="fas fa-check-double mr-2"></i>Validé';
@@ -4193,6 +4658,44 @@ function showToast(message, type = 'info', duration = 3000) {
     }, duration);
 }
 
+// Fonctions pour la modal d'explication du total
+function afficherModalExplicationTotal() {
+    const modal = document.getElementById('modalExplicationTotal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        
+        // Mettre à jour les valeurs dynamiques dans la modal
+        const calculExemple = document.getElementById('calcul-exemple');
+        if (calculExemple) {
+            const sousTotal = document.getElementById('sous-total-articles')?.textContent || '0.00 DH';
+            const fraisElement = document.getElementById('frais-display');
+            const fraisLivraison = fraisElement ? fraisElement.value : '0.00 DH';
+            const total = document.getElementById('total-commande')?.textContent || '0.00 DH';
+            
+            calculExemple.textContent = `${sousTotal} + ${fraisLivraison} = ${total}`;
+        }
+    }
+}
+
+function fermerModalExplicationTotal() {
+    const modal = document.getElementById('modalExplicationTotal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+    }
+}
+
+// Fermer la modal avec Escape (uniquement si elle est ouverte)
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('modalExplicationTotal');
+        if (modal && modal.style.display === 'flex') {
+            fermerModalExplicationTotal();
+        }
+    }
+});
+
 // Dans le script JavaScript, ajouter une vérification pour le prix
 function afficherInfosArticle(article) {
     const quantite = parseInt(document.getElementById('quantiteInput').value) || 1;
@@ -4313,6 +4816,239 @@ function ajouterArticleAuPanier() {
 }
 
 // La fonction mettreAJourTotalCommande est déjà définie plus haut dans le fichier
+
+// Fonction pour afficher une notification
+function showNotification(message, type = 'info', duration = 3000) {
+    const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500',
+        warning: 'bg-orange-500'
+    };
+    
+    // Créer l'élément de notification
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 ${colors[type]} text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in`;
+    notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : type === 'warning' ? 'exclamation' : 'info'}-circle mr-2"></i>${message}`;
+    
+    // Ajouter au DOM
+    document.body.appendChild(notification);
+    
+    // Ajouter une animation d'entrée
+    notification.style.animation = 'fadeIn 0.3s ease-in-out';
+    notification.style.opacity = '0';
+    setTimeout(() => {
+        notification.style.opacity = '1';
+    }, 10);
+    
+    // Supprimer après la durée spécifiée
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.animation = 'fadeOut 0.3s ease-in-out';
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, duration);
+}
+
+// Fonction pour rafraîchir les données de stock d'un article
+function rafraichirStockArticle(articleId) {
+    console.log('🔄 Rafraîchissement du stock pour l\'article ID:', articleId);
+    
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('❌ Token CSRF introuvable');
+        return Promise.reject('Token CSRF manquant');
+    }
+    
+    // Appel AJAX pour récupérer les données à jour de l'article
+    return fetch(`{% url 'operatConfirme:api_recherche_article_ref' %}?id=${articleId}`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrfToken.value,
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('📊 Données article rafraîchies:', data);
+        
+        try {
+            if (data.success && data.article) {
+                // Mettre à jour l'affichage du stock
+                const infoStock = document.getElementById('info-stock');
+                const stockProgressBar = document.getElementById('stock-progress');
+                const stockPercentage = document.getElementById('stock-percentage');
+                
+                if (infoStock) {
+                    // S'assurer que qte_disponible est un nombre valide
+                    let stock = 0;
+                    try {
+                        stock = typeof data.article.qte_disponible === 'number' ? 
+                                data.article.qte_disponible : 
+                                (data.article.qte_disponible ? parseInt(data.article.qte_disponible) : 0);
+                        
+                        // Si la conversion a échoué, utiliser 0
+                        if (isNaN(stock)) {
+                            console.warn('⚠️ Valeur de stock non numérique:', data.article.qte_disponible);
+                            stock = 0;
+                        }
+                    } catch (e) {
+                        console.error('❌ Erreur lors de la conversion du stock:', e);
+                        stock = 0;
+                    }
+                    
+                    // Mettre à jour l'affichage du stock avec style conditionnel
+                    if (stockProgressBar && stockPercentage) {
+                        // Définir une capacité maximale théorique pour la barre de progression
+                        const capaciteMaximale = Math.max(stock, 100);
+                        
+                        // Calculer le pourcentage du stock
+                        const pourcentage = Math.min(Math.round((stock / capaciteMaximale) * 100), 100);
+                        
+                        // Mettre à jour le texte et la couleur selon le niveau de stock
+                        if (stock <= 0) {
+                            infoStock.textContent = 'Épuisé';
+                            infoStock.className = 'px-3 py-1 bg-red-100 text-red-700 rounded-full font-medium';
+                            stockProgressBar.style.width = '0%';
+                            stockProgressBar.className = 'h-2.5 rounded-full bg-red-500';
+                            stockPercentage.textContent = '0%';
+                            stockPercentage.className = 'ml-2 text-xs font-medium text-red-700';
+                        } else if (stock < 5) {
+                            infoStock.textContent = `${stock} unité(s) - Faible`;
+                            infoStock.className = 'px-3 py-1 bg-orange-100 text-orange-700 rounded-full font-medium';
+                            stockProgressBar.style.width = `${pourcentage}%`;
+                            stockProgressBar.className = 'h-2.5 rounded-full bg-orange-500';
+                            stockPercentage.textContent = `${pourcentage}%`;
+                            stockPercentage.className = 'ml-2 text-xs font-medium text-orange-700';
+                        } else {
+                            infoStock.textContent = `${stock} unité(s)`;
+                            infoStock.className = 'px-3 py-1 bg-teal-100 text-teal-700 rounded-full font-medium';
+                            stockProgressBar.style.width = `${pourcentage}%`;
+                            stockProgressBar.className = 'h-2.5 rounded-full bg-teal-600';
+                            stockPercentage.textContent = `${pourcentage}%`;
+                            stockPercentage.className = 'ml-2 text-xs font-medium text-teal-700';
+                        }
+                    } else {
+                        // Fallback si les éléments de la barre de progression n'existent pas
+                        infoStock.textContent = `${stock} unité(s)`;
+                    }
+                    
+                    console.log('📦 Stock mis à jour:', stock);
+                    
+                    // Mettre à jour les badges avec les informations de l'article
+                    try {
+                        const caracteristiques = {
+                            stock: `Stock: ${stock}`
+                        };
+                        mettreAJourBadgesModale(caracteristiques);
+                    } catch (e) {
+                        console.warn('⚠️ Erreur lors de la mise à jour des badges:', e);
+                    }
+                    
+                    // Afficher une notification discrète
+                    showNotification(`📦 Stock mis à jour: ${stock} unité(s)`, 'info', 2000);
+                    
+                    return data.article;
+                }
+            } else {
+                console.warn('⚠️ Impossible de rafraîchir le stock:', data.error || 'Erreur inconnue');
+                // Ne pas afficher de notification pour ne pas déranger l'utilisateur
+                return null;
+            }
+        } catch (e) {
+            console.error('❌ Erreur lors du traitement des données de stock:', e);
+            return null;
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erreur lors du rafraîchissement du stock:', error);
+        // Ne pas afficher de notification pour éviter de déranger l'utilisateur
+        // avec des erreurs techniques
+        return null;
+    });
+}
+
+function modifierArticle(panierId) {
+    console.log('🔧 Modification article demandée pour ID:', panierId);
+    
+    isEditingArticle = true;
+    currentArticleId = panierId;
+    
+    // Mettre à jour le titre
+    document.getElementById('articleModalTitle').textContent = 'Modifier l\'article';
+    
+    // Toujours afficher le champ de sélection pour permettre de changer l'article
+    document.getElementById('article-selection-field').classList.remove('hidden');
+    document.getElementById('article-display-field').classList.add('hidden');
+    
+    // Charger la liste des articles
+    chargerArticlesDisponibles();
+    
+    // Récupérer les données de l'article depuis la carte
+    const articleCard = document.querySelector(`[data-article-id="${panierId}"]`);
+    console.log('🔍 Article card trouvé:', articleCard ? 'OUI' : 'NON', articleCard);
+    
+    if (articleCard) {
+        const quantite = articleCard.querySelector('.text-blue-600').textContent.match(/\d+/)[0];
+        document.getElementById('quantiteInput').value = quantite;
+        
+        // Récupérer la référence de l'article pour le pré-sélectionner
+        const referenceText = articleCard.querySelector('.text-gray-500').textContent;
+        const reference = referenceText.replace('Réf: ', '').replace('Référence: ', '').trim();
+        
+        // Récupérer les données complètes de l'article depuis le dataset
+        try {
+            const articleData = JSON.parse(articleCard.dataset.article || '{}');
+            console.log('📊 Données article récupérées:', articleData);
+            
+            // Afficher les informations de l'article avec les données complètes
+            if (articleData && articleData.id) {
+                afficherInfosArticle(articleData);
+                
+                // Rafraîchir les données de stock en temps réel
+                rafraichirStockArticle(articleData.id).then(articleMisAJour => {
+                    if (articleMisAJour) {
+                        // Mettre à jour les données de l'article dans le dataset
+                        articleData.qte_disponible = articleMisAJour.qte_disponible;
+                        articleCard.dataset.article = JSON.stringify(articleData);
+                    }
+                });
+            } else {
+                // Fallback à l'ancienne méthode si les données ne sont pas disponibles
+                afficherInfosArticleExistant(articleCard);
+            }
+        } catch (error) {
+            console.error('❌ Erreur lors de la récupération des données article:', error);
+            // Fallback à l'ancienne méthode
+            afficherInfosArticleExistant(articleCard);
+        }
+        
+        // Attendre que les articles soient chargés puis pré-sélectionner l'article actuel
+        setTimeout(() => {
+            preselectionnerArticle(reference);
+        }, 500);
+    }
+    
+    // Afficher la modale
+    const modal = document.getElementById('articleModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    } else {
+        console.error('❌ Modale articleModal introuvable lors de la modification d\'article');
+    }
+}
 
 </script>
 
@@ -4513,6 +5249,107 @@ function ajouterArticleAuPanier() {
                 <i class="fas fa-trash-alt mr-2"></i>
                 Confirmer la suppression
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'explication du calcul du total -->
+<div id="modalExplicationTotal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50" style="backdrop-filter: blur(8px); display: none;">
+    <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-semibold text-gray-900 flex items-center">
+                <i class="fas fa-calculator text-blue-500 mr-3"></i>
+                Comprendre le calcul du total
+            </h3>
+            <button type="button" onclick="fermerModalExplicationTotal()" 
+                    class="text-gray-400 hover:text-gray-600 text-xl font-bold">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="space-y-4">
+            <!-- Explication générale -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 class="font-semibold text-blue-800 mb-2">
+                    <i class="fas fa-info-circle mr-2"></i>Comment est calculé le total ?
+                </h4>
+                <p class="text-blue-700 text-sm">
+                    Le total de la commande est la somme du sous-total des articles et des frais de livraison de la ville sélectionnée.
+                </p>
+            </div>
+            
+            <!-- Détail du calcul -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h4 class="font-semibold text-gray-800 mb-3">
+                    <i class="fas fa-list-ol mr-2"></i>Étapes de calcul
+                </h4>
+                
+                <div class="space-y-3">
+                    <!-- Articles -->
+                    <div class="flex items-start">
+                        <div class="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-bold mr-3 mt-0.5">1</div>
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-800">Calcul du sous-total des articles</div>
+                            <div class="text-sm text-gray-600 mt-1">
+                                Pour chaque article: <strong>Prix unitaire × Quantité</strong>
+                                <br>Puis addition de tous les sous-totaux
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Upsells -->
+                    <div class="flex items-start">
+                        <div class="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold mr-3 mt-0.5">2</div>
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-800">Application des prix upsell</div>
+                            <div class="text-sm text-gray-600 mt-1">
+                                Si la commande a un niveau upsell (compteur > 0), les prix upsell sont appliqués automatiquement
+                                <br><strong>Niveau {{ commande.compteur }}</strong> {% if commande.compteur > 0 %}actif{% else %}aucun upsell{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Frais livraison -->
+                    <div class="flex items-start">
+                        <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold mr-3 mt-0.5">3</div>
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-800">Ajout des frais de livraison</div>
+                            <div class="text-sm text-gray-600 mt-1">
+                                Selon la ville sélectionnée: <strong>{% if commande.ville %}{{ commande.ville.nom }} = {{ commande.frais_livraison|floatformat:2 }} DH{% else %}Aucune ville sélectionnée{% endif %}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Formule finale -->
+            <div class="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+                <h4 class="font-semibold text-gray-800 mb-2">
+                    <i class="fas fa-equals mr-2"></i>Formule finale
+                </h4>
+                <div class="text-center">
+                    <div class="text-lg font-mono bg-white rounded p-3 shadow-sm">
+                        <span class="text-green-600 font-bold">Sous-total Articles</span>
+                        <span class="text-gray-500 mx-2">+</span>
+                        <span class="text-blue-600 font-bold">Frais Livraison</span>
+                        <span class="text-gray-500 mx-2">=</span>
+                        <span class="text-purple-600 font-bold">Total Commande</span>
+                    </div>
+                    <div class="text-sm text-gray-600 mt-2">
+                        <span id="calcul-exemple">
+                            {{ commande.sous_total_articles|floatformat:2 }} DH + {{ commande.frais_livraison|floatformat:2 }} DH = {{ commande.total_cmd|floatformat:2 }} DH
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex justify-end pt-4 border-t">
+                <button type="button" onclick="fermerModalExplicationTotal()" 
+                        class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors">
+                    <i class="fas fa-check mr-2"></i>Compris !
+                </button>
+            </div>
         </div>
     </div>
 </div>

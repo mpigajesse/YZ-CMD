@@ -2,11 +2,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q, Sum, F, Avg
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.http import JsonResponse, HttpResponse
 from django.db import transaction
+from django.core.paginator import Paginator
 
 import json
 from parametre.models import Operateur
@@ -17,6 +18,12 @@ import barcode
 from barcode.writer import ImageWriter
 from io import BytesIO
 import base64
+import csv
+
+from article.models import Article, MouvementStock
+from commande.models import Envoi
+from .forms import ArticleForm, AjusterStockForm
+from .utils import creer_mouvement_stock
 
 # Create your views here.
 
@@ -493,6 +500,61 @@ def detail_prepa(request, pk):
             
             messages.success(request, f"La commande {commande.id_yz} a bien été marquée comme préparée.")
             return redirect('Prepacommande:detail_prepa', pk=commande.pk)
+
+        elif action == 'signaler_probleme':
+            with transaction.atomic():
+                # 1. Terminer l'état "En préparation" actuel
+                etat_en_preparation_enum = get_object_or_404(EnumEtatCmd, libelle='En préparation')
+                etat_actuel = EtatCommande.objects.filter(
+                    commande=commande,
+                    enum_etat=etat_en_preparation_enum,
+                    date_fin__isnull=True
+                ).first()
+
+                if etat_actuel:
+                    etat_actuel.date_fin = timezone.now()
+                    etat_actuel.commentaire = "Problème signalé par le préparateur."
+                    etat_actuel.save()
+
+                # 2. Trouver l'opérateur de confirmation d'origine
+                operateur_confirmation_origine = None
+                etats_precedents = commande.etats.select_related('operateur').order_by('-date_debut')
+                
+                for etat in etats_precedents:
+                    if etat.operateur and etat.operateur.is_confirmation:
+                        operateur_confirmation_origine = etat.operateur
+                        break
+                
+                # 3. Créer l'état "Retour Confirmation" et l'affecter
+                etat_retour_enum, _ = EnumEtatCmd.objects.get_or_create(
+                    libelle='Retour Confirmation',
+                    defaults={'ordre': 25, 'couleur': '#D97706'}
+                )
+                
+                EtatCommande.objects.create(
+                    commande=commande,
+                    enum_etat=etat_retour_enum,
+                    operateur=operateur_confirmation_origine, # Affectation directe
+                    date_debut=timezone.now(),
+                    commentaire="Retourné par la préparation pour vérification."
+                )
+
+                # 4. Log et message de succès
+                if operateur_confirmation_origine:
+                    log_conclusion = f"Problème signalé par {operateur_profile.nom_complet}. Commande retournée et affectée à l'opérateur {operateur_confirmation_origine.nom_complet}."
+                    messages.success(request, f"La commande {commande.id_yz} a été retournée à {operateur_confirmation_origine.nom_complet} pour vérification.")
+                else:
+                    log_conclusion = f"Problème signalé par {operateur_profile.nom_complet}. Opérateur d'origine non trouvé, commande renvoyée au pool de confirmation."
+                    messages.warning(request, f"La commande {commande.id_yz} a été renvoyée au pool de confirmation (opérateur d'origine non trouvé).")
+
+                Operation.objects.create(
+                    commande=commande,
+                    type_operation='PROBLEME_SIGNALÉ',
+                    operateur=operateur_profile,
+                    conclusion=log_conclusion
+                )
+
+            return redirect('Prepacommande:liste_prepa')
     
     context = {
         'page_title': f'Préparation Commande {commande.id_yz}',
@@ -1232,3 +1294,1528 @@ def imprimer_tickets_preparation(request):
     }
     
     return render(request, 'Prepacommande/tickets_preparation.html', context)
+
+# === NOUVELLES FONCTIONNALITÉS : GESTION DE STOCK ===
+
+@login_required
+def ajuster_stock(request, article_id):
+    """Ajuster le stock d'un article - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    article = get_object_or_404(Article, pk=article_id)
+    
+    if request.method == 'POST':
+        form = AjusterStockForm(request.POST)
+        if form.is_valid():
+            type_mouvement = form.cleaned_data['type_mouvement']
+            quantite = form.cleaned_data['quantite']
+            commentaire = form.cleaned_data['commentaire']
+            
+            try:
+                creer_mouvement_stock(
+                    article=article,
+                    quantite=quantite,
+                    type_mouvement=type_mouvement,
+                    operateur=operateur_profile,
+                    commentaire=commentaire
+                )
+                messages.success(request, f"Le stock de l'article '{article.nom}' a été ajusté avec succès.")
+                return redirect('Prepacommande:detail_article', article_id=article.id)
+            except Exception as e:
+                messages.error(request, f"Une erreur est survenue lors de l'ajustement du stock : {e}")
+
+    else:
+        form = AjusterStockForm()
+
+    mouvements_recents = article.mouvements.order_by('-date_mouvement')[:10]
+
+    context = {
+        'form': form,
+        'article': article,
+        'mouvements_recents': mouvements_recents,
+        'page_title': f"Ajuster le Stock - {article.nom}",
+    }
+    return render(request, 'Prepacommande/stock/ajuster_stock.html', context)
+
+@login_required
+def detail_article(request, article_id):
+    """Afficher les détails d'un article spécifique - Service de préparation"""
+    article = get_object_or_404(Article, pk=article_id)
+    
+    # Calculer la valeur totale du stock
+    valeur_stock = article.prix_actuel * article.qte_disponible if article.prix_actuel else 0
+    
+    # Récupérer le dernier mouvement de stock pour cet article
+    dernier_mouvement = article.mouvements.order_by('-date_mouvement').first()
+
+    context = {
+        'article': article,
+        'valeur_stock': valeur_stock,
+        'dernier_mouvement': dernier_mouvement,
+        'page_title': f"Détail de l'article : {article.nom}",
+        'page_subtitle': "Informations complètes sur l'article",
+    }
+    return render(request, 'Prepacommande/stock/detail_article.html', context)
+
+@login_required
+def liste_articles(request):
+    """Afficher la liste des articles avec filtres et statistiques - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    # Calcul des statistiques globales (avant tout filtrage)
+    articles_qs = Article.objects.all()
+    articles_total = articles_qs.count()
+    articles_actifs = articles_qs.filter(actif=True).count()
+    articles_inactifs = articles_qs.filter(actif=False).count()
+    articles_rupture = articles_qs.filter(qte_disponible__lte=0).count()
+    
+    # Articles créés aujourd'hui
+    today = timezone.now().date()
+    articles_crees_aujourd_hui = articles_qs.filter(date_creation__date=today).count()
+
+    # Récupération des articles pour la liste, filtrée
+    articles_list = Article.objects.all()
+    
+    # Filtres de recherche améliorés
+    query = request.GET.get('q', '').strip()
+    categorie_filter = request.GET.get('categorie', '').strip()
+    statut_filter = request.GET.get('statut', '').strip()
+    stock_filter = request.GET.get('stock', '').strip()
+    prix_min = request.GET.get('prix_min', '').strip()
+    prix_max = request.GET.get('prix_max', '').strip()
+    couleur_filter = request.GET.get('couleur', '').strip()
+    phase_filter = request.GET.get('phase', '').strip()
+    tri = request.GET.get('tri', 'date_creation').strip()
+    
+    # Recherche textuelle intelligente
+    if query:
+        articles_list = articles_list.filter(
+            Q(nom__icontains=query) |
+            Q(reference__icontains=query) |
+            Q(description__icontains=query) |
+            Q(categorie__icontains=query) |
+            Q(couleur__icontains=query)
+        )
+    
+    # Filtre par catégorie
+    if categorie_filter:
+        articles_list = articles_list.filter(categorie__icontains=categorie_filter)
+    
+    # Filtre par statut
+    if statut_filter:
+        if statut_filter == 'actif':
+            articles_list = articles_list.filter(actif=True)
+        elif statut_filter == 'inactif':
+            articles_list = articles_list.filter(actif=False)
+    
+    # Filtre par niveau de stock
+    if stock_filter:
+        if stock_filter == 'rupture':
+            articles_list = articles_list.filter(qte_disponible__lte=0)
+        elif stock_filter == 'faible':
+            articles_list = articles_list.filter(qte_disponible__gt=0, qte_disponible__lte=10)
+        elif stock_filter == 'normal':
+            articles_list = articles_list.filter(qte_disponible__gt=10, qte_disponible__lte=50)
+        elif stock_filter == 'eleve':
+            articles_list = articles_list.filter(qte_disponible__gt=50)
+    
+    # Filtre par prix
+    if prix_min:
+        try:
+            prix_min_val = float(prix_min.replace(',', '.'))
+            articles_list = articles_list.filter(prix_unitaire__gte=prix_min_val)
+        except (ValueError, TypeError):
+            pass
+    
+    if prix_max:
+        try:
+            prix_max_val = float(prix_max.replace(',', '.'))
+            articles_list = articles_list.filter(prix_unitaire__lte=prix_max_val)
+        except (ValueError, TypeError):
+            pass
+    
+    # Filtre par couleur
+    if couleur_filter:
+        articles_list = articles_list.filter(couleur__icontains=couleur_filter)
+    
+    # Filtre par phase
+    if phase_filter:
+        articles_list = articles_list.filter(phase=phase_filter)
+    
+    # Tri des résultats
+    if tri == 'nom':
+        articles_list = articles_list.order_by('nom')
+    elif tri == 'prix_asc':
+        articles_list = articles_list.order_by('prix_unitaire')
+    elif tri == 'prix_desc':
+        articles_list = articles_list.order_by('-prix_unitaire')
+    elif tri == 'stock_asc':
+        articles_list = articles_list.order_by('qte_disponible')
+    elif tri == 'stock_desc':
+        articles_list = articles_list.order_by('-qte_disponible')
+    elif tri == 'date_creation':
+        articles_list = articles_list.order_by('-date_creation')
+    elif tri == 'reference':
+        articles_list = articles_list.order_by('reference')
+    else:
+        articles_list = articles_list.order_by('-date_creation')
+    
+    # Récupération des valeurs uniques pour les filtres
+    categories_uniques = Article.objects.values_list('categorie', flat=True).distinct().exclude(categorie__isnull=True).exclude(categorie__exact='')
+    couleurs_uniques = Article.objects.values_list('couleur', flat=True).distinct().exclude(couleur__isnull=True).exclude(couleur__exact='')
+    phases_uniques = Article.objects.values_list('phase', flat=True).distinct().exclude(phase__isnull=True).exclude(phase__exact='')
+
+    # Pagination
+    paginator = Paginator(articles_list, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'articles': page_obj,
+        'categories_uniques': categories_uniques,
+        'couleurs_uniques': couleurs_uniques,
+        'phases_uniques': phases_uniques,
+        'articles_total': articles_total,
+        'articles_actifs': articles_actifs,
+        'articles_inactifs': articles_inactifs,
+        'articles_rupture': articles_rupture,
+        'articles_crees_aujourd_hui': articles_crees_aujourd_hui,
+        'page_title': "Liste des Articles",
+        'page_subtitle': "Inventaire complet et gestion du stock",
+        'request': request,
+        'query': query,
+        'current_filters': {
+            'categorie': categorie_filter,
+            'statut': statut_filter,
+            'stock': stock_filter,
+            'prix_min': prix_min,
+            'prix_max': prix_max,
+            'couleur': couleur_filter,
+            'phase': phase_filter,
+            'tri': tri,
+        }
+    }
+    return render(request, 'Prepacommande/stock/liste_articles.html', context)
+
+@login_required
+def mouvements_stock(request):
+    """Vue pour afficher l'historique des mouvements de stock - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    from article.models import MouvementStock
+    
+    # Récupération de tous les mouvements
+    mouvements_list = MouvementStock.objects.select_related('article', 'operateur').order_by('-date_mouvement')
+    
+    # Filtres de recherche
+    article_filter = request.GET.get('article', '').strip()
+    type_filter = request.GET.get('type', '').strip()
+    date_filter = request.GET.get('date_range', '').strip()
+    
+    # Filtre par article (nom ou référence)
+    if article_filter:
+        mouvements_list = mouvements_list.filter(
+            Q(article__nom__icontains=article_filter) |
+            Q(article__reference__icontains=article_filter)
+        )
+    
+    # Filtre par type de mouvement
+    if type_filter:
+        if type_filter == 'entree':
+            mouvements_list = mouvements_list.filter(type_mouvement='entree')
+        elif type_filter == 'sortie':
+            mouvements_list = mouvements_list.filter(type_mouvement='sortie')
+        elif type_filter == 'ajustement':
+            mouvements_list = mouvements_list.filter(
+                type_mouvement__in=['ajustement_pos', 'ajustement_neg']
+            )
+    
+    # Filtre par date
+    if date_filter:
+        try:
+            date_obj = datetime.strptime(date_filter, '%Y-%m-%d').date()
+            mouvements_list = mouvements_list.filter(date_mouvement__date=date_obj)
+        except ValueError:
+            pass
+    
+    # Pagination
+    paginator = Paginator(mouvements_list, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques rapides
+    total_mouvements = mouvements_list.count()
+    mouvements_aujourd_hui = MouvementStock.objects.filter(
+        date_mouvement__date=timezone.now().date()
+    ).count()
+    
+    context = {
+        'mouvements': page_obj,
+        'total_mouvements': total_mouvements,
+        'mouvements_aujourd_hui': mouvements_aujourd_hui,
+        'page_title': 'Mouvements de Stock',
+        'current_filters': {
+            'article': article_filter,
+            'type': type_filter,
+            'date_range': date_filter,
+        }
+    }
+    return render(request, 'Prepacommande/stock/mouvements_stock.html', context)
+
+@login_required
+def alertes_stock(request):
+    """Vue pour afficher les alertes de stock - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    from article.models import MouvementStock
+    
+    # Paramètres de seuils
+    SEUIL_RUPTURE = 0
+    SEUIL_STOCK_FAIBLE = 10
+    SEUIL_A_COMMANDER = 20
+    
+    # Récupération de tous les articles actifs
+    articles_actifs = Article.objects.filter(actif=True)
+    
+    # Filtres par niveau d'alerte
+    filtre_alerte = request.GET.get('filtre', 'tous')
+    
+    if filtre_alerte == 'rupture':
+        articles_alerte = articles_actifs.filter(qte_disponible__lte=SEUIL_RUPTURE)
+    elif filtre_alerte == 'faible':
+        articles_alerte = articles_actifs.filter(
+            qte_disponible__gt=SEUIL_RUPTURE,
+            qte_disponible__lte=SEUIL_STOCK_FAIBLE
+        )
+    elif filtre_alerte == 'a_commander':
+        articles_alerte = articles_actifs.filter(
+            qte_disponible__gt=SEUIL_STOCK_FAIBLE,
+            qte_disponible__lte=SEUIL_A_COMMANDER
+        )
+    else:
+        articles_alerte = articles_actifs.filter(qte_disponible__lte=SEUIL_A_COMMANDER)
+    
+    # Tri des résultats
+    tri = request.GET.get('tri', 'stock_asc')
+    if tri == 'stock_asc':
+        articles_alerte = articles_alerte.order_by('qte_disponible')
+    elif tri == 'stock_desc':
+        articles_alerte = articles_alerte.order_by('-qte_disponible')
+    elif tri == 'nom':
+        articles_alerte = articles_alerte.order_by('nom')
+    elif tri == 'reference':
+        articles_alerte = articles_alerte.order_by('reference')
+    elif tri == 'categorie':
+        articles_alerte = articles_alerte.order_by('categorie')
+    else:
+        articles_alerte = articles_alerte.order_by('qte_disponible')
+    
+    # Statistiques détaillées
+    stats = {
+        'total_articles': articles_actifs.count(),
+        'rupture_stock': articles_actifs.filter(qte_disponible__lte=SEUIL_RUPTURE).count(),
+        'stock_faible': articles_actifs.filter(
+            qte_disponible__gt=SEUIL_RUPTURE,
+            qte_disponible__lte=SEUIL_STOCK_FAIBLE
+        ).count(),
+        'a_commander': articles_actifs.filter(
+            qte_disponible__gt=SEUIL_STOCK_FAIBLE,
+            qte_disponible__lte=SEUIL_A_COMMANDER
+        ).count(),
+        'stock_ok': articles_actifs.filter(qte_disponible__gt=SEUIL_A_COMMANDER).count(),
+    }
+    
+    # Alertes critiques
+    alertes_critiques = articles_actifs.filter(qte_disponible__lte=SEUIL_RUPTURE).order_by('qte_disponible')[:5]
+    
+    # Analyse par catégorie
+    categories_alertes = articles_actifs.values('categorie').annotate(
+        total=Count('id'),
+        rupture=Count('id', filter=Q(qte_disponible__lte=SEUIL_RUPTURE)),
+        faible=Count('id', filter=Q(qte_disponible__gt=SEUIL_RUPTURE, qte_disponible__lte=SEUIL_STOCK_FAIBLE)),
+        a_commander=Count('id', filter=Q(qte_disponible__gt=SEUIL_STOCK_FAIBLE, qte_disponible__lte=SEUIL_A_COMMANDER)),
+        stock_moyen=Avg('qte_disponible'),
+        valeur_stock=Sum('qte_disponible')
+    ).exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('-rupture', '-faible')
+    
+    # Historique des mouvements récents
+    mouvements_recents = MouvementStock.objects.filter(
+        article__in=articles_alerte,
+        date_mouvement__gte=timezone.now() - timedelta(days=30)
+    ).select_related('article', 'operateur').order_by('-date_mouvement')[:10]
+    
+    # Suggestions d'actions
+    suggestions = []
+    
+    if stats['rupture_stock'] > 0:
+        suggestions.append({
+            'type': 'danger',
+            'titre': 'Rupture de Stock Critique',
+            'message': f'{stats["rupture_stock"]} article(s) en rupture totale nécessitent un réapprovisionnement immédiat.',
+            'action': 'Contacter les fournisseurs',
+            'icone': 'fas fa-exclamation-triangle'
+        })
+    
+    if stats['stock_faible'] > 0:
+        suggestions.append({
+            'type': 'warning',
+            'titre': 'Stock Faible',
+            'message': f'{stats["stock_faible"]} article(s) ont un stock faible. Planifier les commandes.',
+            'action': 'Préparer les commandes',
+            'icone': 'fas fa-exclamation-circle'
+        })
+    
+    if stats['a_commander'] > 0:
+        suggestions.append({
+            'type': 'info',
+            'titre': 'À Commander Bientôt',
+            'message': f'{stats["a_commander"]} article(s) devront être commandés prochainement.',
+            'action': 'Surveiller l\'évolution',
+            'icone': 'fas fa-info-circle'
+        })
+    
+    # Pagination
+    paginator = Paginator(articles_alerte, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'articles': page_obj,
+        'stats': stats,
+        'alertes_critiques': alertes_critiques,
+        'categories_alertes': categories_alertes,
+        'mouvements_recents': mouvements_recents,
+        'suggestions': suggestions,
+        'filtre_actuel': filtre_alerte,
+        'tri_actuel': tri,
+        'seuils': {
+            'rupture': SEUIL_RUPTURE,
+            'faible': SEUIL_STOCK_FAIBLE,
+            'a_commander': SEUIL_A_COMMANDER
+        },
+        'page_title': 'Alertes Stock',
+        'page_subtitle': 'Articles nécessitant une attention immédiate'
+    }
+    return render(request, 'Prepacommande/stock/alertes_stock.html', context)
+
+@login_required
+def statistiques_stock(request):
+    """Vue pour afficher les statistiques de stock - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    from article.models import MouvementStock
+    
+    # Paramètres de filtrage
+    periode = int(request.GET.get('periode', 30))
+    categorie_filter = request.GET.get('categorie', '')
+    
+    # Date de début selon la période
+    date_debut = timezone.now() - timedelta(days=periode)
+    
+    # Articles de base
+    articles_qs = Article.objects.filter(actif=True)
+    
+    # Filtrage par catégorie si spécifié
+    if categorie_filter:
+        articles_qs = articles_qs.filter(categorie=categorie_filter)
+    
+    # Valeur totale du stock
+    valeur_stock = articles_qs.aggregate(
+        valeur_totale=Sum(F('qte_disponible') * F('prix_unitaire'))
+    )['valeur_totale'] or 0
+    
+    # Nombre total d'articles en stock
+    articles_en_stock = articles_qs.filter(qte_disponible__gt=0).count()
+    
+    # Articles par niveau de stock
+    stats_niveaux = articles_qs.aggregate(
+        total_articles=Count('id'),
+        rupture=Count('id', filter=Q(qte_disponible=0)),
+        stock_faible=Count('id', filter=Q(qte_disponible__gt=0, qte_disponible__lte=10)),
+        stock_normal=Count('id', filter=Q(qte_disponible__gt=10, qte_disponible__lte=50)),
+        stock_eleve=Count('id', filter=Q(qte_disponible__gt=50))
+    )
+    
+    # Taux de rupture
+    taux_rupture = (stats_niveaux['rupture'] / stats_niveaux['total_articles'] * 100) if stats_niveaux['total_articles'] > 0 else 0
+    
+    # Statistiques par catégorie
+    stats_categories = articles_qs.values('categorie').annotate(
+        total_articles=Count('id'),
+        stock_total=Sum('qte_disponible'),
+        valeur_totale=Sum(F('qte_disponible') * F('prix_unitaire')),
+        prix_moyen=Avg('prix_unitaire'),
+        stock_moyen=Avg('qte_disponible'),
+        articles_rupture=Count('id', filter=Q(qte_disponible=0)),
+        articles_faible=Count('id', filter=Q(qte_disponible__gt=0, qte_disponible__lte=10))
+    ).exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('-valeur_totale')
+    
+    # Top articles
+    top_articles_valeur = articles_qs.annotate(
+        valeur_stock=F('qte_disponible') * F('prix_unitaire')
+    ).filter(qte_disponible__gt=0).order_by('-valeur_stock')[:10]
+    
+    top_articles_quantite = articles_qs.filter(qte_disponible__gt=0).order_by('-qte_disponible')[:10]
+    
+    # Mouvements de stock
+    mouvements_periode = MouvementStock.objects.filter(
+        date_mouvement__gte=date_debut,
+        article__in=articles_qs
+    ).select_related('article')
+    
+    mouvements_sortie = mouvements_periode.filter(
+        type_mouvement__in=['sortie', 'ajustement_neg']
+    ).aggregate(total_sorties=Sum('quantite'))['total_sorties'] or 0
+    
+    rotation_stock = (mouvements_sortie / valeur_stock * 100) if valeur_stock > 0 else 0
+    
+    # Évolution temporelle
+    evolution_donnees = []
+    nb_semaines = min(periode // 7, 12)
+    
+    for i in range(nb_semaines):
+        date_fin = timezone.now() - timedelta(days=i*7)
+        valeur_semaine = articles_qs.aggregate(
+            valeur=Sum(F('qte_disponible') * F('prix_unitaire'))
+        )['valeur'] or 0
+        
+        evolution_donnees.append({
+            'date': date_fin.strftime('%d/%m'),
+            'valeur': float(valeur_semaine)
+        })
+    
+    evolution_donnees.reverse()
+    
+    # Alertes
+    alertes = []
+    
+    if stats_niveaux['rupture'] > 0:
+        alertes.append({
+            'type': 'danger',
+            'titre': 'Articles en Rupture',
+            'message': f'{stats_niveaux["rupture"]} article(s) en rupture de stock',
+            'valeur': stats_niveaux['rupture']
+        })
+    
+    if taux_rupture > 10:
+        alertes.append({
+            'type': 'warning',
+            'titre': 'Taux de Rupture Élevé',
+            'message': f'Taux de rupture de {taux_rupture:.1f}% (seuil recommandé: 5%)',
+            'valeur': f'{taux_rupture:.1f}%'
+        })
+    
+    if rotation_stock < 2:
+        alertes.append({
+            'type': 'info',
+            'titre': 'Rotation Faible',
+            'message': 'La rotation du stock est faible, optimisation possible',
+            'valeur': f'{rotation_stock:.1f}'
+        })
+    
+    # Données pour graphiques
+    categories_chart_data = {
+        'labels': [cat['categorie'] for cat in stats_categories],
+        'values': [float(cat['valeur_totale'] or 0) for cat in stats_categories],
+        'colors': ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+    }
+    
+    top_articles_chart_data = {
+        'labels': [art.nom[:20] for art in top_articles_valeur[:5]],
+        'values': [float((art.qte_disponible or 0) * (art.prix_unitaire or 0)) for art in top_articles_valeur[:5]]
+    }
+    
+    categories_disponibles = Article.objects.filter(actif=True).values_list('categorie', flat=True).distinct().exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('categorie')
+    
+    context = {
+        'page_title': 'Statistiques Stock',
+        'page_subtitle': 'Analyse de la performance et de la valeur de l\'inventaire',
+        'valeur_stock': valeur_stock,
+        'articles_en_stock': articles_en_stock,
+        'rotation_stock': rotation_stock,
+        'taux_rupture': taux_rupture,
+        'stats_niveaux': stats_niveaux,
+        'stats_categories': stats_categories,
+        'top_articles_valeur': top_articles_valeur,
+        'top_articles_quantite': top_articles_quantite,
+        'evolution_donnees': evolution_donnees,
+        'alertes': alertes,
+        'categories_chart_data': categories_chart_data,
+        'top_articles_chart_data': top_articles_chart_data,
+        'categories_disponibles': categories_disponibles,
+        'periode_actuelle': periode,
+        'categorie_actuelle': categorie_filter,
+    }
+    return render(request, 'Prepacommande/stock/statistiques_stock.html', context)
+
+@login_required
+def creer_article(request):
+    """Créer un nouvel article - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    if request.method == 'POST':
+        # Récupération des données
+        nom = request.POST.get('nom')
+        reference = request.POST.get('reference')
+        categorie = request.POST.get('categorie')
+        couleur = request.POST.get('couleur')
+        pointure_str = request.POST.get('pointure', '').strip()
+        phase = request.POST.get('phase')
+        prix_str = request.POST.get('prix_unitaire', '').strip().replace(',', '.')
+        description = request.POST.get('description')
+        qte_disponible_str = request.POST.get('qte_disponible', '0').strip()
+        actif = 'actif' in request.POST
+        image = request.FILES.get('image')
+
+        if not all([nom, reference, categorie, prix_str]):
+            messages.error(request, "Veuillez remplir tous les champs obligatoires (Nom, Référence, Catégorie, Prix).")
+        else:
+            try:
+                prix_unitaire = float(prix_str)
+                qte_disponible = int(qte_disponible_str) if qte_disponible_str else 0
+                pointure = pointure_str if pointure_str else None
+
+                article = Article.objects.create(
+                    nom=nom,
+                    reference=reference,
+                    categorie=categorie,
+                    couleur=couleur,
+                    pointure=pointure,
+                    phase=phase,
+                    prix_unitaire=prix_unitaire,
+                    description=description,
+                    qte_disponible=qte_disponible,
+                    actif=actif,
+                    image=image
+                )
+                messages.success(request, f"L'article '{article.nom}' a été créé avec succès.")
+                return redirect('Prepacommande:liste_articles')
+            except (ValueError, TypeError):
+                messages.error(request, "Le prix et la quantité doivent être des nombres valides.")
+
+    context = {
+        'article_phases': Article.PHASE_CHOICES,
+        'page_title': "Créer un Nouvel Article",
+        'page_subtitle': "Ajouter un article au catalogue"
+    }
+    return render(request, 'Prepacommande/stock/creer_article.html', context)
+
+@login_required
+def modifier_article(request, article_id):
+    """Modifier un article existant - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    article = get_object_or_404(Article, pk=article_id)
+    
+    if request.method == 'POST':
+        form = ArticleForm(request.POST, request.FILES, instance=article)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"L'article '{article.nom}' a été modifié avec succès.")
+            return redirect('Prepacommande:detail_article', article_id=article.id)
+        else:
+            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+    else:
+        form = ArticleForm(instance=article)
+
+    context = {
+        'form': form,
+        'article': article,
+        'page_title': "Modifier l'Article",
+        'page_subtitle': f"Mise à jour de {article.nom}"
+    }
+    return render(request, 'Prepacommande/stock/modifier_article.html', context)
+
+# === NOUVELLES FONCTIONNALITÉS : RÉPARTITION AUTOMATIQUE ===
+
+def get_operateur_display_name(operateur):
+    """Fonction helper pour obtenir le nom d'affichage d'un opérateur"""
+    if not operateur:
+        return "Opérateur inconnu"
+    
+    if hasattr(operateur, 'nom_complet') and operateur.nom_complet:
+        return operateur.nom_complet
+    elif operateur.nom and operateur.prenom:
+        return f"{operateur.prenom} {operateur.nom}"
+    elif operateur.nom:
+        return operateur.nom
+    elif hasattr(operateur, 'user') and operateur.user:
+        return operateur.user.username
+    else:
+        return "Opérateur inconnu"
+
+@login_required
+def repartition_automatique(request):
+    """Gestion de la répartition automatique des commandes - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    from parametre.models import Region, Ville, Operateur
+    from django.db.models import Count, Sum
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    # Obtenir les données pour les filtres
+    regions = Region.objects.all()
+    villes = Ville.objects.all()
+    operateurs_confirmation = Operateur.objects.filter(type_operateur='CONFIRMATION', actif=True)
+    
+    # Commandes confirmées et en cours de traitement (qui arrivent de l'interface des opérateurs de confirmation)
+    # Inclure: Confirmée, À imprimer, Préparée - toutes sont des commandes en attente de répartition/livraison
+    commandes_confirmees = Commande.objects.filter(
+        etats__enum_etat__libelle__in=["Confirmée", "À imprimer", "Préparée"],
+        etats__date_fin__isnull=True,
+        ville__isnull=False,  # Exclure les commandes sans ville
+        ville__region__isnull=False  # Exclure les commandes sans région
+    ).select_related('ville', 'ville__region', 'client').prefetch_related('etats__operateur').distinct()
+    
+    # Commandes en cours de livraison (déjà réparties automatiquement)
+    commandes_en_livraison = Commande.objects.filter(
+        etats__enum_etat__libelle="En cours de livraison",
+        etats__date_fin__isnull=True
+    ).select_related('ville', 'ville__region', 'client').prefetch_related('etats__operateur').distinct()
+    
+    # Statistiques par région pour les commandes confirmées (en attente de répartition)
+    stats_par_region_confirmees = commandes_confirmees.values(
+        'ville__region__nom_region'
+    ).annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('ville__region__nom_region')
+    
+    # Statistiques par ville pour les commandes confirmées
+    stats_par_ville_confirmees = commandes_confirmees.values(
+        'ville__nom', 'ville__region__nom_region'
+    ).annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('ville__region__nom_region', 'ville__nom')
+    
+    # Statistiques par région pour les commandes en livraison (déjà réparties)
+    stats_par_region_livraison = commandes_en_livraison.values(
+        'ville__region__nom_region'
+    ).annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('ville__region__nom_region')
+    
+    # Statistiques par ville pour les commandes en livraison
+    stats_par_ville_livraison = commandes_en_livraison.values(
+        'ville__nom', 'ville__region__nom_region'
+    ).annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('ville__region__nom_region', 'ville__nom')
+    
+    # Calculer les totaux
+    total_commandes_confirmees = commandes_confirmees.count()
+    total_commandes_en_livraison = commandes_en_livraison.count()
+    total_montant_confirmees = commandes_confirmees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    total_montant_livraison = commandes_en_livraison.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Statistiques générales
+    operateurs_disponibles = operateurs_confirmation.count()
+    regions_actives = regions.count()
+    villes_actives = villes.count()
+    
+    # Historique des répartitions récentes (basé sur les changements d'état)
+    historique_repartitions = []
+    
+    # Récupérer les changements d'état récents vers "En cours de livraison"
+    changements_recents = EtatCommande.objects.filter(
+        enum_etat__libelle='En cours de livraison',
+        date_debut__gte=timezone.now() - timedelta(days=7)
+    ).select_related('commande__ville__region', 'operateur').order_by('-date_debut')[:20]
+    
+    for changement in changements_recents:
+        # Compter les commandes réparties dans cette session
+        commandes_reparties = EtatCommande.objects.filter(
+            enum_etat__libelle='En cours de livraison',
+            date_debut__date=changement.date_debut.date(),
+            operateur=changement.operateur
+        ).count()
+        
+        historique_repartitions.append({
+            'id': changement.id,
+            'date_creation': changement.date_debut,
+            'operateur': changement.operateur,
+            'nom_operateur': get_operateur_display_name(changement.operateur),
+            'region': changement.commande.ville.region if changement.commande.ville else None,
+            'nb_commandes': commandes_reparties,
+            'statut': 'TERMINE'
+        })
+    
+    # Éviter les doublons dans l'historique
+    historique_repartitions = list({item['date_creation'].date(): item for item in historique_repartitions}.values())
+    historique_repartitions.sort(key=lambda x: x['date_creation'], reverse=True)
+    
+    # Préparer les commandes confirmées avec les noms d'opérateurs
+    commandes_confirmees_list = []
+    for commande in commandes_confirmees[:10]:  # Limiter aux 10 plus récentes
+        etat_confirmation = commande.etats.filter(enum_etat__libelle='Confirmée', date_fin__isnull=True).first()
+        if etat_confirmation:
+            commandes_confirmees_list.append({
+                'commande': commande,
+                'nom_operateur': get_operateur_display_name(etat_confirmation.operateur),
+                'date_confirmation': etat_confirmation.date_debut
+            })
+    
+    preview_data = None
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        region_id = request.POST.get('region')
+        ville_id = request.POST.get('ville')
+        max_commandes = int(request.POST.get('max_commandes', 10))
+        equilibrer_charge = request.POST.get('equilibrer_charge') == 'on'
+        prioriser_proximite = request.POST.get('prioriser_proximite') == 'on'
+        
+        # Filtrer les commandes selon les critères
+        queryset = commandes_confirmees
+        if region_id:
+            queryset = queryset.filter(ville__region_id=region_id)
+        if ville_id:
+            queryset = queryset.filter(ville_id=ville_id)
+        
+        commandes = list(queryset[:max_commandes * operateurs_disponibles])
+        
+        if action == 'preview':
+            # Générer la prévisualisation
+            preview_data = generer_preview_repartition(
+                commandes, operateurs_confirmation, max_commandes, 
+                equilibrer_charge, prioriser_proximite
+            )
+        elif action == 'execute':
+            # Exécuter la répartition
+            resultat = executer_repartition(
+                commandes, operateurs_confirmation, max_commandes,
+                equilibrer_charge, prioriser_proximite, request.user
+            )
+            if resultat['success']:
+                messages.success(request, f"Répartition réussie : {resultat['commandes_reparties']} commandes réparties")
+                return redirect('Prepacommande:repartition_automatique')
+            else:
+                messages.error(request, f"Erreur lors de la répartition : {resultat['error']}")
+    
+    context = {
+        'total_commandes': total_commandes_confirmees,
+        'total_commandes_en_livraison': total_commandes_en_livraison,
+        'total_montant_confirmees': total_montant_confirmees,
+        'total_montant_livraison': total_montant_livraison,
+        'operateurs_disponibles': operateurs_disponibles,
+        'regions_actives': regions_actives,
+        'villes_actives': villes_actives,
+        'regions': regions,
+        'villes': villes,
+        'preview_data': preview_data,
+        'historique_repartitions': historique_repartitions,
+        # Statistiques pour les commandes confirmées (en attente)
+        'stats_par_region': stats_par_region_confirmees,
+        'stats_par_ville': stats_par_ville_confirmees,
+        'total_commandes_reparties': total_commandes_en_livraison,
+        # Statistiques pour les commandes en livraison (déjà réparties)
+        'stats_par_region_livraison': stats_par_region_livraison,
+        'stats_par_ville_livraison': stats_par_ville_livraison,
+        'commandes_confirmees': commandes_confirmees,
+        'commandes_confirmees_list': commandes_confirmees_list,
+        'commandes_en_livraison': commandes_en_livraison,
+    }
+    
+    return render(request, 'Prepacommande/repartition_automatique.html', context)
+
+def generer_preview_repartition(commandes, operateurs, max_commandes, equilibrer_charge, prioriser_proximite):
+    """Générer une prévisualisation de la répartition"""
+    preview = {}
+    commandes_par_operateur = max_commandes
+    
+    if equilibrer_charge:
+        total_commandes = len(commandes)
+        commandes_par_operateur = min(max_commandes, total_commandes // len(operateurs) + 1)
+    
+    for i, operateur in enumerate(operateurs):
+        debut = i * commandes_par_operateur
+        fin = min(debut + commandes_par_operateur, len(commandes))
+        preview[operateur] = commandes[debut:fin]
+    
+    return preview
+
+def executer_repartition(commandes, operateurs, max_commandes, equilibrer_charge, prioriser_proximite, user):
+    """Exécuter la répartition des commandes"""
+    try:
+        commandes_reparties = 0
+        preview_data = generer_preview_repartition(commandes, operateurs, max_commandes, equilibrer_charge, prioriser_proximite)
+        
+        for operateur, commandes_operateur in preview_data.items():
+            for commande in commandes_operateur:
+                commande.operateur_prepa = operateur
+                commande.save()
+                commandes_reparties += 1
+        
+        return {'success': True, 'commandes_reparties': commandes_reparties}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+# === VUES DE GESTION DES ENVOIS ===
+
+@login_required
+def etats_livraison(request):
+    """Gestion des états de livraison - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    from parametre.models import Region
+    
+    # Filtres
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    region_id = request.GET.get('region')
+    statut = request.GET.get('statut')
+    
+    # Base queryset
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['En préparation', 'Prête', 'En cours de livraison', 'Livrée'],
+        etats__date_fin__isnull=True
+    ).select_related(
+        'ville__region',
+        'client'
+    ).prefetch_related(
+        'etats__enum_etat',
+        'etats__operateur__user'
+    ).distinct()
+    
+    # Appliquer les filtres
+    if date_debut:
+        commandes = commandes.filter(date_creation__gte=date_debut)
+    if date_fin:
+        commandes = commandes.filter(date_creation__lte=date_fin)
+    if region_id:
+        commandes = commandes.filter(ville__region_id=region_id)
+    if statut:
+        commandes = commandes.filter(etats__enum_etat__libelle=statut, etats__date_fin__isnull=True)
+    
+    # Statistiques
+    stats = {
+        'total_commandes': commandes.count(),
+        'en_preparation': commandes.filter(etats__enum_etat__libelle='En préparation', etats__date_fin__isnull=True).count(),
+        'pretes': commandes.filter(etats__enum_etat__libelle='Prête', etats__date_fin__isnull=True).count(),
+        'livrees': commandes.filter(etats__enum_etat__libelle='Livrée', etats__date_fin__isnull=True).count(),
+    }
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(commandes, 50)
+    page_number = request.GET.get('page')
+    commandes = paginator.get_page(page_number)
+    
+    regions = Region.objects.all()
+    
+    context = {
+        'commandes': commandes,
+        'regions': regions,
+        'stats': stats,
+    }
+    
+    return render(request, 'Prepacommande/etats_livraison.html', context)
+
+@login_required
+def export_envois(request):
+    """Export des envois journaliers - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    from parametre.models import Region, Operateur
+    from django.utils import timezone
+    import datetime
+    
+    # Date par défaut : aujourd'hui
+    today = timezone.now().date()
+    date_envoi = request.GET.get('date_envoi', today)
+    region_id = request.GET.get('region')
+    livreur_id = request.GET.get('livreur')
+    
+    # Obtenir tous les livreurs (opérateurs de livraison)
+    livreurs = Operateur.objects.filter(is_livraison=True, actif=True)
+    regions = Region.objects.all()
+    
+    # Simuler des envois (à remplacer par votre modèle Envoi)
+    envois = []
+    
+    # Commandes prêtes à être envoyées
+    commandes_pretes = Commande.objects.filter(
+        etat__nom='Prête'
+    ).select_related('ville__region')
+    
+    if region_id:
+        commandes_pretes = commandes_pretes.filter(ville__region_id=region_id)
+    
+    # Statistiques
+    stats = {
+        'total_envois': len(envois),
+        'total_commandes': 0,
+        'commandes_pretes': commandes_pretes.count(),
+        'livreurs_actifs': livreurs.filter(actif=True).count(),
+    }
+    
+    context = {
+        'envois': envois,
+        'commandes_pretes': commandes_pretes,
+        'livreurs': livreurs,
+        'regions': regions,
+        'stats': stats,
+        'today': today,
+    }
+    
+    return render(request, 'Prepacommande/export_envois.html', context)
+
+@login_required
+def creer_envoi(request):
+    """Créer un nouvel envoi"""
+    if request.method == 'POST':
+        try:
+            livreur_id = request.POST.get('livreur')
+            region_id = request.POST.get('region')
+            notes = request.POST.get('notes', '')
+            commandes_selectionnees = request.POST.get('commandes_selectionnees', '').split(',')
+            
+            # Ici vous devriez créer l'objet Envoi
+            # envoi = Envoi.objects.create(
+            #     livreur_id=livreur_id,
+            #     region_id=region_id if region_id else None,
+            #     notes=notes,
+            #     date_creation=timezone.now()
+            # )
+            
+            # Associer les commandes à l'envoi
+            # for commande_id in commandes_selectionnees:
+            #     if commande_id:
+            #         commande = Commande.objects.get(id=commande_id)
+            #         commande.envoi = envoi
+            #         commande.save()
+            
+            return JsonResponse({'success': True, 'message': 'Envoi créé avec succès'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+    
+    return JsonResponse({'success': False, 'message': 'Méthode non autorisée'})
+
+@login_required
+def details_envoi(request, envoi_id):
+    """Afficher les détails d'un envoi"""
+    # Ici vous devriez récupérer l'envoi par son ID
+    # envoi = get_object_or_404(Envoi, id=envoi_id)
+    
+    # Pour l'exemple, retourner un contenu HTML simple
+    html_content = f"""
+    <div class="p-3">
+        <h6>Envoi ENV-{envoi_id}</h6>
+        <p><strong>Statut:</strong> En cours</p>
+        <p><strong>Date création:</strong> {timezone.now().strftime('%d/%m/%Y %H:%M')}</p>
+        <p><strong>Commandes associées:</strong> 0</p>
+    </div>
+    """
+    
+    return HttpResponse(html_content)
+
+# === VUES D'EXPORT ET D'IMPRESSION ===
+
+@login_required
+def details_region_view(request):
+    """Vue détaillée pour afficher les commandes par région - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    from parametre.models import Region, Ville
+    
+    # Récupérer les paramètres de filtrage
+    region_name = request.GET.get('region')
+    ville_name = request.GET.get('ville')
+    
+    # Base queryset pour toutes les commandes en traitement
+    commandes_reparties = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée', 'En cours de livraison'],
+        etats__date_fin__isnull=True,
+        ville__isnull=False,  # Exclure les commandes sans ville
+        ville__region__isnull=False  # Exclure les commandes sans région
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
+        'etats__operateur', 'etats__enum_etat', 'paniers__article'
+    ).distinct()
+    
+    # Appliquer les filtres
+    if region_name:
+        commandes_reparties = commandes_reparties.filter(ville__region__nom_region=region_name)
+    if ville_name:
+        commandes_reparties = commandes_reparties.filter(ville__nom=ville_name)
+    
+    # Statistiques par ville dans la région/ville filtrée
+    stats_par_ville = commandes_reparties.values(
+        'ville__nom', 'ville__region__nom_region'
+    ).annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('ville__region__nom_region', 'ville__nom')
+    
+    # Calculer les totaux
+    total_commandes = commandes_reparties.count()
+    total_montant = commandes_reparties.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Définir le titre selon le filtre appliqué
+    if region_name:
+        page_title = f"Détails - {region_name}"
+        page_subtitle = f"Commandes en traitement dans la région {region_name}"
+    elif ville_name:
+        page_title = f"Détails - {ville_name}"
+        page_subtitle = f"Commandes en traitement à {ville_name}"
+    else:
+        page_title = "Détails par Région"
+        page_subtitle = "Répartition détaillée des commandes en traitement"
+    
+    context = {
+        'operateur': operateur_profile,
+        'commandes_reparties': commandes_reparties,
+        'stats_par_ville': stats_par_ville,
+        'total_commandes': total_commandes,
+        'total_montant': total_montant,
+        'region_name': region_name,
+        'ville_name': ville_name,
+        'page_title': page_title,
+        'page_subtitle': page_subtitle,
+    }
+    
+    return render(request, 'Prepacommande/details_region.html', context)
+
+@login_required
+def imprimer_commande(request, commande_id):
+    """
+    Imprime une commande spécifique.
+    """
+    commande = get_object_or_404(Commande, id=commande_id)
+    # Assurez-vous que l'opérateur a le droit de voir cette commande si nécessaire
+    return render(request, 'Prepacommande/impression_commande.html', {'commande': commande})
+
+@login_required 
+def exporter_etats_pdf(request):
+    """
+    Exporte l'état actuel des livraisons en PDF.
+    """
+    # Votre logique d'exportation PDF ici
+    return HttpResponse("Export PDF des états de livraison à implémenter.", content_type="text/plain")
+
+@login_required
+def imprimer_envoi(request, envoi_id):
+    """
+    Imprime les détails d'un envoi.
+    """
+    envoi = get_object_or_404(Envoi, id=envoi_id)
+    return render(request, 'Prepacommande/impression_envoi.html', {'envoi': envoi})
+
+@login_required
+def exporter_envoi(request, envoi_id, format):
+    """
+    Exporte un envoi dans un format spécifique (CSV/PDF).
+    """
+    envoi = get_object_or_404(Envoi, id=envoi_id)
+    if format == 'csv':
+        # Logique d'export CSV
+        return HttpResponse(f"Export CSV de l'envoi {envoi_id}", content_type="text/csv")
+    elif format == 'pdf':
+        # Logique d'export PDF
+        return HttpResponse(f"Export PDF de l'envoi {envoi_id}", content_type="application/pdf")
+    return HttpResponse("Format non supporté", status=400)
+
+@login_required
+def exporter_envois_journaliers(request):
+    """
+    Exporte tous les envois du jour.
+    """
+    # Votre logique d'exportation ici
+    return HttpResponse("Export des envois journaliers à implémenter.", content_type="text/plain")
+
+@login_required
+def rafraichir_articles_commande_prepa(request, commande_id):
+    """Rafraîchir la section des articles de la commande en préparation"""
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Profil d\'opérateur de préparation non trouvé.'}, status=403)
+    
+    try:
+        commande = Commande.objects.get(id=commande_id)
+        
+        # Vérifier que la commande est affectée à cet opérateur
+        etat_preparation = commande.etats.filter(
+            operateur=operateur,
+            enum_etat__libelle__in=['En préparation', 'À imprimer'],
+            date_fin__isnull=True
+        ).first()
+        
+        if not etat_preparation:
+            return JsonResponse({'error': 'Cette commande ne vous est pas affectée.'}, status=403)
+        
+        html = render_to_string('Prepacommande/partials/_articles_section_prepa.html', {
+            'commande': commande
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html': html,
+            'count': commande.paniers.count(),
+            'total': float(commande.total_cmd),
+            'compteur': commande.compteur
+        })
+        
+    except Commande.DoesNotExist:
+        return JsonResponse({'error': 'Commande non trouvée'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Erreur interne: {str(e)}'}, status=500)
+
+@login_required
+def ajouter_article_commande_prepa(request, commande_id):
+    """Ajouter un article à la commande en préparation"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Profil d\'opérateur non trouvé.'}, status=403)
+    
+    try:
+        with transaction.atomic():
+            commande = Commande.objects.select_for_update().get(id=commande_id)
+            
+            # Vérifier que la commande est bien en préparation pour cet opérateur
+            etat_preparation = commande.etats.filter(
+                operateur=operateur,
+                enum_etat__libelle__in=['En préparation', 'À imprimer'],
+                date_fin__isnull=True
+            ).first()
+            
+            if not etat_preparation:
+                return JsonResponse({'error': 'Cette commande n\'est pas en préparation pour vous.'}, status=403)
+            
+            article_id = request.POST.get('article_id')
+            quantite = int(request.POST.get('quantite', 1))
+            
+            if not article_id or quantite <= 0:
+                return JsonResponse({'error': 'Données invalides'}, status=400)
+
+            article = Article.objects.get(id=article_id)
+            
+            # Décrémenter le stock et créer un mouvement
+            creer_mouvement_stock(
+                article=article, quantite=quantite, type_mouvement='sortie',
+                commande=commande, operateur=operateur,
+                commentaire=f'Ajout article pendant préparation cmd {commande.id_yz}'
+            )
+            
+            # Ajouter au panier
+            panier, created = Panier.objects.get_or_create(
+                commande=commande, article=article,
+                defaults={'quantite': quantite, 'sous_total': article.prix_unitaire * quantite}
+            )
+            if not created:
+                panier.quantite += quantite
+                panier.sous_total = article.prix_unitaire * panier.quantite
+                panier.save()
+            
+            # Recalculer le total
+            commande.total_cmd = sum(p.sous_total for p in commande.paniers.all())
+            commande.save()
+            
+            return JsonResponse({'success': True, 'message': 'Article ajouté'})
+            
+    except Article.DoesNotExist:
+        return JsonResponse({'error': 'Article non trouvé'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Erreur interne: {str(e)}'}, status=500)
+
+@login_required
+def modifier_quantite_article_prepa(request, commande_id):
+    """Modifier la quantité d'un article dans la commande en préparation"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Profil d\'opérateur non trouvé.'}, status=403)
+
+    try:
+        with transaction.atomic():
+            commande = Commande.objects.select_for_update().get(id=commande_id)
+            
+            # Vérifier l'affectation
+            if not commande.etats.filter(operateur=operateur, enum_etat__libelle__in=['En préparation', 'À imprimer'], date_fin__isnull=True).exists():
+                return JsonResponse({'error': 'Commande non affectée.'}, status=403)
+            
+            panier_id = request.POST.get('panier_id')
+            nouvelle_quantite = int(request.POST.get('quantite', 1))
+
+            panier = Panier.objects.get(id=panier_id, commande=commande)
+            ancienne_quantite = panier.quantite
+            article = panier.article
+            difference = nouvelle_quantite - ancienne_quantite
+
+            if difference > 0:
+                creer_mouvement_stock(article, difference, 'sortie', commande, operateur, f'Ajustement qté cmd {commande.id_yz}')
+            elif difference < 0:
+                creer_mouvement_stock(article, abs(difference), 'entree', commande, operateur, f'Ajustement qté cmd {commande.id_yz}')
+
+            panier.quantite = nouvelle_quantite
+            panier.sous_total = article.prix_unitaire * nouvelle_quantite
+            panier.save()
+
+            commande.total_cmd = sum(p.sous_total for p in commande.paniers.all())
+            commande.save()
+
+            return JsonResponse({'success': True, 'message': 'Quantité modifiée'})
+
+    except Panier.DoesNotExist:
+        return JsonResponse({'error': 'Panier non trouvé'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Erreur interne: {str(e)}'}, status=500)
+
+@login_required
+def supprimer_article_commande_prepa(request, commande_id):
+    """Supprimer un article de la commande en préparation"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Profil d\'opérateur non trouvé.'}, status=403)
+
+    try:
+        with transaction.atomic():
+            commande = Commande.objects.select_for_update().get(id=commande_id)
+            
+            # Vérifier l'affectation
+            if not commande.etats.filter(operateur=operateur, enum_etat__libelle__in=['En préparation', 'À imprimer'], date_fin__isnull=True).exists():
+                return JsonResponse({'error': 'Commande non affectée.'}, status=403)
+
+            panier_id = request.POST.get('panier_id')
+            panier = Panier.objects.get(id=panier_id, commande=commande)
+            quantite_supprimee = panier.quantite
+            article = panier.article
+            
+            creer_mouvement_stock(article, quantite_supprimee, 'entree', commande, operateur, f'Suppression article cmd {commande.id_yz}')
+            
+            panier.delete()
+
+            commande.total_cmd = sum(p.sous_total for p in commande.paniers.all())
+            commande.save()
+
+            return JsonResponse({'success': True, 'message': 'Article supprimé'})
+
+    except Panier.DoesNotExist:
+        return JsonResponse({'error': 'Panier non trouvé'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Erreur interne: {str(e)}'}, status=500)
+
+# === VUES DE RÉPARTITION AUTOMATIQUE ===
+
+@login_required
+def repartition_commandes(request):
+    """Page de répartition automatique des commandes par ville et région - Service de préparation"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+    
+    # Récupérer toutes les commandes en cours de traitement (confirmées, à imprimer, préparées, en livraison)
+    commandes_reparties = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée', 'En cours de livraison'],
+        etats__date_fin__isnull=True,
+        ville__isnull=False,  # Exclure les commandes sans ville
+        ville__region__isnull=False  # Exclure les commandes sans région
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats__operateur').distinct()
+    
+    # Statistiques par ville et région des commandes en traitement
+    stats_par_ville = commandes_reparties.values(
+        'ville__nom', 'ville__region__nom_region'
+    ).annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('ville__region__nom_region', 'ville__nom')
+    
+    stats_par_region = commandes_reparties.values(
+        'ville__region__nom_region'
+    ).annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('ville__region__nom_region')
+    
+    # Calculer le montant total général
+    total_montant_general = commandes_reparties.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    context = {
+        'operateur': operateur_profile,
+        'commandes_reparties': commandes_reparties,
+        'stats_par_ville': stats_par_ville,
+        'stats_par_region': stats_par_region,
+        'total_commandes_reparties': commandes_reparties.count(),
+        'total_montant_general': total_montant_general,
+        'page_title': 'Répartition des Commandes',
+        'page_subtitle': 'Commandes en traitement par ville et région',
+    }
+    
+    return render(request, 'Prepacommande/repartition.html', context)
+
+def generer_preview_repartition(commandes, operateurs, max_commandes, equilibrer_charge, prioriser_proximite):
+    """Générer une prévisualisation de la répartition"""
+    preview = {}
+    commandes_par_operateur = max_commandes
+    
+    if equilibrer_charge:
+        total_commandes = len(commandes)
+        commandes_par_operateur = min(max_commandes, total_commandes // len(operateurs) + 1)
+    
+    for i, operateur in enumerate(operateurs):
+        debut = i * commandes_par_operateur
+        fin = min(debut + commandes_par_operateur, len(commandes))
+        preview[operateur] = commandes[debut:fin]
+    
+    return preview
+
+def executer_repartition(commandes, operateurs, max_commandes, equilibrer_charge, prioriser_proximite, user):
+    """Exécuter la répartition des commandes"""
+    try:
+        commandes_reparties = 0
+        preview_data = generer_preview_repartition(commandes, operateurs, max_commandes, equilibrer_charge, prioriser_proximite)
+        
+        for operateur, commandes_operateur in preview_data.items():
+            for commande in commandes_operateur:
+                commande.operateur_prepa = operateur
+                commande.save()
+                commandes_reparties += 1
+        
+        return {'success': True, 'commandes_reparties': commandes_reparties}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+@login_required
+def api_panier_commande_livraison(request, commande_id):
+    """API pour récupérer le panier d'une commande en traitement (pour les détails par région)"""
+    try:
+        # Vérifier que l'utilisateur est un opérateur de préparation
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
+    
+    # Récupérer la commande
+    try:
+        commande = Commande.objects.get(id=commande_id)
+    except Commande.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Commande non trouvée'})
+    
+    # Vérifier que la commande est en traitement (confirmée, à imprimer, préparée ou en cours de livraison)
+    etat_traitement = commande.etats.filter(
+        enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée', 'En cours de livraison'],
+        date_fin__isnull=True
+    ).first()
+    
+    if not etat_traitement:
+        return JsonResponse({'success': False, 'message': 'Cette commande n\'est pas en traitement'})
+    
+    # Récupérer les paniers
+    paniers = commande.paniers.all().select_related('article')
+    
+    paniers_data = []
+    for panier in paniers:
+        paniers_data.append({
+            'id': panier.id,
+            'article_id': panier.article.id,
+            'article_nom': panier.article.nom,
+            'article_reference': panier.article.reference or '',
+            'article_couleur': panier.article.couleur,
+            'article_pointure': panier.article.pointure,
+            'quantite': panier.quantite,
+            'prix_unitaire': float(panier.article.prix_unitaire),
+            'sous_total': float(panier.sous_total),
+            'display_text': f"{panier.article.nom} - {panier.article.couleur} - {panier.article.pointure}"
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'paniers': paniers_data,
+        'total_commande': float(commande.total_cmd),
+        'nb_articles': len(paniers_data)
+    })

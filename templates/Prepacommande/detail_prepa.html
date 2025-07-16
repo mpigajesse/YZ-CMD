@@ -255,12 +255,63 @@
         </div>
     </div>
 
-    <!-- Section 4: Historique des États -->
-    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+    <!-- Section 4: Actions et Historique -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8" style="border-color: var(--preparation-border-accent);">
         <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
-            <i class="fas fa-history mr-2"></i>Historique des États
+            <i class="fas fa-history mr-2"></i>Actions et Historique des États
         </h2>
+    
+        <!-- Actions -->
+        <div class="mb-8 p-6 rounded-lg shadow-inner bg-gray-50">
+            <h3 class="text-xl font-bold mb-4 text-gray-700">Actions possibles</h3>
+            <form method="post" id="actionForm">
+                {% csrf_token %}
+                
+                {% if etat_preparation and not etat_preparation.date_fin and etat_preparation.enum_etat.libelle == 'À imprimer' %}
+                    <!-- Action: Commencer la préparation -->
+                    <button type="submit" name="action" value="commencer_preparation" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                        <i class="fas fa-play-circle text-2xl"></i>
+                        <div>
+                            Commencer la préparation
+                            <span class="block text-sm font-normal">Passe la commande à l'état "En préparation".</span>
+                        </div>
+                    </button>
+                {% elif etat_actuel.enum_etat.libelle == 'En préparation' %}
+                    <!-- Action: Marquer comme préparée -->
+                    <button type="submit" name="action" value="marquer_preparee" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                        <div>
+                            Marquer comme Préparée
+                            <span class="block text-sm font-normal">Finalise la préparation et la rend prête pour l'expédition.</span>
+                        </div>
+                    </button>
+                    
+                    <!-- Action: Signaler un problème -->
+                    <button type="button" onclick="showProblemModal()" class="mt-4 w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                        <div>
+                            Signaler un problème
+                            <span class="block text-sm font-normal">Renvoyer la commande à la confirmation si un article est défectueux.</span>
+                        </div>
+                    </button>
+
+                {% elif etat_preparation.date_fin %}
+                     <!-- État: Déjà préparée -->
+                    <div class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-gray-200 text-gray-600">
+                        <i class="fas fa-check-double text-2xl text-green-500"></i>
+                        <div>
+                            Commande déjà préparée
+                            <span class="block text-sm font-normal">Cette commande a été marquée comme préparée.</span>
+                        </div>
+                    </div>
+                {% else %}
+                     <!-- Aucune action -->
+                     <p class="text-gray-500">Aucune action requise pour le moment.</p>
+                {% endif %}
+            </form>
+        </div>
         
+        <!-- Historique des états (timeline) -->
         <div class="space-y-4">
             {% for etat in etats_commande %}
                 <div class="flex items-center p-4 
@@ -350,15 +401,23 @@
 
             <form method="POST" class="flex flex-col sm:flex-row gap-4">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="marquer_preparee">
-                <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
-                    <i class="fas fa-check-double mr-2"></i>
-                    Marquer comme Préparée
+                <button type="submit" name="action" value="marquer_preparee" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                    <i class="fas fa-check-circle text-2xl"></i>
+                    <div>
+                        Marquer comme Préparée
+                        <span class="block text-sm font-normal">Finalise la préparation et la rend prête pour l'expédition.</span>
+                    </div>
                 </button>
-                <a href="{% url 'Prepacommande:liste_prepa' %}" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Retour à la liste
-                </a>
+                
+                <!-- Action: Signaler un problème -->
+                <button type="button" onclick="showProblemModal()" class="mt-4 w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                    <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    <div>
+                        Signaler un problème
+                        <span class="block text-sm font-normal">Renvoyer la commande à la confirmation si un article est défectueux.</span>
+                    </div>
+                </button>
+
             </form>
         </div>
         {% endif %}
@@ -392,4 +451,34 @@
 
 
 </div>
+{% endblock %} 
+
+{% block extra_js %}
+<script>
+function showProblemModal() {
+    Swal.fire({
+        title: 'Signaler un problème',
+        text: "Voulez-vous vraiment renvoyer cette commande à la confirmation ?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Oui, renvoyer !',
+        cancelButtonText: 'Annuler'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Créer un formulaire et le soumettre
+            const form = document.getElementById('actionForm');
+            
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'signaler_probleme';
+            form.appendChild(actionInput);
+
+            form.submit();
+        }
+    });
+}
+</script>
 {% endblock %} 
