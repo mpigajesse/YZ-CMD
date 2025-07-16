@@ -184,6 +184,29 @@ def liste_prepa(request):
         etats__date_fin__isnull=True  # État actif (en cours)
     ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
     
+    # Pour chaque commande, ajouter l'état précédent pour comprendre d'où elle vient
+    for commande in commandes_affectees:
+        # Récupérer tous les états de la commande dans l'ordre chronologique
+        etats_commande = commande.etats.all().order_by('date_debut')
+        
+        # Trouver l'état actuel (À imprimer ou En préparation)
+        etat_actuel = None
+        for etat in etats_commande:
+            if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                etat_actuel = etat
+                break
+        
+        if etat_actuel:
+            # Trouver l'état précédent (le dernier état terminé avant l'état actuel)
+            etat_precedent = None
+            for etat in reversed(etats_commande):
+                if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
+                    if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
+                        etat_precedent = etat
+                        break
+            
+            commande.etat_precedent = etat_precedent
+    
     # Si aucune commande trouvée avec la méthode stricte, essayer une approche plus large
     if not commandes_affectees.exists():
         # Chercher toutes les commandes qui ont été affectées à cet opérateur pour la préparation
@@ -195,20 +218,106 @@ def liste_prepa(request):
             # Exclure les commandes qui ont déjà un état ultérieur actif
             Q(etats__enum_etat__libelle__in=['Préparée', 'En cours de livraison', 'Livrée', 'Annulée'], etats__date_fin__isnull=True)
         ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+        
+        # Pour chaque commande, ajouter l'état précédent pour comprendre d'où elle vient
+        for commande in commandes_affectees:
+            # Récupérer tous les états de la commande dans l'ordre chronologique
+            etats_commande = commande.etats.all().order_by('date_debut')
+            
+            # Trouver l'état actuel (À imprimer ou En préparation)
+            etat_actuel = None
+            for etat in etats_commande:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                    etat_actuel = etat
+                    break
+            
+            if etat_actuel:
+                # Trouver l'état précédent (le dernier état terminé avant l'état actuel)
+                etat_precedent = None
+                for etat in reversed(etats_commande):
+                    if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
+                        if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
+                            etat_precedent = etat
+                            break
+                
+                commande.etat_precedent = etat_precedent
+    
+    # Filtre par type de commande
+    filter_type = request.GET.get('filter', 'all')
+    
+    if filter_type == 'renvoyees_logistique':
+        # Filtrer seulement les commandes renvoyées par les opérateurs logistiques
+        commandes_filtrees = []
+        for commande in commandes_affectees:
+            # Vérifier si la commande a été renvoyée par la logistique
+            # Soit par l'état précédent, soit par une opération de traçabilité
+            from commande.models import Operation
+            
+            # Méthode 1: Vérifier l'état précédent
+            if hasattr(commande, 'etat_precedent') and commande.etat_precedent:
+                if commande.etat_precedent.enum_etat.libelle == 'En cours de livraison':
+                    commandes_filtrees.append(commande)
+                    continue
+            
+            # Méthode 2: Vérifier les opérations de traçabilité
+            operation_renvoi = Operation.objects.filter(
+                commande=commande,
+                type_operation='RENVOI_PREPARATION'
+            ).first()
+            
+            if operation_renvoi:
+                commandes_filtrees.append(commande)
+                continue
+            
+            # Méthode 3: Vérifier l'historique des états de la commande
+            etats_commande = commande.etats.all().order_by('date_debut')
+            etat_actuel = None
+            
+            # Trouver l'état actuel (En préparation)
+            for etat in etats_commande:
+                if etat.enum_etat.libelle == 'En préparation' and not etat.date_fin:
+                    etat_actuel = etat
+                    break
+            
+            if etat_actuel:
+                # Trouver l'état précédent
+                for etat in reversed(etats_commande):
+                    if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
+                        if etat.enum_etat.libelle == 'En cours de livraison':
+                            commandes_filtrees.append(commande)
+                            break
+        
+        commandes_affectees = commandes_filtrees
+    # Suppression du filtre 'nouvelles' car redondant avec l'affectation automatique
+    # Suppression du filtre 'renvoyees_preparation' car non nécessaire
     
     # Recherche
     search_query = request.GET.get('search', '')
     if search_query:
-        commandes_affectees = commandes_affectees.filter(
-            Q(id_yz__icontains=search_query) |
-            Q(num_cmd__icontains=search_query) |
-            Q(client__nom__icontains=search_query) |
-            Q(client__prenom__icontains=search_query) |
-            Q(client__numero_tel__icontains=search_query)
-        ).distinct()
+        if isinstance(commandes_affectees, list):
+            # Si c'est une liste (après filtrage)
+            commandes_affectees = [cmd for cmd in commandes_affectees if 
+                search_query.lower() in str(cmd.id_yz).lower() or
+                search_query.lower() in (cmd.num_cmd or '').lower() or
+                search_query.lower() in cmd.client.nom.lower() or
+                search_query.lower() in cmd.client.prenom.lower() or
+                search_query.lower() in (cmd.client.numero_tel or '').lower()
+            ]
+        else:
+            # Si c'est un QuerySet
+            commandes_affectees = commandes_affectees.filter(
+                Q(id_yz__icontains=search_query) |
+                Q(num_cmd__icontains=search_query) |
+                Q(client__nom__icontains=search_query) |
+                Q(client__prenom__icontains=search_query) |
+                Q(client__numero_tel__icontains=search_query)
+            ).distinct()
     
     # Tri par date d'affectation (plus récentes en premier)
-    commandes_affectees = commandes_affectees.order_by('-etats__date_debut')
+    if isinstance(commandes_affectees, list):
+        commandes_affectees.sort(key=lambda x: x.etats.filter(date_fin__isnull=True).first().date_debut if x.etats.filter(date_fin__isnull=True).first() else timezone.now(), reverse=True)
+    else:
+        commandes_affectees = commandes_affectees.order_by('-etats__date_debut')
 
     # Générer les codes-barres pour chaque commande
     code128 = barcode.get_barcode_class('code128')
@@ -223,25 +332,86 @@ def liste_prepa(request):
             commande.barcode_base64 = None
     
     # Statistiques
-    total_affectees = commandes_affectees.count()
-    valeur_totale = commandes_affectees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    if isinstance(commandes_affectees, list):
+        total_affectees = len(commandes_affectees)
+        valeur_totale = sum(cmd.total_cmd or 0 for cmd in commandes_affectees)
+        
+        # Commandes urgentes (affectées depuis plus de 1 jour)
+        date_limite_urgence = timezone.now() - timedelta(days=1)
+        commandes_urgentes = sum(1 for cmd in commandes_affectees if 
+            cmd.etats.filter(date_debut__lt=date_limite_urgence).exists()
+        )
+    else:
+        total_affectees = commandes_affectees.count()
+        valeur_totale = commandes_affectees.aggregate(total=Sum('total_cmd'))['total'] or 0
+        
+        # Commandes urgentes (affectées depuis plus de 1 jour)
+        date_limite_urgence = timezone.now() - timedelta(days=1)
+        commandes_urgentes = commandes_affectees.filter(
+            etats__date_debut__lt=date_limite_urgence
+        ).count()
     
-    # Commandes urgentes (affectées depuis plus de 1 jour)
-    date_limite_urgence = timezone.now() - timedelta(days=1)
-    commandes_urgentes = commandes_affectees.filter(
-        etats__date_debut__lt=date_limite_urgence
-    ).count()
+    # Statistiques par type pour les onglets
+    stats_par_type = {
+        'renvoyees_logistique': 0
+    }
+    
+    # Recalculer les statistiques pour tous les types
+    # D'abord, récupérer toutes les commandes affectées à cet opérateur (sans filtre)
+    toutes_commandes = Commande.objects.filter(
+        Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True  # État actif (en cours)
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+    
+    from commande.models import Operation
+    
+    for cmd in toutes_commandes:
+        # Vérifier si c'est une commande renvoyée par la logistique
+        operation_renvoi = Operation.objects.filter(
+            commande=cmd,
+            type_operation='RENVOI_PREPARATION'
+        ).first()
+        
+        if operation_renvoi:
+            stats_par_type['renvoyees_logistique'] += 1
+            continue
+        
+        # Vérifier l'état précédent
+        etats_commande = cmd.etats.all().order_by('date_debut')
+        etat_actuel = None
+        
+        # Trouver l'état actuel
+        for etat in etats_commande:
+            if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                etat_actuel = etat
+                break
+        
+        if etat_actuel:
+            # Trouver l'état précédent
+            etat_precedent = None
+            for etat in reversed(etats_commande):
+                if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
+                    if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
+                        etat_precedent = etat
+                        break
+            
+            if etat_precedent:
+                if etat_precedent.enum_etat.libelle == 'En cours de livraison':
+                    stats_par_type['renvoyees_logistique'] += 1
     
     context = {
         'page_title': 'Mes Commandes à Préparer',
         'page_subtitle': f'Vous avez {total_affectees} commande(s) affectée(s)',
         'commandes_affectees': commandes_affectees,
         'search_query': search_query,
+        'filter_type': filter_type,
         'stats': {
             'total_affectees': total_affectees,
             'valeur_totale': valeur_totale,
             'commandes_urgentes': commandes_urgentes,
         },
+        'stats_par_type': stats_par_type,
         'operateur_profile': operateur_profile,
         'api_produits_url_base': reverse('Prepacommande:api_commande_produits', args=[99999999]),
         'api_changer_etat_url_base': reverse('Prepacommande:api_changer_etat_preparation', args=[99999999]),
@@ -423,6 +593,16 @@ def detail_prepa(request, pk):
     # Déterminer l'état actuel
     etat_actuel = etats_commande.filter(date_fin__isnull=True).first()
     
+    # Récupérer l'état précédent pour comprendre d'où vient la commande
+    etat_precedent = None
+    if etat_actuel:
+        # Trouver l'état précédent (le dernier état terminé avant l'état actuel)
+        for etat in reversed(etats_commande):
+            if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
+                if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
+                    etat_precedent = etat
+                    break
+    
     # Récupérer les opérations associées à la commande
     operations = commande.operations.select_related('operateur').order_by('-date_operation')
     
@@ -564,6 +744,7 @@ def detail_prepa(request, pk):
         'total_articles': total_articles,
         'etats_commande': etats_commande,
         'etat_actuel': etat_actuel,
+        'etat_precedent': etat_precedent,
         'etat_preparation': etat_preparation,
         'operateur_profile': operateur_profile,
         'operations': operations,
@@ -836,20 +1017,25 @@ def modifier_commande_prepa(request, commande_id):
                 
                 try:
                     article = Article.objects.get(id=article_id)
-                    sous_total = article.prix_unitaire * quantite
+                    
+                    # Utiliser la même logique de prix que les autres interfaces
+                    from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+                    prix_unitaire = get_prix_upsell_avec_compteur(article, commande.compteur)
+                    sous_total = prix_unitaire * quantite
                     
                     panier = Panier.objects.create(
                         commande=commande,
                         article=article,
                         quantite=quantite,
-                        sous_total=sous_total
+                        sous_total=float(sous_total)
                     )
                     
-                    # Recalculer le total de la commande
-                    total_commande = commande.paniers.aggregate(
+                    # Recalculer le total de la commande avec frais de livraison
+                    total_articles = commande.paniers.aggregate(
                         total=Sum('sous_total')
                     )['total'] or 0
-                    commande.total_cmd = total_commande
+                    frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+                    commande.total_cmd = float(total_articles) + float(frais_livraison)
                     commande.save()
                     
                     return JsonResponse({
@@ -893,14 +1079,15 @@ def modifier_commande_prepa(request, commande_id):
                         commande=commande,
                         article=nouvel_article,
                         quantite=nouvelle_quantite,
-                        sous_total=sous_total
+                        sous_total=float(sous_total)
                     )
                     
-                    # Recalculer le total de la commande
+                    # Recalculer le total de la commande avec frais de livraison
                     total_commande = commande.paniers.aggregate(
                         total=Sum('sous_total')
                     )['total'] or 0
-                    commande.total_cmd = total_commande
+                    frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+                    commande.total_cmd = float(total_commande) + float(frais_livraison)
                     commande.save()
                     
                     return JsonResponse({
@@ -937,11 +1124,12 @@ def modifier_commande_prepa(request, commande_id):
                     panier = Panier.objects.get(id=article_id, commande=commande)
                     panier.delete()
                     
-                    # Recalculer le total de la commande
+                    # Recalculer le total de la commande avec frais de livraison
                     total_commande = commande.paniers.aggregate(
                         total=Sum('sous_total')
                     )['total'] or 0
-                    commande.total_cmd = total_commande
+                    frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+                    commande.total_cmd = float(total_commande) + float(frais_livraison)
                     commande.save()
                     
                     return JsonResponse({
@@ -1029,6 +1217,152 @@ def modifier_commande_prepa(request, commande_id):
                         'commentaire': commentaire
                     })
                     
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'modifier_quantites_multiple':
+                # Modifier plusieurs quantités d'articles en une fois
+                try:
+                    from commande.models import Panier
+                    import json
+                    
+                    modifications_json = request.POST.get('modifications', '[]')
+                    modifications = json.loads(modifications_json)
+                    
+                    if not modifications:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Aucune modification fournie'
+                        })
+                    
+                    # Appliquer les modifications
+                    for mod in modifications:
+                        panier_id = mod.get('panier_id')
+                        nouvelle_quantite = mod.get('nouvelle_quantite', 0)
+                        
+                        try:
+                            panier = Panier.objects.get(id=panier_id, commande=commande)
+                            
+                            if nouvelle_quantite <= 0:
+                                # Supprimer l'article si quantité = 0
+                                panier.delete()
+                            else:
+                                # Mettre à jour la quantité et le sous-total
+                                panier.quantite = nouvelle_quantite
+                                panier.sous_total = float(panier.article.prix_unitaire * nouvelle_quantite)
+                                panier.save()
+                                
+                        except Panier.DoesNotExist:
+                            continue  # Ignorer les paniers non trouvés
+                    
+                    # Recalculer le total de la commande
+                    total_commande = commande.paniers.aggregate(
+                        total=Sum('sous_total')
+                    )['total'] or 0
+                    commande.total_cmd = float(total_commande)
+                    commande.save()
+                    
+                    # Créer une opération pour consigner la modification
+                    Operation.objects.create(
+                        commande=commande,
+                        type_operation='MODIFICATION_QUANTITES',
+                        conclusion=f"Modification en masse des quantités d'articles par l'opérateur de préparation.",
+                        operateur=operateur
+                    )
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'{len(modifications)} quantité(s) modifiée(s) avec succès',
+                        'total_commande': float(commande.total_cmd),
+                        'nb_articles': commande.paniers.count(),
+                    })
+                    
+                except json.JSONDecodeError:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Format de données invalide'
+                    })
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            elif action == 'modifier_quantite_directe':
+                # Modifier directement la quantité d'un article
+                try:
+                    from commande.models import Panier
+                    
+                    panier_id = request.POST.get('panier_id')
+                    nouvelle_quantite = int(request.POST.get('nouvelle_quantite', 0))
+                    
+                    if nouvelle_quantite < 0:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'La quantité ne peut pas être négative'
+                        })
+                    
+                    try:
+                        panier = Panier.objects.get(id=panier_id, commande=commande)
+                        ancienne_quantite = panier.quantite
+                        nouveau_sous_total = 0
+                        
+                        if nouvelle_quantite == 0:
+                            # Supprimer l'article si quantité = 0
+                            panier.delete()
+                            message = 'Article supprimé avec succès'
+                        else:
+                            # Mettre à jour la quantité et le sous-total avec la logique complète de prix
+                            panier.quantite = nouvelle_quantite
+                            
+                            # Utiliser la même logique que les autres interfaces
+                            from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+                            prix_unitaire = get_prix_upsell_avec_compteur(panier.article, commande.compteur)
+                            panier.sous_total = float(prix_unitaire * nouvelle_quantite)
+                            panier.save()
+                            nouveau_sous_total = panier.sous_total
+                            message = 'Quantité modifiée avec succès'
+                            
+                    except Panier.DoesNotExist:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Article non trouvé'
+                        })
+                    
+                    # Recalculer le total de la commande avec frais de livraison
+                    total_articles = commande.paniers.aggregate(
+                        total=Sum('sous_total')
+                    )['total'] or 0
+                    frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+                    commande.total_cmd = float(total_articles) + float(frais_livraison)
+                    commande.save()
+                    
+                    # Créer une opération pour consigner la modification
+                    Operation.objects.create(
+                        commande=commande,
+                        type_operation='MODIFICATION_QUANTITE',
+                        conclusion=f"Quantité d'article modifiée de {ancienne_quantite} à {nouvelle_quantite}.",
+                        operateur=operateur
+                    )
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': message,
+                        'sous_total': float(nouveau_sous_total),
+                        'sous_total_articles': float(total_articles),
+                        'total_commande': float(commande.total_cmd),
+                        'frais_livraison': float(frais_livraison),
+                        'nb_articles': commande.paniers.count(),
+                    })
+                    
+                except ValueError:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Quantité invalide'
+                    })
                 except Exception as e:
                     return JsonResponse({
                         'success': False,
@@ -1126,6 +1460,10 @@ def modifier_commande_prepa(request, commande_id):
     # Calculer le total des articles
     total_articles = sum(panier.sous_total for panier in paniers)
     
+    # Vérifier si c'est une commande renvoyée par la logistique
+    operation_renvoi = operations.filter(type_operation='RENVOI_PREPARATION').first()
+    is_commande_renvoyee = operation_renvoi is not None
+    
     context = {
         'page_title': f'Modifier Commande {commande.id_yz}',
         'page_subtitle': 'Modification des détails de la commande en préparation',
@@ -1136,6 +1474,8 @@ def modifier_commande_prepa(request, commande_id):
         'total_articles': total_articles,
         'operateur': operateur,
         'etat_preparation': etat_preparation,
+        'is_commande_renvoyee': is_commande_renvoyee,
+        'operation_renvoi': operation_renvoi,
     }
     
     return render(request, 'Prepacommande/modifier_commande.html', context)
@@ -1152,37 +1492,114 @@ def api_articles_disponibles_prepa(request):
         return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
     
     search_query = request.GET.get('search', '')
+    filter_type = request.GET.get('filter', 'tous')
     
     # Récupérer les articles actifs
     articles = Article.objects.filter(actif=True)
     
+    # Appliquer les filtres selon le type
+    if filter_type == 'disponible':
+        articles = articles.filter(qte_disponible__gt=0)
+    elif filter_type == 'upsell':
+        articles = articles.filter(isUpsell=True)
+    elif filter_type == 'liquidation':
+        articles = articles.filter(phase='LIQUIDATION')
+    elif filter_type == 'test':
+        articles = articles.filter(phase='EN_TEST')
+    elif filter_type == 'en_cours':
+        articles = articles.filter(phase='EN_COURS')
+    
+    # Recherche textuelle
     if search_query:
         articles = articles.filter(
             Q(nom__icontains=search_query) |
             Q(reference__icontains=search_query) |
             Q(couleur__icontains=search_query) |
-            Q(pointure__icontains=search_query)
+            Q(pointure__icontains=search_query) |
+            Q(description__icontains=search_query)
         )
     
+    # Compter les articles par type pour les statistiques
+    stats = {
+        'tous': Article.objects.filter(actif=True).count(),
+        'disponible': Article.objects.filter(actif=True, qte_disponible__gt=0).count(),
+        'upsell': Article.objects.filter(actif=True, isUpsell=True).count(),
+        'liquidation': Article.objects.filter(actif=True, phase='LIQUIDATION').count(),
+        'test': Article.objects.filter(actif=True, phase='EN_TEST').count(),
+        'en_cours': Article.objects.filter(actif=True, phase='EN_COURS').count(),
+    }
+    
+    # Compter les articles en promotion en utilisant une approche différente
+    # Chercher les articles qui ont un prix actuel différent du prix unitaire
+    articles_promo_count = Article.objects.filter(
+        actif=True,
+        prix_actuel__lt=F('prix_unitaire')
+    ).count()
+    stats['promo'] = articles_promo_count
+    
+    # Filtrer les articles en promotion si nécessaire
+    if filter_type == 'promo':
+        articles = articles.filter(prix_actuel__lt=F('prix_unitaire'))
+    
     # Limiter les résultats
-    articles = articles[:20]
+    articles = articles[:50]
     
     articles_data = []
     for article in articles:
+        # Prix à afficher (prix actuel si différent du prix unitaire)
+        prix_affichage = float(article.prix_actuel or article.prix_unitaire)
+        prix_original = float(article.prix_unitaire)
+        has_reduction = prix_affichage < prix_original
+        
+        # Déterminer le type d'article pour l'affichage
+        article_type = 'normal'
+        type_icon = 'fas fa-box'
+        type_color = 'text-gray-600'
+        
+        if article.isUpsell:
+            article_type = 'upsell'
+            type_icon = 'fas fa-arrow-up'
+            type_color = 'text-purple-600'
+        elif article.phase == 'LIQUIDATION':
+            article_type = 'liquidation'
+            type_icon = 'fas fa-money-bill-wave'
+            type_color = 'text-red-600'
+        elif article.phase == 'EN_TEST':
+            article_type = 'test'
+            type_icon = 'fas fa-flask'
+            type_color = 'text-yellow-600'
+        
+        # Vérifier si l'article est en promotion (prix actuel < prix unitaire)
+        if has_reduction:
+            article_type = 'promo'
+            type_icon = 'fas fa-fire'
+            type_color = 'text-orange-600'
+        
         articles_data.append({
             'id': article.id,
             'nom': article.nom,
             'reference': article.reference or '',
             'couleur': article.couleur,
             'pointure': article.pointure,
-            'prix': float(article.prix_unitaire),
+            'description': article.description or '',
+            'prix': prix_affichage,
+            'prix_original': prix_original,
+            'has_reduction': has_reduction,
+            'reduction_pourcentage': round(((prix_original - prix_affichage) / prix_original) * 100, 0) if has_reduction else 0,
             'qte_disponible': article.qte_disponible,
-            'display_text': f"{article.nom} - {article.couleur} - {article.pointure} ({article.prix_unitaire} DH)"
+            'article_type': article_type,
+            'type_icon': type_icon,
+            'type_color': type_color,
+            'phase': article.phase,
+            'isUpsell': article.isUpsell,
+            'display_text': f"{article.nom} - {article.couleur} - {article.pointure} ({prix_affichage} DH)"
         })
     
     return JsonResponse({
         'success': True,
-        'articles': articles_data
+        'articles': articles_data,
+        'stats': stats,
+        'filter_applied': filter_type
     })
 
 @login_required

@@ -157,14 +157,14 @@ class Commande(models.Model):
             
             # Mettre à jour le sous-total du panier si nécessaire
             if panier.sous_total != nouveau_sous_total:
-                panier.sous_total = nouveau_sous_total
+                panier.sous_total = float(nouveau_sous_total)
                 panier.save()
             
             nouveau_total += nouveau_sous_total
         
         # Ajouter les frais de livraison au total
         frais_livraison = self.ville.frais_livraison if self.ville else 0
-        nouveau_total_avec_frais = nouveau_total + frais_livraison
+        nouveau_total_avec_frais = float(nouveau_total) + float(frais_livraison)
         
         # Mettre à jour le total de la commande si nécessaire
         if self.total_cmd != nouveau_total_avec_frais:
@@ -179,12 +179,13 @@ class Commande(models.Model):
     @property
     def frais_livraison(self):
         """Retourne les frais de livraison"""
-        return self.ville.frais_livraison if self.ville else 0
+        frais = self.ville.frais_livraison if self.ville else 0
+        return float(frais)
     
     @property
     def total_avec_frais(self):
         """Retourne le total articles + frais de livraison"""
-        return self.sous_total_articles + self.frais_livraison
+        return float(self.sous_total_articles) + float(self.frais_livraison)
 
 
 class Panier(models.Model):
@@ -253,6 +254,7 @@ class Operation(models.Model):
         ('ENVOI_SMS', 'Envoi de SMS'),
         ('MODIFICATION', 'Modification'),
         ('PROBLEME_SIGNALÉ', 'Problème signalé'),
+        ('RENVOI_PREPARATION', 'Renvoi en préparation'),
     ]
     Type_Commentaire_CHOICES=[
         ("Commande Annulée", "Commande Annulée"),

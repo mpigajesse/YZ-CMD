@@ -175,6 +175,38 @@
                     Dernière mise à jour : {{ etat_actuel.date_debut|date:"d/m/Y à H:i" }}
                 </p>
             </div>
+
+            <!-- État précédent -->
+            {% if etat_precedent %}
+            <div class="{% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}bg-red-50 border-red-200{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}bg-yellow-50 border-yellow-200{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}bg-green-50 border-green-200{% else %}bg-gray-50 border-gray-200{% endif %} p-4 rounded-lg border">
+                <label class="block text-sm font-semibold mb-2 {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}text-red-600{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}text-yellow-600{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}text-green-600{% else %}text-gray-600{% endif %}">État précédent :</label>
+                <div class="flex items-center">
+                    <div class="w-3 h-3 rounded-full mr-2" style="background-color: {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}#ef4444{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}#eab308{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}#10b981{% else %}#6b7280{% endif %};"></div>
+                    <p class="text-lg font-medium {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}text-red-800{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}text-yellow-800{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}text-green-800{% else %}text-gray-800{% endif %}">
+                        <i class="fas {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}fa-truck{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}fa-undo{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}fa-check-circle{% else %}fa-history{% endif %} mr-2"></i>
+                        {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}
+                            Renvoyée depuis livraison
+                        {% elif etat_precedent.enum_etat.libelle == 'Préparée' %}
+                            Renvoyée depuis préparation
+                        {% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}
+                            Depuis confirmation
+                        {% else %}
+                            {{ etat_precedent.enum_etat.libelle }}
+                        {% endif %}
+                    </p>
+                </div>
+                <p class="text-xs {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}text-red-600{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}text-yellow-600{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}text-green-600{% else %}text-gray-600{% endif %} mt-1">
+                    <i class="fas fa-calendar mr-1"></i>
+                    Renvoyée le : {{ etat_precedent.date_fin|date:"d/m/Y à H:i" }}
+                </p>
+                {% if etat_precedent.operateur %}
+                <p class="text-xs {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}text-red-600{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}text-yellow-600{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}text-green-600{% else %}text-gray-600{% endif %} mt-1">
+                    <i class="fas fa-user mr-1"></i>
+                    Par : {{ etat_precedent.operateur.nom_complet }}
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
     </div>
 

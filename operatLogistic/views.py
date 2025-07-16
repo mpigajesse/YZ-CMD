@@ -1,7 +1,7 @@
 from django.shortcuts               import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib                 import messages
-from django.db.models               import Q
+from django.db.models               import Q, Sum
 from django.core.paginator          import Paginator
 from django.http                    import JsonResponse
 from django.views.decorators.http   import require_POST
@@ -9,7 +9,75 @@ from django.utils                   import timezone
 from django.db                      import transaction
 
 from parametre.models import Operateur
-from commande.models  import Commande, Envoi, EnumEtatCmd, EtatCommande
+from commande.models  import Commande, Envoi, EnumEtatCmd, EtatCommande, Operation
+
+
+def corriger_affectation_commandes_renvoyees():
+    """
+    Fonction utilitaire pour corriger automatiquement l'affectation des commandes renvoyées.
+    À appeler périodiquement ou lors de problèmes d'affectation.
+    """
+    try:
+        # Trouver toutes les commandes renvoyées en préparation
+        commandes_renvoyees = Commande.objects.filter(
+            etats__enum_etat__libelle='En préparation',
+            etats__date_fin__isnull=True
+        ).distinct()
+        
+        corrections_effectuees = 0
+        
+        for commande in commandes_renvoyees:
+            # Trouver l'état actuel
+            etat_actuel = commande.etats.filter(
+                enum_etat__libelle='En préparation', 
+                date_fin__isnull=True
+            ).first()
+            
+            if not etat_actuel:
+                continue
+                
+            # Chercher l'opérateur original qui avait préparé
+            etat_preparee_original = commande.etats.filter(
+                enum_etat__libelle='Préparée',
+                date_fin__isnull=False
+            ).order_by('-date_fin').first()
+            
+            operateur_cible = None
+            
+            if etat_preparee_original and etat_preparee_original.operateur:
+                if (etat_preparee_original.operateur.type_operateur == 'PREPARATION' and 
+                    etat_preparee_original.operateur.actif):
+                    operateur_cible = etat_preparee_original.operateur
+            
+            # Si pas d'opérateur original, prendre le moins chargé
+            if not operateur_cible:
+                operateurs_preparation = Operateur.objects.filter(
+                    type_operateur='PREPARATION',
+                    actif=True
+                ).order_by('id')
+                
+                if operateurs_preparation.exists():
+                    from django.db.models import Count, Q
+                    operateur_cible = operateurs_preparation.annotate(
+                        commandes_en_cours=Count('etats_modifies', filter=Q(
+                            etats_modifies__enum_etat__libelle__in=['À imprimer', 'En préparation'],
+                            etats_modifies__date_fin__isnull=True
+                        ))
+                    ).order_by('commandes_en_cours', 'id').first()
+            
+            # Corriger l'affectation si nécessaire
+            if operateur_cible and etat_actuel.operateur != operateur_cible:
+                ancien_operateur = etat_actuel.operateur
+                etat_actuel.operateur = operateur_cible
+                etat_actuel.save()
+                corrections_effectuees += 1
+                print(f"✅ Correction: Commande {commande.id_yz} réaffectée de {ancien_operateur} vers {operateur_cible.nom_complet}")
+        
+        return corrections_effectuees
+        
+    except Exception as e:
+        print(f"❌ Erreur lors de la correction des affectations: {e}")
+        return 0
 
 
 @login_required
@@ -255,9 +323,9 @@ def api_articles(request):
             has_promo_active = False
             if hasattr(article, 'promotions') and article.promotions.exists():
                 has_promo_active = article.promotions.filter(active=True).exists()
-            
-            article_data = {
-                'id': article.id,
+                
+                article_data = {
+                    'id': article.id,
                 'nom': article.nom,
                 'reference': article.reference,
                 'description': article.description,
@@ -269,14 +337,14 @@ def api_articles(request):
                 'pointure': article.pointure,
                 'phase': article.phase,
                 'isUpsell': article.isUpsell,
-                'has_promo_active': has_promo_active,
+                    'has_promo_active': has_promo_active,
                 # Prix upsell si disponibles
                 'prix_upsell_1': float(article.prix_upsell_1) if article.prix_upsell_1 else None,
                 'prix_upsell_2': float(article.prix_upsell_2) if article.prix_upsell_2 else None,
                 'prix_upsell_3': float(article.prix_upsell_3) if article.prix_upsell_3 else None,
                 'prix_upsell_4': float(article.prix_upsell_4) if article.prix_upsell_4 else None,
             }
-            articles_data.append(article_data)
+                articles_data.append(article_data)
         
         return JsonResponse({
             'success': True,
@@ -343,7 +411,7 @@ def creer_commande_sav(request, commande_id):
                     Panier.objects.create(
                         commande=nouvelle_commande,
                         article=panier_original.article,
-                        quantite=quantite,
+                    quantite=quantite,
                         sous_total=panier_original.article.prix_unitaire * quantite
                     )
                     total += panier_original.article.prix_unitaire * quantite
@@ -376,7 +444,7 @@ def creer_commande_sav(request, commande_id):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
-
+    
 @login_required
 @require_POST
 def ajouter_article(request, commande_id):
@@ -402,7 +470,7 @@ def ajouter_article(request, commande_id):
         # Vérifier le stock si la commande est confirmée
         if commande.etat_actuel and commande.etat_actuel.enum_etat.libelle == 'Confirmée':
             if article.qte_disponible < quantite:
-                return JsonResponse({
+                        return JsonResponse({
                     'success': False, 
                     'error': f'Stock insuffisant. Disponible: {article.qte_disponible}, Demandé: {quantite}'
                 })
@@ -425,30 +493,30 @@ def ajouter_article(request, commande_id):
         
         # Créer le panier
         panier = Panier.objects.create(
-            commande=commande,
+                        commande=commande,
             article=article,
             quantite=quantite,
-            sous_total=prix_unitaire * quantite
+            sous_total=float(prix_unitaire * quantite)
         )
-        
-        # Recalculer le total de la commande
+            
+            # Recalculer le total de la commande
         total_commande = commande.paniers.aggregate(
-            total=models.Sum('sous_total')
+            total=Sum('sous_total')
         )['total'] or 0
-        commande.total_cmd = total_commande
+        commande.total_cmd = float(total_commande)
         commande.save()
-        
+            
         return JsonResponse({
             'success': True,
             'message': 'Article ajouté avec succès',
             'panier_id': panier.id,
             'total_commande': float(commande.total_cmd)
-        })
-        
+            })
+            
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
-
+    
 @login_required
 @require_POST
 def modifier_quantite_article(request, commande_id):
@@ -462,9 +530,9 @@ def modifier_quantite_article(request, commande_id):
         commande = get_object_or_404(Commande, id=commande_id)
         panier_id = request.POST.get('panier_id')
         nouvelle_quantite = int(request.POST.get('quantite', 1))
-        
+            
         if not panier_id:
-            return JsonResponse({'success': False, 'error': 'ID du panier manquant.'})
+                return JsonResponse({'success': False, 'error': 'ID du panier manquant.'})
         
         from commande.models import Panier
         
@@ -486,14 +554,14 @@ def modifier_quantite_article(request, commande_id):
         
         # Mettre à jour le panier
         panier.quantite = nouvelle_quantite
-        panier.sous_total = panier.article.prix_unitaire * nouvelle_quantite
+        panier.sous_total = float(panier.article.prix_unitaire * nouvelle_quantite)
         panier.save()
         
         # Recalculer le total de la commande
         total_commande = commande.paniers.aggregate(
-            total=models.Sum('sous_total')
+            total=Sum('sous_total')
         )['total'] or 0
-        commande.total_cmd = total_commande
+        commande.total_cmd = float(total_commande)
         commande.save()
         
         return JsonResponse({
@@ -504,6 +572,241 @@ def modifier_quantite_article(request, commande_id):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+    
+@login_required
+@require_POST
+def renvoyer_en_preparation(request, commande_id):
+    """Renvoie une commande aux opérateurs de préparation pour modification du panier."""
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='LOGISTIQUE')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Profil d\'opérateur logistique non trouvé.'})
+    
+    try:
+        commande = get_object_or_404(Commande, id=commande_id)
+        commentaire = request.POST.get('commentaire', '').strip()
+        
+        if not commentaire:
+            return JsonResponse({'success': False, 'error': 'Un commentaire est obligatoire pour expliquer le renvoi.'})
+        
+        # Vérifier que la commande est bien en cours de livraison
+        if not commande.etat_actuel or commande.etat_actuel.enum_etat.libelle != 'En cours de livraison':
+            return JsonResponse({
+                'success': False, 
+                'error': 'Cette commande n\'est pas en cours de livraison. Seules les commandes en cours de livraison peuvent être renvoyées en préparation.'
+            })
+        
+        with transaction.atomic():
+            # 0. Corriger automatiquement les affectations existantes si nécessaire
+            corrections = corriger_affectation_commandes_renvoyees()
+            if corrections > 0:
+                print(f"🔧 {corrections} affectations corrigées automatiquement")
+            
+            # 1. Terminer l'état "En cours de livraison" actuel
+            etat_actuel = commande.etat_actuel
+            etat_actuel.terminer_etat(operateur)
+            
+            # 2. Créer ou récupérer l'état "En préparation"
+            etat_en_preparation, _ = EnumEtatCmd.objects.get_or_create(
+                libelle='En préparation',
+                defaults={'ordre': 30, 'couleur': '#3B82F6'}
+            )
+            
+            # 3. Identifier et réaffecter à l'opérateur de préparation original
+            # Chercher l'opérateur qui avait préparé cette commande initialement
+            operateur_preparation_original = None
+            
+            # Chercher dans l'historique des états "Préparée" de cette commande
+            etat_preparee_precedent = commande.etats.filter(
+                enum_etat__libelle='Préparée',
+                date_fin__isnull=False  # État terminé
+            ).order_by('-date_fin').first()
+            
+            if etat_preparee_precedent and etat_preparee_precedent.operateur:
+                # Vérifier que cet opérateur est toujours actif et de type préparation
+                if (etat_preparee_precedent.operateur.type_operateur == 'PREPARATION' and 
+                    etat_preparee_precedent.operateur.actif):
+                    operateur_preparation_original = etat_preparee_precedent.operateur
+                    print(f"✅ Opérateur original trouvé: {operateur_preparation_original.nom_complet}")
+                else:
+                    print(f"⚠️  Opérateur original trouvé mais non disponible: {etat_preparee_precedent.operateur.nom_complet} (type: {etat_preparee_precedent.operateur.type_operateur}, actif: {etat_preparee_precedent.operateur.actif})")
+            else:
+                print("⚠️  Aucun état 'Préparée' trouvé dans l'historique de la commande")
+            
+            # Si pas d'opérateur original trouvé ou plus actif, prendre le moins chargé
+            if not operateur_preparation_original:
+                operateurs_preparation = Operateur.objects.filter(
+                    type_operateur='PREPARATION',
+                    actif=True
+                ).order_by('id')
+                
+                if operateurs_preparation.exists():
+                    from django.db.models import Count, Q
+                    
+                    # Annoter chaque opérateur avec le nombre de commandes en cours
+                    operateurs_charges = operateurs_preparation.annotate(
+                        commandes_en_cours=Count('etats_modifies', filter=Q(
+                            etats_modifies__enum_etat__libelle__in=['À imprimer', 'En préparation'],
+                            etats_modifies__date_fin__isnull=True
+                        ))
+                    ).order_by('commandes_en_cours', 'id')
+                    
+                    # L'opérateur le moins chargé est le premier de la liste
+                    operateur_preparation_original = operateurs_charges.first()
+                    print(f"✅ Affectation au moins chargé: {operateur_preparation_original.nom_complet} ({operateur_preparation_original.commandes_en_cours} commandes en cours)")
+                else:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': 'Aucun opérateur de préparation disponible. Impossible de renvoyer la commande.'
+                    })
+            
+            # Vérification finale de sécurité
+            if not operateur_preparation_original:
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'Impossible de déterminer un opérateur de préparation pour cette commande.'
+                })
+            
+            # Créer le nouvel état "En préparation" avec l'opérateur affecté
+            EtatCommande.objects.create(
+                commande=commande,
+                enum_etat=etat_en_preparation,
+                operateur=operateur_preparation_original,
+                date_debut=timezone.now(),
+                commentaire=f"Commande renvoyée en préparation pour modification du panier client. Demande client: {commentaire}"
+            )
+            
+            # 4. Créer une opération pour tracer l'action
+            Operation.objects.create(
+                commande=commande,
+                type_operation='RENVOI_PREPARATION',
+                conclusion=f"Commande renvoyée aux opérateurs de préparation suite à demande de modification client: {commentaire}",
+                operateur=operateur
+            )
+            
+            messages.success(request, 
+                f"Commande {commande.id_yz} renvoyée avec succès aux opérateurs de préparation pour modification du panier client.")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Commande {commande.id_yz} renvoyée aux opérateurs de préparation. Ils effectueront les modifications demandées par le client.',
+                'nouvel_etat': 'En préparation',
+                'commande_id': commande.id
+            })
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def commandes_renvoyees_preparation(request):
+    """Affiche les commandes que cet opérateur logistique a renvoyées en préparation."""
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='LOGISTIQUE')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil d'opérateur logistique non trouvé.")
+        return redirect('login')
+    
+    # Récupérer les commandes que cet opérateur a renvoyées en préparation
+    # On cherche les commandes qui ont un état "En préparation" actif
+    commandes_renvoyees = Commande.objects.filter(
+        etats__enum_etat__libelle='En préparation',
+        etats__date_fin__isnull=True  # État actif
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'etats__enum_etat',
+        'etats__operateur'
+    ).distinct()
+    
+    # Filtrer pour ne garder que celles qui ont été renvoyées par cet opérateur logistique
+    commandes_filtrees = []
+    for commande in commandes_renvoyees:
+        # Récupérer tous les états de la commande dans l'ordre chronologique
+        etats_commande = commande.etats.all().order_by('date_debut')
+        
+        # Trouver l'état "En préparation" actuel
+        etat_preparation_actuel = None
+        for etat in etats_commande:
+            if etat.enum_etat.libelle == 'En préparation' and not etat.date_fin:
+                etat_preparation_actuel = etat
+                break
+        
+        if etat_preparation_actuel:
+            # Trouver l'état précédent (le dernier état terminé avant l'état "En préparation" actuel)
+            etat_precedent = None
+            for etat in reversed(etats_commande):
+                if etat.date_fin and etat.date_fin < etat_preparation_actuel.date_debut:
+                    if etat.enum_etat.libelle != 'En préparation':
+                        etat_precedent = etat
+                        break
+            
+            # Si l'état précédent était "En cours de livraison", c'est un renvoi depuis la logistique
+            if etat_precedent and etat_precedent.enum_etat.libelle == 'En cours de livraison':
+                # Vérifier que cet opérateur logistique était impliqué
+                # Soit comme opérateur de l'état précédent, soit comme opérateur qui a créé l'envoi
+                if (etat_precedent.operateur == operateur or 
+                    commande.envois.filter(operateur_creation=operateur).exists()):
+                    commande.etat_precedent = etat_precedent
+                    commande.date_renvoi = etat_preparation_actuel.date_debut
+                    commandes_filtrees.append(commande)
+            
+            # Alternative : chercher dans les opérations de traçabilité
+            # Si une commande a une opération de renvoi en préparation par cet opérateur
+            from commande.models import Operation
+            operation_renvoi = Operation.objects.filter(
+                commande=commande,
+                type_operation='RENVOI_PREPARATION',
+                operateur=operateur
+            ).first()
+            
+            if operation_renvoi:
+                commande.etat_precedent = etat_precedent
+                commande.date_renvoi = operation_renvoi.date_operation
+                if commande not in commandes_filtrees:
+                    commandes_filtrees.append(commande)
+    
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_filtrees = [cmd for cmd in commandes_filtrees if 
+            search_query.lower() in str(cmd.id_yz).lower() or
+            search_query.lower() in (cmd.num_cmd or '').lower() or
+            search_query.lower() in cmd.client.nom.lower() or
+            search_query.lower() in cmd.client.prenom.lower() or
+            search_query.lower() in (cmd.client.numero_tel or '').lower()
+        ]
+    
+    # Tri par date de renvoi (plus récentes en premier)
+    commandes_filtrees.sort(key=lambda x: x.date_renvoi, reverse=True)
+    
+    # Pagination
+    paginator = Paginator(commandes_filtrees, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques
+    total_renvoyees = len(commandes_filtrees)
+    valeur_totale = sum(cmd.total_cmd or 0 for cmd in commandes_filtrees)
+    
+    # Commandes renvoyées aujourd'hui
+    aujourd_hui = timezone.now().date()
+    renvoyees_aujourd_hui = sum(1 for cmd in commandes_filtrees if cmd.date_renvoi.date() == aujourd_hui)
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'total_renvoyees': total_renvoyees,
+        'valeur_totale': valeur_totale,
+        'renvoyees_aujourd_hui': renvoyees_aujourd_hui,
+        'page_title': 'Commandes Renvoyées en Préparation',
+        'page_subtitle': f'Commandes que vous avez renvoyées aux opérateurs de préparation',
+        'operateur': operateur,
+    }
+    return render(request, 'operatLogistic/commandes_renvoyees_preparation.html', context)
 
 
 @login_required
@@ -531,22 +834,22 @@ def supprimer_article(request, commande_id):
         if commande.etat_actuel and commande.etat_actuel.enum_etat.libelle == 'Confirmée':
             panier.article.qte_disponible += quantite_supprimee
             panier.article.save()
-        
+                        
         # Supprimer le panier
         panier.delete()
-        
-        # Recalculer le total de la commande
+                
+                # Recalculer le total de la commande
         total_commande = commande.paniers.aggregate(
-            total=models.Sum('sous_total')
-        )['total'] or 0
-        commande.total_cmd = total_commande
+            total=Sum('sous_total')
+                )['total'] or 0
+        commande.total_cmd = float(total_commande)
         commande.save()
-        
+            
         return JsonResponse({
-            'success': True,
+                'success': True,
             'message': 'Article supprimé avec succès',
             'total_commande': float(commande.total_cmd)
-        })
-        
+            })
+            
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})

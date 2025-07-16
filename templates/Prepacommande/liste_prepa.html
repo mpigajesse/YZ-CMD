@@ -68,14 +68,42 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-lg border p-6 mb-8 preparation-card" style="border-color: var(--preparation-border-accent);">
+        <!-- Onglets de filtrage -->
+        <div class="mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                    <a href="{% url 'Prepacommande:liste_prepa' %}{% if search_query %}?search={{ search_query }}{% endif %}" 
+                       class="{% if filter_type == 'all' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+                        <i class="fas fa-list mr-2"></i>
+                        Toutes les commandes
+                        <span class="ml-2 bg-gray-100 text-gray-900 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ stats.total_affectees }}</span>
+                    </a>
+
+                    <a href="{% url 'Prepacommande:liste_prepa' %}?filter=renvoyees_logistique{% if search_query %}&search={{ search_query }}{% endif %}" 
+                       class="{% if filter_type == 'renvoyees_logistique' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+                        <i class="fas fa-truck mr-2"></i>
+                        Renvoyées par logistique
+                        <span class="ml-2 bg-red-100 text-red-900 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ stats_par_type.renvoyees_logistique }}</span>
+                    </a>
+
+                </nav>
+            </div>
+        </div>
+
         <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div class="flex-1">
-                <p class="text-gray-700 mb-2">Liste des commandes qui vous sont affectées.</p>
+                <p class="text-gray-700 mb-2">
+                    {% if filter_type == 'renvoyees_logistique' %}
+                        Commandes renvoyées par les opérateurs logistiques.
+                    {% else %}
+                        Liste des commandes qui vous sont affectées.
+                    {% endif %}
+                </p>
                 {% if search_query %}
                     <div class="flex items-center text-sm text-gray-600">
                         <i class="fas fa-search mr-2"></i>
                         <span>Résultats pour : "<strong>{{ search_query }}</strong>"</span>
-                        <a href="{% url 'Prepacommande:liste_prepa' %}" class="ml-2 text-blue-600 hover:text-blue-800">
+                        <a href="{% url 'Prepacommande:liste_prepa' %}{% if filter_type != 'all' %}?filter={{ filter_type }}{% endif %}" class="ml-2 text-blue-600 hover:text-blue-800">
                             <i class="fas fa-times-circle"></i> Effacer
                         </a>
                     </div>
@@ -83,6 +111,9 @@
             </div>
             <div class="flex gap-2">
                 <form method="GET" class="flex">
+                    {% if filter_type != 'all' %}
+                        <input type="hidden" name="filter" value="{{ filter_type }}">
+                    {% endif %}
                     <input type="text" name="search" value="{{ search_query }}" 
                            placeholder="Rechercher par ID, nom, téléphone..." 
                            class="block px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
@@ -175,25 +206,65 @@
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 {% with etat_actuel=commande.etat_actuel %}
-                                    {% if etat_actuel.enum_etat.libelle == 'À imprimer' %}
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
-                                            <i class="fas fa-print mr-1"></i>
-                                            À imprimer
-                                        </span>
-                                    {% elif etat_actuel.enum_etat.libelle == 'En préparation' %}
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                            <i class="fas fa-cog fa-spin mr-1"></i>
-                                            En préparation
-                                        </span>
-                                    {% elif etat_actuel.enum_etat.libelle == 'Préparée' %}
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                            <i class="fas fa-check mr-1"></i>
-                                            Préparée
-                                        </span>
+                                    {% if commande.etat_precedent %}
+                                        {% if commande.etat_precedent.enum_etat.libelle == 'En cours de livraison' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                <i class="fas fa-truck mr-1"></i>
+                                                Renvoyée depuis livraison
+                                            </span>
+                                            <div class="text-xs text-red-600 mt-1">
+                                                <i class="fas fa-calendar mr-1"></i>
+                                                {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                            </div>
+                                        {% elif commande.etat_precedent.enum_etat.libelle == 'Préparée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                <i class="fas fa-undo mr-1"></i>
+                                                Renvoyée depuis préparation
+                                            </span>
+                                            <div class="text-xs text-yellow-600 mt-1">
+                                                <i class="fas fa-calendar mr-1"></i>
+                                                {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                            </div>
+                                        {% elif commande.etat_precedent.enum_etat.libelle == 'Confirmée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                <i class="fas fa-check-circle mr-1"></i>
+                                                Depuis confirmation
+                                            </span>
+                                            <div class="text-xs text-green-600 mt-1">
+                                                <i class="fas fa-calendar mr-1"></i>
+                                                {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                            </div>
+                                        {% else %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                <i class="fas fa-history mr-1"></i>
+                                                {{ commande.etat_precedent.enum_etat.libelle }}
+                                            </span>
+                                            <div class="text-xs text-gray-600 mt-1">
+                                                <i class="fas fa-calendar mr-1"></i>
+                                                {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                            </div>
+                                        {% endif %}
                                     {% else %}
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                            {{ etat_actuel.enum_etat.libelle }}
-                                        </span>
+                                        {% if etat_actuel.enum_etat.libelle == 'À imprimer' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                                                <i class="fas fa-print mr-1"></i>
+                                                À imprimer
+                                            </span>
+                                        {% elif etat_actuel.enum_etat.libelle == 'En préparation' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                <i class="fas fa-cog fa-spin mr-1"></i>
+                                                En préparation
+                                            </span>
+                                        {% elif etat_actuel.enum_etat.libelle == 'Préparée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                <i class="fas fa-check mr-1"></i>
+                                                Préparée
+                                            </span>
+                                        {% else %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                {{ etat_actuel.enum_etat.libelle }}
+                                            </span>
+                                        {% endif %}
                                     {% endif %}
                                 {% endwith %}
                             </td>

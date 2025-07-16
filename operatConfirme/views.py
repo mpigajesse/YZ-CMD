@@ -1446,14 +1446,14 @@ def modifier_commande(request, commande_id):
                         from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
                         prix_unitaire = get_prix_upsell_avec_compteur(article, commande.compteur)
                         sous_total = prix_unitaire * panier.quantite
-                        panier.sous_total = sous_total
+                        panier.sous_total = float(sous_total)
                         panier.save()
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
                         total=models.Sum('sous_total')
                     )['total'] or 0
-                    commande.total_cmd = total_commande
+                    commande.total_cmd = float(total_commande)
                     commande.save()
                     
                     # Déterminer si c'était un ajout ou une mise à jour
@@ -1534,14 +1534,14 @@ def modifier_commande(request, commande_id):
                         commande=commande,
                         article=nouvel_article,
                         quantite=nouvelle_quantite,
-                        sous_total=sous_total
+                        sous_total=float(sous_total)
                     )
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
                         total=models.Sum('sous_total')
                     )['total'] or 0
-                    commande.total_cmd = total_commande
+                    commande.total_cmd = float(total_commande)
                     commande.save()
                     
                     return JsonResponse({
@@ -1609,7 +1609,7 @@ def modifier_commande(request, commande_id):
                     total_commande = commande.paniers.aggregate(
                         total=models.Sum('sous_total')
                     )['total'] or 0
-                    commande.total_cmd = total_commande
+                    commande.total_cmd = float(total_commande)
                     commande.save()
                     
                     return JsonResponse({
@@ -1685,14 +1685,14 @@ def modifier_commande(request, commande_id):
                         # Pour les articles normaux, juste recalculer le sous-total
                         from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
                         prix_unitaire = get_prix_upsell_avec_compteur(panier.article, commande.compteur)
-                        panier.sous_total = prix_unitaire * nouvelle_quantite
+                        panier.sous_total = float(prix_unitaire * nouvelle_quantite)
                         panier.save()
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
                         total=models.Sum('sous_total')
                     )['total'] or 0
-                    commande.total_cmd = total_commande
+                    commande.total_cmd = float(total_commande)
                     commande.save()
                     
                     return JsonResponse({
@@ -1844,8 +1844,9 @@ def modifier_commande(request, commande_id):
                     # Recalculer le total avec les nouveaux frais de livraison
                     sous_total_articles = commande.sous_total_articles
                     frais_livraison = commande.ville.frais_livraison if commande.ville else 0
-                    nouveau_total = sous_total_articles + frais_livraison
-                    commande.total_cmd = nouveau_total
+                    # Convertir explicitement en float pour éviter l'erreur Decimal + float
+                    nouveau_total = float(sous_total_articles) + float(frais_livraison)
+                    commande.total_cmd = float(nouveau_total)
                     
                     # Sauvegarder les modifications
                     commande.save()
@@ -1982,14 +1983,14 @@ def modifier_commande(request, commande_id):
                         commande=commande,
                         article=nouvel_article,
                         quantite=nouvelle_quantite,
-                        sous_total=sous_total
+                        sous_total=float(sous_total)
                     )
                     
                     # Recalculer le total de la commande
                     total_commande = commande.paniers.aggregate(
                         total=models.Sum('sous_total')
                     )['total'] or 0
-                    commande.total_cmd = total_commande
+                    commande.total_cmd = float(total_commande)
                     commande.save()
                     
                     return JsonResponse({
@@ -2072,7 +2073,7 @@ def modifier_commande(request, commande_id):
                             if nouvelle_quantite > 0:
                                 panier.quantite = nouvelle_quantite
                                 # Recalculer le sous-total
-                                panier.sous_total = panier.article.prix_unitaire * nouvelle_quantite
+                                panier.sous_total = float(panier.article.prix_unitaire * nouvelle_quantite)
                                 panier.save()
                         except (Panier.DoesNotExist, ValueError):
                             continue
@@ -2091,7 +2092,7 @@ def modifier_commande(request, commande_id):
                             article = Article.objects.get(id=article_id)
                             quantite = int(quantites_nouveaux[i])
                             if quantite > 0:
-                                sous_total = article.prix_unitaire * quantite
+                                sous_total = float(article.prix_unitaire * quantite)
                                 Panier.objects.create(
                                     commande=commande,
                                     article=article,
@@ -2105,7 +2106,7 @@ def modifier_commande(request, commande_id):
             total_commande = commande.paniers.aggregate(
                 total=models.Sum('sous_total')
             )['total'] or 0
-            commande.total_cmd = total_commande
+            commande.total_cmd = float(total_commande)
             commande.save()
             
             # ================ GESTION DES OPÉRATIONS ================
@@ -2447,13 +2448,13 @@ def creer_commande(request):
                             logging.info(f"Article {article.id}: prix_unitaire={article.prix_unitaire}, prix_actuel={article.prix_actuel}, prix_utilisé={prix_a_utiliser}")
                             
                             sous_total = prix_a_utiliser * quantite
-                            total_calcule += sous_total
+                            total_calcule += float(sous_total)
                             
                             Panier.objects.create(
                                 commande=commande,
                                 article=article,
                                 quantite=quantite,
-                                sous_total=sous_total
+                                sous_total=float(sous_total)
                             )
                     except (ValueError, IndexError, Article.DoesNotExist) as e:
                         logging.error(f"Erreur lors de l'ajout d'un article: {str(e)}")
@@ -2461,7 +2462,7 @@ def creer_commande(request):
                         raise e # Annule la transaction
 
                 # Mettre à jour le total final de la commande avec le montant recalculé
-                commande.total_cmd = total_calcule
+                commande.total_cmd = float(total_calcule)
                 commande.save()
 
                 # Créer l'état initial "Affectée" directement à l'opérateur créateur
@@ -2545,7 +2546,8 @@ def api_panier_commande(request, commande_id):
             total_articles = sum(panier.quantite for panier in paniers)
             total_montant = sum(panier.sous_total for panier in paniers)
             frais_livraison = commande.ville.frais_livraison if commande.ville else 0
-            total_final = total_montant + frais_livraison
+            # Convertir explicitement en float pour éviter l'erreur Decimal + float
+            total_final = float(total_montant) + float(frais_livraison)
             
             # Construire la liste des articles pour le JSON
             articles_data = []

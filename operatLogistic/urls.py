@@ -30,6 +30,12 @@ urlpatterns = [
     path('commande/<int:commande_id>/modifier-quantite/', views.modifier_quantite_article, name='modifier_quantite_article'),
     path('commande/<int:commande_id>/supprimer-article/', views.supprimer_article, name='supprimer_article'),
     
+    # URL pour renvoyer en préparation
+    path('commande/<int:commande_id>/renvoyer-preparation/', views.renvoyer_en_preparation, name='renvoyer_preparation'),
+    
+    # URL pour voir les commandes renvoyées en préparation
+    path('commandes-renvoyees-preparation/', views.commandes_renvoyees_preparation, name='commandes_renvoyees_preparation'),
+    
     # API pour les articles
     path('api/articles/', views.api_articles, name='api_articles'),
     
