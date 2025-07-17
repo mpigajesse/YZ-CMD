@@ -176,22 +176,82 @@ def detail_commande(request, commande_id):
     return render(request, 'operatLogistic/detail_commande.html', context)
 
 
-# Vues pour le profil, à compléter si nécessaire
+# Vues pour le profil
 @login_required
 def profile_logistique(request):
-    return render(request, 'operatLogistic/profile.html')
+    """Afficher le profil de l'opérateur logistique."""
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='LOGISTIQUE')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil d'opérateur logistique non trouvé.")
+        return redirect('login')
+    
+    context = {
+        'operateur': operateur,
+        'user': request.user,
+    }
+    return render(request, 'operatLogistic/profile.html', context)
 
 
 @login_required
 def modifier_profile_logistique(request):
-    messages.info(request, "Cette fonctionnalité est en cours de développement.")
-    return redirect('operatLogistic:profile')
+    """Modifier le profil de l'opérateur logistique."""
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='LOGISTIQUE')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil d'opérateur logistique non trouvé.")
+        return redirect('login')
+    
+    if request.method == 'POST':
+        # Récupérer les données du formulaire
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        telephone = request.POST.get('telephone', '').strip()
+        adresse = request.POST.get('adresse', '').strip()
+        photo = request.FILES.get('photo')
+        
+        # Validation
+        if not first_name or not last_name or not email:
+            messages.error(request, "Le prénom, le nom et l'email sont obligatoires.")
+            return render(request, 'operatLogistic/modifier_profile.html', {
+                'operateur': operateur,
+                'user': request.user,
+            })
+        
+        try:
+            # Mettre à jour les informations de l'utilisateur
+            user = request.user
+            user.first_name = first_name
+            user.last_name = last_name
+            user.email = email
+            user.save()
+            
+            # Mettre à jour les informations de l'opérateur
+            operateur.prenom = first_name
+            operateur.nom = last_name
+            operateur.mail = email
+            operateur.telephone = telephone if telephone else None
+            operateur.adresse = adresse if adresse else None
+            
+            # Gérer la photo de profil
+            if photo:
+                operateur.photo = photo
+            
+            operateur.save()
+            
+            messages.success(request, "Votre profil a été mis à jour avec succès.")
+            return redirect('operatLogistic:profile')
+            
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la mise à jour du profil : {str(e)}")
+    
+    context = {
+        'operateur': operateur,
+        'user': request.user,
+    }
+    return render(request, 'operatLogistic/modifier_profile.html', context)
 
-
-@login_required
-def changer_mot_de_passe_logistique(request):
-    messages.info(request, "Cette fonctionnalité est en cours de développement.")
-    return redirect('operatLogistic:profile')
 
 
 @login_required
