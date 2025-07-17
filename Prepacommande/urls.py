@@ -9,6 +9,7 @@ urlpatterns = [
     path('liste-prepa/', views.liste_prepa, name='liste_prepa'),
     path('a-imprimer/', views.commandes_a_imprimer, name='commandes_a_imprimer'),
     path('en-preparation/', views.commandes_en_preparation, name='commandes_en_preparation'),
+    path('livrees-partiellement/', views.commandes_livrees_partiellement, name='commandes_livrees_partiellement'),
     path('profile/', views.profile_view, name='profile'),
     path('modifier-profile/', views.modifier_profile_view, name='modifier_profile'),
     path('changer-mot-de-passe/', views.changer_mot_de_passe_view, name='changer_mot_de_passe'),
@@ -23,6 +24,7 @@ urlpatterns = [
     path('api/articles-disponibles-prepa/', views.api_articles_disponibles_prepa, name='api_articles_disponibles_prepa'),
     path('api/commande/<int:commande_id>/panier/', views.api_panier_commande_prepa, name='api_panier_commande'),
     path('api/commande/<int:commande_id>/panier-livraison/', views.api_panier_commande_livraison, name='api_panier_commande_livraison'),
+    path('api/commande/<int:commande_id>/articles-livree-partiellement/', views.api_articles_commande_livree_partiellement, name='api_articles_commande_livree_partiellement'),
 
     # URLs pour la gestion des articles pendant la préparation
     path('commande/<int:commande_id>/rafraichir-articles/', views.rafraichir_articles_commande_prepa, name='rafraichir_articles_commande_prepa'),

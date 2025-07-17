@@ -754,6 +754,10 @@
                                 <i class="fas fa-palette mr-2 text-purple-600"></i>Caractéristiques du produit
                             </h5>
                             
+                            <!-- Conteneur pour les badges de caractéristiques -->
+                            <div id="caracteristiques-badges" class="flex flex-wrap gap-2 mb-3">
+                                <!-- Les badges seront ajoutés dynamiquement par JavaScript -->
+                            </div>
                             
                             <!-- Affichage classique formaté -->
                             <div class="space-y-2 text-sm">
@@ -2523,12 +2527,21 @@ function modifierArticle(panierId) {
     console.log('🔍 Article card trouvé:', articleCard ? 'OUI' : 'NON', articleCard);
     
     if (articleCard) {
-        const quantite = articleCard.querySelector('.text-blue-600').textContent.match(/\d+/)[0];
-        document.getElementById('quantiteInput').value = quantite;
+        // Récupérer la quantité avec vérification de sécurité
+        const quantiteElement = articleCard.querySelector('input[type="number"]');
+        if (quantiteElement && quantiteElement.value) {
+            document.getElementById('quantiteInput').value = quantiteElement.value;
+        } else {
+            document.getElementById('quantiteInput').value = '1'; // Valeur par défaut
+        }
         
-        // Récupérer la référence de l'article pour le pré-sélectionner
-        const referenceText = articleCard.querySelector('.text-gray-500').textContent;
-        const reference = referenceText.replace('Réf: ', '').replace('Référence: ', '').trim();
+        // Récupérer la référence de l'article pour le pré-sélectionner avec vérification de sécurité
+        const referenceElement = articleCard.querySelector('.text-sm.text-gray-500');
+        let reference = '';
+        if (referenceElement && referenceElement.textContent) {
+            const referenceText = referenceElement.textContent;
+            reference = referenceText.replace('Réf: ', '').replace('Référence: ', '').trim();
+        }
         
         // Récupérer les données complètes de l'article depuis le dataset
         try {
@@ -2554,7 +2567,7 @@ function modifierArticle(panierId) {
         }, 500);
     }
     
-    // Afficher la modale
+    // Afficher la modale avec vérification de sécurité
     const modal = document.getElementById('articleModal');
     if (modal) {
         modal.style.display = 'flex';
@@ -2562,6 +2575,8 @@ function modifierArticle(panierId) {
         modal.classList.add('flex');
     } else {
         console.error('❌ Modale articleModal introuvable lors de la modification d\'article');
+        showNotification('❌ Erreur: Modale de modification introuvable', 'error');
+        return;
     }
 }
 
@@ -5049,12 +5064,21 @@ function modifierArticle(panierId) {
     console.log('🔍 Article card trouvé:', articleCard ? 'OUI' : 'NON', articleCard);
     
     if (articleCard) {
-        const quantite = articleCard.querySelector('.text-blue-600').textContent.match(/\d+/)[0];
-        document.getElementById('quantiteInput').value = quantite;
+        // Récupérer la quantité avec vérification de sécurité
+        const quantiteElement = articleCard.querySelector('input[type="number"]');
+        if (quantiteElement && quantiteElement.value) {
+            document.getElementById('quantiteInput').value = quantiteElement.value;
+        } else {
+            document.getElementById('quantiteInput').value = '1'; // Valeur par défaut
+        }
         
-        // Récupérer la référence de l'article pour le pré-sélectionner
-        const referenceText = articleCard.querySelector('.text-gray-500').textContent;
-        const reference = referenceText.replace('Réf: ', '').replace('Référence: ', '').trim();
+        // Récupérer la référence de l'article pour le pré-sélectionner avec vérification de sécurité
+        const referenceElement = articleCard.querySelector('.text-sm.text-gray-500');
+        let reference = '';
+        if (referenceElement && referenceElement.textContent) {
+            const referenceText = referenceElement.textContent;
+            reference = referenceText.replace('Réf: ', '').replace('Référence: ', '').trim();
+        }
         
         // Récupérer les données complètes de l'article depuis le dataset
         try {

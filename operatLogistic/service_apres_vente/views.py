@@ -134,22 +134,133 @@ def commandes_reportees(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Reportée',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').prefetch_related(
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
         'etats__enum_etat', 'etats__operateur',
-        'envois'  # Ajouter les envois
+        'envois', 'paniers__article'
     ).order_by('-etats__date_debut').distinct()
+    
+    # Enrichir les données pour chaque commande
+    for commande in commandes:
+        # Trouver l'état actuel (Reportée)
+        commande.etat_actuel_sav = commande.etats.filter(
+            enum_etat__libelle='Reportée',
+            date_fin__isnull=True
+        ).first()
+        
+        # Calculer le nombre d'articles dans la commande
+        commande.nombre_articles = commande.paniers.count()
+        
+        # Trouver l'envoi associé
+        commande.envoi = commande.envois.filter(status='en_attente').first()
+        
+        # Analyser les articles pour identifier ceux livrés partiellement (si applicable)
+        commande.articles_livres_partiellement = []
+        commande.articles_renvoyes = []
+        
+        # Chercher les informations dans les opérations liées à la livraison partielle
+        from commande.models import Operation
+        operation_livraison_partielle = Operation.objects.filter(
+            commande=commande,
+            type_operation='LIVRAISON_PARTIELLE'
+        ).order_by('-date_operation').first()
+        
+        if operation_livraison_partielle:
+            # Analyser la conclusion pour extraire les informations sur les articles
+            conclusion = operation_livraison_partielle.conclusion
+            
+            # Identifier les articles dans la commande actuelle (ceux qui ont été livrés partiellement)
+            for panier in commande.paniers.all():
+                # Si l'article est encore dans la commande, c'est qu'il a été livré partiellement
+                commande.articles_livres_partiellement.append({
+                    'article': panier.article,
+                    'quantite_livree': panier.quantite
+                })
+    
     return _render_sav_list(request, commandes, 'Commandes Reportées', 'Liste des livraisons reportées.')
 
 @login_required
 def commandes_livrees_partiellement(request):
     """Affiche les commandes livrées partiellement."""
+    # Récupérer toutes les commandes qui ont eu une livraison partielle
+    # (même si elles ont été renvoyées en préparation ensuite)
     commandes = Commande.objects.filter(
-        etats__enum_etat__libelle='Livrée Partiellement',
-        etats__date_fin__isnull=True
-    ).select_related('client', 'ville').prefetch_related(
+        etats__enum_etat__libelle='Livrée Partiellement'
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
         'etats__enum_etat', 'etats__operateur',
-        'envois'  # Ajouter les envois
+        'envois', 'paniers__article'  # Ajouter les paniers et articles
     ).order_by('-etats__date_debut').distinct()
+    
+    # Enrichir les données pour chaque commande
+    for commande in commandes:
+        # Trouver l'état "Livrée Partiellement" le plus récent
+        etat_livraison_partielle = commande.etats.filter(
+            enum_etat__libelle='Livrée Partiellement'
+        ).order_by('-date_debut').first()
+        
+        if etat_livraison_partielle:
+            commande.date_livraison_partielle = etat_livraison_partielle.date_debut
+            commande.commentaire_livraison_partielle = etat_livraison_partielle.commentaire
+            commande.operateur_livraison = etat_livraison_partielle.operateur
+        
+        # Déterminer le statut actuel de la commande
+        etat_actuel = commande.etats.filter(date_fin__isnull=True).first()
+        if etat_actuel:
+            commande.etat_actuel_sav = etat_actuel
+            commande.statut_actuel = etat_actuel.enum_etat.libelle
+            commande.est_renvoyee_preparation = etat_actuel.enum_etat.libelle in ['En préparation', 'À imprimer']
+        else:
+            commande.etat_actuel_sav = None
+            commande.statut_actuel = "Inconnu"
+            commande.est_renvoyee_preparation = False
+        
+        # Calculer le nombre d'articles dans la commande
+        commande.nombre_articles = commande.paniers.count()
+        
+        # Trouver l'envoi associé
+        commande.envoi = commande.envois.filter(status='en_attente').first()
+        
+        # Analyser les articles pour identifier ceux livrés partiellement
+        commande.articles_livres_partiellement = []
+        commande.articles_renvoyes = []
+        
+        # Chercher les informations dans les opérations liées à la livraison partielle
+        from commande.models import Operation
+        operation_livraison_partielle = Operation.objects.filter(
+            commande=commande,
+            type_operation='LIVRAISON_PARTIELLE'
+        ).order_by('-date_operation').first()
+        
+        if operation_livraison_partielle:
+            # Analyser la conclusion pour extraire les informations sur les articles
+            conclusion = operation_livraison_partielle.conclusion
+            
+            # Identifier les articles dans la commande actuelle (ceux qui ont été livrés partiellement)
+            for panier in commande.paniers.all():
+                # Si l'article est encore dans la commande, c'est qu'il a été livré partiellement
+                # (les articles complètement renvoyés sont dans une commande séparée)
+                commande.articles_livres_partiellement.append({
+                    'article': panier.article,
+                    'quantite_livree': panier.quantite,
+                    'quantite_originale': panier.quantite,  # On ne peut pas récupérer la quantité originale facilement
+                    'prix': panier.article.prix_unitaire,
+                    'sous_total': panier.sous_total
+                })
+        
+        # Chercher la commande de renvoi associée
+        commande_renvoi = Commande.objects.filter(
+            num_cmd__startswith=f"RENVOI-{commande.num_cmd}",
+            client=commande.client
+        ).first()
+        
+        if commande_renvoi:
+            for panier_renvoi in commande_renvoi.paniers.all():
+                commande.articles_renvoyes.append({
+                    'article': panier_renvoi.article,
+                    'quantite': panier_renvoi.quantite,
+                    'prix': panier_renvoi.article.prix_unitaire,
+                    'sous_total': panier_renvoi.sous_total
+                })
+    
     return _render_sav_list(request, commandes, 'Commandes Livrées Partiellement', 'Liste des livraisons partielles.')
 
 @login_required
@@ -158,10 +269,22 @@ def commandes_livrees_avec_changement(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Livrée avec changement',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').prefetch_related(
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
         'etats__enum_etat', 'etats__operateur',
-        'envois'  # Ajouter les envois
+        'envois', 'paniers__article'
     ).order_by('-etats__date_debut').distinct()
+    
+    # Enrichir les données pour chaque commande
+    for commande in commandes:
+        # Trouver l'état actuel
+        commande.etat_actuel_sav = commande.etats.filter(
+            enum_etat__libelle='Livrée avec changement',
+            date_fin__isnull=True
+        ).first()
+        
+        # Calculer le nombre d'articles dans la commande
+        commande.nombre_articles = commande.paniers.count()
+    
     return _render_sav_list(request, commandes, 'Commandes Livrées avec Changement', 'Liste des livraisons avec modifications.')
 
 @login_required
@@ -170,10 +293,22 @@ def commandes_annulees_sav(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Annulée (SAV)',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').prefetch_related(
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
         'etats__enum_etat', 'etats__operateur',
-        'envois'  # Ajouter les envois
+        'envois', 'paniers__article'
     ).order_by('-etats__date_debut').distinct()
+    
+    # Enrichir les données pour chaque commande
+    for commande in commandes:
+        # Trouver l'état actuel
+        commande.etat_actuel_sav = commande.etats.filter(
+            enum_etat__libelle='Annulée (SAV)',
+            date_fin__isnull=True
+        ).first()
+        
+        # Calculer le nombre d'articles dans la commande
+        commande.nombre_articles = commande.paniers.count()
+    
     return _render_sav_list(request, commandes, 'Commandes Annulées (SAV)', 'Liste des commandes annulées lors de la livraison.')
 
 @login_required
@@ -182,10 +317,22 @@ def commandes_retournees(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Retournée',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').prefetch_related(
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
         'etats__enum_etat', 'etats__operateur',
-        'envois'  # Ajouter les envois
+        'envois', 'paniers__article'
     ).order_by('-etats__date_debut').distinct()
+    
+    # Enrichir les données pour chaque commande
+    for commande in commandes:
+        # Trouver l'état actuel
+        commande.etat_actuel_sav = commande.etats.filter(
+            enum_etat__libelle='Retournée',
+            date_fin__isnull=True
+        ).first()
+        
+        # Calculer le nombre d'articles dans la commande
+        commande.nombre_articles = commande.paniers.count()
+    
     return _render_sav_list(request, commandes, 'Commandes Retournées', 'Liste des commandes retournées par l\'opérateur logistique.')
 
 @login_required
@@ -194,8 +341,20 @@ def commandes_livrees(request):
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Livrée',
         etats__date_fin__isnull=True
-    ).select_related('client', 'ville').prefetch_related(
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
         'etats__enum_etat', 'etats__operateur',
-        'envois'  # Ajouter les envois
+        'envois', 'paniers__article'
     ).order_by('-etats__date_debut').distinct()
+    
+    # Enrichir les données pour chaque commande
+    for commande in commandes:
+        # Trouver l'état actuel
+        commande.etat_actuel_sav = commande.etats.filter(
+            enum_etat__libelle='Livrée',
+            date_fin__isnull=True
+        ).first()
+        
+        # Calculer le nombre d'articles dans la commande
+        commande.nombre_articles = commande.paniers.count()
+    
     return _render_sav_list(request, commandes, 'Commandes Livrées', 'Liste des commandes livrées avec succès.') 

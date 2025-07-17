@@ -33,11 +33,15 @@ urlpatterns = [
     # URL pour renvoyer en préparation
     path('commande/<int:commande_id>/renvoyer-preparation/', views.renvoyer_en_preparation, name='renvoyer_preparation'),
     
+    # URL pour la livraison partielle
+    path('commande/<int:commande_id>/livraison-partielle/', views.livraison_partielle, name='livraison_partielle'),
+    
     # URL pour voir les commandes renvoyées en préparation
     path('commandes-renvoyees-preparation/', views.commandes_renvoyees_preparation, name='commandes_renvoyees_preparation'),
     
     # API pour les articles
     path('api/articles/', views.api_articles, name='api_articles'),
+    path('api/commande/<int:commande_id>/panier/', views.api_panier_commande, name='api_panier_commande'),
     
     # URLs pour les listes SAV
     path('sav/reportees/', sav_views.commandes_reportees, name='commandes_reportees'),

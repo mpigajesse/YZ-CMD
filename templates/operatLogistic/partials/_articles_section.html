@@ -1,9 +1,23 @@
 {% load commande_filters %}
 
 {% for panier in commande.paniers.all %}
-<div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" 
+<div class="article-card p-4 {% if commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' %}bg-green-50 border-green-300{% else %}bg-white border-gray-200{% endif %} rounded-lg border hover:border-gray-300 transition-all shadow-sm" 
     data-article-id="{{ panier.id }}"
     data-article='{"id": {{ panier.article.id }}, "nom": "{{ panier.article.nom }}", "reference": "{{ panier.article.reference }}", "prix_actuel": {{ panier.article.prix_actuel|default:0 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0 }}, "prix_upsell_4": {{ panier.article.prix_upsell_4|default:0 }}, "isUpsell": {{ panier.article.isUpsell|yesno:"true,false" }}, "pointure": "{{ panier.article.pointure|default:'' }}", "couleur": "{{ panier.article.couleur|default:'' }}", "categorie": "{{ panier.article.categorie|default:'' }}", "qte_disponible": {{ panier.article.qte_disponible|default:0 }}, "phase": "{{ panier.article.phase|default:'' }}", "has_promo_active": {{ panier.article.has_promo_active|yesno:"true,false" }}}'>
+    
+    <!-- Indicateur de livraison partielle -->
+    {% if commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' %}
+    <div class="mb-3 p-2 bg-green-100 border border-green-300 rounded-lg">
+        <div class="flex items-center">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-600 text-white mr-2">
+                <i class="fas fa-check-circle mr-1"></i>Livré Partiellement
+            </span>
+            <span class="text-sm text-green-800">
+                Cet article a été livré partiellement au client. La quantité affichée correspond à la quantité livrée.
+            </span>
+        </div>
+    </div>
+    {% endif %}
     <div class="flex items-center justify-between">
         <!-- Informations de l'article -->
         <div class="flex-1">
@@ -68,7 +82,13 @@
                 
                 <!-- Quantité -->
                 <div class="text-center min-w-0">
-                    <div class="text-sm text-gray-500">Quantité</div>
+                    <div class="text-sm text-gray-500">
+                        {% if commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' %}
+                            <span class="text-green-600 font-medium">Quantité Livrée</span>
+                        {% else %}
+                            Quantité
+                        {% endif %}
+                    </div>
                     <div class="flex items-center justify-center space-x-2">
                         <button type="button" 
                                 class="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 flex items-center justify-center transition-colors"
@@ -79,7 +99,7 @@
                                value="{{ panier.quantite }}" 
                                min="1" 
                                max="{{ panier.article.qte_disponible|add:panier.quantite }}"
-                               class="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm font-medium"
+                               class="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm font-medium {% if commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' %}bg-green-50 border-green-300{% endif %}"
                                onchange="modifierQuantite({{ panier.id }}, 0, this.value)"
                                data-panier-id="{{ panier.id }}">
                         <button type="button" 
@@ -89,7 +109,11 @@
                         </button>
                     </div>
                     <div class="text-xs text-gray-500 mt-1">
+                        {% if commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' %}
+                            <i class="fas fa-check-circle mr-1 text-green-600"></i>Livrée au client
+                        {% else %}
                         <i class="fas fa-edit mr-1"></i>Modifiable
+                        {% endif %}
                     </div>
                 </div>
                 
