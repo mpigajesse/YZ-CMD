@@ -261,7 +261,7 @@ def parametre(request):
 
 @login_required
 def marquer_livree(request, commande_id):
-    messages.info(request, "Cette fonctionnalité est en cours de développement.")
+    # Fonctionnalité à implémenter
     return redirect('operatLogistic:detail_commande', commande_id=commande_id)
 
 
