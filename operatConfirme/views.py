@@ -1698,6 +1698,7 @@ def modifier_commande(request, commande_id):
                     return JsonResponse({
                         'success': True,
                         'message': f'Quantité modifiée de {ancienne_quantite} à {nouvelle_quantite}',
+                        'sous_total': float(panier.sous_total),
                         'total_commande': float(commande.total_cmd),
                         'compteur': commande.compteur
                     })
