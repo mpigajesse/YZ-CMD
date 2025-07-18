@@ -1,0 +1,78 @@
+{% load commande_filters %}
+{% load l10n %}
+
+{% for panier in commande.paniers.all %}
+<div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" 
+    data-panier-id="{{ panier.id }}">
+    <div class="flex items-center justify-between">
+        <!-- Informations de l'article -->
+        <div class="flex-1">
+            <div class="flex items-center space-x-4">
+                <!-- Nom et référence -->
+                <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-lg" style="color: #4A5568;">{{ panier.article.nom }}</div>
+                    <div class="text-sm text-gray-500">
+                        <i class="fas fa-hashtag mr-1"></i>Réf: {{ panier.article.reference }}
+                    </div>
+                    <!-- Informations détaillées -->
+                    <div class="mt-2 flex flex-wrap gap-2">
+                         {% if panier.article.pointure %}
+                        <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-ruler-vertical mr-1"></i>{{ panier.article.pointure }}
+                        </span>
+                        {% endif %}
+                        {% if panier.article.couleur %}
+                        <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-palette mr-1"></i>{{ panier.article.couleur }}
+                        </span>
+                        {% endif %}
+                        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.qte_disponible }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Quantité -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">Quantité</div>
+                    <div class="font-medium text-blue-600">{{ panier.quantite }} unité{{ panier.quantite|pluralize }}</div>
+                    <button type="button" onclick="modifierQuantitePrepa({{ panier.id }}, {{ panier.quantite }})" 
+                            class="text-xs text-blue-500 hover:text-blue-700 mt-1">
+                        <i class="fas fa-edit mr-1"></i>Modifier
+                    </button>
+                </div>
+                
+                <!-- Prix unitaire -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">Prix unitaire</div>
+                    <div class="font-medium text-gray-700">
+                        {{ panier.article.prix_unitaire|floatformat:2 }} DH
+                    </div>
+                </div>
+                
+                <!-- Sous-total -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">Sous-total</div>
+                    <div class="text-lg font-bold" style="color: #2D3748;">
+                        {{ panier.sous_total|floatformat:2 }} DH
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex space-x-2 ml-4">
+            <button type="button" onclick="supprimerArticlePrepa({{ panier.id }})" 
+                    class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" 
+                    title="Supprimer">
+                <i class="fas fa-trash mr-1"></i>Supprimer
+            </button>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="text-center py-8 text-gray-500">
+    <i class="fas fa-shopping-basket text-4xl mb-3"></i>
+    <p>Le panier de cette commande est vide.</p>
+</div>
+{% endfor %} 

@@ -25,7 +25,9 @@ class Command(BaseCommand):
         
         # États de livraison
         etats_livraison = [
+            {'libelle': 'À imprimer', 'ordre': 195, 'couleur': '#F59E0B'},
             {'libelle': 'En préparation', 'ordre': 200, 'couleur': '#7C3AED'},
+            {'libelle': 'Préparée', 'ordre': 202, 'couleur': '#10B981'},
             {'libelle': 'En livraison', 'ordre': 210, 'couleur': '#2563EB'},
             {'libelle': 'Livrée', 'ordre': 220, 'couleur': '#16A34A'},
             {'libelle': 'Retournée', 'ordre': 230, 'couleur': '#DC2626'},

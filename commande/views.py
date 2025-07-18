@@ -2163,7 +2163,8 @@ def api_panier_commande(request, commande_id):
             total_articles = sum(panier.quantite for panier in paniers)
             total_montant = sum(panier.sous_total for panier in paniers)
             frais_livraison = commande.ville.frais_livraison if commande.ville else 0
-            total_final = total_montant + frais_livraison
+            # Convertir explicitement en float pour éviter l'erreur Decimal + float
+            total_final = float(total_montant) + float(frais_livraison)
             
             # Construire la liste des articles pour le JSON
             articles_data = []

@@ -79,6 +79,21 @@
                 <div class="text-2xl font-bold" style="color: #f7d9c4;">{{ mes_commandes_confirmees.count }}</div>
                 <div class="text-sm opacity-80">Confirmées par moi</div>
             </div>
+            <div class="text-right border-l border-gray-400 pl-4">
+                <div class="text-lg font-bold" style="color: #f7d9c4;">
+                    {% with total_articles=0 %}
+                        {% for commande in mes_commandes_confirmees %}
+                            {% with commande_articles=commande.paniers.count %}
+                                {% with total_articles=total_articles|add:commande_articles %}{% endwith %}
+                            {% endwith %}
+                        {% endfor %}
+                        {{ total_articles }}
+                    {% endwith %}
+                </div>
+                <div class="text-sm opacity-80">
+                    <i class="fas fa-shopping-cart mr-1"></i>Articles totaux
+                </div>
+            </div>
         </div>
     </div>
 
@@ -177,31 +192,34 @@
     </div>
     {% else %}
     <div class="overflow-x-auto mb-8 confirmation-card rounded-xl shadow-lg">
-        <table class="min-w-full divide-y divide-gray-200">
+        <table class="min-w-full divide-y divide-gray-200 table-commandes" style="min-width: 1200px;">
             <thead style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
-                                                <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Confirmation</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opération</th>
-                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style="min-width: 80px;">ID YZ</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style="min-width: 120px;">N° Externe</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style="min-width: 150px;">Client</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style="min-width: 120px;">Téléphone</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style="min-width: 120px;">Ville Client</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style="min-width: 150px;">Ville & Région</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider col-panier" style="min-width: 200px;">
+                        <i class="fas fa-shopping-cart mr-1"></i>Panier
+                    </th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style="min-width: 100px;">Total</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style="min-width: 120px;">Date Confirmation</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style="min-width: 150px;">Opération</th>
+                    <th class="px-3 py-3 text-center text-xs font-medium text-white uppercase tracking-wider" style="min-width: 100px;">Actions</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for commande in mes_commandes_confirmees %}
                 <tr class="hover:bg-orange-50 transition-colors">
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="px-3 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium" style="color: #4B352A;">{{ commande.id_yz }}</div>
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="px-3 py-4 whitespace-nowrap">
                         <div class="text-sm text-gray-700">{{ commande.num_cmd|default:"Non spécifié" }}</div>
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="px-3 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium" style="color: #4B352A;">
                             {% if commande.client.nom or commande.client.prenom %}
                                 {{ commande.client.prenom }} {{ commande.client.nom }}
@@ -213,14 +231,14 @@
                         <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="px-3 py-4 whitespace-nowrap">
                         <a href="tel:{{ commande.client.numero_tel }}" class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
                             <i class="fas fa-phone mr-1"></i>
                             {{ commande.client.numero_tel }}
                         </a>
                     </td>
                     <!-- Colonne Ville Client -->
-                    <td class="px-4 py-4 whitespace-nowrap text-sm">
+                    <td class="px-3 py-4 whitespace-nowrap text-sm">
                         {% if commande.ville_init or commande.ville_init != '' %}
                             <div style="color: #6d4b3b;" class="font-medium">{{ commande.ville_init }}</div>
                         {% else %}
@@ -228,7 +246,7 @@
                         {% endif %}
                     </td>
                     <!-- Colonne Ville & Région (ville de livraison choisie par l'opérateur) -->
-                    <td class="px-4 py-4 whitespace-nowrap text-sm">
+                    <td class="px-3 py-4 whitespace-nowrap text-sm">
                         {% if commande.ville %}
                             <div style="color: #4B352A;" class="font-medium">{{ commande.ville.nom|default:"Nom manquant" }}</div>
                             <div class="text-xs text-gray-500">
@@ -244,10 +262,24 @@
                         {% endif %}
 
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                    <!-- Colonne Panier -->
+                    <td class="px-3 py-4 col-panier text-center">
+                        <button class="text-blue-600 hover:text-blue-800 transition-colors transform hover:scale-110" 
+                                onclick="viewCart('{{ commande.id }}')" 
+                                title="Voir le détail du panier ({{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }})">
+                            <i class="fas fa-shopping-basket text-lg"></i>
+                            {% if commande.paniers.count > 0 %}
+                                <span class="ml-1 text-xs font-bold">{{ commande.paniers.count }}</span>
+                            {% endif %}
+                        </button>
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="px-3 py-4 whitespace-nowrap">
+                        <div class="text-sm font-bold text-green-600" 
+                             title="Total incluant {{ commande.sous_total_articles|floatformat:2 }} DH d'articles + {{ commande.frais_livraison|floatformat:2 }} DH de frais de livraison">
+                            {% with total_final=commande.sous_total_articles|add:commande.frais_livraison %}{{ total_final|floatformat:2 }}{% endwith %} DH
+                        </div>
+                    </td>
+                    <td class="px-3 py-4 whitespace-nowrap">
                         {% for etat in commande.etats.all %}
                             {% if not etat.date_fin and etat.enum_etat.libelle == 'Confirmée' %}
                                 <div class="text-sm" style="color: #4B352A;">{{ etat.date_debut|date:"d/m/Y" }}</div>
@@ -255,7 +287,7 @@
                             {% endif %}
                         {% endfor %}
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="px-3 py-4 whitespace-nowrap">
                         {% with nb_operations=commande.operations.count %}
                             {% if nb_operations > 0 %}
                                 {% if nb_operations == 1 %}
@@ -305,7 +337,7 @@
                             {% endif %}
                         {% endwith %}
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-center">
+                    <td class="px-3 py-4 whitespace-nowrap text-center">
                         <div class="flex space-x-2 justify-center">
                             <a href="{% url 'operatConfirme:detail_commande' commande.pk %}" 
                                class="px-3 py-1 text-white text-xs rounded transition-colors hover:shadow-lg" style="background: linear-gradient(135deg, #3b82f6, #60a5fa);" title="Voir ma confirmation complète">
@@ -324,6 +356,25 @@
     {% endif %}
 </div>
 
+<!-- Modal de détail du panier -->
+<div id="cartModal" class="fixed inset-0 flex items-center justify-center z-50 hidden" style="background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px);">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b" style="border-color: #f7d9c4;">
+            <div class="flex justify-between items-center">
+                <h3 class="text-2xl font-bold" style="color: #4B352A;">
+                    <i class="fas fa-shopping-basket mr-2" style="color: #6d4b3b;"></i>
+                    Détails du panier
+                </h3>
+                <button id="closeCartModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+        </div>
+        <div id="cartContent" class="p-6">
+            <!-- Contenu du panier sera chargé ici -->
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -334,6 +385,237 @@ document.addEventListener('DOMContentLoaded', function() {
     window.switchToTable = function() {
         console.log('Vue tableau activée');
     }
+
+    // Amélioration de l'affichage de la colonne Panier
+    const panierItems = document.querySelectorAll('.panier-item');
+    
+    panierItems.forEach(item => {
+        // Ajouter un effet de survol
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateX(3px) scale(1.02)';
+            this.style.boxShadow = '0 4px 8px rgba(75, 53, 42, 0.15)';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateX(0) scale(1)';
+            this.style.boxShadow = 'none';
+        });
+        
+        // Ajouter un tooltip avec plus d'informations
+        item.addEventListener('click', function() {
+            const articleName = this.querySelector('span[style*="color: #4B352A"]').textContent;
+            const quantity = this.querySelector('.text-green-600').textContent;
+            const price = this.querySelector('.text-gray-600').textContent;
+            
+            // Créer un tooltip personnalisé
+            const tooltip = document.createElement('div');
+            tooltip.className = 'fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-3 text-sm';
+            tooltip.style.left = (event.pageX + 10) + 'px';
+            tooltip.style.top = (event.pageY - 10) + 'px';
+            tooltip.innerHTML = `
+                <div class="font-semibold text-gray-800">${articleName}</div>
+                <div class="text-gray-600">Quantité: ${quantity}</div>
+                <div class="text-gray-600">Prix: ${price}</div>
+            `;
+            
+            document.body.appendChild(tooltip);
+            
+            // Supprimer le tooltip après 3 secondes
+            setTimeout(() => {
+                if (tooltip.parentNode) {
+                    tooltip.parentNode.removeChild(tooltip);
+                }
+            }, 3000);
+        });
+    });
+
+    // Animation d'apparition pour les éléments du panier
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '0';
+                entry.target.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    entry.target.style.transition = 'all 0.5s ease-out';
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }, 100);
+                
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+
+    // Observer tous les éléments du panier
+    document.querySelectorAll('.col-panier').forEach(col => {
+        observer.observe(col);
+    });
+
+    // Ajouter un indicateur de scroll horizontal pour le tableau
+    const tableContainer = document.querySelector('.overflow-x-auto');
+    if (tableContainer) {
+        tableContainer.addEventListener('scroll', function() {
+            const scrollLeft = this.scrollLeft;
+            const scrollWidth = this.scrollWidth;
+            const clientWidth = this.clientWidth;
+            
+            // Ajouter une classe pour indiquer qu'il y a du contenu à faire défiler
+            if (scrollWidth > clientWidth) {
+                this.classList.add('has-horizontal-scroll');
+            }
+        });
+    }
+
+    // Gestion de la modale du panier
+    const closeCartModalBtn = document.getElementById('closeCartModal');
+    const cartModal = document.getElementById('cartModal');
+
+    if (closeCartModalBtn) {
+        closeCartModalBtn.addEventListener('click', function() {
+            if (cartModal) {
+                cartModal.classList.add('hidden');
+            }
+        });
+    }
+
+    // Fermer le modal du panier en cliquant à l'extérieur
+    window.addEventListener('click', function(event) {
+        if (cartModal && event.target === cartModal) {
+            cartModal.classList.add('hidden');
+        }
+    });
 });
+
+// Fonction pour construire le HTML du panier
+function buildCartHTML(data) {
+    const commande = data.commande;
+    const articles = data.articles;
+    
+    let html = `
+        <div class="space-y-4">
+            <div class="border rounded-lg p-4" style="background: linear-gradient(135deg, #f7d9c4, #ede0d3); border-color: #6d4b3b;">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="font-semibold" style="color: #4B352A;">Commande YZ-${commande.id_yz}</h4>
+                        <p class="text-sm" style="color: #6d4b3b;">Client: ${commande.client_nom}</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-lg font-bold" style="color: #4B352A;">${commande.total_articles} article${commande.total_articles > 1 ? 's' : ''}</div>
+                        <div class="text-sm" style="color: #6d4b3b;">Total: ${commande.total_montant.toFixed(2)} DH</div>
+                    </div>
+                </div>
+            </div>`;
+    
+    if (articles.length > 0) {
+        html += `
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Article</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Référence</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Prix unitaire</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Quantité</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Sous-total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">`;
+        
+        articles.forEach(article => {
+            html += `
+                        <tr class="hover:bg-orange-50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium" style="color: #4B352A;">${article.nom}</div>
+                                ${article.description ? `<div class="text-sm text-gray-500">${article.description}</div>` : ''}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${article.reference}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" style="color: #4B352A;">
+                                ${article.prix_unitaire.toFixed(2)} DH
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white" style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                                    ${article.quantite}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                                ${article.sous_total.toFixed(2)} DH
+                            </td>
+                        </tr>`;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>`;
+    } else {
+        html += `
+            <div class="text-center py-8">
+                <i class="fas fa-shopping-basket text-4xl text-gray-400 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Panier vide</h3>
+                <p class="text-gray-500">Cette commande ne contient aucun article.</p>
+            </div>`;
+    }
+    
+    // Utiliser directement le total_final calculé par l'API
+    html += `
+    <div class="rounded-lg p-4 mt-4" style="background: linear-gradient(135deg, #f8f4f0, #fff5f0); border: 1px solid #e5d5c8;">
+        <div class="space-y-2">
+            <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Sous-total articles:</span>
+                <span class="text-sm font-medium">${commande.total_montant.toFixed(2)} DH</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Frais de livraison:</span>
+                <span class="text-sm font-medium">${commande.frais_livraison.toFixed(2)} DH</span>
+            </div>
+            <hr class="border-gray-300">
+            <div class="flex justify-between">
+                <span class="text-lg font-semibold" style="color: #4B352A;">Total commande:</span>
+                <span class="text-lg font-bold text-green-600">${commande.total_final.toFixed(2)} DH</span>
+            </div>
+        </div>
+    </div>
+</div>`;
+
+    return html;
+}
+
+// Fonction pour voir le panier
+function viewCart(commandeId) {
+    console.log('Chargement du panier pour la commande:', commandeId);
+    
+    const url = `/operateur-confirme/api/commande/${commandeId}/panier/`;
+    
+    fetch(url)
+        .then(response => {
+            console.log('Statut de la réponse:', response.status);
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Données reçues:', data);
+            if (data.success) {
+                const html = buildCartHTML(data);
+                document.getElementById('cartContent').innerHTML = html;
+                document.getElementById('cartModal').classList.remove('hidden');
+            } else {
+                alert(data.error || 'Erreur lors du chargement du panier');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors du chargement du panier: ' + error.message);
+        });
+}
 </script>
 {% endblock %} 

@@ -1,0 +1,312 @@
+{% extends 'composant_generale/operatPrepa/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --prepa-bg-gradient: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-dark) 100%);
+    }
+    
+    /* Correction pour la sidebar - s'assurer qu'elle utilise le bon thème */
+    #sidebar {
+        background: linear-gradient(to bottom, var(--preparation-primary), var(--preparation-dark)) !important;
+        border-color: var(--preparation-dark) !important;
+    }
+    
+    /* Cartes KPI avec fond blanc et accents marron */
+    .kpi-card {
+        background-color: #fff;
+        color: var(--preparation-primary);
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1), 0 2px 4px -2px rgba(54, 31, 39, 0.06);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid var(--preparation-border-accent);
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(54, 31, 39, 0.1), 0 4px 6px -4px rgba(54, 31, 39, 0.1);
+        border-color: var(--preparation-primary);
+    }
+    .kpi-card .text-2xl {
+        color: var(--preparation-primary) !important;
+    }
+    .kpi-card .text-sm {
+        color: #6b7280 !important;
+    }
+    
+    /* Filtres avec fond blanc et bordures marron */
+    .filter-card {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1);
+    }
+    .filter-card label {
+        color: var(--preparation-primary) !important;
+    }
+    .filter-card input,
+    .filter-card select {
+        background-color: #fff;
+        border-color: var(--preparation-border-accent);
+        color: #374151;
+    }
+    .filter-card input::placeholder {
+        color: #9ca3af;
+    }
+    .filter-card input:focus,
+    .filter-card select:focus {
+        background-color: #fff;
+        border-color: var(--preparation-primary);
+        color: #374151;
+        box-shadow: 0 0 0 3px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* Carte principale avec fond blanc */
+    .main-card {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* Cartes d'articles avec fond blanc */
+    .article-card {
+        background-color: #fff;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+    .article-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(54, 31, 39, 0.1), 0 10px 10px -5px rgba(54, 31, 39, 0.04);
+        border-color: var(--preparation-border-accent);
+    }
+    .article-card h4 {
+        color: var(--preparation-primary) !important;
+    }
+    .article-card .text-gray-500 {
+        color: #6b7280 !important;
+    }
+    .article-card .text-gray-600 {
+        color: #4b5563 !important;
+    }
+    
+    /* Pagination avec fond blanc */
+    .pagination-section {
+        background-color: #f9fafb;
+        color: var(--preparation-primary);
+        border-top-color: var(--preparation-border-accent);
+    }
+    .pagination-section a {
+        background-color: #fff;
+        border-color: var(--preparation-border-accent);
+        color: var(--preparation-primary);
+    }
+    .pagination-section a:hover {
+        background-color: var(--preparation-primary);
+        color: var(--preparation-text-light);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 text-white p-5 rounded-xl shadow-lg"
+         style="background: var(--prepa-bg-gradient);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center">
+                <i class="fas fa-boxes mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: var(--preparation-border-accent);" class="mt-1">{{ page_subtitle }}</p>
+        </div>
+        <div class="flex gap-3 mt-4 md:mt-0">
+            <a href="{% url 'Prepacommande:creer_article' %}" class="inline-flex items-center px-4 py-2 text-white text-sm font-semibold rounded-md shadow-sm transition-all duration-200" style="background-color: var(--preparation-border-accent); hover:background-color: var(--preparation-primary);">
+                <i class="fas fa-plus mr-2"></i>
+                Nouvel Article
+            </a>
+            <a href="{% url 'Prepacommande:alertes_stock' %}" class="inline-flex items-center px-4 py-2 text-white text-sm font-semibold rounded-md shadow-sm transition-all duration-200" style="background-color: #f59e0b; hover:background-color: #d97706;">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                Voir les Alertes
+            </a>
+        </div>
+    </div>
+
+    <!-- Cartes de Statistiques -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-cubes fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ articles_total|intcomma }}</p>
+                <p class="text-sm font-medium">Articles au Total</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-check-circle fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ articles_actifs|intcomma }}</p>
+                <p class="text-sm font-medium">Actifs</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-minus-circle fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ articles_inactifs|intcomma }}</p>
+                <p class="text-sm font-medium">Inactifs</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-times-circle fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ articles_rupture|intcomma }}</p>
+                <p class="text-sm font-medium">En Rupture</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contenu principal : Filtres et Tableau -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        <!-- Colonne des filtres -->
+        <div class="lg:col-span-1">
+            <form method="get" class="filter-card rounded-xl shadow-md p-5 sticky top-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center" style="color: var(--preparation-primary);">
+                    <i class="fas fa-filter mr-2" style="color: var(--preparation-border-accent);"></i>
+                    Filtres
+                </h3>
+                <div class="space-y-4">
+                    <!-- Recherche -->
+                    <div>
+                        <label for="q" class="block text-sm font-medium mb-1" style="color: var(--preparation-primary);">Recherche</label>
+                        <input type="text" name="q" id="q" value="{{ request.GET.q|default:'' }}" placeholder="Nom, réf, couleur..." class="w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition" style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                    </div>
+                    <!-- Tri -->
+                    <div>
+                        <label for="tri" class="block text-sm font-medium mb-1" style="color: var(--preparation-primary);">Trier par</label>
+                        <select name="tri" id="tri" class="w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition" style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                            <option value="date_creation" {% if current_filters.tri == 'date_creation' %}selected{% endif %}>Plus récents</option>
+                            <option value="nom" {% if current_filters.tri == 'nom' %}selected{% endif %}>Nom (A-Z)</option>
+                            <option value="stock_desc" {% if current_filters.tri == 'stock_desc' %}selected{% endif %}>Stock (décroissant)</option>
+                            <option value="stock_asc" {% if current_filters.tri == 'stock_asc' %}selected{% endif %}>Stock (croissant)</option>
+                            <option value="prix_desc" {% if current_filters.tri == 'prix_desc' %}selected{% endif %}>Prix (décroissant)</option>
+                            <option value="prix_asc" {% if current_filters.tri == 'prix_asc' %}selected{% endif %}>Prix (croissant)</option>
+                        </select>
+                    </div>
+                    <!-- Catégorie -->
+                    <div>
+                        <label for="categorie" class="block text-sm font-medium mb-1" style="color: var(--preparation-primary);">Catégorie</label>
+                        <select name="categorie" id="categorie" class="w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition" style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                            <option value="">Toutes</option>
+                            {% for cat in categories_uniques %}
+                            <option value="{{ cat }}" {% if current_filters.categorie == cat %}selected{% endif %}>{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <!-- Statut -->
+                    <div>
+                        <label for="statut" class="block text-sm font-medium mb-1" style="color: var(--preparation-primary);">Statut</label>
+                        <select name="statut" id="statut" class="w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition" style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                            <option value="">Tous</option>
+                            <option value="actif" {% if current_filters.statut == 'actif' %}selected{% endif %}>Actif</option>
+                            <option value="inactif" {% if current_filters.statut == 'inactif' %}selected{% endif %}>Inactif</option>
+                        </select>
+                    </div>
+                    <!-- Boutons -->
+                    <div class="flex space-x-2 pt-2">
+                        <button type="submit" class="flex-grow flex justify-center items-center px-4 py-2 text-white font-semibold rounded-md transition-colors" style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);">
+                            <i class="fas fa-search mr-2"></i>Filtrer
+                        </button>
+                        <a href="{% url 'Prepacommande:liste_articles' %}" class="flex-shrink-0 px-3 py-2 text-white rounded-md transition-colors" style="background-color: var(--preparation-border-accent); hover:background-color: var(--preparation-primary);" title="Réinitialiser les filtres">
+                            <i class="fas fa-sync-alt"></i>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Colonne des articles -->
+        <div class="lg:col-span-3">
+            <div class="main-card rounded-xl shadow-md">
+                <div class="p-5" style="background-color: var(--preparation-primary);">
+                    <h3 class="text-xl font-bold text-white">
+                        {{ articles.paginator.count|intcomma }} Article{{ articles.paginator.count|pluralize }} Trouvé{{ articles.paginator.count|pluralize }}
+                    </h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 p-5">
+                    {% for article in articles %}
+                    <div class="article-card rounded-lg shadow-sm hover:shadow-lg transition-shadow duration-200 flex flex-col">
+                        <a href="{% url 'Prepacommande:detail_article' article.pk %}" class="block">
+                            {% if article.image %}
+                                <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-full h-40 object-cover rounded-t-lg">
+                            {% else %}
+                                <div class="w-full h-40 flex items-center justify-center rounded-t-lg" style="background-color: var(--preparation-border-accent);">
+                                    <i class="fas fa-box-open text-4xl text-white"></i>
+                                </div>
+                            {% endif %}
+                        </a>
+                        <div class="p-4 flex flex-col flex-grow">
+                            <h4 class="text-lg font-bold truncate" style="color: var(--preparation-primary);">{{ article.nom }}</h4>
+                            <p class="text-xs text-gray-500 mb-2">Réf: {{ article.reference|default:'N/A' }}</p>
+                            
+                            <div class="flex items-center justify-between my-2">
+                                <span class="text-xl font-bold" style="color: var(--preparation-border-accent);">{{ article.prix_actuel|default:article.prix_unitaire|floatformat:2|intcomma }} <span class="text-sm font-normal">DH</span></span>
+                                {% if article.actif %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full" style="background-color: rgba(154, 106, 77, 0.2); color: var(--preparation-border-accent);">Actif</span>
+                                {% else %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full" style="background-color: rgba(240, 248, 248, 0.2); color: var(--preparation-text-light);">Inactif</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="mt-2 text-sm">
+                                {% if article.qte_disponible <= 0 %}
+                                    <p class="font-semibold" style="color: #ef4444;">En rupture de stock</p>
+                                {% elif article.qte_disponible <= 10 %}
+                                    <p class="font-semibold" style="color: #f59e0b;">Stock faible ({{ article.qte_disponible }})</p>
+                                {% else %}
+                                    <p>En stock: <span class="font-bold" style="color: var(--preparation-border-accent);">{{ article.qte_disponible|intcomma }}</span></p>
+                                {% endif %}
+                            </div>
+
+                            <div class="mt-auto pt-4 flex gap-2">
+                                <a href="{% url 'Prepacommande:modifier_article' article.pk %}" class="flex-1 text-center px-3 py-2 text-white rounded-md text-sm font-semibold transition-colors" style="background-color: var(--preparation-border-accent); hover:background-color: var(--preparation-primary);">Modifier</a>
+                                <a href="{% url 'Prepacommande:ajuster_stock' article.pk %}" class="flex-1 text-center px-3 py-2 text-white rounded-md text-sm font-semibold transition-colors" style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);">Ajuster</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="lg:col-span-3 text-center py-12">
+                        <i class="fas fa-search-minus fa-3x mb-4" style="color: var(--preparation-border-accent);"></i>
+                        <h3 class="text-xl font-semibold" style="color: var(--preparation-primary);">Aucun article ne correspond à vos filtres.</h3>
+                        <p class="text-gray-500 mt-1">Essayez de modifier ou de réinitialiser vos critères de recherche.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if articles.has_other_pages %}
+                <div class="pagination-section p-4 border-t flex items-center justify-between">
+                    <span class="text-sm">
+                        Page <span class="font-semibold">{{ articles.number }}</span> sur <span class="font-semibold">{{ articles.paginator.num_pages }}</span>
+                    </span>
+                    <div class="flex-1 flex justify-end space-x-2">
+                        {% if articles.has_previous %}
+                            <a href="?page={{ articles.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="inline-flex items-center px-3 py-1.5 border text-sm font-medium rounded-md transition-colors">
+                                Précédent
+                            </a>
+                        {% endif %}
+                        {% if articles.has_next %}
+                            <a href="?page={{ articles.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="inline-flex items-center px-3 py-1.5 border text-sm font-medium rounded-md transition-colors">
+                                Suivant
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

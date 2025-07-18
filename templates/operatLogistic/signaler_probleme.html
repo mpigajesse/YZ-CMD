@@ -1,0 +1,218 @@
+{% extends 'composant_generale/operatLogistic/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--logistic-gradient-start), var(--logistic-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-exclamation-triangle mr-3" style="color: var(--logistic-accent-color);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: var(--logistic-accent-color);">{{ page_subtitle }}</p>
+        </div>
+        <div class="text-right mt-4 md:mt-0">
+            <div class="text-2xl font-bold" style="color: var(--logistic-accent-color);">{{ commande.id_yz }}</div>
+            <div class="text-sm opacity-80">Commande</div>
+        </div>
+    </div>
+
+    <!-- Informations de la commande -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-6" style="border-color: var(--logistic-border-accent);">
+        <h2 class="text-xl font-semibold mb-4" style="color: var(--logistic-primary);">Informations de la Commande</h2>
+        <div class="grid md:grid-cols-2 gap-6">
+            <div>
+                <h3 class="font-medium text-gray-900 mb-2">Client</h3>
+                <p class="text-gray-600">{{ commande.client.prenom }} {{ commande.client.nom }}</p>
+                <p class="text-gray-600">{{ commande.client.numero_tel }}</p>
+                <p class="text-gray-600">{{ commande.adresse }}</p>
+            </div>
+            <div>
+                <h3 class="font-medium text-gray-900 mb-2">Livraison</h3>
+                <p class="text-gray-600">{{ commande.ville.nom }}, {{ commande.ville.region.nom_region }}</p>
+                <p class="text-gray-600">Total: {{ commande.total_cmd|floatformat:2 }} DH</p>
+                <p class="text-gray-600">{{ commande.paniers.count }} article(s)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire de signalement -->
+    <div class="bg-white rounded-xl shadow-lg border p-6" style="border-color: var(--logistic-border-accent);">
+        <h2 class="text-xl font-semibold mb-6" style="color: var(--logistic-primary);">Signaler un Problème</h2>
+        
+        <form id="problemeForm" method="POST" action="{% url 'operatLogistic:changer_etat_sav' commande.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="nouvel_etat" id="nouvelEtatInput">
+            
+            <!-- Type de problème -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-3">Type de problème</label>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button type="button" onclick="selectionnerProbleme('Reportée')" class="probleme-btn" data-etat="Reportée">
+                        <i class="fas fa-clock text-yellow-500 mr-2"></i>
+                        <div class="text-left">
+                            <div class="font-medium">Reporter la livraison</div>
+                            <div class="text-sm text-gray-500">Client indisponible, adresse incorrecte, etc.</div>
+                        </div>
+                    </button>
+                    
+                    <button type="button" onclick="selectionnerProbleme('Retournée')" class="probleme-btn" data-etat="Retournée">
+                        <i class="fas fa-times-circle text-red-500 mr-2"></i>
+                        <div class="text-left">
+                            <div class="font-medium">Retourner la commande</div>
+                            <div class="text-sm text-gray-500">Articles défectueux, refus du client, etc.</div>
+                        </div>
+                    </button>
+                    
+                    <button type="button" onclick="selectionnerProbleme('Livrée avec changement')" class="probleme-btn" data-etat="Livrée avec changement">
+                        <i class="fas fa-exchange-alt text-purple-500 mr-2"></i>
+                        <div class="text-left">
+                            <div class="font-medium">Livrée avec changement</div>
+                            <div class="text-sm text-gray-500">Articles remplacés, quantités modifiées, etc.</div>
+                        </div>
+                    </button>
+                    
+                    <button type="button" onclick="selectionnerProbleme('Livrée')" class="probleme-btn" data-etat="Livrée">
+                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                        <div class="text-left">
+                            <div class="font-medium">Marquer comme livrée</div>
+                            <div class="text-sm text-gray-500">Livraison effectuée avec succès</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Date de report (si applicable) -->
+            <div id="dateReportSection" class="mb-6 hidden">
+                <label for="date_report" class="block text-sm font-medium text-gray-700 mb-2">Nouvelle date de livraison</label>
+                <input type="date" id="date_report" name="date_report" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Commentaire -->
+            <div class="mb-6">
+                <label for="commentaire" class="block text-sm font-medium text-gray-700 mb-2">Commentaire détaillé</label>
+                <textarea id="commentaire" name="commentaire" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Décrivez le problème rencontré, les actions prises, etc." required></textarea>
+            </div>
+
+            <!-- Boutons d'action -->
+            <div class="flex justify-end space-x-4">
+                <a href="{% url 'operatLogistic:detail_commande' commande.id %}" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                    Annuler
+                </a>
+                <button type="submit" id="submitBtn" class="px-6 py-2 text-white rounded-md transition-colors opacity-50 cursor-not-allowed" style="background-color: var(--logistic-primary);">
+                    Confirmer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.probleme-btn {
+    @apply p-4 border-2 border-gray-200 rounded-lg text-left transition-all duration-200 hover:border-blue-300 hover:shadow-md;
+}
+
+.probleme-btn.selected {
+    @apply border-blue-500 bg-blue-50;
+}
+
+.probleme-btn:hover {
+    @apply transform scale-105;
+}
+</style>
+
+<script>
+let etatSelectionne = null;
+
+function selectionnerProbleme(etat) {
+    // Désélectionner tous les boutons
+    document.querySelectorAll('.probleme-btn').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    // Sélectionner le bouton cliqué
+    event.target.closest('.probleme-btn').classList.add('selected');
+    
+    // Mettre à jour l'état sélectionné
+    etatSelectionne = etat;
+    document.getElementById('nouvelEtatInput').value = etat;
+    
+    // Afficher/masquer la section date de report
+    const dateReportSection = document.getElementById('dateReportSection');
+    if (etat === 'Reportée') {
+        dateReportSection.classList.remove('hidden');
+        document.getElementById('date_report').required = true;
+    } else {
+        dateReportSection.classList.add('hidden');
+        document.getElementById('date_report').required = false;
+    }
+    
+    // Activer le bouton de confirmation
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = false;
+    submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    submitBtn.classList.add('hover:opacity-90');
+}
+
+// Gestionnaire de soumission du formulaire
+document.getElementById('problemeForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!etatSelectionne) {
+        alert('Veuillez sélectionner un type de problème.');
+        return;
+    }
+    
+    const commentaire = document.getElementById('commentaire').value.trim();
+    if (!commentaire) {
+        alert('Veuillez saisir un commentaire.');
+        return;
+    }
+    
+    if (etatSelectionne === 'Reportée') {
+        const dateReport = document.getElementById('date_report').value;
+        if (!dateReport) {
+            alert('Veuillez sélectionner une nouvelle date de livraison.');
+            return;
+        }
+    }
+    
+    // Désactiver le bouton pour éviter les doubles soumissions
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Traitement...';
+    
+    // Soumettre le formulaire
+    fetch(this.action, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams(new FormData(this))
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Problème signalé avec succès !');
+            window.location.href = "{% url 'operatLogistic:detail_commande' commande.id %}";
+        } else {
+            alert('Erreur: ' + data.error);
+            // Réactiver le bouton
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Confirmer';
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de réseau: ' + error.message);
+        // Réactiver le bouton
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Confirmer';
+    });
+});
+</script>
+{% endblock %} 

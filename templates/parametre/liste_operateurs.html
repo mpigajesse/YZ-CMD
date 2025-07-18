@@ -3,6 +3,10 @@
 
 {% block title %}Liste des Opérateurs - YZ-CMD{% endblock %}
 
+{% block extra_head %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+{% endblock %}
+
 {% block extra_css %}
 <style>
     @keyframes slideInUp {
@@ -24,6 +28,11 @@
 {% endblock %}
 
 {% block content %}
+<!-- Formulaire caché pour le token CSRF -->
+<form id="hidden-csrf-form" style="display: none;">
+    {% csrf_token %}
+</form>
+
 <div class="main-content transition-all duration-300" id="mainContent">
     <!-- En-tête de la page -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
@@ -263,6 +272,15 @@
 {% block extra_js %}
 <script>
 function confirmDelete(deleteUrl, operateurNom) {
+    // Test du token CSRF avant la suppression
+    const csrfToken = getCSRFToken();
+    console.log('Token CSRF pour suppression:', csrfToken);
+    
+    if (!csrfToken) {
+        alert('Erreur: Token CSRF non trouvé. Veuillez actualiser la page.');
+        return;
+    }
+    
     showCustomConfirmModal(deleteUrl, `l\'opérateur ${operateurNom}`);
 }
 
@@ -306,13 +324,111 @@ function confirmDelete(deleteUrl, operateurNom) {
 
             if (selectedIds.length > 0) {
                 const deleteUrl = "{% url 'app_admin:supprimer_operateurs_masse' %}"; // Cette URL sera créée plus tard
-                showCustomConfirmModal(deleteUrl, `les ${selectedIds.length} opérateurs sélectionnés`);
+                showCustomConfirmModal(deleteUrl, `les ${selectedIds.length} opérateurs sélectionnés`, selectedIds);
             } else {
                 alert("Veuillez sélectionner au moins un opérateur à supprimer.");
             }
         });
 
         updateBulkDeleteButton(); // Initial check on page load
+        
+        // Test du token CSRF au chargement de la page
+        const csrfToken = getCSRFToken();
+        console.log('Token CSRF disponible:', csrfToken ? 'OUI' : 'NON');
+        if (csrfToken) {
+            console.log('Premier caractère du token:', csrfToken.charAt(0));
+            console.log('Longueur du token:', csrfToken.length);
+        }
+        
+        // Fonction pour récupérer le token CSRF de manière fiable
+        function getCSRFToken() {
+            // Méthode 1: Depuis un input hidden (le plus fiable)
+            const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            if (csrfInput) {
+                console.log('Token CSRF récupéré depuis input hidden:', csrfInput.value);
+                return csrfInput.value;
+            }
+            
+            // Méthode 2: Depuis la méta tag
+            const metaTag = document.querySelector('meta[name="csrf-token"]');
+            if (metaTag) {
+                console.log('Token CSRF récupéré depuis méta tag:', metaTag.getAttribute('content'));
+                return metaTag.getAttribute('content');
+            }
+            
+            // Méthode 3: Depuis un cookie
+            const cookieValue = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('csrftoken='))
+                ?.split('=')[1];
+            
+            if (cookieValue) {
+                console.log('Token CSRF récupéré depuis cookie:', cookieValue);
+                return cookieValue;
+            }
+            
+            console.error('Aucun token CSRF trouvé !');
+            return null;
+        }
+
+        // Surcharge de la fonction showCustomConfirmModal pour utiliser directement le token CSRF
+        const originalShowCustomConfirmModal = window.showCustomConfirmModal;
+        if (originalShowCustomConfirmModal) {
+            window.showCustomConfirmModal = function(deleteUrl, itemDescription, selectedIds = null) {
+                const confirmBtn = document.getElementById('confirmDeleteBtn');
+                const modalText = document.getElementById('confirmModalText') || document.getElementById('itemName');
+
+                if (modalText) {
+                    modalText.innerHTML = `Êtes-vous sûr de vouloir supprimer <strong>${itemDescription}</strong> ? Cette action est irréversible.`;
+                }
+                
+                confirmBtn.onclick = function() {
+                    const csrfToken = getCSRFToken();
+                    console.log('Token CSRF utilisé pour la suppression:', csrfToken);
+                    
+                    if (!csrfToken) {
+                        alert('Erreur: Token CSRF non disponible. Veuillez actualiser la page.');
+                        return;
+                    }
+                    
+                    // Utilisation de fetch (AJAX) au lieu de formulaire
+                    const formData = new FormData();
+                    formData.append('csrfmiddlewaretoken', csrfToken);
+                    
+                    if (selectedIds) {
+                        selectedIds.forEach(id => {
+                            formData.append('ids[]', id);
+                        });
+                    }
+                    
+                    fetch(deleteUrl, {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'same-origin'
+                    })
+                    .then(response => {
+                        // Fermer le modal d'abord
+                        document.getElementById('customConfirmModal').classList.add('hidden');
+                        
+                        if (response.ok) {
+                            console.log('Suppression réussie');
+                            location.reload();
+                        } else {
+                            console.error('Erreur lors de la suppression:', response.status);
+                            alert('Erreur lors de la suppression. Code: ' + response.status);
+                        }
+                    })
+                    .catch(error => {
+                        // Fermer le modal même en cas d'erreur
+                        document.getElementById('customConfirmModal').classList.add('hidden');
+                        console.error('Erreur réseau:', error);
+                        alert('Erreur réseau lors de la suppression.');
+                    });
+                };
+                
+                document.getElementById('customConfirmModal').classList.remove('hidden');
+            };
+        }
     });
 </script>
 {% endblock %} 

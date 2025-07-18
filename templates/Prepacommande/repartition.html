@@ -1,0 +1,617 @@
+{% extends 'composant_generale/operatPrepa/base.html' %}
+{% load static %}
+{% load prepa_filters %}
+{% load humanize %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --prepa-bg-gradient: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-dark) 100%);
+    }
+    
+    /* Correction pour la sidebar - s'assurer qu'elle utilise le bon thème */
+    #sidebar {
+        background: linear-gradient(to bottom, var(--preparation-primary), var(--preparation-dark)) !important;
+        border-color: var(--preparation-dark) !important;
+    }
+    
+    /* Cartes KPI avec fond blanc et accents marron */
+    .kpi-card {
+        background-color: #fff;
+        color: var(--preparation-primary);
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1), 0 2px 4px -2px rgba(54, 31, 39, 0.06);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid var(--preparation-border-accent);
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(54, 31, 39, 0.1), 0 4px 6px -4px rgba(54, 31, 39, 0.1);
+        border-color: var(--preparation-primary);
+    }
+    .kpi-card .text-2xl {
+        color: var(--preparation-primary) !important;
+    }
+    .kpi-card .text-sm {
+        color: #6b7280 !important;
+    }
+    
+    /* Cartes de contenu avec fond blanc */
+    .content-card {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* En-têtes de cartes avec thème marron */
+    .card-header {
+        background-color: var(--preparation-primary);
+        color: var(--preparation-text-light);
+        border-bottom-color: var(--preparation-border-accent);
+    }
+    
+    /* Tableaux avec fond blanc */
+    .content-card tbody {
+        background-color: #fff;
+    }
+    .content-card tbody tr {
+        border-color: #e5e7eb;
+    }
+    .content-card tbody tr:hover {
+        background-color: #f9fafb !important;
+    }
+    .content-card tbody td {
+        color: #374151;
+    }
+    .content-card tbody .text-gray-500 {
+        color: #6b7280 !important;
+    }
+    
+    /* Cartes de région avec fond blanc */
+    .region-card {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        transition: all 0.3s ease;
+    }
+    .region-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(54, 31, 39, 0.1), 0 10px 10px -5px rgba(54, 31, 39, 0.04);
+        border-color: var(--preparation-primary);
+    }
+    
+    /* Section d'exportation */
+    .export-section {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* Animation d'apparition */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-fade-in {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+</style>
+<!-- Ajout de la bibliothèque SheetJS pour l'export Excel -->
+<script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 text-white p-5 rounded-xl shadow-lg"
+         style="background: var(--prepa-bg-gradient);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center">
+                <i class="fas fa-map-marked-alt mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: var(--preparation-border-accent);" class="mt-1">{{ page_subtitle }}</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <div class="text-right">
+                <div class="text-2xl font-bold" style="color: var(--preparation-border-accent);">{{ total_commandes_reparties|default:0|intcomma }}</div>
+                <div class="text-sm opacity-80">Commandes réparties</div>
+            </div>
+            <div class="text-right border-l border-white/50 pl-4 ml-4">
+                <div class="text-lg font-bold text-green-300">
+                    <i class="fas fa-route mr-2"></i>
+                    Répartition Active
+                </div>
+                <div class="text-sm opacity-80">En cours de livraison</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cartes de Statistiques -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="kpi-card flex items-center p-4 animate-fade-in">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-shopping-cart fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ total_commandes_reparties|default:0|intcomma }}</p>
+                <p class="text-sm font-medium">Commandes en Traitement</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4 animate-fade-in" style="animation-delay: 0.1s;">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-coins fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ total_montant_general|floatformat:0|default:0|intcomma }} DH</p>
+                <p class="text-sm font-medium">Valeur Totale</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4 animate-fade-in" style="animation-delay: 0.2s;">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-map fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ stats_par_region|length|default:0|intcomma }}</p>
+                <p class="text-sm font-medium">Régions Actives</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4 animate-fade-in" style="animation-delay: 0.3s;">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-city fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ stats_par_ville|length|default:0|intcomma }}</p>
+                <p class="text-sm font-medium">Villes Couvertes</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section d'exportation globale -->
+    <div class="export-section rounded-xl p-6 mb-8">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-semibold mb-2" style="color: var(--preparation-primary);">
+                    <i class="fas fa-download mr-2" style="color: var(--preparation-border-accent);"></i>
+                    Exportation des données
+                </h3>
+                <p class="text-gray-600">Exportez toutes les commandes réparties ou par région spécifique</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-3">
+                <!-- Export global Excel -->
+                <button onclick="exporterToutExcel()" 
+                   class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg transition-colors duration-200 hover:bg-green-700">
+                    <i class="fas fa-file-excel mr-2"></i>
+                    Exporter tout (Excel)
+                </button>
+                
+                <!-- Export global CSV -->
+                <button onclick="exporterToutCSV()" 
+                   class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors duration-200 hover:bg-blue-700">
+                    <i class="fas fa-file-csv mr-2"></i>
+                    Exporter tout (CSV)
+                </button>
+                
+                <!-- Bouton actualiser -->
+                <button onclick="actualiserDonnees()" 
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors duration-200">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    Actualiser
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques par région -->
+    {% if stats_par_region %}
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold mb-6 flex items-center" style="color: var(--preparation-primary);">
+            <i class="fas fa-globe mr-2" style="color: var(--preparation-border-accent);"></i>Commandes en Traitement par Région
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for stat in stats_par_region %}
+            <div class="region-card rounded-xl shadow-lg p-6 animate-fade-in" style="animation-delay: {{ forloop.counter0|mul:0.1 }}s;">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold" style="color: var(--preparation-primary);">{{ stat.ville__region__nom_region }}</h3>
+                    <div class="p-3 rounded-full" style="background-color: rgba(154, 106, 77, 0.1);">
+                        <i class="fas fa-map text-xl" style="color: var(--preparation-primary);"></i>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">En traitement :</span>
+                        <span class="font-bold text-xl" style="color: var(--preparation-primary);">{{ stat.nb_commandes|intcomma }}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Montant total :</span>
+                        <span class="font-bold text-green-600">{{ stat.total_montant|floatformat:2|intcomma }} DH</span>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <!-- Bouton Voir les détails -->
+                        <a href="{% url 'Prepacommande:details_region' %}?region={{ stat.ville__region__nom_region }}" 
+                           class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white rounded-lg transition-colors duration-200 hover:opacity-90"
+                           style="background-color: var(--preparation-primary);">
+                            <i class="fas fa-eye mr-2"></i>
+                            Voir les détails
+                        </a>
+                        
+                        <!-- Boutons d'export -->
+                        <div class="flex-1 flex gap-1">
+                            <button onclick="exporterRegion('{{ stat.ville__region__nom_region }}', 'excel')" 
+                                    class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg transition-colors duration-200 hover:bg-green-700">
+                                <i class="fas fa-file-excel mr-1"></i>
+                                Excel
+                            </button>
+                            <button onclick="exporterRegion('{{ stat.ville__region__nom_region }}', 'csv')" 
+                                    class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors duration-200 hover:bg-blue-700">
+                                <i class="fas fa-file-csv mr-1"></i>
+                                CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Répartition détaillée par ville -->
+    {% if stats_par_ville %}
+    <div class="content-card rounded-xl shadow-md overflow-hidden">
+        <div class="card-header px-6 py-4 border-b">
+            <h2 class="text-xl font-bold flex items-center">
+                <i class="fas fa-list mr-2" style="color: var(--preparation-border-accent);"></i>
+                Détail par Ville - Commandes en Traitement
+            </h2>
+            <p class="text-sm opacity-80 mt-1">Inclut les commandes : Confirmées, À imprimer, Préparées et En cours de livraison</p>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead style="background-color: var(--preparation-light);">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">
+                            Ville
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">
+                            Région
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">
+                            Commandes
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">
+                            Montant Total
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">
+                            Répartition
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for stat in stats_par_ville %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <i class="fas fa-city mr-2 text-gray-400"></i>
+                                <div class="text-sm font-medium" style="color: var(--preparation-primary);">{{ stat.ville__nom }}</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ stat.ville__region__nom_region }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {{ stat.nb_commandes|intcomma }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-semibold text-gray-900">{{ stat.total_montant|floatformat:0|intcomma }} DH</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if total_montant_general > 0 %}
+                            <div class="flex items-center">
+                                <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                    <div class="h-2 rounded-full" 
+                                         style="width: {{ stat.total_montant|percentage:total_montant_general|floatformat:1 }}%; background-color: var(--preparation-primary);"></div>
+                                </div>
+                                <span class="text-xs text-gray-500">{{ stat.total_montant|percentage:total_montant_general|floatformat:1 }}%</span>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="{% url 'Prepacommande:details_region' %}?ville={{ stat.ville__nom }}" 
+                               class="hover:text-orange-700 transition-colors" style="color: var(--preparation-border-accent);">
+                                <i class="fas fa-eye mr-1"></i>
+                                Détails
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <!-- État vide -->
+    <div class="content-card rounded-xl p-12 text-center">
+        <div class="max-w-sm mx-auto">
+            <i class="fas fa-map-marked-alt text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Aucune commande répartie</h3>
+            <p class="text-gray-500 mb-6">Il n'y a actuellement aucune commande en cours de livraison répartie par région.</p>
+            <a href="{% url 'Prepacommande:repartition_automatique' %}" 
+               class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors"
+               style="background-color: var(--preparation-primary); focus:ring-color: var(--preparation-primary);">
+                <i class="fas fa-route mr-2"></i>
+                Démarrer une Répartition
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Fonction pour afficher les notifications
+function showNotification(message, type = 'info') {
+    const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500',
+        warning: 'bg-orange-500'
+    };
+    
+    const notification = document.createElement('div');
+    notification.innerHTML = `
+        <div class="fixed top-4 right-4 ${colors[type]} text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
+            <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : type === 'warning' ? 'exclamation' : 'info'}-circle mr-2"></i>${message}
+        </div>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        document.body.removeChild(notification);
+    }, 3000);
+}
+
+// Fonction pour actualiser les données
+function actualiserDonnees() {
+    const button = event.target.closest('button');
+    const icon = button.querySelector('i');
+    
+    // Animation du bouton
+    icon.classList.add('fa-spin');
+    button.disabled = true;
+    
+    // Notification
+    showNotification("Actualisation des données en cours...", "info");
+    
+    // Simuler le rechargement
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+// Fonction pour exporter une région spécifique
+function exporterRegion(nomRegion, format = 'excel') {
+    if (format === 'excel') {
+        // Export Excel
+        const data = [];
+        
+        // En-têtes
+        data.push(["Région", "Ville", "Nombre de Commandes", "Montant Total (DH)"]);
+        
+        // Filtrer les statistiques par ville pour cette région
+        {% for stat in stats_par_ville %}
+        if ("{{ stat.ville__region__nom_region }}" === nomRegion) {
+            data.push([
+                "{{ stat.ville__region__nom_region }}",
+                "{{ stat.ville__nom }}",
+                {{ stat.nb_commandes }},
+                {{ stat.total_montant|floatformat:0 }}
+            ]);
+        }
+        {% endfor %}
+        
+        // Ajouter une ligne de total pour la région
+        let totalCommandes = 0;
+        let totalMontant = 0;
+        
+        {% for stat in stats_par_region %}
+        if ("{{ stat.ville__region__nom_region }}" === nomRegion) {
+            totalCommandes = {{ stat.nb_commandes }};
+            totalMontant = {{ stat.total_montant|floatformat:0 }};
+        }
+        {% endfor %}
+        
+        data.push(["", "TOTAL", totalCommandes, totalMontant]);
+        
+        // Création du workbook et worksheet
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Région " + nomRegion);
+        
+        // Définir les largeurs de colonnes
+        const wscols = [
+            {wch: 20}, // Région
+            {wch: 20}, // Ville
+            {wch: 20}, // Nombre de commandes
+            {wch: 20}  // Montant total
+        ];
+        ws['!cols'] = wscols;
+        
+        // Générer le fichier Excel
+        const filename = "region_" + nomRegion.toLowerCase().replace(/\s+/g, '_') + "_" + 
+                        new Date().toISOString().split('T')[0] + ".xlsx";
+        
+        XLSX.writeFile(wb, filename);
+        
+        // Notification
+        showNotification(`Export Excel de la région ${nomRegion} réussi !`, "success");
+    } else {
+        // Export CSV
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Région,Ville,Nombre de Commandes,Montant Total (DH)\n";
+        
+        // Filtrer les statistiques par ville pour cette région
+        {% for stat in stats_par_ville %}
+        if ("{{ stat.ville__region__nom_region }}" === nomRegion) {
+            csvContent += "{{ stat.ville__region__nom_region }},{{ stat.ville__nom }},{{ stat.nb_commandes }},{{ stat.total_montant|floatformat:0 }}\n";
+        }
+        {% endfor %}
+        
+        // Ajouter une ligne de total pour la région
+        let totalCommandes = 0;
+        let totalMontant = 0;
+        
+        {% for stat in stats_par_region %}
+        if ("{{ stat.ville__region__nom_region }}" === nomRegion) {
+            totalCommandes = {{ stat.nb_commandes }};
+            totalMontant = {{ stat.total_montant|floatformat:0 }};
+        }
+        {% endfor %}
+        
+        csvContent += ",TOTAL," + totalCommandes + "," + totalMontant + "\n";
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        
+        const filename = "region_" + nomRegion.toLowerCase().replace(/\s+/g, '_') + "_" + 
+                        new Date().toISOString().split('T')[0] + ".csv";
+        link.setAttribute("download", filename);
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Notification
+        showNotification(`Export CSV de la région ${nomRegion} réussi !`, "success");
+    }
+}
+
+// Fonction pour exporter tout en Excel
+function exporterToutExcel() {
+    // Créer un format Excel avec SheetJS
+    const data = [];
+    
+    // En-têtes
+    data.push(["Région", "Nombre de Commandes", "Montant Total (DH)"]);
+    
+    // Données des régions
+    {% for stat in stats_par_region %}
+    data.push([
+        "{{ stat.ville__region__nom_region }}",
+        {{ stat.nb_commandes }},
+        {{ stat.total_montant|floatformat:0 }}
+    ]);
+    {% endfor %}
+    
+    // Ligne de total général
+    data.push([
+        "TOTAL GÉNÉRAL", 
+        {{ total_commandes_reparties|default:0 }}, 
+        {{ total_montant_general|floatformat:0|default:0 }}
+    ]);
+    
+    // Création du workbook et worksheet
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Répartition Régions");
+    
+    // Définir les largeurs de colonnes
+    const wscols = [
+        {wch: 25}, // Région
+        {wch: 20}, // Nombre de commandes
+        {wch: 20}  // Montant total
+    ];
+    ws['!cols'] = wscols;
+    
+    // Création d'une deuxième feuille avec les détails par ville
+    const dataVilles = [];
+    dataVilles.push(["Région", "Ville", "Nombre de Commandes", "Montant Total (DH)", "Pourcentage"]);
+    
+    {% for stat in stats_par_ville %}
+    dataVilles.push([
+        "{{ stat.ville__region__nom_region }}",
+        "{{ stat.ville__nom }}",
+        {{ stat.nb_commandes }},
+        {{ stat.total_montant|floatformat:0 }},
+        "{{ stat.total_montant|percentage:total_montant_general|floatformat:1 }}%"
+    ]);
+    {% endfor %}
+    
+    const wsVilles = XLSX.utils.aoa_to_sheet(dataVilles);
+    XLSX.utils.book_append_sheet(wb, wsVilles, "Détail par Ville");
+    
+    // Définir les largeurs de colonnes pour la feuille des villes
+    const wscolsVilles = [
+        {wch: 20}, // Région
+        {wch: 20}, // Ville
+        {wch: 20}, // Nombre de commandes
+        {wch: 20}, // Montant total
+        {wch: 15}  // Pourcentage
+    ];
+    wsVilles['!cols'] = wscolsVilles;
+    
+    // Générer le fichier Excel
+    const filename = "repartition_complete_" + new Date().toISOString().split('T')[0] + ".xlsx";
+    XLSX.writeFile(wb, filename);
+    
+    // Notification
+    showNotification("Export Excel complet réussi !", "success");
+}
+
+// Fonction pour exporter tout en CSV
+function exporterToutCSV() {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Région,Nombre de Commandes,Montant Total (DH)\n";
+    
+    {% for stat in stats_par_region %}
+    csvContent += "{{ stat.ville__region__nom_region }},{{ stat.nb_commandes }},{{ stat.total_montant|floatformat:0 }}\n";
+    {% endfor %}
+    
+    csvContent += "TOTAL GÉNÉRAL,{{ total_commandes_reparties|default:0 }},{{ total_montant_general|floatformat:0|default:0 }}\n";
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "repartition_regions_" + new Date().toISOString().split('T')[0] + ".csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Notification
+    showNotification("Export CSV complet réussi !", "success");
+}
+
+// Animation des éléments au scroll
+const observerOptions = {
+    threshold: 0.1,
+    rootMargin: '0px 0px -50px 0px'
+};
+
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.style.opacity = '1';
+            entry.target.style.transform = 'translateY(0)';
+        }
+    });
+}, observerOptions);
+
+// Observer tous les éléments avec animation
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.animate-fade-in').forEach(el => {
+        observer.observe(el);
+    });
+});
+</script>
+{% endblock %} 

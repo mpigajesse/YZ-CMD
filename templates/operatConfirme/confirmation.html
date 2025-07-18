@@ -191,7 +191,8 @@
                             <th class="px-4 py-3 font-semibold">N° Externe</th>
                             <th class="px-4 py-3 font-semibold">Client</th>
                             <th class="px-4 py-3 font-semibold">Téléphone</th>
-                            <th class="px-4 py-3 font-semibold">Ville</th>
+                            <th class="px-4 py-3 font-semibold">Ville Client</th>
+                            <th class="px-4 py-3 font-semibold">Ville & Région</th>
                             <th class="px-4 py-3 font-semibold">Date</th>
                             <th class="px-4 py-3 font-semibold">Total</th>
                             <th class="px-4 py-3 font-semibold">État</th>
@@ -219,9 +220,28 @@
                                     {{ commande.client.numero_tel }}
                                 </a>
                             </td>
+                            <!-- Colonne Ville Client -->
                             <td class="px-4 py-3">
-                                <div class="text-sm">{{ commande.ville.nom }}</div>
-                                <div class="text-xs text-gray-500">{{ commande.ville.region.nom }}</div>
+                                {% if commande.ville_init and commande.ville_init != '' %}
+                                    <div class="text-sm font-medium text-gray-700">{{ commande.ville_init }}</div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non spécifiée</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville & Région (ville de livraison) -->
+                            <td class="px-4 py-3">
+                                {% if commande.ville %}
+                                    <div class="text-sm font-medium text-gray-900">{{ commande.ville.nom|default:"Nom manquant" }}</div>
+                                    <div class="text-xs text-gray-500">
+                                        {% if commande.ville.region and commande.ville.region.nom_region %}
+                                            {{ commande.ville.region.nom_region }}
+                                        {% else %}
+                                            Région non spécifiée
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non assignée</div>
+                                {% endif %}
                             </td>
                             <td class="px-4 py-3">
                                 <div class="text-sm">{{ commande.date_cmd|date:"d/m/Y" }}</div>
@@ -384,10 +404,33 @@
                             </div>
                         </div>
                         <div>
-                            <label class="text-xs font-medium text-gray-600">VILLE</label>
+                            <label class="text-xs font-medium text-gray-600">VILLE CLIENT</label>
                             <div class="text-sm" style="color: #6d4b3b;">
-                                {{ commande.ville.nom|default:commande.ville_init|default:"Non spécifiée" }}
+                                {% if commande.ville_init and commande.ville_init != '' %}
+                                    {{ commande.ville_init }}
+                                {% else %}
+                                    Non spécifiée
+                                {% endif %}
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Ville de livraison -->
+                    <div class="mb-3">
+                        <label class="text-xs font-medium text-gray-600">VILLE & RÉGION DE LIVRAISON</label>
+                        <div class="text-sm">
+                            {% if commande.ville %}
+                                <div class="font-medium" style="color: #4B352A;">{{ commande.ville.nom|default:"Nom manquant" }}</div>
+                                <div class="text-xs text-gray-500">
+                                    {% if commande.ville.region and commande.ville.region.nom_region %}
+                                        {{ commande.ville.region.nom_region }}
+                                    {% else %}
+                                        Région non spécifiée
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="text-gray-500">Non assignée</div>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -437,6 +480,31 @@
                             ... et {{ commande.paniers.count|add:"-3" }} autre{{ commande.paniers.count|add:"-3"|pluralize }} article{{ commande.paniers.count|add:"-3"|pluralize }}
                         </div>
                         {% endif %}
+                    </div>
+                </div>
+
+                <!-- Résumé financier -->
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2" style="color: #4B352A;">
+                        <i class="fas fa-calculator mr-2"></i>
+                        Résumé financier
+                    </h4>
+                    <div class="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-3">
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Sous-total articles:</span>
+                                <span class="font-medium">{{ commande.sous_total_articles|floatformat:2 }} DH</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Frais de livraison:</span>
+                                <span class="font-medium text-blue-600">{{ commande.frais_livraison|floatformat:2 }} DH</span>
+                            </div>
+                            <hr class="border-gray-300">
+                            <div class="flex justify-between">
+                                <span class="font-semibold" style="color: #4B352A;">Total commande:</span>
+                                <span class="font-bold text-lg" style="color: #4B352A;">{{ commande.total_cmd|floatformat:2 }} DH</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
