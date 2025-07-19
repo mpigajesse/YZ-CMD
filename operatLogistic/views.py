@@ -1,7 +1,7 @@
 from django.shortcuts               import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib                 import messages
-from django.db.models               import Q, Sum, Max
+from django.db.models               import Q, Sum, Max, Count
 from django.core.paginator          import Paginator
 from django.http                    import JsonResponse
 from django.views.decorators.http   import require_POST
@@ -78,6 +78,97 @@ def corriger_affectation_commandes_renvoyees():
     except Exception as e:
         print(f"❌ Erreur lors de la correction des affectations: {e}")
         return 0
+
+
+def valider_affectation_commande(commande, operateur_preparation):
+    """
+    Valide qu'une affectation de commande respecte les règles du système.
+    Retourne (is_valid, message)
+    """
+    try:
+        # Vérifier que l'opérateur est de type préparation
+        if operateur_preparation.type_operateur != 'PREPARATION':
+            return False, f"L'opérateur {operateur_preparation.nom_complet} n'est pas de type préparation"
+        
+        # Vérifier que l'opérateur est actif
+        if not operateur_preparation.actif:
+            return False, f"L'opérateur {operateur_preparation.nom_complet} n'est pas actif"
+        
+        # Vérifier que la commande n'est pas déjà affectée à un autre opérateur de préparation
+        etat_actuel = commande.etats.filter(
+            enum_etat__libelle__in=['À imprimer', 'En préparation'],
+            date_fin__isnull=True
+        ).first()
+        
+        if etat_actuel and etat_actuel.operateur != operateur_preparation:
+            return False, f"La commande {commande.id_yz} est déjà affectée à {etat_actuel.operateur.nom_complet}"
+        
+        return True, f"Affectation valide pour {operateur_preparation.nom_complet}"
+        
+    except Exception as e:
+        return False, f"Erreur lors de la validation: {str(e)}"
+
+
+def surveiller_affectations_anormales():
+    """
+    Surveille et détecte les affectations anormales dans le système.
+    Retourne une liste des anomalies détectées.
+    """
+    anomalies = []
+    
+    try:
+        from commande.models import Commande, EtatCommande
+        from parametre.models import Operateur
+        
+        # Vérifier les commandes avec des états de préparation créés par des opérateurs non-préparation
+        etats_anormaux = EtatCommande.objects.filter(
+            enum_etat__libelle__in=['À imprimer', 'En préparation'],
+            operateur__type_operateur__in=['LOGISTIQUE', 'LIVRAISON', 'CONFIRMATION']
+        ).select_related('commande', 'operateur')
+        
+        for etat in etats_anormaux:
+            anomalies.append({
+                'type': 'opérateur_incorrect',
+                'commande_id': etat.commande.id_yz,
+                'message': f"État '{etat.enum_etat.libelle}' créé par {etat.operateur.nom_complet} (type: {etat.operateur.type_operateur})",
+                'date': etat.date_debut
+            })
+        
+        # Vérifier les commandes affectées à des opérateurs inactifs
+        etats_inactifs = EtatCommande.objects.filter(
+            enum_etat__libelle__in=['À imprimer', 'En préparation'],
+            operateur__actif=False,
+            date_fin__isnull=True
+        ).select_related('commande', 'operateur')
+        
+        for etat in etats_inactifs:
+            anomalies.append({
+                'type': 'operateur_inactif',
+                'commande_id': etat.commande.id_yz,
+                'message': f"Commande affectée à {etat.operateur.nom_complet} (inactif)",
+                'date': etat.date_debut
+            })
+        
+        # Vérifier les commandes avec plusieurs états actifs simultanés
+        commandes_multiples = Commande.objects.annotate(
+            nb_etats_actifs=Count('etats', filter=Q(
+                etats__enum_etat__libelle__in=['À imprimer', 'En préparation'],
+                etats__date_fin__isnull=True
+            ))
+        ).filter(nb_etats_actifs__gt=1)
+        
+        for commande in commandes_multiples:
+            anomalies.append({
+                'type': 'etats_multiples',
+                'commande_id': commande.id_yz,
+                'message': f"Commande avec {commande.nb_etats_actifs} états actifs simultanés",
+                'date': timezone.now()
+            })
+        
+        return anomalies
+        
+    except Exception as e:
+        return [{'type': 'erreur_surveillance', 'message': f"Erreur lors de la surveillance: {str(e)}"}]
 
 
 @login_required
@@ -765,6 +856,13 @@ def renvoyer_en_preparation(request, commande_id):
             if corrections > 0:
                 print(f"🔧 {corrections} affectations corrigées automatiquement")
             
+            # 0.1. Surveiller les anomalies avant le renvoi
+            anomalies = surveiller_affectations_anormales()
+            if anomalies:
+                print(f"⚠️  {len(anomalies)} anomalies détectées avant renvoi:")
+                for anomaly in anomalies[:3]:  # Afficher les 3 premières
+                    print(f"   - {anomaly['message']}")
+            
             # 1. Terminer l'état "En cours de livraison" actuel
             etat_actuel = commande.etat_actuel
             etat_actuel.terminer_etat(operateur)
@@ -779,22 +877,38 @@ def renvoyer_en_preparation(request, commande_id):
             # Chercher l'opérateur qui avait préparé cette commande initialement
             operateur_preparation_original = None
             
-            # Chercher dans l'historique des états "Préparée" de cette commande
-            etat_preparee_precedent = commande.etats.filter(
-                enum_etat__libelle='Préparée',
+            # Chercher dans l'historique des états "En préparation" précédents de cette commande
+            etat_preparation_precedent = commande.etats.filter(
+                enum_etat__libelle='En préparation',
                 date_fin__isnull=False  # État terminé
             ).order_by('-date_fin').first()
             
-            if etat_preparee_precedent and etat_preparee_precedent.operateur:
+            if etat_preparation_precedent and etat_preparation_precedent.operateur:
                 # Vérifier que cet opérateur est toujours actif et de type préparation
-                if (etat_preparee_precedent.operateur.type_operateur == 'PREPARATION' and 
-                    etat_preparee_precedent.operateur.actif):
-                    operateur_preparation_original = etat_preparee_precedent.operateur
+                if (etat_preparation_precedent.operateur.type_operateur == 'PREPARATION' and 
+                    etat_preparation_precedent.operateur.actif):
+                    operateur_preparation_original = etat_preparation_precedent.operateur
                     print(f"✅ Opérateur original trouvé: {operateur_preparation_original.nom_complet}")
                 else:
-                    print(f"⚠️  Opérateur original trouvé mais non disponible: {etat_preparee_precedent.operateur.nom_complet} (type: {etat_preparee_precedent.operateur.type_operateur}, actif: {etat_preparee_precedent.operateur.actif})")
+                    print(f"⚠️  Opérateur original trouvé mais non disponible: {etat_preparation_precedent.operateur.nom_complet} (type: {etat_preparation_precedent.operateur.type_operateur}, actif: {etat_preparation_precedent.operateur.actif})")
             else:
-                print("⚠️  Aucun état 'Préparée' trouvé dans l'historique de la commande")
+                print("⚠️  Aucun état 'En préparation' précédent trouvé dans l'historique de la commande")
+                
+                # Fallback : chercher l'état "À imprimer" précédent
+                etat_imprimer_precedent = commande.etats.filter(
+                    enum_etat__libelle='À imprimer',
+                    date_fin__isnull=False  # État terminé
+                ).order_by('-date_fin').first()
+                
+                if etat_imprimer_precedent and etat_imprimer_precedent.operateur:
+                    if (etat_imprimer_precedent.operateur.type_operateur == 'PREPARATION' and 
+                        etat_imprimer_precedent.operateur.actif):
+                        operateur_preparation_original = etat_imprimer_precedent.operateur
+                        print(f"✅ Opérateur original trouvé (via 'À imprimer'): {operateur_preparation_original.nom_complet}")
+                    else:
+                        print(f"⚠️  Opérateur 'À imprimer' trouvé mais non disponible: {etat_imprimer_precedent.operateur.nom_complet}")
+                else:
+                    print("⚠️  Aucun état 'À imprimer' précédent trouvé non plus")
             
             # Si pas d'opérateur original trouvé ou plus actif, prendre le moins chargé
             if not operateur_preparation_original:
@@ -829,6 +943,16 @@ def renvoyer_en_preparation(request, commande_id):
                     'success': False, 
                     'error': 'Impossible de déterminer un opérateur de préparation pour cette commande.'
                 })
+            
+            # Validation de l'affectation
+            is_valid, validation_message = valider_affectation_commande(commande, operateur_preparation_original)
+            if not is_valid:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'Affectation invalide: {validation_message}'
+                })
+            
+            print(f"✅ {validation_message}")
             
             # Créer le nouvel état "En préparation" avec l'opérateur affecté
             EtatCommande.objects.create(
@@ -945,8 +1069,8 @@ def commandes_renvoyees_preparation(request):
                     commande.etat_precedent = None  # Pas d'état précédent pour les commandes de renvoi
                     commande.date_renvoi = etat_preparation_actuel.date_debut
                     commande.type_renvoi = 'livraison_partielle'
-                    if commande not in commandes_filtrees:
-                        commandes_filtrees.append(commande)
+                if commande not in commandes_filtrees:
+                    commandes_filtrees.append(commande)
     
     # Recherche
     search_query = request.GET.get('search', '')

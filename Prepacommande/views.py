@@ -178,11 +178,51 @@ def liste_prepa(request):
     # On cherche les commandes qui ont un état "À imprimer" ou "En préparation" actif (sans date_fin) avec cet opérateur
     from django.db.models import Q, Max
     
+    # Définir le type de filtre en premier
+    filter_type = request.GET.get('filter', 'all')
+    
     commandes_affectees = Commande.objects.filter(
         Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
         etats__operateur=operateur_profile,
         etats__date_fin__isnull=True  # État actif (en cours)
     ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+    
+    # Pour les commandes renvoyées par la logistique, respecter l'affectation spécifique à chaque opérateur
+    if filter_type == 'renvoyees_logistique':
+        # Filtrer seulement les commandes renvoyées par la logistique ET affectées à cet opérateur spécifique
+        commandes_filtrees = []
+        for commande in commandes_affectees:
+            from commande.models import Operation
+            
+            # Vérifier les opérations de traçabilité
+            operation_renvoi = Operation.objects.filter(
+                commande=commande,
+                type_operation='RENVOI_PREPARATION'
+            ).first()
+            
+            if operation_renvoi:
+                commandes_filtrees.append(commande)
+                continue
+            
+            # Vérifier l'historique des états de la commande
+            etats_commande = commande.etats.all().order_by('date_debut')
+            etat_actuel = None
+            
+            # Trouver l'état actuel (En préparation)
+            for etat in etats_commande:
+                if etat.enum_etat.libelle == 'En préparation' and not etat.date_fin:
+                    etat_actuel = etat
+                    break
+            
+            if etat_actuel:
+                # Trouver l'état précédent
+                for etat in reversed(etats_commande):
+                    if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
+                        if etat.enum_etat.libelle == 'En cours de livraison':
+                            commandes_filtrees.append(commande)
+                            break
+        
+        commandes_affectees = commandes_filtrees
     
     # Calculer les statistiques par type de commande
     stats_par_type = {
@@ -214,7 +254,12 @@ def liste_prepa(request):
             commande.etat_precedent = etat_precedent
     
     # Si aucune commande trouvée avec la méthode stricte, essayer une approche plus large
-    if not commandes_affectees.exists():
+    if isinstance(commandes_affectees, list):
+        has_commandes = len(commandes_affectees) > 0
+    else:
+        has_commandes = commandes_affectees.exists()
+    
+    if not has_commandes:
         # Chercher toutes les commandes qui ont été affectées à cet opérateur pour la préparation
         # et qui n'ont pas encore d'état "Préparée" ou "En cours de livraison"
         commandes_affectees = Commande.objects.filter(
@@ -248,52 +293,6 @@ def liste_prepa(request):
                 
                 commande.etat_precedent = etat_precedent
     
-    # Filtre par type de commande
-    filter_type = request.GET.get('filter', 'all')
-    
-    if filter_type == 'renvoyees_logistique':
-        # Filtrer seulement les commandes renvoyées par les opérateurs logistiques
-        commandes_filtrees = []
-        for commande in commandes_affectees:
-            # Vérifier si la commande a été renvoyée par la logistique
-            # Soit par l'état précédent, soit par une opération de traçabilité
-            from commande.models import Operation
-            
-            # Méthode 1: Vérifier l'état précédent
-            if hasattr(commande, 'etat_precedent') and commande.etat_precedent:
-                if commande.etat_precedent.enum_etat.libelle == 'En cours de livraison':
-                    commandes_filtrees.append(commande)
-                    continue
-            
-            # Méthode 2: Vérifier les opérations de traçabilité
-            operation_renvoi = Operation.objects.filter(
-                commande=commande,
-                type_operation='RENVOI_PREPARATION'
-            ).first()
-            
-            if operation_renvoi:
-                commandes_filtrees.append(commande)
-                continue
-            
-            # Méthode 3: Vérifier l'historique des états de la commande
-            etats_commande = commande.etats.all().order_by('date_debut')
-            etat_actuel = None
-            
-            # Trouver l'état actuel (En préparation)
-            for etat in etats_commande:
-                if etat.enum_etat.libelle == 'En préparation' and not etat.date_fin:
-                    etat_actuel = etat
-                    break
-            
-            if etat_actuel:
-                # Trouver l'état précédent
-                for etat in reversed(etats_commande):
-                    if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
-                        if etat.enum_etat.libelle == 'En cours de livraison':
-                            commandes_filtrees.append(commande)
-                            break
-        
-        commandes_affectees = commandes_filtrees
     # Suppression du filtre 'nouvelles' car redondant avec l'affectation automatique
     # Suppression du filtre 'renvoyees_preparation' car non nécessaire
     
@@ -396,7 +395,6 @@ def liste_prepa(request):
         
         if etat_actuel:
             # Trouver l'état précédent
-            etat_precedent = None
             for etat in reversed(etats_commande):
                 if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
                     if etat.enum_etat.libelle == 'En cours de livraison':
@@ -405,14 +403,6 @@ def liste_prepa(request):
                     elif etat.enum_etat.libelle == 'Livrée Partiellement':
                         stats_par_type['livrees_partiellement'] += 1
                         break
-                if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
-                    if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
-                        etat_precedent = etat
-                        break
-            
-            if etat_precedent:
-                if etat_precedent.enum_etat.libelle == 'En cours de livraison':
-                    stats_par_type['renvoyees_logistique'] += 1
     
     # Calculer le nombre de commandes livrées partiellement (même logique que la vue commandes_livrees_partiellement)
     commandes_avec_livraison_partielle = Commande.objects.filter(
