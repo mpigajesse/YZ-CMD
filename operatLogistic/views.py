@@ -171,6 +171,153 @@ def surveiller_affectations_anormales():
         return [{'type': 'erreur_surveillance', 'message': f"Erreur lors de la surveillance: {str(e)}"}]
 
 
+def surveiller_livraisons_partielles():
+    """
+    Surveille les livraisons partielles et vérifie que les commandes de renvoi sont correctement affectées.
+    Cette fonction doit être appelée régulièrement pour détecter les anomalies.
+    """
+    from commande.models import Commande, Operation
+    from parametre.models import Operateur
+    
+    anomalies = []
+    
+    # 1. Vérifier les commandes livrées partiellement
+    commandes_livrees_partiellement = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée Partiellement'
+    ).distinct()
+    
+    for commande in commandes_livrees_partiellement:
+        # Vérifier s'il y a une commande de renvoi correspondante
+        commandes_renvoi = Commande.objects.filter(
+            num_cmd__startswith=f'RENVOI-{commande.num_cmd}'
+        )
+        
+        if not commandes_renvoi.exists():
+            anomalies.append({
+                'type': 'LIVRAISON_PARTIELLE_SANS_RENVOI',
+                'commande_id': commande.id,
+                'commande_id_yz': commande.id_yz,
+                'message': f'Commande livrée partiellement sans commande de renvoi créée'
+            })
+        else:
+            # Vérifier que chaque commande de renvoi est affectée à un opérateur de préparation
+            for renvoi in commandes_renvoi:
+                etat_actuel = renvoi.etats.filter(
+                    enum_etat__libelle='En préparation',
+                    date_fin__isnull=True
+                ).first()
+                
+                if not etat_actuel:
+                    anomalies.append({
+                        'type': 'RENVOI_SANS_AFFECTATION',
+                        'commande_id': renvoi.id,
+                        'commande_id_yz': renvoi.id_yz,
+                        'commande_originale': commande.id_yz,
+                        'message': f'Commande de renvoi sans affectation à un opérateur de préparation'
+                    })
+                elif etat_actuel.operateur.type_operateur != 'PREPARATION':
+                    anomalies.append({
+                        'type': 'RENVOI_MAUVAIS_OPERATEUR',
+                        'commande_id': renvoi.id,
+                        'commande_id_yz': renvoi.id_yz,
+                        'commande_originale': commande.id_yz,
+                        'operateur': f"{etat_actuel.operateur.prenom} {etat_actuel.operateur.nom}",
+                        'type_operateur': etat_actuel.operateur.type_operateur,
+                        'message': f'Commande de renvoi affectée à un opérateur non-préparation'
+                    })
+                elif not etat_actuel.operateur.actif:
+                    anomalies.append({
+                        'type': 'RENVOI_OPERATEUR_INACTIF',
+                        'commande_id': renvoi.id,
+                        'commande_id_yz': renvoi.id_yz,
+                        'commande_originale': commande.id_yz,
+                        'operateur': f"{etat_actuel.operateur.prenom} {etat_actuel.operateur.nom}",
+                        'message': f'Commande de renvoi affectée à un opérateur inactif'
+                    })
+    
+    # 2. Vérifier les commandes de renvoi orphelines
+    commandes_renvoi_orphelines = Commande.objects.filter(
+        num_cmd__startswith='RENVOI-'
+    ).exclude(
+        num_cmd__in=[f'RENVOI-{cmd.num_cmd}' for cmd in commandes_livrees_partiellement]
+    )
+    
+    for renvoi in commandes_renvoi_orphelines:
+        anomalies.append({
+            'type': 'RENVOI_ORPHELIN',
+            'commande_id': renvoi.id,
+            'commande_id_yz': renvoi.id_yz,
+            'message': f'Commande de renvoi sans commande originale livrée partiellement'
+        })
+    
+    # 3. Vérifier la cohérence des opérations
+    operations_livraison_partielle = Operation.objects.filter(
+        type_operation='LIVRAISON_PARTIELLE'
+    )
+    
+    for operation in operations_livraison_partielle:
+        # Vérifier que l'opération a une conclusion qui mentionne une commande de renvoi
+        if 'RENVOI-' in operation.conclusion:
+            # Extraire le numéro de commande de renvoi de la conclusion
+            import re
+            match = re.search(r'RENVOI-([A-Z0-9-]+)', operation.conclusion)
+            if match:
+                num_renvoi = f"RENVOI-{match.group(1)}"
+                commande_renvoi = Commande.objects.filter(num_cmd=num_renvoi).first()
+                
+                if not commande_renvoi:
+                    anomalies.append({
+                        'type': 'OPERATION_RENVOI_INEXISTANT',
+                        'operation_id': operation.id,
+                        'commande_renvoi_num': num_renvoi,
+                        'message': f'Opération mentionne une commande de renvoi inexistante'
+                    })
+    
+    return anomalies
+
+def corriger_livraisons_partielles():
+    """
+    Corrige automatiquement les anomalies détectées dans les livraisons partielles.
+    """
+    anomalies = surveiller_livraisons_partielles()
+    corrections = []
+    
+    for anomalie in anomalies:
+        if anomalie['type'] == 'RENVOI_SANS_AFFECTATION':
+            # Affecter la commande de renvoi à un opérateur de préparation
+            commande_renvoi = Commande.objects.get(id=anomalie['commande_id'])
+            operateurs_preparation = Operateur.objects.filter(
+                type_operateur='PREPARATION',
+                actif=True
+            ).order_by('id')
+            
+            if operateurs_preparation.exists():
+                operateur_choisi = operateurs_preparation.first()
+                
+                # Créer l'état "En préparation"
+                etat_en_preparation, _ = EnumEtatCmd.objects.get_or_create(
+                    libelle='En préparation',
+                    defaults={'ordre': 30, 'couleur': '#3B82F6'}
+                )
+                
+                EtatCommande.objects.create(
+                    commande=commande_renvoi,
+                    enum_etat=etat_en_preparation,
+                    operateur=operateur_choisi,
+                    date_debut=timezone.now(),
+                    commentaire=f"Affectation automatique corrigée suite à anomalie détectée"
+                )
+                
+                corrections.append({
+                    'type': 'AFFECTATION_CORRIGEE',
+                    'commande_id': commande_renvoi.id,
+                    'operateur': f"{operateur_choisi.prenom} {operateur_choisi.nom}",
+                    'message': f'Commande de renvoi affectée à {operateur_choisi.prenom} {operateur_choisi.nom}'
+                })
+    
+    return corrections
+
+
 @login_required
 def dashboard(request):
     """Page d'accueil de l'interface opérateur logistique."""
@@ -1279,22 +1426,38 @@ def livraison_partielle(request, commande_id):
                 # Chercher l'opérateur qui avait préparé cette commande initialement
                 operateur_preparation_original = None
                 
-                # Chercher dans l'historique des états "Préparée" de la commande originale
-                etat_preparee_precedent = commande.etats.filter(
-                    enum_etat__libelle='Préparée',
+                # Chercher dans l'historique des états "En préparation" précédents de la commande originale
+                etat_preparation_precedent = commande.etats.filter(
+                    enum_etat__libelle='En préparation',
                     date_fin__isnull=False  # État terminé
                 ).order_by('-date_fin').first()
                 
-                if etat_preparee_precedent and etat_preparee_precedent.operateur:
+                if etat_preparation_precedent and etat_preparation_precedent.operateur:
                     # Vérifier que cet opérateur est toujours actif et de type préparation
-                    if (etat_preparee_precedent.operateur.type_operateur == 'PREPARATION' and 
-                        etat_preparee_precedent.operateur.actif):
-                        operateur_preparation_original = etat_preparee_precedent.operateur
+                    if (etat_preparation_precedent.operateur.type_operateur == 'PREPARATION' and 
+                        etat_preparation_precedent.operateur.actif):
+                        operateur_preparation_original = etat_preparation_precedent.operateur
                         print(f"✅ Opérateur original trouvé pour livraison partielle: {operateur_preparation_original.nom_complet}")
                     else:
-                        print(f"⚠️  Opérateur original trouvé mais non disponible: {etat_preparee_precedent.operateur.nom_complet} (type: {etat_preparee_precedent.operateur.type_operateur}, actif: {etat_preparee_precedent.operateur.actif})")
+                        print(f"⚠️  Opérateur original trouvé mais non disponible: {etat_preparation_precedent.operateur.nom_complet} (type: {etat_preparation_precedent.operateur.type_operateur}, actif: {etat_preparation_precedent.operateur.actif})")
                 else:
-                    print("⚠️  Aucun état 'Préparée' trouvé dans l'historique de la commande")
+                    print("⚠️  Aucun état 'En préparation' précédent trouvé dans l'historique de la commande")
+                    
+                    # Fallback : chercher l'état "À imprimer" précédent
+                    etat_imprimer_precedent = commande.etats.filter(
+                        enum_etat__libelle='À imprimer',
+                        date_fin__isnull=False  # État terminé
+                    ).order_by('-date_fin').first()
+                    
+                    if etat_imprimer_precedent and etat_imprimer_precedent.operateur:
+                        if (etat_imprimer_precedent.operateur.type_operateur == 'PREPARATION' and 
+                            etat_imprimer_precedent.operateur.actif):
+                            operateur_preparation_original = etat_imprimer_precedent.operateur
+                            print(f"✅ Opérateur original trouvé (via 'À imprimer') pour livraison partielle: {operateur_preparation_original.nom_complet}")
+                        else:
+                            print(f"⚠️  Opérateur 'À imprimer' trouvé mais non disponible: {etat_imprimer_precedent.operateur.nom_complet}")
+                    else:
+                        print("⚠️  Aucun état 'À imprimer' précédent trouvé non plus")
                 
                 # Si pas d'opérateur original trouvé ou plus actif, prendre le moins chargé
                 if not operateur_preparation_original:
@@ -1329,6 +1492,16 @@ def livraison_partielle(request, commande_id):
                         'success': False, 
                         'error': 'Impossible de déterminer un opérateur de préparation pour la commande de renvoi.'
                     })
+                
+                # Validation de l'affectation pour la commande de renvoi
+                is_valid, validation_message = valider_affectation_commande(nouvelle_commande, operateur_preparation_original)
+                if not is_valid:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': f'Affectation invalide pour la commande de renvoi: {validation_message}'
+                    })
+                
+                print(f"✅ {validation_message} (livraison partielle)")
                 
                 # Créer l'état "En préparation" pour la commande de renvoi avec l'opérateur original
                 etat_en_preparation, _ = EnumEtatCmd.objects.get_or_create(

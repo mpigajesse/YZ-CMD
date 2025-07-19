@@ -404,40 +404,16 @@ def liste_prepa(request):
                         stats_par_type['livrees_partiellement'] += 1
                         break
     
-    # Calculer le nombre de commandes livrées partiellement (même logique que la vue commandes_livrees_partiellement)
-    commandes_avec_livraison_partielle = Commande.objects.filter(
-        etats__enum_etat__libelle='Livrée Partiellement'
-    ).select_related('client', 'ville', 'ville__region').prefetch_related(
-        'paniers__article', 
-        'etats'
-    ).distinct()
-
-    # Filtrer pour ne garder que les commandes pertinentes
-    commandes_livrees_partiellement_count = 0
-    for commande in commandes_avec_livraison_partielle:
-        # Trouver l'état "Livrée Partiellement" le plus récent
-        etat_livraison_partielle = commande.etats.filter(
-            enum_etat__libelle='Livrée Partiellement'
-        ).order_by('-date_debut').first()
-        
-        if etat_livraison_partielle:
-            # Vérifier si cet état est actif (pas encore terminé) ou s'il a été suivi d'un renvoi en préparation
-            if etat_livraison_partielle.date_fin is None:
-                # État "Livrée Partiellement" encore actif - la commande n'a pas été renvoyée
-                commandes_livrees_partiellement_count += 1
-            else:
-                # État "Livrée Partiellement" terminé - vérifier s'il y a un état "En préparation" après
-                etat_preparation_suivant = commande.etats.filter(
-                    enum_etat__libelle='En préparation',
-                    date_debut__gt=etat_livraison_partielle.date_fin
-                ).first()
-                
-                if etat_preparation_suivant:
-                    # La commande a été renvoyée en préparation
-                    commandes_livrees_partiellement_count += 1
+    # Calculer le nombre de commandes de renvoi créées lors de livraisons partielles affectées à cet opérateur
+    commandes_renvoi_livraison_partielle_count = Commande.objects.filter(
+        num_cmd__startswith='RENVOI-',
+        etats__enum_etat__libelle='En préparation',
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True
+    ).distinct().count()
     
     # Mettre à jour le compteur avec la valeur correcte
-    stats_par_type['livrees_partiellement'] = commandes_livrees_partiellement_count
+    stats_par_type['livrees_partiellement'] = commandes_renvoi_livraison_partielle_count
     
     context = {
         'page_title': 'Mes Commandes à Préparer',
@@ -526,44 +502,41 @@ def commandes_livrees_partiellement(request):
         messages.error(request, "Votre profil opérateur n'existe pas.")
         return redirect('login')
 
-    # Récupérer TOUTES les commandes qui ont été livrées partiellement
-    # Cela inclut :
-    # 1. Les commandes encore en état "Livrée Partiellement" (pas encore renvoyées)
-    # 2. Les commandes renvoyées en préparation après livraison partielle
+    # Récupérer les commandes de renvoi créées lors de livraisons partielles qui sont affectées à cet opérateur
+    # Ces commandes ont un num_cmd qui commence par "RENVOI-" et sont en état "En préparation"
     
-    # D'abord, récupérer toutes les commandes qui ont un état "Livrée Partiellement"
-    commandes_avec_livraison_partielle = Commande.objects.filter(
-        etats__enum_etat__libelle='Livrée Partiellement'
+    commandes_renvoi_livraison_partielle = Commande.objects.filter(
+        num_cmd__startswith='RENVOI-',
+        etats__enum_etat__libelle='En préparation',
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True
     ).select_related('client', 'ville', 'ville__region').prefetch_related(
         'paniers__article', 
         'etats'
     ).distinct()
-
-    # Filtrer pour ne garder que les commandes pertinentes
-    commandes_filtrees = []
-    for commande in commandes_avec_livraison_partielle:
-        # Trouver l'état "Livrée Partiellement" le plus récent
-        etat_livraison_partielle = commande.etats.filter(
-            enum_etat__libelle='Livrée Partiellement'
-        ).order_by('-date_debut').first()
-        
-        if etat_livraison_partielle:
-            # Vérifier si cet état est actif (pas encore terminé) ou s'il a été suivi d'un renvoi en préparation
-            if etat_livraison_partielle.date_fin is None:
-                # État "Livrée Partiellement" encore actif - la commande n'a pas été renvoyée
-                commandes_filtrees.append(commande)
-            else:
-                # État "Livrée Partiellement" terminé - vérifier s'il y a un état "En préparation" après
-                etat_preparation_suivant = commande.etats.filter(
-                    enum_etat__libelle='En préparation',
-                    date_debut__gt=etat_livraison_partielle.date_fin
-                ).first()
-                
-                if etat_preparation_suivant:
-                    # La commande a été renvoyée en préparation
-                    commandes_filtrees.append(commande)
     
-    commandes_livrees_partiellement = commandes_filtrees
+    print(f"DEBUG: {commandes_renvoi_livraison_partielle.count()} commandes de renvoi trouvées pour l'opérateur {operateur_profile.prenom} {operateur_profile.nom}")
+    
+    # Pour chaque commande de renvoi, récupérer la commande originale livrée partiellement
+    commandes_livrees_partiellement = []
+    for commande_renvoi in commandes_renvoi_livraison_partielle:
+        # Extraire le numéro de commande original du num_cmd de renvoi
+        # Exemple: RENVOI-YCN-000013 -> YCN-000013
+        num_cmd_original = commande_renvoi.num_cmd.replace('RENVOI-', '')
+        
+        # Chercher la commande originale
+        commande_originale = Commande.objects.filter(
+            num_cmd=num_cmd_original,
+            etats__enum_etat__libelle='Livrée Partiellement'
+        ).first()
+        
+        if commande_originale:
+            # Ajouter les informations de la commande de renvoi à la commande originale
+            commande_originale.commande_renvoi = commande_renvoi
+            commandes_livrees_partiellement.append(commande_originale)
+
+    # Les commandes sont déjà filtrées et pertinentes
+    commandes_filtrees = commandes_livrees_partiellement
 
     # Pour chaque commande, récupérer les détails de la livraison partielle
     for commande in commandes_livrees_partiellement:
@@ -577,21 +550,14 @@ def commandes_livrees_partiellement(request):
             commande.commentaire_livraison_partielle = etat_livraison_partielle.commentaire
             commande.operateur_livraison = etat_livraison_partielle.operateur
             
-            # Déterminer le statut actuel de la commande
-            if etat_livraison_partielle.date_fin is None:
-                # État "Livrée Partiellement" encore actif
-                commande.statut_actuel = "Livrée Partiellement"
-            else:
-                # Vérifier s'il y a un état "En préparation" après
-                etat_preparation_suivant = commande.etats.filter(
-                    enum_etat__libelle='En préparation',
-                    date_debut__gt=etat_livraison_partielle.date_fin
-                ).first()
-                
-                if etat_preparation_suivant:
-                    commande.statut_actuel = "Renvoyée en préparation"
-                else:
-                    commande.statut_actuel = "Livrée Partiellement"
+            # Le statut est toujours "Renvoyée en préparation" car nous ne récupérons que les commandes avec renvoi
+            commande.statut_actuel = "Renvoyée en préparation"
+            
+            # Ajouter les informations de la commande de renvoi
+            if hasattr(commande, 'commande_renvoi'):
+                commande.commande_renvoi_id = commande.commande_renvoi.id
+                commande.commande_renvoi_num = commande.commande_renvoi.num_cmd
+                commande.commande_renvoi_id_yz = commande.commande_renvoi.id_yz
 
     context = {
         'page_title': 'Commandes Livrées Partiellement',
