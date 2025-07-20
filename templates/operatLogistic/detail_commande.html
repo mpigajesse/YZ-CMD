@@ -3042,55 +3042,79 @@ function fermerModalFraisLivraison() {
 
 // Fonction pour valider tous les calculs
 function validerCalculs() {
-    const totalArticles = parseFloat('{{ commande.total_cmd|floatformat:2 }}') || 0;
-    const fraisLivraison = parseFloat('{{ commande.ville.frais_livraison|default:0|floatformat:2 }}') || 0;
-    const totalAttendu = totalArticles + fraisLivraison;
-    
-    // Vérifier le total affiché
-    const totalElement = document.getElementById('total-commande');
-    if (totalElement) {
-        const totalAffiche = parseFloat(totalElement.textContent.replace(' DH', '').replace(',', '.'));
-        if (Math.abs(totalAffiche - totalAttendu) > 0.01) {
-            console.warn('⚠️ Incohérence détectée dans les calculs:', {
-                totalArticles: totalArticles,
-                fraisLivraison: fraisLivraison,
-                totalAttendu: totalAttendu,
-                totalAffiche: totalAffiche
-            });
-            // Corriger automatiquement
-            totalElement.textContent = totalAttendu.toFixed(2) + ' DH';
-        }
-    }
-    
-    // Vérifier les sous-totaux des articles
-    const articles = document.querySelectorAll('.article-card');
-    let totalArticlesCalcule = 0;
-    
-    articles.forEach(article => {
-        const quantiteElement = article.querySelector('input[type="number"]');
-        const prixElement = article.querySelector('.text-lg.font-bold');
+    try {
+        const totalArticles = parseFloat('{{ commande.total_cmd|floatformat:2 }}') || 0;
+        const fraisLivraison = parseFloat('{{ commande.ville.frais_livraison|default:0|floatformat:2 }}') || 0;
+        const totalAttendu = totalArticles + fraisLivraison;
         
-        if (quantiteElement && prixElement) {
-            const quantite = parseInt(quantiteElement.value) || 0;
-            const prix = parseFloat(prixElement.textContent.replace(' DH', '').replace(',', '.')) || 0;
-            const sousTotal = quantite * prix;
-            totalArticlesCalcule += sousTotal;
+        // Vérifier le total affiché
+        const totalElement = document.getElementById('total-commande');
+        if (totalElement) {
+            const totalText = totalElement.textContent || totalElement.innerText || '';
+            const totalAffiche = parseFloat(totalText.replace(' DH', '').replace(',', '.').trim()) || 0;
+            if (Math.abs(totalAffiche - totalAttendu) > 0.01) {
+                console.warn('⚠️ Incohérence détectée dans les calculs:', {
+                    totalArticles: totalArticles,
+                    fraisLivraison: fraisLivraison,
+                    totalAttendu: totalAttendu,
+                    totalAffiche: totalAffiche
+                });
+                // Corriger automatiquement
+                totalElement.textContent = totalAttendu.toFixed(2) + ' DH';
+            }
         }
-    });
-    
-    // Vérifier la cohérence avec le total des articles
-    if (Math.abs(totalArticlesCalcule - totalArticles) > 0.01) {
-        console.warn('⚠️ Incohérence dans les sous-totaux des articles:', {
-            totalArticlesCalcule: totalArticlesCalcule,
-            totalArticles: totalArticles
+        
+        // Vérifier les sous-totaux des articles
+        const articles = document.querySelectorAll('.article-card');
+        let totalArticlesCalcule = 0;
+        
+        articles.forEach(article => {
+            try {
+                const quantiteElement = article.querySelector('input[type="number"]');
+                const prixElement = article.querySelector('.text-lg.font-bold');
+                
+                if (quantiteElement && prixElement) {
+                    const quantite = parseInt(quantiteElement.value) || 0;
+                    const prixText = prixElement.textContent || prixElement.innerText || '';
+                    const prix = parseFloat(prixText.replace(' DH', '').replace(',', '.').trim()) || 0;
+                    const sousTotal = quantite * prix;
+                    if (!isNaN(sousTotal) && isFinite(sousTotal)) {
+                        totalArticlesCalcule += sousTotal;
+                    }
+                }
+            } catch (articleError) {
+                console.warn('Erreur lors du calcul d\'un article:', articleError);
+            }
         });
+        
+        // Vérifier la cohérence avec le total des articles
+        if (Math.abs(totalArticlesCalcule - totalArticles) > 0.01) {
+            console.warn('⚠️ Incohérence dans les sous-totaux des articles:', {
+                totalArticlesCalcule: totalArticlesCalcule,
+                totalArticles: totalArticles
+            });
+        }
+        
+        console.log('✅ Validation des calculs terminée:', {
+            totalArticles: totalArticles,
+            fraisLivraison: fraisLivraison,
+            totalFinal: totalAttendu
+        });
+        
+        return {
+            success: true,
+            totalArticles: totalArticles,
+            fraisLivraison: fraisLivraison,
+            totalFinal: totalAttendu
+        };
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de la validation des calculs:', error);
+        return {
+            success: false,
+            error: error.message
+        };
     }
-    
-    console.log('✅ Validation des calculs terminée:', {
-        totalArticles: totalArticles,
-        fraisLivraison: fraisLivraison,
-        totalFinal: totalAttendu
-    });
 }
 
 // ================== GESTION DU RENVOI EN PRÉPARATION ==================

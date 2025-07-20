@@ -761,9 +761,13 @@ def creer_commande_sav(request, commande_id):
     try:
         commande_originale = get_object_or_404(Commande, id=commande_id)
         
-        # Vérifier que la commande est bien retournée
-        if not commande_originale.etat_actuel or commande_originale.etat_actuel.enum_etat.libelle != 'Retournée':
-            return JsonResponse({'success': False, 'error': 'Cette commande n\'est pas retournée.'})
+        # Vérifier que la commande est dans un état qui permet la création d'une commande SAV
+        etats_sav_autorises = ['Retournée', 'Livrée', 'Livrée Partiellement', 'Livrée avec changement']
+        if not commande_originale.etat_actuel or commande_originale.etat_actuel.enum_etat.libelle not in etats_sav_autorises:
+            return JsonResponse({
+                'success': False, 
+                'error': f'Cette commande ne peut pas avoir de SAV. État actuel: {commande_originale.etat_actuel.enum_etat.libelle if commande_originale.etat_actuel else "Aucun"}'
+            })
         
         # Récupérer les articles défectueux depuis la requête POST
         import json
