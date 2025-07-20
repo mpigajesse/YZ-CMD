@@ -736,19 +736,23 @@ function exporterCommandes() {
     const format = document.getElementById('exportFormat').value;
     
     if (format === 'csv') {
-        // Export CSV (méthode originale)
+        // Export CSV avec détails des paniers
         let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "N° Commande,Client,Téléphone,Ville,Région,Montant (DH),Adresse\n";
+        csvContent += "N° Commande,Client,Téléphone,Ville,Région,Article Nom,Article Référence,Article Couleur,Article Pointure,Quantité,Prix Unitaire,Sous Total Article,Montant Total Commande (DH),Adresse\n";
         
         {% for commande in commandes_reparties %}
-        csvContent += "{{ commande.id_yz|default:'' }},{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %},{{ commande.client.numero_tel|default:'' }},{% if commande.ville and commande.ville.nom %}{{ commande.ville.nom }}{% elif commande.ville_init %}{{ commande.ville_init }}{% else %}N/A{% endif %},{% if commande.ville and commande.ville.region %}{{ commande.ville.region.nom_region }}{% else %}N/A{% endif %},{{ commande.total_cmd|floatformat:2|default:'0.00' }},\"{{ commande.adresse|default:'N/A'|escapejs }}\"\n";
+            {% for panier in commande.paniers.all %}
+                csvContent += "{{ commande.id_yz|default:'' }},{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %},{{ commande.client.numero_tel|default:'' }},{% if commande.ville and commande.ville.nom %}{{ commande.ville.nom }}{% elif commande.ville_init %}{{ commande.ville_init }}{% else %}N/A{% endif %},{% if commande.ville and commande.ville.region %}{{ commande.ville.region.nom_region }}{% else %}N/A{% endif %},\"{{ panier.article.nom|default:'N/A'|escapejs }}\",\"{{ panier.article.reference|default:'N/A'|escapejs }}\",\"{{ panier.article.couleur|default:'N/A'|escapejs }}\",\"{{ panier.article.pointure|default:'N/A'|escapejs }}\",{{ panier.quantite|default:0 }},{{ panier.article.prix_unitaire|floatformat:2|default:'0.00' }},{{ panier.sous_total|floatformat:2|default:'0.00' }},{{ commande.total_cmd|floatformat:2|default:'0.00' }},\"{{ commande.adresse|default:'N/A'|escapejs }}\"\n";
+            {% empty %}
+                csvContent += "{{ commande.id_yz|default:'' }},{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %},{{ commande.client.numero_tel|default:'' }},{% if commande.ville and commande.ville.nom %}{{ commande.ville.nom }}{% elif commande.ville_init %}{{ commande.ville_init }}{% else %}N/A{% endif %},{% if commande.ville and commande.ville.region %}{{ commande.ville.region.nom_region }}{% else %}N/A{% endif %},N/A,N/A,N/A,N/A,0,0.00,0.00,{{ commande.total_cmd|floatformat:2|default:'0.00' }},\"{{ commande.adresse|default:'N/A'|escapejs }}\"\n";
+            {% endfor %}
         {% endfor %}
         
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
         
-        let filename = "commandes_livraison_";
+        let filename = "commandes_avec_paniers_livraison_";
         {% if region_name %}filename += "{{ region_name|slugify }}_";{% endif %}
         {% if ville_name %}filename += "{{ ville_name|slugify }}_";{% endif %}
         filename += new Date().toISOString().split('T')[0] + ".csv";
@@ -759,32 +763,58 @@ function exporterCommandes() {
         document.body.removeChild(link);
         
         // Notification
-        showNotification("Export CSV réussi !", "success");
+        showNotification("Export CSV avec détails des paniers réussi !", "success");
     } else {
-        // Export Excel (utilisation de SheetJS/XLSX)
+        // Export Excel avec détails des paniers (utilisation de SheetJS/XLSX)
         // Création des données pour Excel
         const data = [];
         
         // En-têtes
-        data.push(["N° Commande", "Client", "Téléphone", "Ville", "Région", "Montant (DH)", "Adresse"]);
+        data.push(["N° Commande", "Client", "Téléphone", "Ville", "Région", "Article Nom", "Article Référence", "Article Couleur", "Article Pointure", "Quantité", "Prix Unitaire", "Sous Total Article", "Montant Total Commande (DH)", "Adresse"]);
         
-        // Données des commandes
+        // Données des commandes avec paniers
         {% for commande in commandes_reparties %}
-        data.push([
-            "{{ commande.id_yz|default:'' }}",
-            "{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}",
-            "{{ commande.client.numero_tel|default:'' }}",
-            "{% if commande.ville and commande.ville.nom %}{{ commande.ville.nom }}{% elif commande.ville_init %}{{ commande.ville_init }}{% else %}N/A{% endif %}",
-            "{% if commande.ville and commande.ville.region %}{{ commande.ville.region.nom_region }}{% else %}N/A{% endif %}",
-            "{{ commande.total_cmd|floatformat:2|default:'0.00' }}",
-            "{{ commande.adresse|default:'N/A'|escapejs }}"
-        ]);
+            {% for panier in commande.paniers.all %}
+                data.push([
+                    "{{ commande.id_yz|default:'' }}",
+                    "{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}",
+                    "{{ commande.client.numero_tel|default:'' }}",
+                    "{% if commande.ville and commande.ville.nom %}{{ commande.ville.nom }}{% elif commande.ville_init %}{{ commande.ville_init }}{% else %}N/A{% endif %}",
+                    "{% if commande.ville and commande.ville.region %}{{ commande.ville.region.nom_region }}{% else %}N/A{% endif %}",
+                    "{{ panier.article.nom|default:'N/A'|escapejs }}",
+                    "{{ panier.article.reference|default:'N/A'|escapejs }}",
+                    "{{ panier.article.couleur|default:'N/A'|escapejs }}",
+                    "{{ panier.article.pointure|default:'N/A'|escapejs }}",
+                    {{ panier.quantite|default:0 }},
+                    {{ panier.article.prix_unitaire|floatformat:2|default:'0.00' }},
+                    {{ panier.sous_total|floatformat:2|default:'0.00' }},
+                    "{{ commande.total_cmd|floatformat:2|default:'0.00' }}",
+                    "{{ commande.adresse|default:'N/A'|escapejs }}"
+                ]);
+            {% empty %}
+                data.push([
+                    "{{ commande.id_yz|default:'' }}",
+                    "{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}",
+                    "{{ commande.client.numero_tel|default:'' }}",
+                    "{% if commande.ville and commande.ville.nom %}{{ commande.ville.nom }}{% elif commande.ville_init %}{{ commande.ville_init }}{% else %}N/A{% endif %}",
+                    "{% if commande.ville and commande.ville.region %}{{ commande.ville.region.nom_region }}{% else %}N/A{% endif %}",
+                    "N/A",
+                    "N/A", 
+                    "N/A",
+                    "N/A",
+                    0,
+                    0.00,
+                    0.00,
+                    "{{ commande.total_cmd|floatformat:2|default:'0.00' }}",
+                    "{{ commande.adresse|default:'N/A'|escapejs }}"
+                ]);
+            {% endfor %}
         {% endfor %}
         
         // Création du workbook et worksheet
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Commandes");
+        XLSX.utils.book_append_sheet(wb, ws, "Commandes avec Paniers");
         
         // Définir les largeurs de colonnes
         const wscols = [
@@ -793,13 +823,20 @@ function exporterCommandes() {
             {wch: 15}, // Téléphone
             {wch: 15}, // Ville
             {wch: 15}, // Région
-            {wch: 15}, // Montant
+            {wch: 25}, // Article Nom
+            {wch: 15}, // Article Référence
+            {wch: 15}, // Article Couleur
+            {wch: 12}, // Article Pointure
+            {wch: 10}, // Quantité
+            {wch: 12}, // Prix Unitaire
+            {wch: 15}, // Sous Total Article
+            {wch: 18}, // Montant Total Commande
             {wch: 40}  // Adresse
         ];
         ws['!cols'] = wscols;
         
         // Générer le nom du fichier
-        let filename = "commandes_livraison_";
+        let filename = "commandes_avec_paniers_livraison_";
         {% if region_name %}filename += "{{ region_name|slugify }}_";{% endif %}
         {% if ville_name %}filename += "{{ ville_name|slugify }}_";{% endif %}
         filename += new Date().toISOString().split('T')[0] + ".xlsx";
@@ -808,7 +845,7 @@ function exporterCommandes() {
         XLSX.writeFile(wb, filename);
         
         // Notification
-        showNotification("Export Excel réussi !", "success");
+        showNotification("Export Excel avec détails des paniers réussi !", "success");
     }
 }
 

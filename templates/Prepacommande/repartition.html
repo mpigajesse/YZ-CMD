@@ -245,12 +245,12 @@
                             <button onclick="exporterRegion('{{ stat.ville__region__nom_region }}', 'excel')" 
                                     class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg transition-colors duration-200 hover:bg-green-700">
                                 <i class="fas fa-file-excel mr-1"></i>
-                                Excel
+                                Excel + paniers
                             </button>
                             <button onclick="exporterRegion('{{ stat.ville__region__nom_region }}', 'csv')" 
                                     class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors duration-200 hover:bg-blue-700">
                                 <i class="fas fa-file-csv mr-1"></i>
-                                CSV
+                                CSV avec paniers
                             </button>
                         </div>
                     </div>
@@ -360,7 +360,7 @@
 
 <script>
 // Fonction pour afficher les notifications
-function showNotification(message, type = 'info') {
+window.showNotification = function(message, type = 'info') {
     const colors = {
         success: 'bg-green-500',
         error: 'bg-red-500',
@@ -377,18 +377,24 @@ function showNotification(message, type = 'info') {
     document.body.appendChild(notification);
     
     setTimeout(() => {
-        document.body.removeChild(notification);
+        if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+        }
     }, 3000);
 }
 
 // Fonction pour actualiser les données
-function actualiserDonnees() {
-    const button = event.target.closest('button');
-    const icon = button.querySelector('i');
-    
-    // Animation du bouton
-    icon.classList.add('fa-spin');
-    button.disabled = true;
+window.actualiserDonnees = function() {
+    const button = event && event.target ? event.target.closest('button') : null;
+    if (button) {
+        const icon = button.querySelector('i');
+        
+        // Animation du bouton
+        if (icon) {
+            icon.classList.add('fa-spin');
+        }
+        button.disabled = true;
+    }
     
     // Notification
     showNotification("Actualisation des données en cours...", "info");
@@ -399,39 +405,109 @@ function actualiserDonnees() {
     }, 1000);
 }
 
-// Fonction pour exporter une région spécifique
-function exporterRegion(nomRegion, format = 'excel') {
+// Fonction pour exporter une région spécifique avec détails des paniers
+window.exporterRegion = function(nomRegion, format = 'excel') {
+    // Préparer les données de toutes les commandes côté client
+    const toutesLesCommandes = [
+        {% for commande in commandes_reparties %}
+        {
+            region: "{{ commande.ville.region.nom_region|default:'N/A' }}",
+            ville: "{{ commande.ville.nom|default:'N/A' }}",
+            numero: "{{ commande.id_yz|default:'' }}",
+            client: "{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}",
+            telephone: "{{ commande.client.numero_tel|default:'' }}",
+            montant: parseFloat("{{ commande.total_cmd|floatformat:2|default:'0.00' }}"),
+            adresse: "{{ commande.adresse|default:'N/A'|escapejs }}",
+            paniers: [
+                {% for panier in commande.paniers.all %}
+                {
+                    nom: "{{ panier.article.nom|default:'N/A'|escapejs }}",
+                    reference: "{{ panier.article.reference|default:'N/A'|escapejs }}",
+                    couleur: "{{ panier.article.couleur|default:'N/A'|escapejs }}",
+                    pointure: "{{ panier.article.pointure|default:'N/A'|escapejs }}",
+                    quantite: parseInt("{{ panier.quantite|default:0 }}"),
+                    prix_unitaire: parseFloat("{{ panier.article.prix_unitaire|floatformat:2|default:'0.00' }}"),
+                    sous_total: parseFloat("{{ panier.sous_total|floatformat:2|default:'0.00' }}")
+                }{% if not forloop.last %},{% endif %}
+                {% empty %}
+                {
+                    nom: "N/A",
+                    reference: "N/A",
+                    couleur: "N/A",
+                    pointure: "N/A",
+                    quantite: 0,
+                    prix_unitaire: 0.00,
+                    sous_total: 0.00
+                }
+                {% endfor %}
+            ]
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    // Debug : Afficher les données disponibles
+    console.log("Toutes les commandes:", toutesLesCommandes);
+    console.log("Région recherchée:", nomRegion);
+    console.log("Régions disponibles:", [...new Set(toutesLesCommandes.map(cmd => cmd.region))]);
+
+    // Filtrer les commandes pour cette région
+    const commandesRegion = toutesLesCommandes.filter(cmd => cmd.region === nomRegion);
+    
+    console.log("Commandes filtrées pour", nomRegion, ":", commandesRegion);
+    
+    if (commandesRegion.length === 0) {
+        showNotification(`Aucune commande trouvée pour la région ${nomRegion}`, "info");
+        return;
+    }
+
     if (format === 'excel') {
-        // Export Excel
+        // Export Excel avec détails des paniers
         const data = [];
         
-        // En-têtes
-        data.push(["Région", "Ville", "Nombre de Commandes", "Montant Total (DH)"]);
+        // En-têtes avec détails des paniers
+        data.push(["Région", "Ville", "N° Commande", "Client", "Téléphone", "Article Nom", "Article Référence", "Article Couleur", "Article Pointure", "Quantité", "Prix Unitaire", "Sous Total Article", "Montant Total Commande (DH)", "Adresse"]);
         
-        // Filtrer les statistiques par ville pour cette région
-        {% for stat in stats_par_ville %}
-        if ("{{ stat.ville__region__nom_region }}" === nomRegion) {
-            data.push([
-                "{{ stat.ville__region__nom_region }}",
-                "{{ stat.ville__nom }}",
-                {{ stat.nb_commandes }},
-                {{ stat.total_montant|floatformat:0 }}
-            ]);
-        }
-        {% endfor %}
-        
-        // Ajouter une ligne de total pour la région
-        let totalCommandes = 0;
-        let totalMontant = 0;
-        
-        {% for stat in stats_par_region %}
-        if ("{{ stat.ville__region__nom_region }}" === nomRegion) {
-            totalCommandes = {{ stat.nb_commandes }};
-            totalMontant = {{ stat.total_montant|floatformat:0 }};
-        }
-        {% endfor %}
-        
-        data.push(["", "TOTAL", totalCommandes, totalMontant]);
+        // Traiter chaque commande de la région
+        commandesRegion.forEach(commande => {
+            if (commande.paniers.length > 0) {
+                commande.paniers.forEach(panier => {
+                    data.push([
+                        commande.region,
+                        commande.ville,
+                        commande.numero,
+                        commande.client,
+                        commande.telephone,
+                        panier.nom,
+                        panier.reference,
+                        panier.couleur,
+                        panier.pointure,
+                        panier.quantite,
+                        panier.prix_unitaire,
+                        panier.sous_total,
+                        commande.montant,
+                        commande.adresse
+                    ]);
+                });
+            } else {
+                // Commande sans paniers
+                data.push([
+                    commande.region,
+                    commande.ville,
+                    commande.numero,
+                    commande.client,
+                    commande.telephone,
+                    "N/A",
+                    "N/A",
+                    "N/A",
+                    "N/A",
+                    0,
+                    0.00,
+                    0.00,
+                    commande.montant,
+                    commande.adresse
+                ]);
+            }
+        });
         
         // Création du workbook et worksheet
         const ws = XLSX.utils.aoa_to_sheet(data);
@@ -442,72 +518,162 @@ function exporterRegion(nomRegion, format = 'excel') {
         const wscols = [
             {wch: 20}, // Région
             {wch: 20}, // Ville
-            {wch: 20}, // Nombre de commandes
-            {wch: 20}  // Montant total
+            {wch: 15}, // N° Commande
+            {wch: 25}, // Client
+            {wch: 15}, // Téléphone
+            {wch: 25}, // Article Nom
+            {wch: 15}, // Article Référence
+            {wch: 15}, // Article Couleur
+            {wch: 12}, // Article Pointure
+            {wch: 10}, // Quantité
+            {wch: 12}, // Prix Unitaire
+            {wch: 15}, // Sous Total Article
+            {wch: 18}, // Montant Total Commande
+            {wch: 40}  // Adresse
         ];
         ws['!cols'] = wscols;
         
+        // Ajouter une deuxième feuille avec le résumé de la région
+        const dataResume = [];
+        dataResume.push(["Type", "Valeur"]);
+        dataResume.push(["Région", nomRegion]);
+        
+        // Calculer totaux pour cette région
+        let totalCommandes = commandesRegion.length;
+        let totalMontant = commandesRegion.reduce((total, cmd) => total + cmd.montant, 0);
+        
+        dataResume.push(["Nombre total de commandes", totalCommandes]);
+        dataResume.push(["Montant total", totalMontant.toFixed(2) + " DH"]);
+        dataResume.push(["Date d'export", new Date().toLocaleDateString('fr-FR')]);
+        
+        const wsResume = XLSX.utils.aoa_to_sheet(dataResume);
+        XLSX.utils.book_append_sheet(wb, wsResume, "Résumé");
+        
+        // Largeurs pour la feuille résumé
+        wsResume['!cols'] = [{wch: 25}, {wch: 20}];
+        
         // Générer le fichier Excel
-        const filename = "region_" + nomRegion.toLowerCase().replace(/\s+/g, '_') + "_" + 
+        const filename = "region_avec_paniers_" + nomRegion.toLowerCase().replace(/\s+/g, '_') + "_" + 
                         new Date().toISOString().split('T')[0] + ".xlsx";
         
         XLSX.writeFile(wb, filename);
         
         // Notification
-        showNotification(`Export Excel de la région ${nomRegion} réussi !`, "success");
+        showNotification(`Export Excel avec paniers de la région ${nomRegion} réussi ! (${totalCommandes} commandes)`, "success");
+        
     } else {
-        // Export CSV
+        // Export CSV avec détails des paniers
         let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "Région,Ville,Nombre de Commandes,Montant Total (DH)\n";
+        csvContent += "Région,Ville,N° Commande,Client,Téléphone,Article Nom,Article Référence,Article Couleur,Article Pointure,Quantité,Prix Unitaire,Sous Total Article,Montant Total Commande (DH),Adresse\n";
         
-        // Filtrer les statistiques par ville pour cette région
-        {% for stat in stats_par_ville %}
-        if ("{{ stat.ville__region__nom_region }}" === nomRegion) {
-            csvContent += "{{ stat.ville__region__nom_region }},{{ stat.ville__nom }},{{ stat.nb_commandes }},{{ stat.total_montant|floatformat:0 }}\n";
-        }
-        {% endfor %}
-        
-        // Ajouter une ligne de total pour la région
-        let totalCommandes = 0;
-        let totalMontant = 0;
-        
-        {% for stat in stats_par_region %}
-        if ("{{ stat.ville__region__nom_region }}" === nomRegion) {
-            totalCommandes = {{ stat.nb_commandes }};
-            totalMontant = {{ stat.total_montant|floatformat:0 }};
-        }
-        {% endfor %}
-        
-        csvContent += ",TOTAL," + totalCommandes + "," + totalMontant + "\n";
+        // Traiter chaque commande de la région
+        commandesRegion.forEach(commande => {
+            if (commande.paniers.length > 0) {
+                commande.paniers.forEach(panier => {
+                    csvContent += `"${commande.region}","${commande.ville}","${commande.numero}","${commande.client}","${commande.telephone}","${panier.nom}","${panier.reference}","${panier.couleur}","${panier.pointure}",${panier.quantite},${panier.prix_unitaire},${panier.sous_total},"${commande.montant}","${commande.adresse}"\n`;
+                });
+            } else {
+                // Commande sans paniers
+                csvContent += `"${commande.region}","${commande.ville}","${commande.numero}","${commande.client}","${commande.telephone}","N/A","N/A","N/A","N/A",0,0.00,0.00,"${commande.montant}","${commande.adresse}"\n`;
+            }
+        });
         
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
         
-        const filename = "region_" + nomRegion.toLowerCase().replace(/\s+/g, '_') + "_" + 
+        const filename = "region_avec_paniers_" + nomRegion.toLowerCase().replace(/\s+/g, '_') + "_" + 
                         new Date().toISOString().split('T')[0] + ".csv";
-        link.setAttribute("download", filename);
         
+        link.setAttribute("download", filename);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
         // Notification
-        showNotification(`Export CSV de la région ${nomRegion} réussi !`, "success");
+        showNotification(`Export CSV avec paniers de la région ${nomRegion} réussi ! (${commandesRegion.length} commandes)`, "success");
     }
 }
 
-// Fonction pour exporter tout en Excel
-function exporterToutExcel() {
+
+
+// Fonction pour exporter tout en Excel avec détails des paniers
+window.exporterToutExcel = function() {
     // Créer un format Excel avec SheetJS
     const data = [];
     
-    // En-têtes
-    data.push(["Région", "Nombre de Commandes", "Montant Total (DH)"]);
+    // En-têtes avec détails des paniers
+    data.push(["Région", "Ville", "N° Commande", "Client", "Téléphone", "Article Nom", "Article Référence", "Article Couleur", "Article Pointure", "Quantité", "Prix Unitaire", "Sous Total Article", "Montant Total Commande (DH)", "Adresse"]);
     
-    // Données des régions
+    // Données des commandes avec paniers détaillés
+    {% for commande in commandes_reparties %}
+        {% for panier in commande.paniers.all %}
+            data.push([
+                "{{ commande.ville.region.nom_region|default:'N/A' }}",
+                "{{ commande.ville.nom|default:'N/A' }}",
+                "{{ commande.id_yz|default:'' }}",
+                "{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}",
+                "{{ commande.client.numero_tel|default:'' }}",
+                "{{ panier.article.nom|default:'N/A'|escapejs }}",
+                "{{ panier.article.reference|default:'N/A'|escapejs }}",
+                "{{ panier.article.couleur|default:'N/A'|escapejs }}",
+                "{{ panier.article.pointure|default:'N/A'|escapejs }}",
+                {{ panier.quantite|default:0 }},
+                {{ panier.article.prix_unitaire|floatformat:2|default:'0.00' }},
+                {{ panier.sous_total|floatformat:2|default:'0.00' }},
+                {{ commande.total_cmd|floatformat:2|default:'0.00' }},
+                "{{ commande.adresse|default:'N/A'|escapejs }}"
+            ]);
+        {% empty %}
+            data.push([
+                "{{ commande.ville.region.nom_region|default:'N/A' }}",
+                "{{ commande.ville.nom|default:'N/A' }}",
+                "{{ commande.id_yz|default:'' }}",
+                "{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}",
+                "{{ commande.client.numero_tel|default:'' }}",
+                "N/A",
+                "N/A", 
+                "N/A",
+                "N/A",
+                0,
+                0.00,
+                0.00,
+                {{ commande.total_cmd|floatformat:2|default:'0.00' }},
+                "{{ commande.adresse|default:'N/A'|escapejs }}"
+            ]);
+        {% endfor %}
+    {% endfor %}
+    
+    // Création du workbook et worksheet
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Commandes avec Paniers");
+    
+    // Définir les largeurs de colonnes
+    const wscols = [
+        {wch: 20}, // Région
+        {wch: 20}, // Ville
+        {wch: 15}, // N° Commande
+        {wch: 25}, // Client
+        {wch: 15}, // Téléphone
+        {wch: 25}, // Article Nom
+        {wch: 15}, // Article Référence
+        {wch: 15}, // Article Couleur
+        {wch: 12}, // Article Pointure
+        {wch: 10}, // Quantité
+        {wch: 12}, // Prix Unitaire
+        {wch: 15}, // Sous Total Article
+        {wch: 18}, // Montant Total Commande
+        {wch: 40}  // Adresse
+    ];
+    ws['!cols'] = wscols;
+    
+    // Création d'une deuxième feuille avec le résumé par région (comme avant)
+    const dataResume = [];
+    dataResume.push(["Région", "Nombre de Commandes", "Montant Total (DH)"]);
+    
     {% for stat in stats_par_region %}
-    data.push([
+    dataResume.push([
         "{{ stat.ville__region__nom_region }}",
         {{ stat.nb_commandes }},
         {{ stat.total_montant|floatformat:0 }}
@@ -515,81 +681,55 @@ function exporterToutExcel() {
     {% endfor %}
     
     // Ligne de total général
-    data.push([
+    dataResume.push([
         "TOTAL GÉNÉRAL", 
         {{ total_commandes_reparties|default:0 }}, 
         {{ total_montant_general|floatformat:0|default:0 }}
     ]);
     
-    // Création du workbook et worksheet
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Répartition Régions");
+    const wsResume = XLSX.utils.aoa_to_sheet(dataResume);
+    XLSX.utils.book_append_sheet(wb, wsResume, "Résumé par Région");
     
-    // Définir les largeurs de colonnes
-    const wscols = [
+    // Définir les largeurs de colonnes pour la feuille de résumé
+    const wscolsResume = [
         {wch: 25}, // Région
         {wch: 20}, // Nombre de commandes
         {wch: 20}  // Montant total
     ];
-    ws['!cols'] = wscols;
-    
-    // Création d'une deuxième feuille avec les détails par ville
-    const dataVilles = [];
-    dataVilles.push(["Région", "Ville", "Nombre de Commandes", "Montant Total (DH)", "Pourcentage"]);
-    
-    {% for stat in stats_par_ville %}
-    dataVilles.push([
-        "{{ stat.ville__region__nom_region }}",
-        "{{ stat.ville__nom }}",
-        {{ stat.nb_commandes }},
-        {{ stat.total_montant|floatformat:0 }},
-        "{{ stat.total_montant|percentage:total_montant_general|floatformat:1 }}%"
-    ]);
-    {% endfor %}
-    
-    const wsVilles = XLSX.utils.aoa_to_sheet(dataVilles);
-    XLSX.utils.book_append_sheet(wb, wsVilles, "Détail par Ville");
-    
-    // Définir les largeurs de colonnes pour la feuille des villes
-    const wscolsVilles = [
-        {wch: 20}, // Région
-        {wch: 20}, // Ville
-        {wch: 20}, // Nombre de commandes
-        {wch: 20}, // Montant total
-        {wch: 15}  // Pourcentage
-    ];
-    wsVilles['!cols'] = wscolsVilles;
+    wsResume['!cols'] = wscolsResume;
     
     // Générer le fichier Excel
-    const filename = "repartition_complete_" + new Date().toISOString().split('T')[0] + ".xlsx";
+    const filename = "commandes_avec_paniers_complete_" + new Date().toISOString().split('T')[0] + ".xlsx";
     XLSX.writeFile(wb, filename);
     
     // Notification
-    showNotification("Export Excel complet réussi !", "success");
+    showNotification("Export Excel complet avec détails des paniers réussi !", "success");
 }
 
-// Fonction pour exporter tout en CSV
-function exporterToutCSV() {
+// Fonction pour exporter tout en CSV avec détails des paniers
+window.exporterToutCSV = function() {
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Région,Nombre de Commandes,Montant Total (DH)\n";
+    csvContent += "Région,Ville,N° Commande,Client,Téléphone,Article Nom,Article Référence,Article Couleur,Article Pointure,Quantité,Prix Unitaire,Sous Total Article,Montant Total Commande (DH),Adresse\n";
     
-    {% for stat in stats_par_region %}
-    csvContent += "{{ stat.ville__region__nom_region }},{{ stat.nb_commandes }},{{ stat.total_montant|floatformat:0 }}\n";
+    // Données des commandes avec paniers détaillés
+    {% for commande in commandes_reparties %}
+        {% for panier in commande.paniers.all %}
+            csvContent += "{{ commande.ville.region.nom_region|default:'N/A' }},{{ commande.ville.nom|default:'N/A' }},{{ commande.id_yz|default:'' }},{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %},{{ commande.client.numero_tel|default:'' }},\"{{ panier.article.nom|default:'N/A'|escapejs }}\",\"{{ panier.article.reference|default:'N/A'|escapejs }}\",\"{{ panier.article.couleur|default:'N/A'|escapejs }}\",\"{{ panier.article.pointure|default:'N/A'|escapejs }}\",{{ panier.quantite|default:0 }},{{ panier.article.prix_unitaire|floatformat:2|default:'0.00' }},{{ panier.sous_total|floatformat:2|default:'0.00' }},{{ commande.total_cmd|floatformat:2|default:'0.00' }},\"{{ commande.adresse|default:'N/A'|escapejs }}\"\n";
+        {% empty %}
+            csvContent += "{{ commande.ville.region.nom_region|default:'N/A' }},{{ commande.ville.nom|default:'N/A' }},{{ commande.id_yz|default:'' }},{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %},{{ commande.client.numero_tel|default:'' }},N/A,N/A,N/A,N/A,0,0.00,0.00,{{ commande.total_cmd|floatformat:2|default:'0.00' }},\"{{ commande.adresse|default:'N/A'|escapejs }}\"\n";
+        {% endfor %}
     {% endfor %}
-    
-    csvContent += "TOTAL GÉNÉRAL,{{ total_commandes_reparties|default:0 }},{{ total_montant_general|floatformat:0|default:0 }}\n";
     
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "repartition_regions_" + new Date().toISOString().split('T')[0] + ".csv");
+    link.setAttribute("download", "commandes_avec_paniers_complete_" + new Date().toISOString().split('T')[0] + ".csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
     // Notification
-    showNotification("Export CSV complet réussi !", "success");
+    showNotification("Export CSV complet avec détails des paniers réussi !", "success");
 }
 
 // Animation des éléments au scroll
@@ -600,7 +740,7 @@ const observerOptions = {
 
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-        if (entry.isIntersecting) {
+        if (entry.isIntersecting && entry.target && entry.target.style) {
             entry.target.style.opacity = '1';
             entry.target.style.transform = 'translateY(0)';
         }
@@ -609,9 +749,17 @@ const observer = new IntersectionObserver((entries) => {
 
 // Observer tous les éléments avec animation
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.animate-fade-in').forEach(el => {
-        observer.observe(el);
-    });
+    const elementsToAnimate = document.querySelectorAll('.animate-fade-in');
+    if (elementsToAnimate && elementsToAnimate.length > 0) {
+        elementsToAnimate.forEach(el => {
+            if (el && observer) {
+                observer.observe(el);
+            }
+        });
+    }
 });
+
+
+
 </script>
 {% endblock %} 

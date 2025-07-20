@@ -3426,7 +3426,7 @@ def repartition_commandes(request):
         etats__date_fin__isnull=True,
         ville__isnull=False,  # Exclure les commandes sans ville
         ville__region__isnull=False  # Exclure les commandes sans région
-    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats__operateur').distinct()
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats__operateur', 'paniers__article').distinct()
     
     # Statistiques par ville et région des commandes en traitement
     stats_par_ville = commandes_reparties.values(
