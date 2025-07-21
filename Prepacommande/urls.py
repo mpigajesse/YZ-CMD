@@ -47,5 +47,12 @@ urlpatterns = [
     path('repartition-commandes/', views.repartition_commandes, name='repartition_commandes'),
     path('details-region/', views.details_region_view, name='details_region'),
     
+    # === NOUVELLES URLs : EXPORTS CONSOLIDÉS ===
+    path('export/commandes-consolidees/csv/', views.export_commandes_consolidees_csv, name='export_commandes_consolidees_csv'),
+    path('export/commandes-consolidees/excel/', views.export_commandes_consolidees_excel, name='export_commandes_consolidees_excel'),
+    path('export/region/<str:region_name>/csv/', views.export_region_consolidee_csv, name='export_region_consolidee_csv'),
+    path('export/region/<str:region_name>/excel/', views.export_region_consolidee_excel, name='export_region_consolidee_excel'),
+    path('export/ville/<int:ville_id>/csv/', views.export_ville_consolidee_csv, name='export_ville_consolidee_csv'),
+    path('export/ville/<int:ville_id>/excel/', views.export_ville_consolidee_excel, name='export_ville_consolidee_excel'),
 
 ] 

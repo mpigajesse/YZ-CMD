@@ -483,6 +483,7 @@ def modifier_profile_logistique(request):
             
         except Exception as e:
             messages.error(request, f"Erreur lors de la mise à jour du profil : {str(e)}")
+            return redirect('operatLogistic:profile')
     
     context = {
         'operateur': operateur,
@@ -1234,6 +1235,16 @@ def commandes_renvoyees_preparation(request):
             search_query.lower() in (cmd.client.numero_tel or '').lower()
         ]
     
+    # S'assurer que toutes les commandes ont une date_renvoi définie
+    for commande in commandes_filtrees:
+        if not hasattr(commande, 'date_renvoi') or commande.date_renvoi is None:
+            # Utiliser la date de l'état "En préparation" actuel comme fallback
+            etat_preparation = commande.etats.filter(
+                enum_etat__libelle='En préparation',
+                date_fin__isnull=True
+            ).first()
+            commande.date_renvoi = etat_preparation.date_debut if etat_preparation else timezone.now()
+    
     # Tri par date de renvoi (plus récentes en premier)
     commandes_filtrees.sort(key=lambda x: x.date_renvoi, reverse=True)
     
@@ -1248,7 +1259,7 @@ def commandes_renvoyees_preparation(request):
     
     # Commandes renvoyées aujourd'hui
     aujourd_hui = timezone.now().date()
-    renvoyees_aujourd_hui = sum(1 for cmd in commandes_filtrees if cmd.date_renvoi.date() == aujourd_hui)
+    renvoyees_aujourd_hui = sum(1 for cmd in commandes_filtrees if hasattr(cmd, 'date_renvoi') and cmd.date_renvoi and cmd.date_renvoi.date() == aujourd_hui)
     
     context = {
         'page_obj': page_obj,

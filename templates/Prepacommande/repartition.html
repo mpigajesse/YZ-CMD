@@ -180,19 +180,37 @@
             </div>
             
             <div class="flex flex-wrap gap-3">
-                <!-- Export global Excel -->
-                <button onclick="exporterToutExcel()" 
+                {% if total_commandes_preparees > 0 %}
+                <!-- Export global Excel consolidé - ACTIVÉ -->
+                <a href="{% url 'Prepacommande:export_commandes_consolidees_excel' %}" 
                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg transition-colors duration-200 hover:bg-green-700">
                     <i class="fas fa-file-excel mr-2"></i>
-                    Exporter tout (Excel)
-                </button>
+                    Exporter tout (Excel consolidé)
+                </a>
                 
-                <!-- Export global CSV -->
-                <button onclick="exporterToutCSV()" 
+                <!-- Export global CSV consolidé - ACTIVÉ -->
+                <a href="{% url 'Prepacommande:export_commandes_consolidees_csv' %}" 
                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors duration-200 hover:bg-blue-700">
                     <i class="fas fa-file-csv mr-2"></i>
-                    Exporter tout (CSV)
+                    Exporter tout (CSV consolidé)
+                </a>
+                {% else %}
+                <!-- Export global Excel consolidé - VÉROUILLÉ -->
+                <button disabled 
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed" 
+                        title="Aucune commande préparée disponible pour l'export">
+                    <i class="fas fa-lock mr-2"></i>
+                    Exporter tout (Excel consolidé)
                 </button>
+                
+                <!-- Export global CSV consolidé - VÉROUILLÉ -->
+                <button disabled 
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed" 
+                        title="Aucune commande préparée disponible pour l'export">
+                    <i class="fas fa-lock mr-2"></i>
+                    Exporter tout (CSV consolidé)
+                </button>
+                {% endif %}
                 
                 <!-- Bouton actualiser -->
                 <button onclick="actualiserDonnees()" 
@@ -215,7 +233,20 @@
             {% for stat in stats_par_region %}
             <div class="region-card rounded-xl shadow-lg p-6 animate-fade-in" style="animation-delay: {{ forloop.counter0|mul:0.1 }}s;">
                 <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
                     <h3 class="text-lg font-semibold" style="color: var(--preparation-primary);">{{ stat.ville__region__nom_region }}</h3>
+                        <button onclick="afficherInfoExportationRegion('{{ stat.ville__region__nom_region }}')" 
+                                class="ml-2 w-6 h-6 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110" 
+                                title="Informations sur les exportations de cette région">
+                            <i class="fas fa-info text-blue-600 text-xs"></i>
+                        </button>
+                        {% if preparees_par_region|get_item:stat.ville__region__nom_region > 0 %}
+                        <div class="ml-2 flex items-center">
+                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
+                            <span class="text-xs text-green-600 font-medium">{{ preparees_par_region|get_item:stat.ville__region__nom_region }} prêtes</span>
+                        </div>
+                        {% endif %}
+                    </div>
                     <div class="p-3 rounded-full" style="background-color: rgba(154, 106, 77, 0.1);">
                         <i class="fas fa-map text-xl" style="color: var(--preparation-primary);"></i>
                     </div>
@@ -241,17 +272,38 @@
                         </a>
                         
                         <!-- Boutons d'export -->
-                        <div class="flex-1 flex gap-1">
-                            <button onclick="exporterRegion('{{ stat.ville__region__nom_region }}', 'excel')" 
-                                    class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg transition-colors duration-200 hover:bg-green-700">
-                                <i class="fas fa-file-excel mr-1"></i>
-                                Excel + paniers
-                            </button>
-                            <button onclick="exporterRegion('{{ stat.ville__region__nom_region }}', 'csv')" 
-                                    class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors duration-200 hover:bg-blue-700">
-                                <i class="fas fa-file-csv mr-1"></i>
-                                CSV avec paniers
-                            </button>
+                        <div class="flex-1 flex flex-col gap-1">
+                            {% if preparees_par_region|get_item:stat.ville__region__nom_region > 0 %}
+                            <!-- Export consolidé - ACTIVÉ -->
+                            <div class="flex gap-1">
+                                <a href="{% url 'Prepacommande:export_region_consolidee_excel' region_name=stat.ville__region__nom_region %}" 
+                                   class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg transition-colors duration-200 hover:bg-green-700">
+                                    <i class="fas fa-file-excel mr-1"></i>
+                                    Excel consolidé
+                                </a>
+                                <a href="{% url 'Prepacommande:export_region_consolidee_csv' region_name=stat.ville__region__nom_region %}" 
+                                   class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors duration-200 hover:bg-blue-700">
+                                    <i class="fas fa-file-csv mr-1"></i>
+                                    CSV consolidé
+                                </a>
+                            </div>
+                            {% else %}
+                            <!-- Export consolidé - VÉROUILLÉ -->
+                            <div class="flex gap-1">
+                                <button disabled 
+                                        class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed" 
+                                        title="Aucune commande préparée disponible pour l'export">
+                                    <i class="fas fa-lock mr-1"></i>
+                                    Excel consolidé
+                                </button>
+                                <button disabled 
+                                        class="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed" 
+                                        title="Aucune commande préparée disponible pour l'export">
+                                    <i class="fas fa-lock mr-1"></i>
+                                    CSV consolidé
+                                </button>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -303,6 +355,14 @@
                             <div class="flex items-center">
                                 <i class="fas fa-city mr-2 text-gray-400"></i>
                                 <div class="text-sm font-medium" style="color: var(--preparation-primary);">{{ stat.ville__nom }}</div>
+                                {% with ville_key=stat.ville__nom|add:","|add:stat.ville__region__nom_region %}
+                                {% if preparees_par_ville|get_item:ville_key > 0 %}
+                                <div class="ml-2 flex items-center">
+                                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
+                                    <span class="text-xs text-green-600 font-medium">{{ preparees_par_ville|get_item:ville_key }}</span>
+                                </div>
+                                {% endif %}
+                                {% endwith %}
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -359,6 +419,32 @@
 </div>
 
 <script>
+// Définition d'une variable globale pour stocker les données des commandes
+window.allCommandesData = [
+    {% for commande in commandes_reparties %}
+    {
+        region: "{{ commande.ville.region.nom_region|default:'N/A' }}",
+        ville: "{{ commande.ville.nom|default:'N/A' }}",
+        numero: "{{ commande.id_yz|default:'' }}",
+        client: `{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}`.trim(),
+        telephone: "{{ commande.client.numero_tel|default:'' }}",
+        articles: [
+            {% for panier in commande.paniers.all %}
+            { nom: `{{ panier.article.nom|default:'N/A'|escapejs }}`.trim(), quantite: {{ panier.quantite|default:0 }} }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        montant: "{{ commande.total_cmd|floatformat:2|default:'0.00' }}",
+        adresse: `{{ commande.adresse|default:'N/A'|escapejs }}`.trim()
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+// Fonction utilitaire pour formater la liste des articles
+function formatArticlesForExport(articles) {
+    if (!articles || articles.length === 0) return "Aucun article";
+    return articles.map(a => `${a.nom} x${a.quantite}`).join(", ");
+}
+
 // Fonction pour afficher les notifications
 window.showNotification = function(message, type = 'info') {
     const colors = {
@@ -405,332 +491,7 @@ window.actualiserDonnees = function() {
     }, 1000);
 }
 
-// Fonction pour exporter une région spécifique avec détails des paniers
-window.exporterRegion = function(nomRegion, format = 'excel') {
-    // Préparer les données de toutes les commandes côté client
-    const toutesLesCommandes = [
-        {% for commande in commandes_reparties %}
-        {
-            region: "{{ commande.ville.region.nom_region|default:'N/A' }}",
-            ville: "{{ commande.ville.nom|default:'N/A' }}",
-            numero: "{{ commande.id_yz|default:'' }}",
-            client: "{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}",
-            telephone: "{{ commande.client.numero_tel|default:'' }}",
-            montant: parseFloat("{{ commande.total_cmd|floatformat:2|default:'0.00' }}"),
-            adresse: "{{ commande.adresse|default:'N/A'|escapejs }}",
-            paniers: [
-                {% for panier in commande.paniers.all %}
-                {
-                    nom: "{{ panier.article.nom|default:'N/A'|escapejs }}",
-                    reference: "{{ panier.article.reference|default:'N/A'|escapejs }}",
-                    couleur: "{{ panier.article.couleur|default:'N/A'|escapejs }}",
-                    pointure: "{{ panier.article.pointure|default:'N/A'|escapejs }}",
-                    quantite: parseInt("{{ panier.quantite|default:0 }}"),
-                    prix_unitaire: parseFloat("{{ panier.article.prix_unitaire|floatformat:2|default:'0.00' }}"),
-                    sous_total: parseFloat("{{ panier.sous_total|floatformat:2|default:'0.00' }}")
-                }{% if not forloop.last %},{% endif %}
-                {% empty %}
-                {
-                    nom: "N/A",
-                    reference: "N/A",
-                    couleur: "N/A",
-                    pointure: "N/A",
-                    quantite: 0,
-                    prix_unitaire: 0.00,
-                    sous_total: 0.00
-                }
-                {% endfor %}
-            ]
-        }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    ];
-
-    // Debug : Afficher les données disponibles
-    console.log("Toutes les commandes:", toutesLesCommandes);
-    console.log("Région recherchée:", nomRegion);
-    console.log("Régions disponibles:", [...new Set(toutesLesCommandes.map(cmd => cmd.region))]);
-
-    // Filtrer les commandes pour cette région
-    const commandesRegion = toutesLesCommandes.filter(cmd => cmd.region === nomRegion);
-    
-    console.log("Commandes filtrées pour", nomRegion, ":", commandesRegion);
-    
-    if (commandesRegion.length === 0) {
-        showNotification(`Aucune commande trouvée pour la région ${nomRegion}`, "info");
-        return;
-    }
-
-    if (format === 'excel') {
-        // Export Excel avec détails des paniers
-        const data = [];
-        
-        // En-têtes avec détails des paniers
-        data.push(["Région", "Ville", "N° Commande", "Client", "Téléphone", "Article Nom", "Article Référence", "Article Couleur", "Article Pointure", "Quantité", "Prix Unitaire", "Sous Total Article", "Montant Total Commande (DH)", "Adresse"]);
-        
-        // Traiter chaque commande de la région
-        commandesRegion.forEach(commande => {
-            if (commande.paniers.length > 0) {
-                commande.paniers.forEach(panier => {
-                    data.push([
-                        commande.region,
-                        commande.ville,
-                        commande.numero,
-                        commande.client,
-                        commande.telephone,
-                        panier.nom,
-                        panier.reference,
-                        panier.couleur,
-                        panier.pointure,
-                        panier.quantite,
-                        panier.prix_unitaire,
-                        panier.sous_total,
-                        commande.montant,
-                        commande.adresse
-                    ]);
-                });
-            } else {
-                // Commande sans paniers
-                data.push([
-                    commande.region,
-                    commande.ville,
-                    commande.numero,
-                    commande.client,
-                    commande.telephone,
-                    "N/A",
-                    "N/A",
-                    "N/A",
-                    "N/A",
-                    0,
-                    0.00,
-                    0.00,
-                    commande.montant,
-                    commande.adresse
-                ]);
-            }
-        });
-        
-        // Création du workbook et worksheet
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Région " + nomRegion);
-        
-        // Définir les largeurs de colonnes
-        const wscols = [
-            {wch: 20}, // Région
-            {wch: 20}, // Ville
-            {wch: 15}, // N° Commande
-            {wch: 25}, // Client
-            {wch: 15}, // Téléphone
-            {wch: 25}, // Article Nom
-            {wch: 15}, // Article Référence
-            {wch: 15}, // Article Couleur
-            {wch: 12}, // Article Pointure
-            {wch: 10}, // Quantité
-            {wch: 12}, // Prix Unitaire
-            {wch: 15}, // Sous Total Article
-            {wch: 18}, // Montant Total Commande
-            {wch: 40}  // Adresse
-        ];
-        ws['!cols'] = wscols;
-        
-        // Ajouter une deuxième feuille avec le résumé de la région
-        const dataResume = [];
-        dataResume.push(["Type", "Valeur"]);
-        dataResume.push(["Région", nomRegion]);
-        
-        // Calculer totaux pour cette région
-        let totalCommandes = commandesRegion.length;
-        let totalMontant = commandesRegion.reduce((total, cmd) => total + cmd.montant, 0);
-        
-        dataResume.push(["Nombre total de commandes", totalCommandes]);
-        dataResume.push(["Montant total", totalMontant.toFixed(2) + " DH"]);
-        dataResume.push(["Date d'export", new Date().toLocaleDateString('fr-FR')]);
-        
-        const wsResume = XLSX.utils.aoa_to_sheet(dataResume);
-        XLSX.utils.book_append_sheet(wb, wsResume, "Résumé");
-        
-        // Largeurs pour la feuille résumé
-        wsResume['!cols'] = [{wch: 25}, {wch: 20}];
-        
-        // Générer le fichier Excel
-        const filename = "region_avec_paniers_" + nomRegion.toLowerCase().replace(/\s+/g, '_') + "_" + 
-                        new Date().toISOString().split('T')[0] + ".xlsx";
-        
-        XLSX.writeFile(wb, filename);
-        
-        // Notification
-        showNotification(`Export Excel avec paniers de la région ${nomRegion} réussi ! (${totalCommandes} commandes)`, "success");
-        
-    } else {
-        // Export CSV avec détails des paniers
-        let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "Région,Ville,N° Commande,Client,Téléphone,Article Nom,Article Référence,Article Couleur,Article Pointure,Quantité,Prix Unitaire,Sous Total Article,Montant Total Commande (DH),Adresse\n";
-        
-        // Traiter chaque commande de la région
-        commandesRegion.forEach(commande => {
-            if (commande.paniers.length > 0) {
-                commande.paniers.forEach(panier => {
-                    csvContent += `"${commande.region}","${commande.ville}","${commande.numero}","${commande.client}","${commande.telephone}","${panier.nom}","${panier.reference}","${panier.couleur}","${panier.pointure}",${panier.quantite},${panier.prix_unitaire},${panier.sous_total},"${commande.montant}","${commande.adresse}"\n`;
-                });
-            } else {
-                // Commande sans paniers
-                csvContent += `"${commande.region}","${commande.ville}","${commande.numero}","${commande.client}","${commande.telephone}","N/A","N/A","N/A","N/A",0,0.00,0.00,"${commande.montant}","${commande.adresse}"\n`;
-            }
-        });
-        
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        
-        const filename = "region_avec_paniers_" + nomRegion.toLowerCase().replace(/\s+/g, '_') + "_" + 
-                        new Date().toISOString().split('T')[0] + ".csv";
-        
-        link.setAttribute("download", filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Notification
-        showNotification(`Export CSV avec paniers de la région ${nomRegion} réussi ! (${commandesRegion.length} commandes)`, "success");
-    }
-}
-
-
-
-// Fonction pour exporter tout en Excel avec détails des paniers
-window.exporterToutExcel = function() {
-    // Créer un format Excel avec SheetJS
-    const data = [];
-    
-    // En-têtes avec détails des paniers
-    data.push(["Région", "Ville", "N° Commande", "Client", "Téléphone", "Article Nom", "Article Référence", "Article Couleur", "Article Pointure", "Quantité", "Prix Unitaire", "Sous Total Article", "Montant Total Commande (DH)", "Adresse"]);
-    
-    // Données des commandes avec paniers détaillés
-    {% for commande in commandes_reparties %}
-        {% for panier in commande.paniers.all %}
-            data.push([
-                "{{ commande.ville.region.nom_region|default:'N/A' }}",
-                "{{ commande.ville.nom|default:'N/A' }}",
-                "{{ commande.id_yz|default:'' }}",
-                "{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}",
-                "{{ commande.client.numero_tel|default:'' }}",
-                "{{ panier.article.nom|default:'N/A'|escapejs }}",
-                "{{ panier.article.reference|default:'N/A'|escapejs }}",
-                "{{ panier.article.couleur|default:'N/A'|escapejs }}",
-                "{{ panier.article.pointure|default:'N/A'|escapejs }}",
-                {{ panier.quantite|default:0 }},
-                {{ panier.article.prix_unitaire|floatformat:2|default:'0.00' }},
-                {{ panier.sous_total|floatformat:2|default:'0.00' }},
-                {{ commande.total_cmd|floatformat:2|default:'0.00' }},
-                "{{ commande.adresse|default:'N/A'|escapejs }}"
-            ]);
-        {% empty %}
-            data.push([
-                "{{ commande.ville.region.nom_region|default:'N/A' }}",
-                "{{ commande.ville.nom|default:'N/A' }}",
-                "{{ commande.id_yz|default:'' }}",
-                "{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %}",
-                "{{ commande.client.numero_tel|default:'' }}",
-                "N/A",
-                "N/A", 
-                "N/A",
-                "N/A",
-                0,
-                0.00,
-                0.00,
-                {{ commande.total_cmd|floatformat:2|default:'0.00' }},
-                "{{ commande.adresse|default:'N/A'|escapejs }}"
-            ]);
-        {% endfor %}
-    {% endfor %}
-    
-    // Création du workbook et worksheet
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Commandes avec Paniers");
-    
-    // Définir les largeurs de colonnes
-    const wscols = [
-        {wch: 20}, // Région
-        {wch: 20}, // Ville
-        {wch: 15}, // N° Commande
-        {wch: 25}, // Client
-        {wch: 15}, // Téléphone
-        {wch: 25}, // Article Nom
-        {wch: 15}, // Article Référence
-        {wch: 15}, // Article Couleur
-        {wch: 12}, // Article Pointure
-        {wch: 10}, // Quantité
-        {wch: 12}, // Prix Unitaire
-        {wch: 15}, // Sous Total Article
-        {wch: 18}, // Montant Total Commande
-        {wch: 40}  // Adresse
-    ];
-    ws['!cols'] = wscols;
-    
-    // Création d'une deuxième feuille avec le résumé par région (comme avant)
-    const dataResume = [];
-    dataResume.push(["Région", "Nombre de Commandes", "Montant Total (DH)"]);
-    
-    {% for stat in stats_par_region %}
-    dataResume.push([
-        "{{ stat.ville__region__nom_region }}",
-        {{ stat.nb_commandes }},
-        {{ stat.total_montant|floatformat:0 }}
-    ]);
-    {% endfor %}
-    
-    // Ligne de total général
-    dataResume.push([
-        "TOTAL GÉNÉRAL", 
-        {{ total_commandes_reparties|default:0 }}, 
-        {{ total_montant_general|floatformat:0|default:0 }}
-    ]);
-    
-    const wsResume = XLSX.utils.aoa_to_sheet(dataResume);
-    XLSX.utils.book_append_sheet(wb, wsResume, "Résumé par Région");
-    
-    // Définir les largeurs de colonnes pour la feuille de résumé
-    const wscolsResume = [
-        {wch: 25}, // Région
-        {wch: 20}, // Nombre de commandes
-        {wch: 20}  // Montant total
-    ];
-    wsResume['!cols'] = wscolsResume;
-    
-    // Générer le fichier Excel
-    const filename = "commandes_avec_paniers_complete_" + new Date().toISOString().split('T')[0] + ".xlsx";
-    XLSX.writeFile(wb, filename);
-    
-    // Notification
-    showNotification("Export Excel complet avec détails des paniers réussi !", "success");
-}
-
-// Fonction pour exporter tout en CSV avec détails des paniers
-window.exporterToutCSV = function() {
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Région,Ville,N° Commande,Client,Téléphone,Article Nom,Article Référence,Article Couleur,Article Pointure,Quantité,Prix Unitaire,Sous Total Article,Montant Total Commande (DH),Adresse\n";
-    
-    // Données des commandes avec paniers détaillés
-    {% for commande in commandes_reparties %}
-        {% for panier in commande.paniers.all %}
-            csvContent += "{{ commande.ville.region.nom_region|default:'N/A' }},{{ commande.ville.nom|default:'N/A' }},{{ commande.id_yz|default:'' }},{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %},{{ commande.client.numero_tel|default:'' }},\"{{ panier.article.nom|default:'N/A'|escapejs }}\",\"{{ panier.article.reference|default:'N/A'|escapejs }}\",\"{{ panier.article.couleur|default:'N/A'|escapejs }}\",\"{{ panier.article.pointure|default:'N/A'|escapejs }}\",{{ panier.quantite|default:0 }},{{ panier.article.prix_unitaire|floatformat:2|default:'0.00' }},{{ panier.sous_total|floatformat:2|default:'0.00' }},{{ commande.total_cmd|floatformat:2|default:'0.00' }},\"{{ commande.adresse|default:'N/A'|escapejs }}\"\n";
-        {% empty %}
-            csvContent += "{{ commande.ville.region.nom_region|default:'N/A' }},{{ commande.ville.nom|default:'N/A' }},{{ commande.id_yz|default:'' }},{% if commande.client.prenom and commande.client.prenom|length > 0 or commande.client.nom and commande.client.nom|length > 0 %}{{ commande.client.prenom|default:'' }} {{ commande.client.nom|default:'' }}{% else %}Client {{ commande.client.id }}{% endif %},{{ commande.client.numero_tel|default:'' }},N/A,N/A,N/A,N/A,0,0.00,0.00,{{ commande.total_cmd|floatformat:2|default:'0.00' }},\"{{ commande.adresse|default:'N/A'|escapejs }}\"\n";
-        {% endfor %}
-    {% endfor %}
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "commandes_avec_paniers_complete_" + new Date().toISOString().split('T')[0] + ".csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Notification
-    showNotification("Export CSV complet avec détails des paniers réussi !", "success");
-}
+// SUPPRESSION : Suppression des fonctions d'export JS inutiles
 
 // Animation des éléments au scroll
 const observerOptions = {
@@ -759,7 +520,188 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Fonction pour afficher les informations sur l'exportation par région
+function afficherInfoExportationRegion(nomRegion) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md mx-4 transform transition-all">
+            <div class="p-4">
+                <!-- En-tête de la modale -->
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-2">
+                            <i class="fas fa-file-export text-green-600 text-sm"></i>
+                        </div>
+                        <h3 class="text-lg font-bold" style="color: var(--preparation-primary);">Exportation par Région</h3>
+                    </div>
+                    <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-times text-sm"></i>
+                    </button>
+                </div>
+                
+                <!-- Contenu de la modale -->
+                <div class="space-y-2">
+                    <div class="bg-blue-50 border-l-3 border-blue-400 p-2 rounded">
+                        <h4 class="font-semibold text-blue-800 mb-1 text-xs">🗺️ Région : ${nomRegion}</h4>
+                        <p class="text-blue-700 text-xs leading-tight">
+                            Exportation consolidée de toutes les commandes en traitement pour la région <strong>${nomRegion}</strong>.
+                        </p>
+                    </div>
+                    
+                    <div class="bg-green-50 border-l-3 border-green-400 p-2 rounded">
+                        <h4 class="font-semibold text-green-800 mb-1 text-xs">📊 Format de l'export</h4>
+                        <p class="text-green-700 text-xs leading-tight">
+                            <strong>Une ligne par commande</strong> avec les articles regroupés dans une seule cellule.
+                        </p>
+                    </div>
+                    
+                    <div class="bg-purple-50 border-l-3 border-purple-400 p-2 rounded">
+                        <h4 class="font-semibold text-purple-800 mb-1 text-xs">📋 Contenu de l'export</h4>
+                        <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-purple-700 text-xs">
+                            <div>• <strong>N° Commande</strong> : Identifiant</div>
+                            <div>• <strong>Client</strong> : Nom/prénom</div>
+                            <div>• <strong>Téléphone</strong> : Contact</div>
+                            <div>• <strong>Ville/Région</strong> : Localisation</div>
+                            <div>• <strong>Articles</strong> : Liste consolidée</div>
+                            <div>• <strong>Prix Total</strong> : Montant DH</div>
+                            <div>• <strong>Adresse</strong> : Complète</div>
+                            <div>• <strong>État</strong> : Statut actuel</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-orange-50 border-l-3 border-orange-400 p-2 rounded">
+                        <h4 class="font-semibold text-orange-800 mb-1 text-xs">💾 Formats disponibles</h4>
+                        <div class="flex items-center space-x-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-excel text-green-500 mr-1 text-xs"></i>
+                                <span class="text-xs">Excel (.xlsx)</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-file-csv text-blue-500 mr-1 text-xs"></i>
+                                <span class="text-xs">CSV (.csv)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pied de la modale -->
+                <div class="mt-3 flex justify-end">
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="px-3 py-1.5 text-white font-medium rounded-lg transition-colors duration-200 text-xs" 
+                            style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);">
+                        <i class="fas fa-check mr-1"></i>
+                        Compris
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Fermer en cliquant à l'extérieur
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            document.body.removeChild(modal);
+        }
+    });
+}
 
-
+// Fonction pour afficher les informations sur l'exportation par ville
+function afficherInfoExportationVille(nomVille) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md mx-4 transform transition-all">
+            <div class="p-4">
+                <!-- En-tête de la modale -->
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                            <i class="fas fa-city text-blue-600 text-sm"></i>
+                        </div>
+                        <h3 class="text-lg font-bold" style="color: var(--preparation-primary);">Exportation par Ville</h3>
+                    </div>
+                    <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-times text-sm"></i>
+                    </button>
+                </div>
+                
+                <!-- Contenu de la modale -->
+                <div class="space-y-2">
+                    <div class="bg-blue-50 border-l-3 border-blue-400 p-2 rounded">
+                        <h4 class="font-semibold text-blue-800 mb-1 text-xs">🏙️ Ville : ${nomVille}</h4>
+                        <p class="text-blue-700 text-xs leading-tight">
+                            Exportation consolidée de toutes les commandes en traitement pour la ville <strong>${nomVille}</strong>.
+                        </p>
+                    </div>
+                    
+                    <div class="bg-green-50 border-l-3 border-green-400 p-2 rounded">
+                        <h4 class="font-semibold text-green-800 mb-1 text-xs">📊 Format de l'export</h4>
+                        <p class="text-green-700 text-xs leading-tight">
+                            <strong>Une ligne par commande</strong> avec les articles regroupés dans une seule cellule.
+                        </p>
+                    </div>
+                    
+                    <div class="bg-purple-50 border-l-3 border-purple-400 p-2 rounded">
+                        <h4 class="font-semibold text-purple-800 mb-1 text-xs">📋 Contenu de l'export</h4>
+                        <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-purple-700 text-xs">
+                            <div>• <strong>N° Commande</strong> : Identifiant</div>
+                            <div>• <strong>Client</strong> : Nom/prénom</div>
+                            <div>• <strong>Téléphone</strong> : Contact</div>
+                            <div>• <strong>Ville/Région</strong> : Localisation</div>
+                            <div>• <strong>Articles</strong> : Liste consolidée</div>
+                            <div>• <strong>Prix Total</strong> : Montant DH</div>
+                            <div>• <strong>Adresse</strong> : Complète</div>
+                            <div>• <strong>État</strong> : Statut actuel</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-orange-50 border-l-3 border-orange-400 p-2 rounded">
+                        <h4 class="font-semibold text-orange-800 mb-1 text-xs">💾 Formats disponibles</h4>
+                        <div class="flex items-center space-x-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-excel text-green-500 mr-1 text-xs"></i>
+                                <span class="text-xs">Excel (.xlsx)</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-file-csv text-blue-500 mr-1 text-xs"></i>
+                                <span class="text-xs">CSV (.csv)</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-yellow-50 border-l-3 border-yellow-400 p-2 rounded">
+                        <h4 class="font-semibold text-yellow-800 mb-1 text-xs">🎯 Avantages de l'export par ville</h4>
+                        <div class="grid grid-cols-1 gap-y-0.5 text-yellow-700 text-xs">
+                            <div>• <strong>Précision géographique</strong> : Données spécifiques</div>
+                            <div>• <strong>Gestion locale</strong> : Équipes de livraison</div>
+                            <div>• <strong>Analyse ciblée</strong> : Performance par zone</div>
+                            <div>• <strong>Planification logistique</strong> : Optimisation tournées</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pied de la modale -->
+                <div class="mt-3 flex justify-end">
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="px-3 py-1.5 text-white font-medium rounded-lg transition-colors duration-200 text-xs" 
+                            style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);">
+                        <i class="fas fa-check mr-1"></i>
+                        Compris
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Fermer en cliquant à l'extérieur
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            document.body.removeChild(modal);
+        }
+    });
+}
 </script>
 {% endblock %} 

@@ -162,6 +162,8 @@ def home_view(request):
 @login_required
 def liste_prepa(request):
     """Liste des commandes à préparer pour les opérateurs de préparation"""
+    from commande.models import Operation
+    
     try:
         operateur_profile = request.user.profil_operateur
         
@@ -181,11 +183,141 @@ def liste_prepa(request):
     # Définir le type de filtre en premier
     filter_type = request.GET.get('filter', 'all')
     
-    commandes_affectees = Commande.objects.filter(
-        Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
-        etats__operateur=operateur_profile,
-        etats__date_fin__isnull=True  # État actif (en cours)
-    ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+    if filter_type == 'livrees_partiellement':
+        # Filtrer les commandes qui ont été livrées partiellement et sont maintenant en préparation
+        commandes_affectees = []
+        commandes_base = Commande.objects.filter(
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            etats__operateur=operateur_profile,
+            etats__date_fin__isnull=True
+        ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+        
+        for commande in commandes_base:
+            etats_commande = commande.etats.all().order_by('date_debut')
+            etat_prepa_actuel = None
+            
+            # Trouver l'état actuel de préparation
+            for etat in etats_commande:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                    etat_prepa_actuel = etat
+                    break
+            
+            if etat_prepa_actuel:
+                # Vérifier si la commande a un historique de livraison partielle
+                has_partially_delivered_history = False
+                for etat in etats_commande:
+                    if (etat.enum_etat.libelle == 'Livrée Partiellement' and 
+                        etat.date_fin and 
+                        etat.date_fin < etat_prepa_actuel.date_debut):
+                        has_partially_delivered_history = True
+                        break
+                
+                if has_partially_delivered_history:
+                    commandes_affectees.append(commande)
+    elif filter_type == 'renvoyees_logistique':
+        # Pour les commandes renvoyées par la logistique, ne pas exclure les états problématiques
+        # car on veut inclure les commandes avec opération de renvoi même si elles ont des états ultérieurs
+        commandes_affectees = Commande.objects.filter(
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            etats__operateur=operateur_profile,
+            etats__date_fin__isnull=True  # État actif (en cours)
+        ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+    elif filter_type == 'affectees_admin':
+        # Filtrer les commandes affectées directement par l'admin
+        # Inclure les commandes en "À imprimer" ET "En préparation"
+        commandes_affectees = []
+        commandes_base = Commande.objects.filter(
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            etats__operateur=operateur_profile,
+            etats__date_fin__isnull=True
+        ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+        
+        for commande in commandes_base:
+            etats_commande = commande.etats.all().order_by('date_debut')
+            etat_prepa_actuel = None
+            
+            # Trouver l'état actuel de préparation
+            for etat in etats_commande:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                    etat_prepa_actuel = etat
+                    break
+            
+            if etat_prepa_actuel:
+                # Vérifier s'il y a des états ultérieurs problématiques
+                a_etats_ultérieurs_problematiques = False
+                for etat in etats_commande:
+                    if (etat.date_debut > etat_prepa_actuel.date_debut and 
+                        etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
+                        a_etats_ultérieurs_problematiques = True
+                        break
+                
+                if a_etats_ultérieurs_problematiques:
+                    continue
+                
+                # Vérifier les opérations de renvoi
+                operation_renvoi = Operation.objects.filter(
+                    commande=commande,
+                    type_operation='RENVOI_PREPARATION'
+                ).first()
+                
+                if operation_renvoi:
+                    continue  # Exclure les commandes renvoyées par logistique
+                
+                # Vérifier si c'est une commande de renvoi créée lors d'une livraison partielle
+                if commande.num_cmd and commande.num_cmd.startswith('RENVOI-'):
+                    # Chercher la commande originale
+                    num_cmd_original = commande.num_cmd.replace('RENVOI-', '')
+                    commande_originale = Commande.objects.filter(
+                        num_cmd=num_cmd_original,
+                        etats__enum_etat__libelle='Livrée Partiellement'
+                    ).first()
+                    
+                    if commande_originale:
+                        continue  # Exclure les commandes de renvoi livraison partielle
+                
+                # Vérifier l'historique pour renvoi depuis livraison
+                has_return_from_delivery = False
+                for etat in reversed(etats_commande):
+                    if etat.date_fin and etat.date_fin < etat_prepa_actuel.date_debut:
+                        if etat.enum_etat.libelle in ['En cours de livraison', 'Livrée Partiellement']:
+                            has_return_from_delivery = True
+                            break
+                
+                if not has_return_from_delivery:
+                    commandes_affectees.append(commande)
+    else:  # filter_type == 'all'
+        # Pour "Toutes les commandes", afficher toutes les commandes des 3 autres onglets
+        commandes_affectees = []
+        commandes_base = Commande.objects.filter(
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            etats__operateur=operateur_profile,
+            etats__date_fin__isnull=True
+        ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+        
+        for commande in commandes_base:
+            etats_commande = commande.etats.all().order_by('date_debut')
+            etat_prepa_actuel = None
+            
+            # Trouver l'état actuel de préparation
+            for etat in etats_commande:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                    etat_prepa_actuel = etat
+                    break
+            
+            if etat_prepa_actuel:
+                # Vérifier s'il y a des états ultérieurs problématiques
+                a_etats_ultérieurs_problematiques = False
+                for etat in etats_commande:
+                    if (etat.date_debut > etat_prepa_actuel.date_debut and 
+                        etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
+                        a_etats_ultérieurs_problematiques = True
+                        break
+                
+                if a_etats_ultérieurs_problematiques:
+                    continue
+                
+                # Inclure toutes les commandes valides (pas d'exclusion basée sur le type)
+                commandes_affectees.append(commande)
     
     # Pour les commandes renvoyées par la logistique, respecter l'affectation spécifique à chaque opérateur
     if filter_type == 'renvoyees_logistique':
@@ -194,27 +326,54 @@ def liste_prepa(request):
         for commande in commandes_affectees:
             from commande.models import Operation
             
-            # Vérifier les opérations de traçabilité
-            operation_renvoi = Operation.objects.filter(
-                commande=commande,
-                type_operation='RENVOI_PREPARATION'
-            ).first()
-            
-            if operation_renvoi:
-                commandes_filtrees.append(commande)
-                continue
-            
-            # Vérifier l'historique des états de la commande
+            # Vérifier que la commande n'a pas d'états ultérieurs problématiques
             etats_commande = commande.etats.all().order_by('date_debut')
             etat_actuel = None
             
             # Trouver l'état actuel (En préparation)
             for etat in etats_commande:
-                if etat.enum_etat.libelle == 'En préparation' and not etat.date_fin:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
                     etat_actuel = etat
                     break
             
             if etat_actuel:
+                # Vérifier les opérations de traçabilité EN PREMIER
+                operation_renvoi = Operation.objects.filter(
+                    commande=commande,
+                    type_operation='RENVOI_PREPARATION'
+                ).first()
+
+                # Si il y a une opération de renvoi explicite, inclure la commande
+                # même si elle a des états ultérieurs problématiques
+                if operation_renvoi:
+                    commandes_filtrees.append(commande)
+                    continue
+
+                # Vérifier si c'est une commande de renvoi créée lors d'une livraison partielle
+                if commande.num_cmd and commande.num_cmd.startswith('RENVOI-'):
+                    # Chercher la commande originale
+                    num_cmd_original = commande.num_cmd.replace('RENVOI-', '')
+                    commande_originale = Commande.objects.filter(
+                        num_cmd=num_cmd_original,
+                        etats__enum_etat__libelle='Livrée Partiellement'
+                    ).first()
+
+                    if commande_originale:
+                        commandes_filtrees.append(commande)
+                        continue
+
+                # Sinon, vérifier s'il y a des états ultérieurs problématiques
+                a_etats_ultérieurs_problematiques = False
+                for etat in etats_commande:
+                    if (etat.date_debut > etat_actuel.date_debut and 
+                        etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
+                        a_etats_ultérieurs_problematiques = True
+                        break
+
+                if a_etats_ultérieurs_problematiques:
+                    continue  # Ignorer cette commande
+
+                # Vérifier l'historique des états de la commande
                 # Trouver l'état précédent
                 for etat in reversed(etats_commande):
                     if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
@@ -252,6 +411,15 @@ def liste_prepa(request):
                         break
             
             commande.etat_precedent = etat_precedent
+            
+            # Trouver l'état de confirmation (le premier état "Confirmée")
+            etat_confirmation = None
+            for etat in etats_commande:
+                if etat.enum_etat.libelle == 'Confirmée':
+                    etat_confirmation = etat
+                    break
+            
+            commande.etat_confirmation = etat_confirmation
     
     # Si aucune commande trouvée avec la méthode stricte, essayer une approche plus large
     if isinstance(commandes_affectees, list):
@@ -292,6 +460,15 @@ def liste_prepa(request):
                             break
                 
                 commande.etat_precedent = etat_precedent
+                
+                # Trouver l'état de confirmation (le premier état "Confirmée")
+                etat_confirmation = None
+                for etat in etats_commande:
+                    if etat.enum_etat.libelle == 'Confirmée':
+                        etat_confirmation = etat
+                        break
+                
+                commande.etat_confirmation = etat_confirmation
     
     # Suppression du filtre 'nouvelles' car redondant avec l'affectation automatique
     # Suppression du filtre 'renvoyees_preparation' car non nécessaire
@@ -359,7 +536,8 @@ def liste_prepa(request):
     # Statistiques par type pour les onglets
     stats_par_type = {
         'renvoyees_logistique': 0,
-        'livrees_partiellement': 0
+        'livrees_partiellement': 0,
+        'affectees_admin': 0
     }
     
     # Recalculer les statistiques pour tous les types
@@ -369,8 +547,6 @@ def liste_prepa(request):
         etats__operateur=operateur_profile,
         etats__date_fin__isnull=True  # État actif (en cours)
     ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
-    
-    from commande.models import Operation
     
     for cmd in toutes_commandes:
         # Vérifier si c'est une commande renvoyée par la logistique
@@ -383,6 +559,19 @@ def liste_prepa(request):
             stats_par_type['renvoyees_logistique'] += 1
             continue
         
+        # Vérifier si c'est une commande de renvoi créée lors d'une livraison partielle
+        if cmd.num_cmd and cmd.num_cmd.startswith('RENVOI-'):
+            # Chercher la commande originale
+            num_cmd_original = cmd.num_cmd.replace('RENVOI-', '')
+            commande_originale = Commande.objects.filter(
+                num_cmd=num_cmd_original,
+                etats__enum_etat__libelle='Livrée Partiellement'
+            ).first()
+            
+            if commande_originale:
+                stats_par_type['renvoyees_logistique'] += 1
+                continue
+        
         # Vérifier l'état précédent
         etats_commande = cmd.etats.all().order_by('date_debut')
         etat_actuel = None
@@ -394,6 +583,18 @@ def liste_prepa(request):
                 break
         
         if etat_actuel:
+            # Vérifier s'il y a des états ultérieurs problématiques
+            a_etats_ultérieurs_problematiques = False
+            for etat in etats_commande:
+                if (etat.date_debut > etat_actuel.date_debut and 
+                    etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
+                    a_etats_ultérieurs_problematiques = True
+                    break
+            
+            # Si il y a des états ultérieurs problématiques, ignorer cette commande
+            if a_etats_ultérieurs_problematiques:
+                continue
+            
             # Trouver l'état précédent
             for etat in reversed(etats_commande):
                 if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
@@ -403,17 +604,100 @@ def liste_prepa(request):
                     elif etat.enum_etat.libelle == 'Livrée Partiellement':
                         stats_par_type['livrees_partiellement'] += 1
                         break
-    
-    # Calculer le nombre de commandes de renvoi créées lors de livraisons partielles affectées à cet opérateur
-    commandes_renvoi_livraison_partielle_count = Commande.objects.filter(
+            
+    # Recalculer le compteur des livraisons partielles en utilisant la même logique que la vue séparée
+    # Chercher les commandes de renvoi créées lors de livraisons partielles
+    commandes_renvoi_livraison_partielle = Commande.objects.filter(
         num_cmd__startswith='RENVOI-',
         etats__enum_etat__libelle='En préparation',
         etats__operateur=operateur_profile,
         etats__date_fin__isnull=True
-    ).distinct().count()
+    ).distinct()
+    
+    livrees_partiellement_count = 0
+    for commande_renvoi in commandes_renvoi_livraison_partielle:
+        # Extraire le numéro de commande original
+        num_cmd_original = commande_renvoi.num_cmd.replace('RENVOI-', '')
+        
+        # Vérifier que la commande originale a été livrée partiellement
+        commande_originale = Commande.objects.filter(
+            num_cmd=num_cmd_original,
+            etats__enum_etat__libelle='Livrée Partiellement'
+        ).first()
+        
+        if commande_originale:
+            livrees_partiellement_count += 1
     
     # Mettre à jour le compteur avec la valeur correcte
-    stats_par_type['livrees_partiellement'] = commandes_renvoi_livraison_partielle_count
+    stats_par_type['livrees_partiellement'] = livrees_partiellement_count
+    
+    # Calculer le compteur des commandes affectées par l'admin
+    # Ce sont les commandes qui ne sont ni renvoyées par logistique ni livrées partiellement
+    affectees_admin_count = 0
+    for cmd in toutes_commandes:
+        # Vérifier si c'est une commande renvoyée par la logistique
+        operation_renvoi = Operation.objects.filter(
+            commande=cmd,
+            type_operation='RENVOI_PREPARATION'
+        ).first()
+        
+        if operation_renvoi:
+            continue  # Déjà comptée dans renvoyees_logistique
+        
+        # Vérifier si c'est une commande de renvoi créée lors d'une livraison partielle
+        if cmd.num_cmd and cmd.num_cmd.startswith('RENVOI-'):
+            # Chercher la commande originale
+            num_cmd_original = cmd.num_cmd.replace('RENVOI-', '')
+            commande_originale = Commande.objects.filter(
+                num_cmd=num_cmd_original,
+                etats__enum_etat__libelle='Livrée Partiellement'
+            ).first()
+            
+            if commande_originale:
+                continue  # Déjà comptée dans livrees_partiellement
+        
+        # Vérifier l'historique des états
+        etats_commande = cmd.etats.all().order_by('date_debut')
+        etat_actuel = None
+        
+        # Trouver l'état actuel
+        for etat in etats_commande:
+            if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                etat_actuel = etat
+                break
+        
+        if etat_actuel:
+            # Vérifier s'il y a des états ultérieurs problématiques
+            a_etats_ultérieurs_problematiques = False
+            for etat in etats_commande:
+                if (etat.date_debut > etat_actuel.date_debut and 
+                    etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
+                    a_etats_ultérieurs_problematiques = True
+                    break
+            
+            if a_etats_ultérieurs_problematiques:
+                continue
+            
+            # Vérifier l'historique pour renvoi depuis livraison
+            has_return_from_delivery = False
+            for etat in reversed(etats_commande):
+                if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
+                    if etat.enum_etat.libelle == 'En cours de livraison':
+                        has_return_from_delivery = True
+                        break
+                    elif etat.enum_etat.libelle == 'Livrée Partiellement':
+                        has_return_from_delivery = True
+                        break
+            
+            if not has_return_from_delivery:
+                affectees_admin_count += 1
+    
+    # Mettre à jour le compteur des commandes affectées par l'admin
+    stats_par_type['affectees_admin'] = affectees_admin_count
+    
+    # Pour l'onglet "Toutes les commandes", le total doit être la somme des 3 autres onglets
+    if filter_type == 'all':
+        total_affectees = stats_par_type['affectees_admin'] + stats_par_type['renvoyees_logistique'] + stats_par_type['livrees_partiellement']
     
     context = {
         'page_title': 'Mes Commandes à Préparer',
@@ -2760,7 +3044,7 @@ def repartition_automatique(request):
     
     # Statistiques par ville pour les commandes confirmées
     stats_par_ville_confirmees = commandes_confirmees.values(
-        'ville__nom', 'ville__region__nom_region'
+        'ville__id', 'ville__nom', 'ville__region__nom_region'
     ).annotate(
         nb_commandes=Count('id'),
         total_montant=Sum('total_cmd')
@@ -2776,17 +3060,45 @@ def repartition_automatique(request):
     
     # Statistiques par ville pour les commandes en livraison
     stats_par_ville_livraison = commandes_en_livraison.values(
-        'ville__nom', 'ville__region__nom_region'
+        'ville__id', 'ville__nom', 'ville__region__nom_region'
     ).annotate(
         nb_commandes=Count('id'),
         total_montant=Sum('total_cmd')
     ).order_by('ville__region__nom_region', 'ville__nom')
+    
+    # Statistiques des commandes PRÉPARÉES par région
+    commandes_preparees = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True,
+        ville__isnull=False,
+        ville__region__isnull=False
+    ).select_related('ville', 'ville__region')
+    
+    stats_preparees_par_region = commandes_preparees.values(
+        'ville__region__nom_region'
+    ).annotate(
+        nb_commandes_preparees=Count('id')
+    ).order_by('ville__region__nom_region')
+    
+    # Statistiques des commandes PRÉPARÉES par ville
+    stats_preparees_par_ville = commandes_preparees.values(
+        'ville__nom', 'ville__region__nom_region'
+    ).annotate(
+        nb_commandes_preparees=Count('id')
+    ).order_by('ville__region__nom_region', 'ville__nom')
+    
+    # Créer des dictionnaires pour un accès rapide
+    preparees_par_region = {stat['ville__region__nom_region']: stat['nb_commandes_preparees'] for stat in stats_preparees_par_region}
+    preparees_par_ville = {(stat['ville__nom'], stat['ville__region__nom_region']): stat['nb_commandes_preparees'] for stat in stats_preparees_par_ville}
     
     # Calculer les totaux
     total_commandes_confirmees = commandes_confirmees.count()
     total_commandes_en_livraison = commandes_en_livraison.count()
     total_montant_confirmees = commandes_confirmees.aggregate(total=Sum('total_cmd'))['total'] or 0
     total_montant_livraison = commandes_en_livraison.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Calculer le total des commandes préparées
+    total_commandes_preparees = sum(preparees_par_region.values())
     
     # Statistiques générales
     operateurs_disponibles = operateurs_confirmation.count()
@@ -2877,6 +3189,7 @@ def repartition_automatique(request):
         'total_commandes_en_livraison': total_commandes_en_livraison,
         'total_montant_confirmees': total_montant_confirmees,
         'total_montant_livraison': total_montant_livraison,
+        'total_commandes_preparees': total_commandes_preparees,
         'operateurs_disponibles': operateurs_disponibles,
         'regions_actives': regions_actives,
         'villes_actives': villes_actives,
@@ -2891,6 +3204,9 @@ def repartition_automatique(request):
         # Statistiques pour les commandes en livraison (déjà réparties)
         'stats_par_region_livraison': stats_par_region_livraison,
         'stats_par_ville_livraison': stats_par_ville_livraison,
+        # Statistiques des commandes préparées
+        'preparees_par_region': preparees_par_region,
+        'preparees_par_ville': preparees_par_ville,
         'commandes_confirmees': commandes_confirmees,
         'commandes_confirmees_list': commandes_confirmees_list,
         'commandes_en_livraison': commandes_en_livraison,
@@ -3027,9 +3343,10 @@ def export_envois(request):
     # Simuler des envois (à remplacer par votre modèle Envoi)
     envois = []
     
-    # Commandes prêtes à être envoyées
+    # Commandes PRÉPARÉES à être envoyées
     commandes_pretes = Commande.objects.filter(
-        etat__nom='Prête'
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True
     ).select_related('ville__region')
     
     if region_id:
@@ -3141,11 +3458,34 @@ def details_region_view(request):
     
     # Statistiques par ville dans la région/ville filtrée
     stats_par_ville = commandes_reparties.values(
-        'ville__nom', 'ville__region__nom_region'
+        'ville__id', 'ville__nom', 'ville__region__nom_region'
     ).annotate(
         nb_commandes=Count('id'),
         total_montant=Sum('total_cmd')
     ).order_by('ville__region__nom_region', 'ville__nom')
+    
+    # Statistiques des commandes PRÉPARÉES par ville dans la région/ville filtrée
+    commandes_preparees = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True,
+        ville__isnull=False,
+        ville__region__isnull=False
+    ).select_related('ville', 'ville__region')
+    
+    # Appliquer les mêmes filtres que pour les commandes en traitement
+    if region_name:
+        commandes_preparees = commandes_preparees.filter(ville__region__nom_region=region_name)
+    if ville_name:
+        commandes_preparees = commandes_preparees.filter(ville__nom=ville_name)
+    
+    stats_preparees_par_ville = commandes_preparees.values(
+        'ville__nom', 'ville__region__nom_region'
+    ).annotate(
+        nb_commandes_preparees=Count('id')
+    ).order_by('ville__region__nom_region', 'ville__nom')
+    
+    # Créer un dictionnaire pour un accès rapide
+    preparees_par_ville = {(stat['ville__nom'], stat['ville__region__nom_region']): stat['nb_commandes_preparees'] for stat in stats_preparees_par_ville}
     
     # Calculer les totaux
     total_commandes = commandes_reparties.count()
@@ -3166,6 +3506,7 @@ def details_region_view(request):
         'operateur': operateur_profile,
         'commandes_reparties': commandes_reparties,
         'stats_par_ville': stats_par_ville,
+        'preparees_par_ville': preparees_par_ville,
         'total_commandes': total_commandes,
         'total_montant': total_montant,
         'region_name': region_name,
@@ -3430,12 +3771,13 @@ def repartition_commandes(request):
     
     # Statistiques par ville et région des commandes en traitement
     stats_par_ville = commandes_reparties.values(
-        'ville__nom', 'ville__region__nom_region'
+        'ville__id', 'ville__nom', 'ville__region__nom_region'
     ).annotate(
         nb_commandes=Count('id'),
         total_montant=Sum('total_cmd')
     ).order_by('ville__region__nom_region', 'ville__nom')
     
+    # Statistiques par région des commandes en traitement
     stats_par_region = commandes_reparties.values(
         'ville__region__nom_region'
     ).annotate(
@@ -3443,16 +3785,47 @@ def repartition_commandes(request):
         total_montant=Sum('total_cmd')
     ).order_by('ville__region__nom_region')
     
+    # Statistiques des commandes PRÉPARÉES par région
+    commandes_preparees = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True,
+        ville__isnull=False,
+        ville__region__isnull=False
+    ).select_related('ville', 'ville__region')
+    
+    stats_preparees_par_region = commandes_preparees.values(
+        'ville__region__nom_region'
+    ).annotate(
+        nb_commandes_preparees=Count('id')
+    ).order_by('ville__region__nom_region')
+    
+    # Statistiques des commandes PRÉPARÉES par ville
+    stats_preparees_par_ville = commandes_preparees.values(
+        'ville__nom', 'ville__region__nom_region'
+    ).annotate(
+        nb_commandes_preparees=Count('id')
+    ).order_by('ville__region__nom_region', 'ville__nom')
+    
+    # Créer des dictionnaires pour un accès rapide
+    preparees_par_region = {stat['ville__region__nom_region']: stat['nb_commandes_preparees'] for stat in stats_preparees_par_region}
+    preparees_par_ville = {(stat['ville__nom'], stat['ville__region__nom_region']): stat['nb_commandes_preparees'] for stat in stats_preparees_par_ville}
+    
     # Calculer le montant total général
     total_montant_general = commandes_reparties.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Calculer le total des commandes préparées
+    total_commandes_preparees = sum(preparees_par_region.values())
     
     context = {
         'operateur': operateur_profile,
         'commandes_reparties': commandes_reparties,
         'stats_par_ville': stats_par_ville,
         'stats_par_region': stats_par_region,
+        'preparees_par_region': preparees_par_region,
+        'preparees_par_ville': preparees_par_ville,
         'total_commandes_reparties': commandes_reparties.count(),
         'total_montant_general': total_montant_general,
+        'total_commandes_preparees': total_commandes_preparees,
         'page_title': 'Répartition des Commandes',
         'page_subtitle': 'Commandes en traitement par ville et région',
     }
@@ -3712,3 +4085,599 @@ def api_articles_commande_livree_partiellement(request, commande_id):
             'success': False, 
             'message': f'Erreur lors de la génération de la réponse: {str(e)}'
     })
+
+@login_required
+def export_commandes_consolidees_csv(request):
+    """
+    Export CSV consolidé : chaque commande sur une seule ligne avec articles regroupés
+    """
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    # Récupérer les filtres
+    region_name = request.GET.get('region')
+    ville_name = request.GET.get('ville')
+    
+    # Construire la requête de base - UNIQUEMENT les commandes PRÉPARÉES
+    commandes_query = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct()
+    
+    commandes = commandes_query.order_by('-date_cmd')
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"commandes_consolidees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (DH)', 'Adresse', 'État'
+    ]
+    writer.writerow(headers)
+    
+    # Traiter chaque commande
+    for commande in commandes:
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Écrire la ligne
+        row = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
+            commande.adresse or "N/A",
+            etat_actuel
+        ]
+        writer.writerow(row)
+    
+    return response
+
+
+@login_required
+def export_commandes_consolidees_excel(request):
+    """
+    Export Excel consolidé : chaque commande sur une seule ligne avec articles regroupés
+    """
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    # Récupérer les filtres
+    region_name = request.GET.get('region')
+    ville_name = request.GET.get('ville')
+    
+    # Construire la requête de base - UNIQUEMENT les commandes PRÉPARÉES
+    commandes_query = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct()
+    
+    # Appliquer les filtres
+    if region_name:
+        commandes_query = commandes_query.filter(ville__region__nom_region=region_name)
+    if ville_name:
+        commandes_query = commandes_query.filter(ville__nom=ville_name)
+    
+    commandes = commandes_query.order_by('-date_cmd')
+    
+    # Créer le fichier Excel
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Commandes Consolidées"
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (DH)', 'Adresse', 'État'
+    ]
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Traiter chaque commande
+    for row, commande in enumerate(commandes, 2):
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Ajouter les données
+        ws.cell(row=row, column=1, value=commande.id_yz or commande.num_cmd)
+        ws.cell(row=row, column=2, value=f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A")
+        ws.cell(row=row, column=3, value=commande.client.numero_tel if commande.client else "N/A")
+        ws.cell(row=row, column=4, value=commande.ville.nom if commande.ville else "N/A")
+        ws.cell(row=row, column=5, value=commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A")
+        ws.cell(row=row, column=6, value=articles_consolides)
+        ws.cell(row=row, column=7, value=float(commande.total_cmd) if commande.total_cmd else 0.00)
+        ws.cell(row=row, column=8, value=commande.adresse or "N/A")
+        ws.cell(row=row, column=9, value=etat_actuel)
+        
+        # Ajuster la hauteur de la ligne pour les articles
+        if len(articles_consolides) > 100:
+            ws.row_dimensions[row].height = 30
+    
+    # Ajuster la largeur des colonnes
+    column_widths = [15, 25, 15, 15, 15, 50, 15, 40, 15]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    
+    # Créer la réponse
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"commandes_consolidees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_region_consolidee_csv(request, region_name):
+    """
+    Export CSV consolidé pour une région spécifique
+    """
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    # Récupérer les commandes PRÉPARÉES de la région
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True,
+        ville__region__nom_region=region_name
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"region_{region_name.lower().replace(' ', '_')}_consolidee_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (DH)', 'Adresse', 'État'
+    ]
+    writer.writerow(headers)
+    
+    # Traiter chaque commande
+    for commande in commandes:
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Écrire la ligne
+        row = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
+            commande.adresse or "N/A",
+            etat_actuel
+        ]
+        writer.writerow(row)
+    
+    return response
+
+
+@login_required
+def export_region_consolidee_excel(request, region_name):
+    """
+    Export Excel consolidé pour une région spécifique
+    """
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    # Récupérer les commandes PRÉPARÉES de la région
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True,
+        ville__region__nom_region=region_name
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer le fichier Excel
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Région {region_name}"
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (DH)', 'Adresse', 'État'
+    ]
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Traiter chaque commande
+    for row, commande in enumerate(commandes, 2):
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Ajouter les données
+        ws.cell(row=row, column=1, value=commande.id_yz or commande.num_cmd)
+        ws.cell(row=row, column=2, value=f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A")
+        ws.cell(row=row, column=3, value=commande.client.numero_tel if commande.client else "N/A")
+        ws.cell(row=row, column=4, value=commande.ville.nom if commande.ville else "N/A")
+        ws.cell(row=row, column=5, value=commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A")
+        ws.cell(row=row, column=6, value=articles_consolides)
+        ws.cell(row=row, column=7, value=float(commande.total_cmd) if commande.total_cmd else 0.00)
+        ws.cell(row=row, column=8, value=commande.adresse or "N/A")
+        ws.cell(row=row, column=9, value=etat_actuel)
+        
+        # Ajuster la hauteur de la ligne pour les articles
+        if len(articles_consolides) > 100:
+            ws.row_dimensions[row].height = 30
+    
+    # Ajuster la largeur des colonnes
+    column_widths = [15, 25, 15, 15, 15, 50, 15, 40, 15]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    
+    # Ajouter une feuille de résumé
+    ws_resume = wb.create_sheet("Résumé")
+    
+    # Statistiques de la région
+    total_commandes = commandes.count()
+    total_montant = sum(float(cmd.total_cmd) for cmd in commandes if cmd.total_cmd)
+    
+    resume_data = [
+        ['Région', region_name],
+        ['Nombre de commandes', total_commandes],
+        ['Montant total', f"{total_montant:.2f} DH"],
+        ['Date d\'export', timezone.now().strftime('%d/%m/%Y %H:%M')]
+    ]
+    
+    for row, (label, value) in enumerate(resume_data, 1):
+        ws_resume.cell(row=row, column=1, value=label).font = Font(bold=True)
+        ws_resume.cell(row=row, column=2, value=value)
+    
+    # Ajuster la largeur des colonnes du résumé
+    ws_resume.column_dimensions['A'].width = 25
+    ws_resume.column_dimensions['B'].width = 20
+    
+    # Créer la réponse
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"region_{region_name.lower().replace(' ', '_')}_consolidee_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_ville_consolidee_csv(request, ville_id):
+    """
+    Export CSV consolidé pour une ville spécifique
+    """
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    # Récupérer la ville
+    try:
+        ville = Ville.objects.get(id=ville_id)
+    except Ville.DoesNotExist:
+        return JsonResponse({'error': 'Ville non trouvée'}, status=404)
+    
+    # Récupérer les commandes PRÉPARÉES de la ville
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True,
+        ville=ville
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="ville_{ville.nom}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # En-têtes
+    writer.writerow([
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (DH)', 'Adresse', 'État'
+    ])
+    
+    # Traiter chaque commande
+    for commande in commandes:
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Écrire la ligne
+        row = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            float(commande.total_cmd) if commande.total_cmd else 0.00,
+            commande.adresse or "N/A",
+            etat_actuel
+        ]
+        writer.writerow(row)
+    
+    return response
+
+
+@login_required
+def export_ville_consolidee_excel(request, ville_id):
+    """
+    Export Excel consolidé pour une ville spécifique
+    """
+    try:
+        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    # Récupérer la ville
+    try:
+        ville = Ville.objects.get(id=ville_id)
+    except Ville.DoesNotExist:
+        return JsonResponse({'error': 'Ville non trouvée'}, status=404)
+    
+    # Récupérer les commandes PRÉPARÉES de la ville
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True,
+        ville=ville
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer le fichier Excel
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Ville {ville.nom}"
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (DH)', 'Adresse', 'État'
+    ]
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Traiter chaque commande
+    for row, commande in enumerate(commandes, 2):
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Ajouter les données
+        ws.cell(row=row, column=1, value=commande.id_yz or commande.num_cmd)
+        ws.cell(row=row, column=2, value=f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A")
+        ws.cell(row=row, column=3, value=commande.client.numero_tel if commande.client else "N/A")
+        ws.cell(row=row, column=4, value=commande.ville.nom if commande.ville else "N/A")
+        ws.cell(row=row, column=5, value=commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A")
+        ws.cell(row=row, column=6, value=articles_consolides)
+        ws.cell(row=row, column=7, value=float(commande.total_cmd) if commande.total_cmd else 0.00)
+        ws.cell(row=row, column=8, value=commande.adresse or "N/A")
+        ws.cell(row=row, column=9, value=etat_actuel)
+        
+        # Ajuster la hauteur de la ligne pour les articles
+        if len(articles_consolides) > 100:
+            ws.row_dimensions[row].height = 30
+    
+    # Ajuster la largeur des colonnes
+    column_widths = [15, 25, 15, 15, 15, 50, 15, 40, 15]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    
+    # Ajouter une feuille de résumé
+    ws_resume = wb.create_sheet("Résumé")
+    
+    # Statistiques de la ville
+    total_commandes = commandes.count()
+    total_montant = sum(float(cmd.total_cmd) for cmd in commandes if cmd.total_cmd)
+    
+    # En-têtes du résumé
+    resume_headers = ['Métrique', 'Valeur']
+    for col, header in enumerate(resume_headers, 1):
+        cell = ws_resume.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Données du résumé
+    resume_data = [
+        ['Ville', ville_name],
+        ['Total Commandes', total_commandes],
+        ['Montant Total (DH)', f"{total_montant:.2f}"],
+        ['Date Export', datetime.now().strftime("%d/%m/%Y %H:%M:%S")],
+    ]
+    
+    for row, (label, value) in enumerate(resume_data, 2):
+        ws_resume.cell(row=row, column=1, value=label)
+        ws_resume.cell(row=row, column=2, value=value)
+    
+    # Ajuster la largeur des colonnes du résumé
+    ws_resume.column_dimensions['A'].width = 20
+    ws_resume.column_dimensions['B'].width = 30
+    
+    # Sauvegarder le fichier
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="ville_{ville_name}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+    wb.save(response)
+    
+    return response

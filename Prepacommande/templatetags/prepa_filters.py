@@ -5,6 +5,17 @@ import locale
 register = template.Library()
 
 @register.filter
+def get_item(dictionary, key):
+    """
+    Récupère un élément d'un dictionnaire par sa clé.
+    Usage: {{ dictionary|get_item:key }}
+    """
+    try:
+        return dictionary.get(key, 0)
+    except (AttributeError, TypeError):
+        return 0
+
+@register.filter
 def mul(value, multiplier):
     """
     Multiplie une valeur par un multiplicateur.
