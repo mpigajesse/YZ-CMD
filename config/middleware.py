@@ -102,10 +102,10 @@ class UserTypeValidationMiddleware:
                 messages.error(request, "Votre compte opérateur est désactivé. Veuillez contacter l'administrateur. (Code: MWI-007)")
                 logout(request)
                 return redirect(settings.LOGIN_URL)
-
+            
             user_type = profil.type_operateur
             expected_prefix = self.allowed_prefixes.get(user_type)
-
+            
             # --- Correction : autoriser les URLs avec ou sans slash final ---
             if expected_prefix and expected_prefix.endswith('/'):
                 expected_prefix_alt = expected_prefix.rstrip('/')
@@ -125,35 +125,35 @@ class UserTypeValidationMiddleware:
                     messages.add_message(request, message.level, message.message, message.tags)
 
                 # Redirection automatique vers la bonne URL d'accueil
-                if user_type == 'CONFIRMATION':
-                    return redirect(reverse('operatConfirme:home'))
-                elif user_type == 'LOGISTIQUE':
-                    return redirect(reverse('operatLogistic:home'))
-                elif user_type == 'PREPARATION':
-                    return redirect(reverse('Prepacommande:home'))
-                elif user_type == 'ADMIN':
-                    return redirect(reverse('app_admin:home'))
+                    if user_type == 'CONFIRMATION':
+                        return redirect(reverse('operatConfirme:home'))
+                    elif user_type == 'LOGISTIQUE':
+                        return redirect(reverse('operatLogistic:home'))
+                    elif user_type == 'PREPARATION':
+                        return redirect(reverse('Prepacommande:home'))
+                    elif user_type == 'ADMIN':
+                        return redirect(reverse('app_admin:home'))
+                    else:
+                        messages.error(request, "Type d'opérateur non géré pour la redirection. (Code: MWI-002)")
+                        logout(request)
+                        return redirect(settings.LOGIN_URL)
                 else:
-                    messages.error(request, "Type d'opérateur non géré pour la redirection. (Code: MWI-002)")
-                    logout(request)
-                    return redirect(settings.LOGIN_URL)
-            else:
                 # Nettoyage des flags de redirection et messages d'erreur MWI-001
-                session_key = f'middleware_redirect_{user_type}'
-                redirect_count_key = f'middleware_redirect_count_{user_type}'
+                    session_key = f'middleware_redirect_{user_type}'
+                    redirect_count_key = f'middleware_redirect_count_{user_type}'
                 if session_key in request.session:
                     del request.session[session_key]
                 if redirect_count_key in request.session:
                     del request.session[redirect_count_key]
                 # Nettoyage des messages d'erreur MWI-001
-                storage = messages.get_messages(request)
-                messages_to_keep = []
-                for message in storage:
-                    if not ("MWI-001" in str(message) and "Accès non autorisé" in str(message)):
-                        messages_to_keep.append(message)
+                    storage = messages.get_messages(request)
+                    messages_to_keep = []
+                    for message in storage:
+                        if not ("MWI-001" in str(message) and "Accès non autorisé" in str(message)):
+                            messages_to_keep.append(message)
                 storage.used = True
                 for message in messages_to_keep:
-                    messages.add_message(request, message.level, message.message, message.tags)
+                        messages.add_message(request, message.level, message.message, message.tags)
 
         except Operateur.DoesNotExist:
             messages.error(request, "Votre compte n'est pas associé à un profil opérateur valide. Veuillez contacter l'administrateur. (Code: MWI-004)")
