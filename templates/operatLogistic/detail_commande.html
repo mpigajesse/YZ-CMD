@@ -884,8 +884,10 @@
 
                 <form id="livraisonPartielleForm" action="{% url 'operatLogistic:livraison_partielle' commande.id %}" method="POST">
                     {% csrf_token %}
-                    <input type="hidden" name="articles_livres" id="articlesLivresInput">
-                    <input type="hidden" name="articles_renvoyes" id="articlesRenvoyesInput">
+                    
+                    <!-- Ces champs seront remplis dynamiquement par JavaScript juste avant la soumission -->
+                    <input type="hidden" name="articles_livres_json" id="articlesLivresJsonInput">
+                    <input type="hidden" name="articles_renvoyes_json" id="articlesRenvoyesJsonInput">
                     
                     <!-- Section Articles à Livrer -->
                     <div class="mb-8">
@@ -955,6 +957,7 @@
                         <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="articlesARenvoyerContainer">
                                 <!-- Les articles non sélectionnés apparaîtront ici dynamiquement -->
+                                <!-- Pour chaque article à renvoyer, on ajoute un champ select pour l'état -->
                             </div>
                             <div id="aucunArticleRenvoyer" class="text-center py-8 text-gray-500">
                                 <i class="fas fa-info-circle text-2xl mb-2"></i>
@@ -1383,6 +1386,24 @@
                         Annuler
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale de confirmation livraison partielle -->
+    <div id="confirmationLivraisonPartielleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-32 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div class="flex items-center justify-center mb-4">
+                    <i class="fas fa-check-circle text-green-500 text-4xl mr-2"></i>
+                    <span class="text-2xl font-bold text-green-700">Livraison partielle réussie !</span>
+                </div>
+                <div class="mb-4">
+                    <div class="text-lg text-gray-800 mb-2" id="confirmation-livraison-details"></div>
+                </div>
+                <button id="fermerConfirmationLivraisonBtn" class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors mt-2">
+                    OK
+                </button>
             </div>
         </div>
     </div>
@@ -3070,16 +3091,14 @@ function validerCalculs() {
     
     articles.forEach(article => {
             try {
-        const quantiteElement = article.querySelector('input[type="number"]');
-        const prixElement = article.querySelector('.text-lg.font-bold');
+        const sousTotalElement = article.querySelector('.text-lg.font-bold'); // Récupère l'élément qui affiche le sous-total du panier
         
-        if (quantiteElement && prixElement) {
-            const quantite = parseInt(quantiteElement.value) || 0;
-                    const prixText = prixElement.textContent || prixElement.innerText || '';
-                    const prix = parseFloat(prixText.replace(' DH', '').replace(',', '.').trim()) || 0;
-            const sousTotal = quantite * prix;
-                    if (!isNaN(sousTotal) && isFinite(sousTotal)) {
-            totalArticlesCalcule += sousTotal;
+        if (sousTotalElement) {
+                    const sousTotalText = sousTotalElement.textContent || sousTotalElement.innerText || '';
+                    const sousTotalValeur = parseFloat(sousTotalText.replace(' DH', '').replace(',', '.').trim()) || 0;
+
+                    if (!isNaN(sousTotalValeur) && isFinite(sousTotalValeur)) {
+            totalArticlesCalcule += sousTotalValeur; // Somme directement la valeur du sous-total
                     }
                 }
             } catch (articleError) {
@@ -3239,6 +3258,12 @@ function fermerModalLivraisonPartielle() {
     document.querySelectorAll('.quantite-livrer-input').forEach(input => {
         input.value = input.getAttribute('max');
     });
+    
+    // Réinitialiser les selects d'état à 'bon'
+    document.querySelectorAll('.etat-article-renvoye').forEach(select => {
+        select.value = 'bon';
+    });
+
     // Masquer la section des articles à renvoyer
     document.getElementById('aucunArticleRenvoyer').classList.remove('hidden');
     document.getElementById('articlesARenvoyerContainer').innerHTML = '';
@@ -3249,20 +3274,45 @@ function fermerModalLivraisonPartielle() {
 function initialiserModalLivraisonPartielle() {
     // Initialiser les événements pour les checkboxes
     document.querySelectorAll('.article-livrer-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const quantiteInput = document.querySelector(`.quantite-livrer-input[data-panier-id="${this.dataset.panierId}"]`);
-            quantiteInput.disabled = !this.checked;
-            mettreAJourResumeLivraisonPartielle();
-        });
+        checkbox.removeEventListener('change', handleCheckboxChange); // Éviter les doubles écouteurs
+        checkbox.addEventListener('change', handleCheckboxChange);
     });
     
     // Initialiser les événements pour les inputs de quantité
     document.querySelectorAll('.quantite-livrer-input').forEach(input => {
+        input.removeEventListener('change', mettreAJourResumeLivraisonPartielle); // Éviter les doubles écouteurs
+        input.removeEventListener('input', mettreAJourResumeLivraisonPartielle); // Éviter les doubles écouteurs
         input.addEventListener('change', mettreAJourResumeLivraisonPartielle);
         input.addEventListener('input', mettreAJourResumeLivraisonPartielle);
     });
+
+    // Initialiser les événements pour les selects d'état
+    document.querySelectorAll('.etat-article-renvoye').forEach(select => {
+        select.removeEventListener('change', mettreAJourResumeLivraisonPartielle); // Éviter les doubles écouteurs
+        select.addEventListener('change', mettreAJourResumeLivraisonPartielle);
+    });
     
     // Mettre à jour le résumé initial
+    mettreAJourResumeLivraisonPartielle();
+}
+
+// Handler pour le changement de checkbox
+function handleCheckboxChange() {
+    const quantiteInput = document.querySelector(`.quantite-livrer-input[data-panier-id="${this.dataset.panierId}"]`);
+    const etatSelect = document.querySelector(`.etat-article-renvoye[data-article-id="${this.dataset.panierId}"]`); // Utilise panierId comme articleId ici
+    
+    if (quantiteInput) {
+        quantiteInput.disabled = !this.checked;
+        if (!this.checked) {
+            quantiteInput.value = quantiteInput.getAttribute('max'); // Réinitialise la quantité si décoché
+        }
+    }
+    if (etatSelect) {
+        etatSelect.disabled = this.checked; // Désactive le select si l'article est livré
+        if (this.checked) {
+            etatSelect.value = 'bon'; // Remet à bon état si l'article est livré (pour ne pas envoyer défectueux par erreur)
+        }
+    }
     mettreAJourResumeLivraisonPartielle();
 }
 
@@ -3273,24 +3323,32 @@ function mettreAJourResumeLivraisonPartielle() {
     let totalArticlesRenvoyes = 0;
     let totalValeurLivree = 0;
     
-    // Parcourir tous les articles
+    // Parcourir tous les articles du panier original
     document.querySelectorAll('.article-livraison-card').forEach(card => {
-        const panierId = card.dataset.panierId;
-        const articleId = card.dataset.articleId;
+        const panierId = parseInt(card.dataset.panierId);
+        const articleId = parseInt(card.dataset.articleId);
         const articleNom = card.dataset.articleNom;
         const articlePrix = parseFloat(card.dataset.articlePrix);
         const quantiteMax = parseInt(card.dataset.quantiteMax);
         
         const checkbox = card.querySelector('.article-livrer-checkbox');
         const quantiteInput = card.querySelector('.quantite-livrer-input');
+        const etatSelect = card.querySelector('.etat-article-renvoye'); // Récupère le select d'état
+
+        let quantiteLivree = 0;
+        let quantiteRenvoyee = 0;
+        let etatArticleRenvoye = 'bon';
         
         if (checkbox.checked) {
-            // Article à livrer
-            const quantiteLivree = parseInt(quantiteInput.value) || 0;
+            // L'article est coché pour être livré (totalement ou partiellement)
+            quantiteLivree = parseInt(quantiteInput.value) || 0;
+            quantiteRenvoyee = quantiteMax - quantiteLivree;
+
+            // Si une quantité est livrée, on l'ajoute aux articles livrés
             if (quantiteLivree > 0) {
                 articlesLivres.push({
-                    panier_id: parseInt(panierId),
-                    article_id: parseInt(articleId),
+                    panier_id: panierId,
+                    article_id: articleId,
                     quantite: quantiteLivree,
                     nom: articleNom,
                     prix: articlePrix
@@ -3299,34 +3357,44 @@ function mettreAJourResumeLivraisonPartielle() {
                 totalValeurLivree += quantiteLivree * articlePrix;
             }
             
-            // Article à renvoyer (quantité restante) - seulement si on ne livre pas tout
-            const quantiteRenvoyee = quantiteMax - quantiteLivree;
+            // Si une partie est renvoyée (car quantiteLivree < quantiteMax)
             if (quantiteRenvoyee > 0) {
+                // Chercher le select d'état correspondant à cet article
+                const selectEtat = document.querySelector(`.etat-article-renvoye[data-article-id="${articleId}"][data-panier-id="${panierId}"]`);
+                etatArticleRenvoye = selectEtat ? selectEtat.value : 'bon';
+                
                 articlesRenvoyes.push({
-                    panier_id: parseInt(panierId),
-                    article_id: parseInt(articleId),
+                    panier_id: panierId,
+                    article_id: articleId,
                     quantite: quantiteRenvoyee,
                     nom: articleNom,
-                    prix: articlePrix
+                    prix: articlePrix,
+                    etat: etatArticleRenvoye
                 });
                 totalArticlesRenvoyes += quantiteRenvoyee;
             }
         } else {
-            // Article complètement à renvoyer (non coché)
+            // L'article n'est PAS coché pour être livré (totalement renvoyé)
+            quantiteRenvoyee = quantiteMax;
+            // Chercher le select d'état correspondant à cet article
+            const selectEtat = document.querySelector(`.etat-article-renvoye[data-article-id="${articleId}"][data-panier-id="${panierId}"]`);
+            etatArticleRenvoye = selectEtat ? selectEtat.value : 'bon';
+            
             articlesRenvoyes.push({
-                panier_id: parseInt(panierId),
-                article_id: parseInt(articleId),
-                quantite: quantiteMax,
+                panier_id: panierId,
+                article_id: articleId,
+                quantite: quantiteRenvoyee,
                 nom: articleNom,
-                prix: articlePrix
+                prix: articlePrix,
+                etat: etatArticleRenvoye
             });
-            totalArticlesRenvoyes += quantiteMax;
+            totalArticlesRenvoyes += quantiteRenvoyee;
         }
     });
     
-    // Mettre à jour les champs cachés
-    document.getElementById('articlesLivresInput').value = JSON.stringify(articlesLivres);
-    document.getElementById('articlesRenvoyesInput').value = JSON.stringify(articlesRenvoyes);
+    // Mettre à jour les champs cachés (qui seront utilisés par le submit handler)
+    document.getElementById('articlesLivresJsonInput').value = JSON.stringify(articlesLivres);
+    document.getElementById('articlesRenvoyesJsonInput').value = JSON.stringify(articlesRenvoyes);
     
     // Mettre à jour l'affichage du résumé
     document.getElementById('totalArticlesLivres').textContent = totalArticlesLivres;
@@ -3338,7 +3406,10 @@ function mettreAJourResumeLivraisonPartielle() {
     
     // Activer/désactiver le bouton de confirmation
     const confirmerBtn = document.getElementById('confirmerLivraisonPartielleBtn');
-    if (totalArticlesLivres > 0 && totalArticlesRenvoyes > 0) {
+    const commentaireInput = document.getElementById('commentaireLivraisonPartielle');
+    
+    // Le bouton est activé si des articles sont livrés OU des articles sont renvoyés, et un commentaire est présent.
+    if ((articlesLivres.length > 0 || articlesRenvoyes.length > 0) && commentaireInput.value.trim() !== '') {
         confirmerBtn.disabled = false;
         confirmerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     } else {
@@ -3347,22 +3418,32 @@ function mettreAJourResumeLivraisonPartielle() {
     }
 }
 
+// Fonction qui gère l'affichage des articles à renvoyer dans la section dédiée
 function mettreAJourSectionArticlesRenvoyes(articlesRenvoyes) {
     const container = document.getElementById('articlesARenvoyerContainer');
     const aucunArticleDiv = document.getElementById('aucunArticleRenvoyer');
     
+    // Sauvegarder les états sélectionnés avant de régénérer le DOM (clé = article_id + panier_id)
+    const etatsSelectionnes = {};
+    document.querySelectorAll('.etat-article-renvoye').forEach(select => {
+        const key = `${select.dataset.articleId}_${select.dataset.panierId}`;
+        etatsSelectionnes[key] = select.value;
+    });
+
+    container.innerHTML = '';
+
     if (articlesRenvoyes.length === 0) {
-        container.innerHTML = '';
         aucunArticleDiv.classList.remove('hidden');
         return;
     }
-    
+
     aucunArticleDiv.classList.add('hidden');
-    container.innerHTML = '';
-    
+
     articlesRenvoyes.forEach(article => {
         const articleCard = document.createElement('div');
         articleCard.className = 'article-renvoi-card bg-white rounded-lg border border-orange-300 p-4';
+        articleCard.dataset.articleId = article.article_id;
+        articleCard.dataset.panierId = article.panier_id;
         articleCard.innerHTML = `
             <div class="flex items-start space-x-3">
                 <div class="flex-shrink-0">
@@ -3375,36 +3456,63 @@ function mettreAJourSectionArticlesRenvoyes(articlesRenvoyes) {
                         Prix unitaire: ${article.prix.toFixed(2)} DH<br>
                         Valeur: <span class="font-semibold text-orange-600">${(article.quantite * article.prix).toFixed(2)} DH</span>
                     </div>
+                    <label class="block text-xs font-medium text-gray-700 mt-2 mb-1">État :</label>
+                    <select class="etat-article-renvoye w-full px-2 py-1 border border-gray-300 rounded" data-article-id="${article.article_id}" data-panier-id="${article.panier_id}">
+                        <option value="bon">Bon état</option>
+                        <option value="defectueux">Défectueux</option>
+                    </select>
                 </div>
             </div>
         `;
         container.appendChild(articleCard);
+
+        // Rétablir la valeur sélectionnée si elle existe (clé = article_id + panier_id)
+        const select = articleCard.querySelector('.etat-article-renvoye');
+        const key = `${article.article_id}_${article.panier_id}`;
+        if (etatsSelectionnes[key]) {
+            select.value = etatsSelectionnes[key];
+        } else if (article.etat) {
+            select.value = article.etat;
+        }
+    });
+
+    // Rattacher les écouteurs d'événements aux nouveaux selects
+    document.querySelectorAll('.etat-article-renvoye').forEach(select => {
+        select.removeEventListener('change', mettreAJourResumeLivraisonPartielle);
+        select.addEventListener('change', mettreAJourResumeLivraisonPartielle);
     });
 }
 
-// Gestionnaire pour le formulaire de livraison partielle
+// ================== Ancien Gestionnaire de Soumission de Formulaire ==================
+// Ce bloc est maintenant simplifié et doit utiliser les hidden inputs JSON
+// qui sont mis à jour par mettreAJourResumeLivraisonPartielle()
 document.addEventListener('DOMContentLoaded', function() {
     const livraisonPartielleForm = document.getElementById('livraisonPartielleForm');
     if (livraisonPartielleForm) {
         livraisonPartielleForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // Le commentaire est déjà validé via le bouton Confirmer
             const commentaire = document.getElementById('commentaireLivraisonPartielle').value.trim();
-            if (!commentaire) {
-                showNotification('⚠️ Veuillez expliquer pourquoi certains articles ne peuvent pas être livrés', 'warning');
-                return;
-            }
             
-            const articlesLivres = JSON.parse(document.getElementById('articlesLivresInput').value);
-            const articlesRenvoyes = JSON.parse(document.getElementById('articlesRenvoyesInput').value);
+            const articlesLivres = JSON.parse(document.getElementById('articlesLivresJsonInput').value);
+            const articlesRenvoyes = JSON.parse(document.getElementById('articlesRenvoyesJsonInput').value);
             
-            if (articlesLivres.length === 0) {
-                showNotification('⚠️ Veuillez sélectionner au moins un article à livrer', 'warning');
-                return;
-            }
+            // DEBUG: Afficher les valeurs collectées
+            console.log('=== DEBUG LIVRAISON PARTIELLE ===');
+            console.log('Articles renvoyés:', articlesRenvoyes);
+            articlesRenvoyes.forEach((article, index) => {
+                console.log(`Article ${index + 1}: ${article.nom} - État: ${article.etat}`);
+            });
+            console.log('=== FIN DEBUG ===');
             
-            if (articlesRenvoyes.length === 0) {
-                showNotification('⚠️ Veuillez avoir au moins un article à renvoyer pour une livraison partielle', 'warning');
+            const totalArticlesLivres = articlesLivres.reduce((acc, a) => acc + (a.quantite || 0), 0);
+            const totalArticlesRenvoyes = articlesRenvoyes.reduce((acc, a) => acc + (a.quantite || 0), 0);
+            const totalValeurLivree = articlesLivres.reduce((acc, a) => acc + (a.quantite * a.prix || 0), 0);
+            
+            // Validation de base
+            if (articlesLivres.length === 0 && articlesRenvoyes.length === 0) {
+                showNotification('⚠️ Veuillez sélectionner au moins un article à livrer ou à renvoyer', 'warning');
                 return;
             }
             
@@ -3413,27 +3521,86 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Traitement...';
             
-            // Soumettre le formulaire
+            // Créer un FormData pour envoyer les données
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            formData.append('articles_livres', JSON.stringify(articlesLivres));
+            formData.append('articles_renvoyes', JSON.stringify(articlesRenvoyes));
+            formData.append('commentaire', commentaire);
+
             fetch(livraisonPartielleForm.action, {
                 method: 'POST',
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams(new FormData(livraisonPartielleForm))
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showNotification('✅ Livraison partielle effectuée avec succès', 'success');
+                    // Affichage du toast
+                    showNotification(
+                        `✅ Livraison partielle effectuée avec succès !\n` +
+                        `Articles livrés : ${totalArticlesLivres}\n` +
+                        `Articles renvoyés : ${totalArticlesRenvoyes}\n` +
+                        `Valeur totale livrée : ${totalValeurLivree.toFixed(2)} DH`,
+                        'success'
+                    );
+                    // Affichage de la modale de confirmation
+                    const confirmationModal = document.getElementById('confirmationLivraisonPartielleModal');
+                    const detailsDiv = document.getElementById('confirmation-livraison-details');
+                    if (data.recap_articles_renvoyes && Array.isArray(data.recap_articles_renvoyes) && data.recap_articles_renvoyes.length > 0) {
+                        let table = `<table class='min-w-full text-sm text-left border mt-4'>`;
+                        table += `<thead><tr><th class='px-2 py-1 border'>Article</th><th class='px-2 py-1 border'>Qté</th><th class='px-2 py-1 border'>État</th><th class='px-2 py-1 border'>Stock avant</th><th class='px-2 py-1 border'>Stock après</th></tr></thead><tbody>`;
+                        data.recap_articles_renvoyes.forEach(a => {
+                            table += `<tr>` +
+                                `<td class='px-2 py-1 border'>${a.nom || '-'}</td>` +
+                                `<td class='px-2 py-1 border text-center'>${a.quantite}</td>` +
+                                `<td class='px-2 py-1 border text-center'>${a.etat === 'bon' ? 'Bon état' : 'Défectueux'}</td>` +
+                                `<td class='px-2 py-1 border text-center'>${a.stock_avant !== null ? a.stock_avant : '-'}</td>` +
+                                `<td class='px-2 py-1 border text-center'>${a.stock_apres !== null ? a.stock_apres : '-'}</td>` +
+                            `</tr>`;
+                        });
+                        table += `</tbody></table>`;
+                        let stockTable = '';
+                        if (data.recap_stock_commande && Array.isArray(data.recap_stock_commande) && data.recap_stock_commande.length > 0) {
+                            stockTable = `<div class='mt-6 mb-2 font-semibold text-gray-700'>Stock de tous les articles de la commande :</div>`;
+                            stockTable += `<table class='min-w-full text-sm text-left border'>`;
+                            stockTable += `<thead><tr><th class='px-2 py-1 border'>Article</th><th class='px-2 py-1 border'>Stock avant</th><th class='px-2 py-1 border'>Stock après</th><th class='px-2 py-1 border'>Statut</th></tr></thead><tbody>`;
+                            data.recap_stock_commande.forEach(a => {
+                                stockTable += `<tr>` +
+                                    `<td class='px-2 py-1 border'>${a.nom || '-'}</td>` +
+                                    `<td class='px-2 py-1 border text-center'>${a.stock_avant !== null ? a.stock_avant : '-'}</td>` +
+                                    `<td class='px-2 py-1 border text-center'>${a.stock_apres !== null ? a.stock_apres : '-'}</td>` +
+                                    `<td class='px-2 py-1 border text-center'>${a.statut || '-'}</td>` +
+                                `</tr>`;
+                            });
+                            stockTable += `</tbody></table>`;
+                        }
+                        detailsDiv.innerHTML = `
+                            <div><strong>Articles livrés :</strong> ${totalArticlesLivres}</div>
+                            <div><strong>Articles renvoyés :</strong> ${totalArticlesRenvoyes}</div>
+                            <div><strong>Valeur totale livrée :</strong> ${totalValeurLivree.toFixed(2)} DH</div>
+                            <div class='mt-4 mb-2 font-semibold text-gray-700'>Détail des articles renvoyés :</div>
+                            ${table}
+                            ${stockTable}
+                        `;
+                    } else {
+                        detailsDiv.innerHTML = `
+                            <div><strong>Articles livrés :</strong> ${totalArticlesLivres}</div>
+                            <div><strong>Articles renvoyés :</strong> ${totalArticlesRenvoyes}</div>
+                            <div><strong>Valeur totale livrée :</strong> ${totalValeurLivree.toFixed(2)} DH</div>
+                        `;
+                    }
+                    confirmationModal.classList.remove('hidden');
                     fermerModalLivraisonPartielle();
-                    // Recharger la page pour afficher les changements
-                    setTimeout(() => {
+                    // Gestion du bouton OK
+                    const fermerBtn = document.getElementById('fermerConfirmationLivraisonBtn');
+                    if (fermerBtn) {
+                        fermerBtn.onclick = function() {
+                            confirmationModal.classList.add('hidden');
                         window.location.reload();
-                    }, 1500);
+                        };
+                    }
                 } else {
                     showNotification('❌ Erreur: ' + data.error, 'error');
-                    // Réactiver le bouton
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Confirmer la Livraison Partielle';
                 }
@@ -3441,7 +3608,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Erreur:', error);
                 showNotification('❌ Erreur de réseau: ' + error.message, 'error');
-                // Réactiver le bouton
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Confirmer la Livraison Partielle';
             });
@@ -3450,5 +3616,10 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ================== FIN GESTION DE LA LIVRAISON PARTIELLE ==================
+
+// ================== GESTION DE LA LIVRAISON PARTIELLE (duplication à supprimer) ==================
+// Cette section est une duplication qui doit être supprimée. La logique a été déplacée plus haut.
+// Je vais la supprimer après la confirmation de cette modification.
+// ... existing code ...
 </script>
 {% endblock %} 
