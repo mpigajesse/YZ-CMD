@@ -18,9 +18,15 @@
             <p style="color: var(--preparation-border-accent);">{{ page_subtitle }}</p>
         </div>
         <div class="flex items-center gap-4 mt-4 md:mt-0">
-            <a href="{% url 'Prepacommande:modifier_commande' commande.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
-                <i class="fas fa-edit mr-2"></i>Modifier
-            </a>
+            {% if commande_renvoi_id %}
+                <a href="{% url 'Prepacommande:modifier_commande' commande_renvoi_id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                    <i class="fas fa-edit mr-2"></i>Modifier
+                </a>
+            {% else %}
+                <a href="{% url 'Prepacommande:modifier_commande' commande.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                    <i class="fas fa-edit mr-2"></i>Modifier
+                </a>
+            {% endif %}
             <a href="{% url 'Prepacommande:liste_prepa' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
                 <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
             </a>
@@ -177,9 +183,13 @@
                             <i class="fas fa-undo text-red-500 mr-2"></i>
                             Articles Renvoyés pour Correction
                         </h4>
+                        <!-- DEBUG: Afficher la liste complète des articles_renvoyes -->
+                        <pre style="background:#fff0f0;color:#b91c1c;padding:8px;border-radius:6px;font-size:12px;overflow-x:auto;">DEBUG articles_renvoyes: {{ articles_renvoyes|safe }}</pre>
                         <div class="bg-red-50 border border-red-200 rounded-lg p-3">
                             <div class="space-y-2">
                                 {% for article_data in articles_renvoyes %}
+                                <!-- DEBUG: Afficher chaque article_data -->
+                                <pre style="background:#fef9c3;color:#92400e;padding:4px 8px;border-radius:4px;font-size:11px;overflow-x:auto;">DEBUG article_data: {{ article_data|safe }}</pre>
                                 <div class="flex items-center justify-between bg-white rounded px-3 py-2 border border-red-200">
                                     <div class="flex items-center">
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mr-3">
@@ -187,20 +197,23 @@
                                         </span>
                                         <div>
                                             <div class="text-sm font-medium text-gray-900">{{ article_data.article.nom }}</div>
-                                            <div class="text-xs text-gray-500">
-                                                Réf: {{ article_data.article.reference }} | 
-                                                {{ article_data.article.couleur }} | 
-                                                {{ article_data.article.pointure }}
+                                            <div class="mt-1">
+                                                {% if article_data.etat == 'defectueux' %}
+                                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 text-red-700"><i class="fas fa-times-circle mr-2"></i>État : Défectueux</span>
+                                                {% elif article_data.etat == 'bon' %}
+                                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-700"><i class="fas fa-check-circle mr-2"></i>État : Bon</span>
+                                                {% else %}
+                                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 text-gray-700"><i class="fas fa-question-circle mr-2"></i>État inconnu: {{ article_data.etat }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="text-xs text-gray-500 mt-1">
+                                                Réf: {{ article_data.article.reference }} | {{ article_data.article.couleur }} | {{ article_data.article.pointure }}
                                             </div>
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <div class="text-sm font-medium text-red-600">
-                                            {{ article_data.quantite }}x
-                                        </div>
-                                        <div class="text-xs text-gray-500">
-                                            {{ article_data.prix|floatformat:2 }} DH
-                                        </div>
+                                        <div class="text-sm font-medium text-red-600">{{ article_data.quantite }}x</div>
+                                        <div class="text-xs text-gray-500">{{ article_data.prix|floatformat:2 }} DH</div>
                                     </div>
                                 </div>
                                 {% endfor %}

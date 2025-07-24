@@ -60,8 +60,8 @@
                 {% for commande in commandes %}
                 <tr class="hover:bg-gray-50" 
                     data-commande-id="{{ commande.id }}"
-                    data-articles-livres='{% if commande.articles_livres_partiellement %}[{% for article_data in commande.articles_livres_partiellement %}{"nom": "{{ article_data.article.nom|escapejs }}", "reference": "{{ article_data.article.reference|escapejs }}", "quantite_livree": {{ article_data.quantite_livree }}, "prix_unitaire": "{{ article_data.article.prix_unitaire|floatformat:2 }}", "pointure": "{{ article_data.article.pointure|default:''|escapejs }}", "couleur": "{{ article_data.article.couleur|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %}'
-                    data-articles-renvoyes='{% if commande.articles_renvoyes %}[{% for article_data in commande.articles_renvoyes %}{"nom": "{{ article_data.article.nom|escapejs }}", "reference": "{{ article_data.article.reference|escapejs }}", "quantite": {{ article_data.quantite }}, "prix_unitaire": "{{ article_data.article.prix_unitaire|floatformat:2 }}", "pointure": "{{ article_data.article.pointure|default:''|escapejs }}", "couleur": "{{ article_data.article.couleur|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %}'
+                    data-articles-livres='{% if commande.articles_livres_partiellement %}[{% for article_data in commande.articles_livres_partiellement %}{"nom": "{{ article_data.nom|escapejs }}", "reference": "{{ article_data.reference|escapejs }}", "quantite_livree": {{ article_data.quantite_livree }}, "prix_unitaire": "{{ article_data.prix_unitaire|floatformat:2 }}", "pointure": "{{ article_data.pointure|default:''|escapejs }}", "couleur": "{{ article_data.couleur|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %}'
+                    data-articles-renvoyes='{% if commande.articles_renvoyes %}[{% for article_data in commande.articles_renvoyes %}{"nom": "{{ article_data.nom|escapejs }}", "reference": "{{ article_data.reference|escapejs }}", "quantite": {{ article_data.quantite }}, "prix_unitaire": "{{ article_data.prix_unitaire|floatformat:2 }}", "pointure": "{{ article_data.pointure|default:''|escapejs }}", "couleur": "{{ article_data.couleur|default:''|escapejs }}", "etat": "{{ article_data.etat|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %}'
                     data-commentaire="{{ commande.commentaire_livraison_partielle|escapejs }}"
                     data-date-livraison="{% if commande.date_livraison_partielle %}{{ commande.date_livraison_partielle|date:'d/m/Y H:i' }}{% endif %}"
                     data-operateur="{% if commande.operateur_livraison %}{{ commande.operateur_livraison.prenom }} {{ commande.operateur_livraison.nom }}{% endif %}">
@@ -436,11 +436,19 @@ function afficherDetailsArticles(commandeId, commandeNum) {
         `;
         
         articlesRenvoyes.forEach(article => {
+            let badgeEtat = '';
+            if (article.etat === 'defectueux') {
+                badgeEtat = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 ml-2"><i class="fas fa-times-circle mr-1"></i>Défectueux</span>`;
+            } else if (article.etat === 'bon') {
+                badgeEtat = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 ml-2"><i class="fas fa-check-circle mr-1"></i>Bon</span>`;
+            } else {
+                badgeEtat = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 ml-2"><i class="fas fa-question-circle mr-1"></i>Inconnu</span>`;
+            }
             content += `
                 <div class="bg-white p-3 rounded-lg border border-orange-200 shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
-                            <div class="font-medium text-gray-900">${article.nom}</div>
+                            <div class="font-medium text-gray-900">${article.nom} ${badgeEtat}</div>
                             <div class="text-sm text-gray-500">Réf: ${article.reference}</div>
                             <div class="text-xs text-gray-400 mt-1">
                                 ${article.pointure ? `Taille: ${article.pointure} | ` : ''}
@@ -574,13 +582,37 @@ function afficherContenuPanierComplet(data) {
                 </h4>
                 <div class="space-y-3">
         `;
-        
+        // Chercher les articles renvoyés et leur état
+        let articlesRenvoyes = [];
+        if (commande.articles_renvoyes) {
+            articlesRenvoyes = commande.articles_renvoyes;
+        } else if (window.articlesRenvoyes) {
+            articlesRenvoyes = window.articlesRenvoyes;
+        }
+        // Construire un map rapide article_ref -> etat
+        let etatMap = {};
+        if (Array.isArray(articlesRenvoyes)) {
+            articlesRenvoyes.forEach(function(article) {
+                // Utiliser référence ou nom comme clé (selon ce qui est unique dans ta base)
+                etatMap[article.reference] = article.etat;
+            });
+        }
         paniers.forEach(panier => {
+            // Chercher l'état si c'est un article renvoyé
+            let badgeEtat = '';
+            let etat = etatMap[panier.reference];
+            if (etat === 'defectueux') {
+                badgeEtat = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 ml-2"><i class="fas fa-times-circle mr-1"></i>Défectueux</span>`;
+            } else if (etat === 'bon') {
+                badgeEtat = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 ml-2"><i class="fas fa-check-circle mr-1"></i>Bon</span>`;
+            } else if (etat) {
+                badgeEtat = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 ml-2"><i class="fas fa-question-circle mr-1"></i>${etat}</span>`;
+            }
             content += `
                 <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
-                            <div class="font-medium text-gray-900">${panier.nom}</div>
+                            <div class="font-medium text-gray-900">${panier.nom} ${badgeEtat}</div>
                             <div class="text-sm text-gray-500">Réf: ${panier.reference}</div>
                             <div class="text-xs text-gray-400 mt-1">
                                 ${panier.pointure ? `Taille: ${panier.pointure} | ` : ''}
@@ -598,7 +630,6 @@ function afficherContenuPanierComplet(data) {
                 </div>
             `;
         });
-        
         content += `
                 </div>
             </div>

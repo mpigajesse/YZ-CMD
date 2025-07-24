@@ -180,9 +180,18 @@
                             </button>
                         </td>
                         <td class="px-4 py-4 whitespace-nowrap text-center">
-                            <a href="{% url 'Prepacommande:detail_prepa' commande.pk %}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors" title="Traiter la commande - Cliquer pour corriger les articles renvoyés">
-                                <i class="fas fa-tools mr-1"></i> Traiter
+                            <a href="{% url 'Prepacommande:detail_prepa' commande.pk %}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors mr-2" title="Voir le détail de la commande">
+                                <i class="fas fa-eye mr-1"></i> Détail
                             </a>
+                            {% if commande.commande_renvoi_id %}
+                                <a href="{% url 'Prepacommande:modifier_commande' commande.commande_renvoi_id %}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors" title="Traiter la commande - Cliquer pour corriger les articles renvoyés">
+                                    <i class="fas fa-tools mr-1"></i> Traiter
+                                </a>
+                            {% else %}
+                                <a href="{% url 'Prepacommande:modifier_commande' commande.pk %}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors" title="Traiter la commande - Cliquer pour corriger les articles renvoyés">
+                                    <i class="fas fa-tools mr-1"></i> Traiter
+                                </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -381,6 +390,9 @@ function afficherDonneesArticles(data) {
     
     if (data.articles_renvoyes.length > 0) {
         data.articles_renvoyes.forEach(article => {
+            const badge = article.etat === 'defectueux'
+                ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 ml-2"><i class="fas fa-times-circle mr-1"></i>Défectueux</span>'
+                : '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 ml-2"><i class="fas fa-check-circle mr-1"></i>Bon</span>';
             const articleDiv = document.createElement('div');
             articleDiv.className = 'bg-orange-50 border border-orange-200 rounded-lg p-4';
             articleDiv.innerHTML = `
@@ -389,7 +401,7 @@ function afficherDonneesArticles(data) {
                         <i class="fas fa-undo text-orange-600 text-lg mt-1"></i>
                     </div>
                     <div class="flex-1">
-                        <div class="font-medium text-gray-900">${article.nom}</div>
+                        <div class="font-medium text-gray-900">${article.nom} ${badge}</div>
                         <div class="text-sm text-gray-500">
                             Réf: ${article.reference} | ${article.couleur} | ${article.pointure}<br>
                             Renvoyé ${article.quantite}x | Prix: ${article.prix.toFixed(2)} DH<br>

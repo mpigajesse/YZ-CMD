@@ -530,3 +530,19 @@ class Envoi(models.Model):
             queryset = queryset.filter(livreur=livreur)
             
         return queryset.select_related('livreur', 'region').prefetch_related('commandes_associees')
+
+class EtatArticleRenvoye(models.Model):
+    commande = models.ForeignKey('Commande', on_delete=models.CASCADE, related_name='etats_articles_renvoyes')
+    article = models.ForeignKey(Article, on_delete=models.CASCADE)
+    etat = models.ForeignKey(EnumEtatCmd, on_delete=models.PROTECT)  # FK vers la table d’états
+    quantite = models.PositiveIntegerField(default=1)
+    date_maj = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('commande', 'article')
+        verbose_name = "État d'article renvoyé"
+        verbose_name_plural = "États d'articles renvoyés"
+
+    def __str__(self):
+        return f"{self.article} ({self.etat}) dans {self.commande}"
+

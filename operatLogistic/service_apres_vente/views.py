@@ -6,6 +6,7 @@ from django.utils import timezone
 from commande.models import Commande, EtatCommande, EnumEtatCmd, Envoi
 from django.db import transaction
 from datetime import datetime
+import json
 from article.models import Article
 
 @login_required
@@ -229,38 +230,85 @@ def commandes_livrees_partiellement(request):
             commande=commande,
             type_operation='LIVRAISON_PARTIELLE'
         ).order_by('-date_operation').first()
-        
-        if operation_livraison_partielle:
-            # Analyser la conclusion pour extraire les informations sur les articles
-            conclusion = operation_livraison_partielle.conclusion
-            
-            # Identifier les articles dans la commande actuelle (ceux qui ont été livrés partiellement)
-            for panier in commande.paniers.all():
-                # Si l'article est encore dans la commande, c'est qu'il a été livré partiellement
-                # (les articles complètement renvoyés sont dans une commande séparée)
-                commande.articles_livres_partiellement.append({
-                    'article': panier.article,
-                    'quantite_livree': panier.quantite,
-                    'quantite_originale': panier.quantite,  # On ne peut pas récupérer la quantité originale facilement
-                    'prix': panier.article.prix_unitaire,
-                    'sous_total': panier.sous_total
-                })
-        
-        # Chercher la commande de renvoi associée
-        commande_renvoi = Commande.objects.filter(
-            num_cmd__startswith=f"RENVOI-{commande.num_cmd}",
-            client=commande.client
-        ).first()
-        
-        if commande_renvoi:
-            for panier_renvoi in commande_renvoi.paniers.all():
-                commande.articles_renvoyes.append({
-                    'article': panier_renvoi.article,
-                    'quantite': panier_renvoi.quantite,
-                    'prix': panier_renvoi.article.prix_unitaire,
-                    'sous_total': panier_renvoi.sous_total
-                })
-    
+
+        conclusion_content = ""
+        articles_renvoyes_json = []
+        if operation_livraison_partielle and operation_livraison_partielle.conclusion:
+            conclusion_content = operation_livraison_partielle.conclusion
+
+        try:
+            if conclusion_content:
+                parsed_conclusion = json.loads(conclusion_content)
+                print(f"DEBUG BACKEND: Conclusion parsée pour commande {commande.id_yz}: {parsed_conclusion}") # Debug ici
+                temp_articles_livres = []
+                for item in parsed_conclusion.get('articles_livres', []):
+                    try:
+                        article_obj = Article.objects.get(id=item['article_id'])
+                        temp_articles_livres.append({
+                            'article_id': item['article_id'], # Ajout de article_id
+                            'nom': article_obj.nom,
+                            'reference': article_obj.reference,
+                            'pointure': getattr(article_obj, 'pointure', ''),
+                            'couleur': getattr(article_obj, 'couleur', ''),
+                            'quantite_livree': item['quantite'],
+                            'prix_unitaire': item.get('prix_unitaire', 0.0)
+                        })
+                    except Article.DoesNotExist:
+                        temp_articles_livres.append({
+                            'article_id': item.get('article_id'), # Ajout de article_id même si Article non trouvé
+                            'nom': 'Inconnu',
+                            'reference': '',
+                            'pointure': '',
+                            'couleur': '',
+                            'quantite_livree': item.get('quantite', 0),
+                            'prix_unitaire': item.get('prix_unitaire', 0.0)
+                        })
+                commande.articles_livres_partiellement = temp_articles_livres
+
+                temp_articles_renvoyes = []
+                for item in parsed_conclusion.get('recap_articles_renvoyes', []):
+                    print(f"DEBUG BACKEND: Article renvoyé traité pour commande {commande.id_yz}: {item}") # Debug here
+                    try:
+                        article_obj = Article.objects.get(id=item['article_id'])
+                        temp_articles_renvoyes.append({
+                            'article_id': item['article_id'], # Ajout de article_id
+                            'nom': article_obj.nom,
+                            'reference': article_obj.reference,
+                            'pointure': getattr(article_obj, 'pointure', ''),
+                            'couleur': getattr(article_obj, 'couleur', ''),
+                            'quantite': item.get('quantite', 0),
+                            'prix_unitaire': item.get('prix_unitaire', 0.0),
+                            'etat': item.get('etat', 'inconnu').lower() # Convertir en minuscules pour la cohérence
+                        })
+                    except Article.DoesNotExist:
+                        temp_articles_renvoyes.append({
+                            'article_id': item.get('article_id'), # Ajout de article_id même si Article non trouvé
+                            'nom': 'Inconnu',
+                            'reference': '',
+                            'pointure': '',
+                            'couleur': '',
+                            'quantite': item.get('quantite', 0),
+                            'prix_unitaire': item.get('prix_unitaire', 0.0),
+                            'etat': item.get('etat', 'inconnu').lower() # Convertir en minuscules
+                        })
+                commande.articles_renvoyes = temp_articles_renvoyes
+            else:
+                commande.articles_livres_partiellement = []
+                commande.articles_renvoyes = []
+        except json.JSONDecodeError as e:
+            print(f"DEBUG BACKEND: Erreur de décodage JSON dans la conclusion: {e} pour commande {commande.id_yz}. Conclusion: {conclusion_content}")
+            commande.articles_livres_partiellement = []
+            commande.articles_renvoyes = []
+        except Exception as e:
+            print(f"DEBUG BACKEND: Erreur lors du traitement de la conclusion JSON: {e} pour commande {commande.id_yz}.")
+            commande.articles_livres_partiellement = []
+            commande.articles_renvoyes = []
+
+        # Cette section est supprimée car les articles renvoyés et leurs états sont extraits
+        # directement de la conclusion de l'opération de livraison partielle.
+        # La logique de recherche de `commande_renvoi` n'est pas pertinente pour l'affichage des états
+        # dans la modale de détails des articles de la commande originale.
+
     return _render_sav_list(request, commandes, 'Commandes Livrées Partiellement', 'Liste des livraisons partielles.')
 
 @login_required

@@ -7,6 +7,7 @@ from django.http                    import JsonResponse
 from django.views.decorators.http   import require_POST
 from django.utils                   import timezone
 from django.db                      import transaction
+import json
 
 from parametre.models import Operateur
 from commande.models  import Commande, Envoi, EnumEtatCmd, EtatCommande, Operation
@@ -1601,10 +1602,38 @@ def livraison_partielle(request, commande_id):
                 commande.save()
                 
                 # 7. Créer une opération pour tracer l'action
+                # On prépare un JSON structuré pour la conclusion
+                # On enrichit recap_articles_renvoyes avec l'id de l'article
+                recap_articles_renvoyes_json = []
+                for article_data in articles_renvoyes:
+                    recap = {
+                        'article_id': article_data.get('article_id') or article_data.get('id'),
+                        'etat': article_data.get('etat', 'inconnu'),
+                        'quantite': article_data.get('quantite', 0),
+                        'prix_unitaire': article_data.get('prix_unitaire', 0)
+                    }
+                    recap_articles_renvoyes_json.append(recap)
+
+                articles_livres_json = []
+                for article_data in articles_livres:
+                    art = {
+                        'article_id': article_data.get('article_id') or article_data.get('id'),
+                        'quantite': article_data.get('quantite', 0),
+                        'prix_unitaire': article_data.get('prix_unitaire', 0)
+                    }
+                    articles_livres_json.append(art)
+
+                operation_conclusion_data = {
+                    'commentaire': commentaire,
+                    'articles_livres_count': len(articles_livres_json),
+                    'articles_renvoyes_count': len(recap_articles_renvoyes_json),
+                    'articles_livres': articles_livres_json,
+                    'recap_articles_renvoyes': recap_articles_renvoyes_json
+                }
                 Operation.objects.create(
                     commande=commande,
                     type_operation='LIVRAISON_PARTIELLE',
-                    conclusion=f"Livraison partielle effectuée. Articles livrés: {len(articles_livres)}, Articles renvoyés: {len(articles_renvoyes)}. {commentaire}",
+                    conclusion=json.dumps(operation_conclusion_data),
                     operateur=operateur
                 )
                 

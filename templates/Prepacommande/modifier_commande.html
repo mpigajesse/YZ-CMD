@@ -1,5 +1,6 @@
 {% extends 'composant_generale/operatPrepa/base.html' %}
 {% load static %}
+{% load prepa_filters %}
 
 {% block title %}Modifier Commande {{ commande.id_yz }} - Préparation{% endblock %}
 
@@ -141,16 +142,33 @@
                         <i class="fas fa-undo text-red-500 mr-2"></i>
                         Articles Renvoyés pour Correction
                     </h4>
+                    <!-- DEBUG: Afficher la liste complète des articles_renvoyes -->
+                    <pre style="background:#fff0f0;color:#b91c1c;padding:8px;border-radius:6px;font-size:12px;overflow-x:auto;">DEBUG articles_renvoyes: {{ articles_renvoyes|safe }}</pre>
                     <div class="bg-red-50 border border-red-200 rounded-lg p-3">
                         <div class="space-y-2">
                             {% for article_data in articles_renvoyes %}
+                            <!-- DEBUG: Afficher chaque article_data -->
+                            <pre style="background:#fef9c3;color:#92400e;padding:4px 8px;border-radius:4px;font-size:11px;overflow-x:auto;">DEBUG article_data: {{ article_data|safe }}</pre>
                             <div class="flex items-center justify-between bg-white rounded px-3 py-2 border border-red-200">
                                 <div class="flex items-center">
                                     <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mr-3">
                                         <i class="fas fa-undo mr-1"></i>Renvoyé
                                     </span>
                                     <div>
-                                        <div class="text-sm font-medium text-gray-900">{{ article_data.article.nom }}</div>
+                                        <div class="text-sm font-medium text-gray-900 flex items-center">
+                                            {{ article_data.article.nom }}
+                                            {% if article_data.etat == 'defectueux' %}
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-base font-bold bg-red-100 text-red-700 ml-3">
+                                                    <i class="fas fa-times-circle mr-2"></i>Défectueux
+                                                </span>
+                                            {% elif article_data.etat == 'bon' %}
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-base font-bold bg-green-100 text-green-700 ml-3">
+                                                    <i class="fas fa-check-circle mr-2"></i>Bon
+                                                </span>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 text-gray-700 ml-3"><i class="fas fa-question-circle mr-2"></i>État inconnu: {{ article_data.etat }}</span>
+                                            {% endif %}
+                                        </div>
                                         <div class="text-xs text-gray-500">
                                             Réf: {{ article_data.article.reference }} | 
                                             {{ article_data.article.couleur }} | 
@@ -318,6 +336,8 @@
 
                     </div>
                 </div>
+                <!-- DEBUG: Afficher le contenu de articles_renvoyes_map -->
+                <pre style="background:#f0fdf4;color:#166534;padding:8px;border-radius:6px;font-size:12px;overflow-x:auto;">DEBUG articles_renvoyes_map: {{ articles_renvoyes_map|safe }}</pre>
                 
                 <div class="overflow-x-auto">
                 <table class="w-full bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
@@ -340,6 +360,7 @@
                                         <i class="fas fa-info-circle"></i>
                                     </button>
                                 </th>
+                                <th class="px-4 py-3 text-center">État</th>
                                 <th class="px-4 py-3 text-center">Actions</th>
                         </tr>
                     </thead>
@@ -347,7 +368,28 @@
                         {% for panier in paniers %}
                             <tr class="border-b border-gray-100 hover:bg-gray-50" data-panier-id="{{ panier.id }}">
                                 <td class="px-4 py-3">
-                                    <div class="font-medium">{{ panier.article.nom }}</div>
+                                    <div class="font-medium flex items-center">
+                                        {{ panier.article.nom }}
+                                        <!-- DEBUG: Afficher l'ID de l'article du panier -->
+                                        <pre style="background:#e0f2fe;color:#0369a1;padding:2px 5px;border-radius:3px;font-size:9px;">ID: {{ panier.article.id }}</pre>
+                                        {% for article_data in articles_renvoyes %}
+                                            {% if article_data.article.id == panier.article.id %}
+                                                {% if article_data.etat == 'defectueux' %}
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 ml-2">
+                                                        <i class="fas fa-times-circle mr-1"></i>Défectueux
+                                                    </span>
+                                                {% elif article_data.etat == 'bon' %}
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 ml-2">
+                                                        <i class="fas fa-check-circle mr-1"></i>Bon
+                                                    </span>
+                                                {% elif article_data.etat == 'inconnu' %}
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 ml-2">
+                                                        <i class="fas fa-question-circle mr-1"></i>Inconnu
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
                                     {% if panier.article.description %}
                                         <div class="text-sm text-gray-500">{{ panier.article.description|truncatechars:50 }}</div>
                                     {% endif %}
@@ -393,6 +435,31 @@
                                 </td>
                                 <td class="px-4 py-3 text-right font-bold">{{ panier.sous_total|floatformat:2 }} DH</td>
                                 <td class="px-4 py-3 text-center">
+                                    {% with found=False %}
+                                    {% for article_data in articles_renvoyes %}
+                                        {% if article_data.article.id == panier.article.id %}
+                                            {% if article_data.etat == 'defectueux' %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                                                    <i class="fas fa-times-circle mr-1"></i>Défectueux
+                                                </span>
+                                            {% elif article_data.etat == 'bon' %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                                                    <i class="fas fa-check-circle mr-1"></i>Bon
+                                                </span>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
+                                                    <i class="fas fa-question-circle mr-1"></i>Inconnu: {{ article_data.etat }}
+                                                </span>
+                                            {% endif %}
+                                            {% with found=True %}{% endwith %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if not found %}
+                                        <span class="text-gray-400">-</span>
+                                    {% endif %}
+                                    {% endwith %}
+                                </td>
+                                <td class="px-4 py-3 text-center">
                                     <button type="button" class="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded transition-colors" onclick="supprimerArticle({{ panier.id }})" title="Supprimer cet article">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -400,7 +467,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                <td colspan="9" class="px-4 py-8 text-center text-gray-500">
                                     <i class="fas fa-box-open text-3xl mb-2"></i>
                                     <div>Aucun article dans le panier</div>
                             </td>

@@ -968,6 +968,14 @@ def detail_prepa(request, pk):
     # Récupérer les paniers (articles) de la commande
     paniers = commande.paniers.all().select_related('article')
     
+    # Initialiser les variables pour les cas de livraison partielle/renvoi
+    articles_livres = []
+    articles_renvoyes = []
+    is_commande_livree_partiellement = False
+    commande_renvoi = None # Initialiser à None
+    commande_originale = None # Initialiser à None
+    etat_articles_renvoyes = {} # Initialiser à un dictionnaire vide
+
     # Ajouter le prix unitaire et le total de chaque ligne
     for panier in paniers:
         panier.prix_unitaire = panier.sous_total / panier.quantite if panier.quantite > 0 else 0
@@ -994,10 +1002,16 @@ def detail_prepa(request, pk):
     articles_renvoyes = []
     is_commande_livree_partiellement = False
     
-    # Vérifier si c'est une commande livrée partiellement
+    # Import pour JSON
+    import json
+
+    # Récupérer l'état des articles renvoyés depuis l'opération de livraison partielle (si elle existe)
+    etat_articles_renvoyes = {}
+    operation_livraison_partielle = None
+    
+    # Cas 1: La commande actuelle est la commande originale livrée partiellement
     if etat_actuel and etat_actuel.enum_etat.libelle == 'Livrée Partiellement':
         is_commande_livree_partiellement = True
-        
         # Les articles dans cette commande sont ceux qui ont été livrés partiellement
         for panier in paniers:
             articles_livres.append({
@@ -1013,70 +1027,81 @@ def detail_prepa(request, pk):
             client=commande.client
         ).first()
         
-        if commande_renvoi:
-            for panier_renvoi in commande_renvoi.paniers.all():
-                articles_renvoyes.append({
-                    'article': panier_renvoi.article,
-                    'quantite': panier_renvoi.quantite,
-                    'prix': panier_renvoi.article.prix_unitaire,
-                    'sous_total': panier_renvoi.sous_total
-                })
-    
-    # Vérifier si c'est une commande renvoyée après livraison partielle
+        # La commande source pour les articles renvoyés est la commande actuelle
+        operation_livraison_partielle = commande.operations.filter(
+            type_operation='LIVRAISON_PARTIELLE'
+        ).order_by('-date_operation').first()
+
+    # Cas 2: La commande actuelle est une commande de renvoi suite à une livraison partielle
     elif etat_precedent and etat_precedent.enum_etat.libelle == 'Livrée Partiellement':
         is_commande_livree_partiellement = True
-        
         # Chercher la commande originale qui a été livrée partiellement
         commande_originale = Commande.objects.filter(
             num_cmd=commande.num_cmd.replace('RENVOI-', ''),
             client=commande.client
         ).first()
         
+        # La commande source pour les articles renvoyés est la commande originale
         if commande_originale:
-            # Les articles dans cette commande de renvoi sont ceux qui ont été renvoyés
-            for panier in paniers:
-                articles_renvoyes.append({
-                    'article': panier.article,
-                    'quantite': panier.quantite,
-                    'prix': panier.article.prix_unitaire,
-                    'sous_total': panier.sous_total
-                })
-            
-            # Pour les articles livrés, on lit l'opération de livraison partielle sur la commande originale
             operation_livraison_partielle = commande_originale.operations.filter(
                 type_operation='LIVRAISON_PARTIELLE'
             ).order_by('-date_operation').first()
-            if operation_livraison_partielle:
-                try:
-                    details = json.loads(operation_livraison_partielle.conclusion)
-                    if 'articles_livres' in details:
-                        for article_livre in details['articles_livres']:
-                            article = Article.objects.filter(id=article_livre.get('article_id')).first()
-                            if article:
-                                articles_livres.append({
-                                    'article': article,
-                                    'quantite_livree': article_livre.get('quantite', 0),
-                                    'prix': article.prix_unitaire,
-                                    'sous_total': article.prix_unitaire * article_livre.get('quantite', 0)
-                                })
-                except (json.JSONDecodeError, KeyError, TypeError):
-                    # Fallback : tous les articles de la commande originale
-                    for panier_original in commande_originale.paniers.all():
-                        articles_livres.append({
-                            'article': panier_original.article,
-                            'quantite_livree': panier_original.quantite,
-                            'prix': panier_original.article.prix_unitaire,
-                            'sous_total': panier_original.sous_total
-                        })
-            else:
-                # Fallback : tous les articles de la commande originale
-                for panier_original in commande_originale.paniers.all():
-                    articles_livres.append({
-                        'article': panier_original.article,
-                        'quantite_livree': panier_original.quantite,
-                        'prix': panier_original.article.prix_unitaire,
-                        'sous_total': panier_original.sous_total
-                    })
+
+    # Si une opération de livraison partielle est trouvée, extraire les états des articles renvoyés
+    if operation_livraison_partielle:
+        try:
+            details = json.loads(operation_livraison_partielle.conclusion)
+            if 'recap_articles_renvoyes' in details:
+                for item in details['recap_articles_renvoyes']:
+                    etat_articles_renvoyes[item['article_id']] = item['etat']
+        except Exception:
+            pass
+
+    # Populer articles_renvoyes si c'est une commande de renvoi ou si elle a une commande de renvoi associée
+    if is_commande_livree_partiellement:
+        # Si la commande actuelle est une commande de renvoi (Cas 2)
+        if commande.num_cmd and commande.num_cmd.startswith('RENVOI-'):
+            for panier_renvoi in paniers:
+                etat = etat_articles_renvoyes.get(panier_renvoi.article.id, 'bon')
+                articles_renvoyes.append({
+                    'article': panier_renvoi.article,
+                    'quantite': panier_renvoi.quantite,
+                    'prix': panier_renvoi.article.prix_unitaire,
+                    'sous_total': panier_renvoi.sous_total,
+                    'etat': etat
+                })
+        # Si la commande actuelle est la commande originale livrée partiellement et qu'une commande de renvoi existe (Cas 1)
+        elif commande_renvoi:
+            for panier_renvoi in commande_renvoi.paniers.all():
+                etat = etat_articles_renvoyes.get(panier_renvoi.article.id, 'bon')
+                articles_renvoyes.append({
+                    'article': panier_renvoi.article,
+                    'quantite': panier_renvoi.quantite,
+                    'prix': panier_renvoi.article.prix_unitaire,
+                    'sous_total': panier_renvoi.sous_total,
+                    'etat': etat
+                })
+
+    # Pour les articles livrés, on lit l'opération de livraison partielle sur la commande originale
+    if is_commande_livree_partiellement and commande_originale:
+        operation_livraison_partielle_for_livres = commande_originale.operations.filter(
+            type_operation='LIVRAISON_PARTIELLE'
+        ).order_by('-date_operation').first()
+        if operation_livraison_partielle_for_livres:
+            try:
+                details = json.loads(operation_livraison_partielle_for_livres.conclusion)
+                if 'articles_livres' in details:
+                    for article_livre in details['articles_livres']:
+                        article = Article.objects.filter(id=article_livre.get('article_id')).first()
+                        if article:
+                            articles_livres.append({
+                                'article': article,
+                                'quantite_livree': article_livre.get('quantite', 0),
+                                'prix': article.prix_unitaire,
+                                'sous_total': article.prix_unitaire * article_livre.get('quantite', 0)
+                            })
+            except Exception:
+                pass
     
     # Calculer le total des articles
     total_articles = sum(panier.total_ligne for panier in paniers)
@@ -1214,22 +1239,31 @@ def detail_prepa(request, pk):
 
             return redirect('Prepacommande:liste_prepa')
     
+    # Avant le return render dans detail_prepa
+    commande_renvoi_id = None
+    if commande_renvoi:
+        commande_renvoi_id = commande_renvoi.id
+    
     context = {
         'page_title': f'Préparation Commande {commande.id_yz}',
         'page_subtitle': f'Détails de la commande et étapes de préparation',
         'commande': commande,
-        'is_commande_livree_partiellement': is_commande_livree_partiellement,
-        'articles_livres': articles_livres,
-        'articles_renvoyes': articles_renvoyes,
         'paniers': paniers,
-        'total_articles': total_articles,
         'etats_commande': etats_commande,
         'etat_actuel': etat_actuel,
         'etat_precedent': etat_precedent,
         'etat_preparation': etat_preparation,
-        'operateur_profile': operateur_profile,
+        'total_articles': total_articles,
         'operations': operations,
         'commande_barcode': commande_barcode,
+        'is_commande_livree_partiellement': is_commande_livree_partiellement,
+        'articles_livres': articles_livres,
+        'articles_renvoyes': articles_renvoyes,
+        # Variables de debug/informations supplémentaires
+        'commande_originale': commande_originale,
+        'commande_renvoi': commande_renvoi,
+        'etat_articles_renvoyes': etat_articles_renvoyes,
+        'commande_renvoi_id': commande_renvoi_id,
     }
     return render(request, 'Prepacommande/detail_prepa.html', context)
 
@@ -1946,11 +1980,15 @@ def modifier_commande_prepa(request, commande_id):
     operation_renvoi = operations.filter(type_operation='RENVOI_PREPARATION').first()
     is_commande_renvoyee = operation_renvoi is not None
     
-    # Analyser les articles pour les commandes livrées partiellement
+    # Initialiser les variables pour les cas de livraison partielle/renvoi
     articles_livres = []
     articles_renvoyes = []
     is_commande_livree_partiellement = False
-    
+    commande_renvoi_obj = None # Variable pour la commande de renvoi trouvée
+    commande_originale_obj = None # Variable pour la commande originale trouvée
+    etat_articles_renvoyes = {} # Dictionnaire pour stocker l'état des articles renvoyés (article_id -> etat)
+    operation_livraison_partielle_source = None # Opération source pour les détails de livraison partielle
+
     # Récupérer l'état actuel de la commande
     etat_actuel = commande.etats.filter(date_fin__isnull=True).first()
     etat_precedent = None
@@ -1964,107 +2002,138 @@ def modifier_commande_prepa(request, commande_id):
                     etat_precedent = etat
                     break
     
-    # Vérifier si c'est une commande livrée partiellement
-    if etat_actuel and etat_actuel.enum_etat.libelle == 'Livrée Partiellement':
+    # NOUVELLE LOGIQUE POUR DÉTECTER LA LIVRAISON PARTIELLE ET LES ARTICLES RENVOYÉS
+    # Une commande est considérée comme "livrée partiellement" dans le contexte de modification
+    # si elle-même a été livrée partiellement ou si c'est une commande de RENVOI associée à une livraison partielle.
+    
+    if commande.num_cmd and commande.num_cmd.startswith('RENVOI-'):
+        # C'est une commande de renvoi. On cherche la commande originale.
+        num_cmd_original = commande.num_cmd.replace('RENVOI-', '')
+        commande_originale_obj = Commande.objects.filter(num_cmd=num_cmd_original, client=commande.client).first()
+        
+        if commande_originale_obj:
+            # Vérifier si la commande originale a bien été livrée partiellement
+            if commande_originale_obj.etats.filter(enum_etat__libelle='Livrée Partiellement').exists():
+                is_commande_livree_partiellement = True
+                operation_livraison_partielle_source = commande_originale_obj.operations.filter(
+                    type_operation='LIVRAISON_PARTIELLE'
+                ).order_by('-date_operation').first()
+                commande_renvoi_obj = commande # Dans ce cas, la commande actuelle est la commande de renvoi
+
+    elif etat_actuel and etat_actuel.enum_etat.libelle == 'Livrée Partiellement':
+        # La commande actuelle est l'originale qui a été livrée partiellement
         is_commande_livree_partiellement = True
-        
-        # Les articles dans cette commande sont ceux qui ont été livrés partiellement
-        for panier in paniers:
-            articles_livres.append({
-                'article': panier.article,
-                'quantite_livree': panier.quantite,
-                'prix': panier.article.prix_unitaire,
-                'sous_total': panier.sous_total
-            })
-        
-        # Chercher la commande de renvoi associée
-        commande_renvoi = Commande.objects.filter(
+        operation_livraison_partielle_source = commande.operations.filter(
+            type_operation='LIVRAISON_PARTIELLE'
+        ).order_by('-date_operation').first()
+        # Chercher une commande de renvoi associée si elle existe
+        commande_renvoi_obj = Commande.objects.filter(
             num_cmd__startswith=f"RENVOI-{commande.num_cmd}",
             client=commande.client
         ).first()
-        
-        if commande_renvoi:
-            for panier_renvoi in commande_renvoi.paniers.all():
+
+    # Si une opération de livraison partielle est trouvée, extraire les états des articles renvoyés
+    if operation_livraison_partielle_source:
+        try:
+            details = json.loads(operation_livraison_partielle_source.conclusion)
+            if 'recap_articles_renvoyes' in details:
+                for item in details['recap_articles_renvoyes']:
+                    etat_articles_renvoyes[item['article_id']] = item['etat']
+            
+            # Populer articles_livres à partir de la conclusion de l'opération de livraison partielle
+            if 'articles_livres' in details:
+                for article_livre in details['articles_livres']:
+                    article_obj = Article.objects.filter(id=article_livre.get('article_id')).first()
+                    if article_obj:
+                        articles_livres.append({
+                            'article': article_obj,
+                            'quantite_livree': article_livre.get('quantite', 0),
+                            'prix': article_obj.prix_unitaire,
+                            'sous_total': article_obj.prix_unitaire * article_livre.get('quantite', 0)
+                        })
+        except Exception as e:
+            print(f"DEBUG: Erreur lors du parsing des détails de l'opération de livraison partielle: {e}")
+            pass
+
+    # Populer articles_renvoyes si c'est une commande de renvoi ou si elle a une commande de renvoi associée
+    if is_commande_livree_partiellement:
+        # Si la commande actuelle est une commande de renvoi (celle que nous modifions)
+        if commande.num_cmd and commande.num_cmd.startswith('RENVOI-'):
+            # Les paniers de la commande actuelle sont les articles renvoyés
+            for panier_renvoi in paniers:
+                etat = etat_articles_renvoyes.get(panier_renvoi.article.id)
+                if etat is None:
+                    etat = 'inconnu'
+                    print(f"ALERTE: État inconnu pour l'article ID {panier_renvoi.article.id} dans la commande {commande.id_yz}")
                 articles_renvoyes.append({
                     'article': panier_renvoi.article,
                     'quantite': panier_renvoi.quantite,
                     'prix': panier_renvoi.article.prix_unitaire,
-                    'sous_total': panier_renvoi.sous_total
+                    'sous_total': panier_renvoi.sous_total,
+                    'etat': etat
                 })
-    
-    # Vérifier si c'est une commande renvoyée après livraison partielle
-    elif etat_precedent and etat_precedent.enum_etat.libelle == 'Livrée Partiellement':
-        is_commande_livree_partiellement = True
-        
-        # Chercher la commande originale qui a été livrée partiellement
-        commande_originale = Commande.objects.filter(
-            num_cmd=commande.num_cmd.replace('RENVOI-', ''),
-            client=commande.client
-        ).first()
-        
-        if commande_originale:
-            # Les articles dans cette commande de renvoi sont ceux qui ont été renvoyés
-            for panier in paniers:
+        # Si la commande actuelle est la commande originale livrée partiellement (Cas 1 initial)
+        elif commande_renvoi_obj:
+            # Les paniers de la commande de renvoi associée sont les articles renvoyés
+            for panier_renvoi in commande_renvoi_obj.paniers.all():
+                etat = etat_articles_renvoyes.get(panier_renvoi.article.id)
+                if etat is None:
+                    etat = 'inconnu'
+                    print(f"ALERTE: État inconnu pour l'article ID {panier_renvoi.article.id} dans la commande {commande_renvoi_obj.id_yz}")
                 articles_renvoyes.append({
-                    'article': panier.article,
-                    'quantite': panier.quantite,
-                    'prix': panier.article.prix_unitaire,
-                    'sous_total': panier.sous_total
+                    'article': panier_renvoi.article,
+                    'quantite': panier_renvoi.quantite,
+                    'prix': panier_renvoi.article.prix_unitaire,
+                    'sous_total': panier_renvoi.sous_total,
+                    'etat': etat
                 })
-            
-            # Pour les articles livrés, on lit l'opération de livraison partielle sur la commande originale
-            operation_livraison_partielle = commande_originale.operations.filter(
-                type_operation='LIVRAISON_PARTIELLE'
-            ).order_by('-date_operation').first()
-            if operation_livraison_partielle:
-                try:
-                    details = json.loads(operation_livraison_partielle.conclusion)
-                    if 'articles_livres' in details:
-                        for article_livre in details['articles_livres']:
-                            article = Article.objects.filter(id=article_livre.get('article_id')).first()
-                            if article:
-                                articles_livres.append({
-                                    'article': article,
-                                    'quantite_livree': article_livre.get('quantite', 0),
-                                    'prix': article.prix_unitaire,
-                                    'sous_total': article.prix_unitaire * article_livre.get('quantite', 0)
-                                })
-                except (json.JSONDecodeError, KeyError, TypeError):
-                    # Fallback : tous les articles de la commande originale
-                    for panier_original in commande_originale.paniers.all():
-                        articles_livres.append({
-                            'article': panier_original.article,
-                            'quantite_livree': panier_original.quantite,
-                            'prix': panier_original.article.prix_unitaire,
-                            'sous_total': panier_original.sous_total
-                        })
-            else:
-                # Fallback : tous les articles de la commande originale
-                for panier_original in commande_originale.paniers.all():
-                    articles_livres.append({
-                        'article': panier_original.article,
-                        'quantite_livree': panier_original.quantite,
-                        'prix': panier_original.article.prix_unitaire,
-                        'sous_total': panier_original.sous_total
-                    })
     
+    # DEBUG: Afficher le contenu de articles_renvoyes après peuplement
+    print(f"DEBUG (modifier_commande_prepa): articles_renvoyes APRES POPULATION: {articles_renvoyes}")
+
+    # Créer un map pour accéder facilement aux articles renvoyés par leur ID dans le template
+    # articles_renvoyes_map = {item['article'].id: item for item in articles_renvoyes}
+
+    # Pour les articles livrés, on lit l'opération de livraison partielle sur la commande originale
+    # C'est pertinent uniquement si la commande actuelle est la commande de renvoi
+    # if is_commande_livree_partiellement and commande.num_cmd and commande.num_cmd.startswith('RENVOI-') and commande_originale_obj:
+    #     operation_livraison_partielle_for_livres = commande_originale_obj.operations.filter(
+    #         type_operation='LIVRAISON_PARTIELLE'
+    #     ).order_by('-date_operation').first()
+    #     if operation_livraison_partielle_for_livres:
+    #         try:
+    #             details = json.loads(operation_livraison_partielle_for_livres.conclusion)
+    #             if 'articles_livres' in details:
+    #                 for article_livre in details['articles_livres']:
+    #                     article = Article.objects.filter(id=article_livre.get('article_id')).first()
+    #                     if article:
+    #                         articles_livres.append({
+    #                             'article': article,
+    #                             'quantite_livree': article_livre.get('quantite', 0),
+    #                             'prix': article.prix_unitaire,
+    #                             'sous_total': article.prix_unitaire * article_livre.get('quantite', 0)
+    #                         })
+    #         except Exception:
+    #             pass
+
     context = {
-        'page_title': f'Modifier Commande {commande.id_yz}',
-        'page_subtitle': 'Modification des détails de la commande en préparation',
+        'page_title': "Modifier Commande " + str(commande.id_yz),
+        'page_subtitle': "Modification des détails de la commande en préparation",
         'commande': commande,
         'paniers': paniers,
-        'operations': operations,
         'villes': villes,
         'total_articles': total_articles,
-        'operateur': operateur,
-        'etat_preparation': etat_preparation,
         'is_commande_renvoyee': is_commande_renvoyee,
         'operation_renvoi': operation_renvoi,
         'is_commande_livree_partiellement': is_commande_livree_partiellement,
         'articles_livres': articles_livres,
         'articles_renvoyes': articles_renvoyes,
+        # Variables de debug/informations supplémentaires
+        'commande_originale': commande_originale_obj,
+        'commande_renvoi': commande_renvoi_obj,
+        'etat_articles_renvoyes': etat_articles_renvoyes,
+        # 'articles_renvoyes_map': articles_renvoyes_map, # Retiré car plus nécessaire
     }
-    
     return render(request, 'Prepacommande/modifier_commande.html', context)
 
 @login_required
@@ -3906,6 +3975,11 @@ def api_panier_commande_livraison(request, commande_id):
 @login_required
 def api_articles_commande_livree_partiellement(request, commande_id):
     """API pour récupérer les détails des articles d'une commande livrée partiellement"""
+    import json
+    from article.models import Article
+    from commande.models import Commande, EtatCommande, EnumEtatCmd, Operation
+    from parametre.models import Operateur
+
     try:
         # Vérifier que l'utilisateur est un opérateur de préparation
         operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
@@ -3962,18 +4036,33 @@ def api_articles_commande_livree_partiellement(request, commande_id):
         ).first()
         
         if commande_renvoi:
-            for panier_renvoi in commande_renvoi.paniers.all():
-                articles_renvoyes.append({
-                    'article_id': panier_renvoi.article.id,
-                    'nom': panier_renvoi.article.nom,
-                    'reference': panier_renvoi.article.reference,
-                    'couleur': panier_renvoi.article.couleur,
-                    'pointure': panier_renvoi.article.pointure,
-                    'quantite': panier_renvoi.quantite,
-                    'prix': float(panier_renvoi.article.prix_unitaire),
-                    'sous_total': float(panier_renvoi.sous_total)
-                })
-    
+            # Récupérer l'état des articles renvoyés depuis l'opération de livraison partielle
+            etat_articles_renvoyes = {}
+            operation_livraison_partielle = commande.operations.filter(
+                type_operation='LIVRAISON_PARTIELLE'
+            ).order_by('-date_operation').first()
+            if operation_livraison_partielle:
+                try:
+                    details = json.loads(operation_livraison_partielle.conclusion)
+                    if 'recap_articles_renvoyes' in details:
+                        for item in details['recap_articles_renvoyes']:
+                            etat_articles_renvoyes[item['article_id']] = item['etat']
+                except Exception:
+                    pass
+            if commande_renvoi:
+                for panier_renvoi in commande_renvoi.paniers.all():
+                    etat = etat_articles_renvoyes.get(panier_renvoi.article.id, 'bon')
+                    articles_renvoyes.append({
+                        'article_id': panier_renvoi.article.id,
+                        'nom': panier_renvoi.article.nom,
+                        'reference': panier_renvoi.article.reference,
+                        'couleur': panier_renvoi.article.couleur,
+                        'pointure': panier_renvoi.article.pointure,
+                        'quantite': panier_renvoi.quantite,
+                        'prix': float(panier_renvoi.article.prix_unitaire),
+                        'sous_total': float(panier_renvoi.sous_total),
+                        'etat': etat
+                    })
     # Vérifier si c'est une commande renvoyée après livraison partielle
     elif etat_precedent and etat_precedent.enum_etat.libelle == 'Livrée Partiellement':
         # Chercher la commande originale qui a été livrée partiellement
@@ -3981,69 +4070,31 @@ def api_articles_commande_livree_partiellement(request, commande_id):
             num_cmd=commande.num_cmd.replace('RENVOI-', ''),
             client=commande.client
         ).first()
-        
+        # Récupérer l'état des articles renvoyés depuis l'opération de livraison partielle
+        etat_articles_renvoyes = {}
         if commande_originale:
-            # Les articles dans cette commande de renvoi sont ceux qui ont été renvoyés
-            for panier in commande.paniers.all():
-                articles_renvoyes.append({
-                    'article_id': panier.article.id,
-                    'nom': panier.article.nom,
-                    'reference': panier.article.reference,
-                    'couleur': panier.article.couleur,
-                    'pointure': panier.article.pointure,
-                    'quantite': panier.quantite,
-                    'prix': float(panier.article.prix_unitaire),
-                    'sous_total': float(panier.sous_total)
-                })
-            
-            # Pour les articles livrés, on lit l'opération de livraison partielle sur la commande originale
             operation_livraison_partielle = commande_originale.operations.filter(
                 type_operation='LIVRAISON_PARTIELLE'
             ).order_by('-date_operation').first()
             if operation_livraison_partielle:
                 try:
                     details = json.loads(operation_livraison_partielle.conclusion)
-                    if 'articles_livres' in details:
-                        for article_livre in details['articles_livres']:
-                            article = Article.objects.filter(id=article_livre.get('article_id')).first()
-                            if article:
-                                articles_livres.append({
-                                    'article_id': article.id,
-                                    'nom': article.nom,
-                                    'reference': article.reference,
-                                    'couleur': article.couleur,
-                                    'pointure': article.pointure,
-                                    'quantite_livree': article_livre.get('quantite', 0),
-                                    'prix': float(article.prix_unitaire),
-                                    'sous_total': float(article.prix_unitaire * article_livre.get('quantite', 0))
-                                })
-                except (json.JSONDecodeError, KeyError, TypeError) as e:
-                    print(f"Erreur lors du parsing JSON: {e}")
-                    # Fallback : tous les articles de la commande originale
-                    for panier_original in commande_originale.paniers.all():
-                        articles_livres.append({
-                            'article_id': panier_original.article.id,
-                            'nom': panier_original.article.nom,
-                            'reference': panier_original.article.reference,
-                            'couleur': panier_original.article.couleur,
-                            'pointure': panier_original.article.pointure,
-                            'quantite_livree': panier_original.quantite,
-                            'prix': float(panier_original.article.prix_unitaire),
-                            'sous_total': float(panier_original.sous_total)
-                        })
-            else:
-                # Fallback : tous les articles de la commande originale
-                for panier_original in commande_originale.paniers.all():
-                    articles_livres.append({
-                        'article_id': panier_original.article.id,
-                        'nom': panier_original.article.nom,
-                        'reference': panier_original.article.reference,
-                        'couleur': panier_original.article.couleur,
-                        'pointure': panier_original.article.pointure,
-                        'quantite_livree': panier_original.quantite,
-                        'prix': float(panier_original.article.prix_unitaire),
-                        'sous_total': float(panier_original.sous_total)
-                    })
+                    if 'recap_articles_renvoyes' in details:
+                        for item in details['recap_articles_renvoyes']:
+                            etat_articles_renvoyes[item['article_id']] = item['etat']
+                except Exception:
+                    pass
+        if commande_originale:
+            # Les articles dans cette commande de renvoi sont ceux qui ont été renvoyés
+            for panier in paniers:
+                etat = etat_articles_renvoyes.get(panier.article.id, 'bon')
+                articles_renvoyes.append({
+                    'article': panier.article,
+                    'quantite': panier.quantite,
+                    'prix': panier.article.prix_unitaire,
+                    'sous_total': panier.sous_total,
+                    'etat': etat
+                })
     
     # Récupérer les détails de la livraison partielle
     date_livraison_partielle = None
