@@ -239,7 +239,6 @@ def commandes_livrees_partiellement(request):
         try:
             if conclusion_content:
                 parsed_conclusion = json.loads(conclusion_content)
-                print(f"DEBUG BACKEND: Conclusion parsée pour commande {commande.id_yz}: {parsed_conclusion}") # Debug ici
                 temp_articles_livres = []
                 for item in parsed_conclusion.get('articles_livres', []):
                     try:
@@ -267,7 +266,6 @@ def commandes_livrees_partiellement(request):
 
                 temp_articles_renvoyes = []
                 for item in parsed_conclusion.get('recap_articles_renvoyes', []):
-                    print(f"DEBUG BACKEND: Article renvoyé traité pour commande {commande.id_yz}: {item}") # Debug here
                     try:
                         article_obj = Article.objects.get(id=item['article_id'])
                         temp_articles_renvoyes.append({
@@ -296,11 +294,9 @@ def commandes_livrees_partiellement(request):
                 commande.articles_livres_partiellement = []
                 commande.articles_renvoyes = []
         except json.JSONDecodeError as e:
-            print(f"DEBUG BACKEND: Erreur de décodage JSON dans la conclusion: {e} pour commande {commande.id_yz}. Conclusion: {conclusion_content}")
             commande.articles_livres_partiellement = []
             commande.articles_renvoyes = []
         except Exception as e:
-            print(f"DEBUG BACKEND: Erreur lors du traitement de la conclusion JSON: {e} pour commande {commande.id_yz}.")
             commande.articles_livres_partiellement = []
             commande.articles_renvoyes = []
 
