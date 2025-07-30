@@ -301,8 +301,9 @@ class Envoi(models.Model):
         null=True, 
         blank=True, 
         related_name='envois_livraison',
-        limit_choices_to={'is_livraison': True}
+        limit_choices_to={'type_operateur': 'LOGISTIQUE'}
     )
+   
     region = models.ForeignKey(
         'parametre.Region', 
         on_delete=models.SET_NULL, 

@@ -255,13 +255,7 @@
                     </div>
                     
                     <!-- Bouton de validation pour cette section -->
-                    <div class="mt-4 flex justify-end">
-                        <button type="button" onclick="validerSection('informations-commande')" 
-                                class="px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center" 
-                                style="background: linear-gradient(135deg, #4B352A, #6d4b3b); hover:shadow-lg;">
-                            <i class="fas fa-check mr-2"></i>Valider les informations
-                        </button>
-                    </div>
+                    <!-- Bouton supprimé - Section informations-commande -->
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
                 </div>
 
@@ -280,7 +274,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
-                            <input type="text" name="client_prenom" value="{{ commande.client.prenom }}"
+                            <input type="text" name="client_prenom" value="{{ commande.client.prenom | default:' ' }}"
                                    class="w-full p-3 border rounded-lg focus:ring-2 transition-all" 
                                    style="border-color: #f7d9c4; focus:ring-color: #6d4b3b;">
                         </div>
@@ -487,13 +481,7 @@
                     </div>
                     
                     <!-- Bouton de validation pour cette section -->
-                    <div class="mt-4 flex justify-end">
-                        <button type="button" onclick="validerSection('gestion-operations')" 
-                                class="px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center" 
-                                style="background: linear-gradient(135deg, #4B352A, #6d4b3b); hover:shadow-lg;">
-                            <i class="fas fa-cogs mr-2"></i>Valider les opérations
-                        </button>
-                    </div>
+                  
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
                 </div>
 
@@ -535,8 +523,7 @@
                                 <span class="font-medium" id="sous-total-articles">{{ commande.sous_total_articles|floatformat:2 }} DH</span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-600">Frais de livraison:</span>
-                                <span class="font-medium">{{ commande.frais_livraison|floatformat:2 }} DH</span>
+                               
                             </div>
                             <hr class="border-gray-300">
                         </div>
@@ -557,14 +544,7 @@
                         </div>
                     </div>
                     
-                    <!-- Bouton de validation pour cette section -->
-                    <div class="mt-4 flex justify-end">
-                        <button type="button" onclick="validerSection('articles-commande')" 
-                                class="px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center" 
-                                style="background: linear-gradient(135deg, #4B352A, #6d4b3b); hover:shadow-lg;">
-                            <i class="fas fa-box mr-2"></i>Valider les articles
-                        </button>
-                    </div>
+                    <!-- Bouton supprimé - Section articles-commande -->
                 
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
                 </div>
@@ -590,25 +570,21 @@
                     <i class="fas fa-play mr-2"></i>
                     Lancer Confirmation
                 </button>
-                <button type="button" onclick="annulerCommande()" 
-                        class="px-6 py-3 rounded-lg font-medium text-white transition-all" style="background: linear-gradient(135deg, #dc2626, #ef4444);">
-                    <i class="fas fa-ban mr-2"></i>
-                    Annuler la Commande
-                </button>
                 {% elif commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %}
                 <button type="button" onclick="annulerCommande()" 
                         class="px-6 py-3 rounded-lg font-medium text-white transition-all" style="background: linear-gradient(135deg, #dc2626, #ef4444);">
                     <i class="fas fa-ban mr-2"></i>
                     Annuler la Commande
                 </button>
+                <button type="button" onclick="confirmerCommande()" 
+                class="btn-confirm px-6 py-3 rounded-lg font-medium">
+            <i class="fas fa-check-circle mr-2"></i>
+            Confirmer la Commande
+                    </button>
                 {% endif %}
   
                 
-                <button type="button" onclick="confirmerCommande()" 
-                        class="btn-confirm px-6 py-3 rounded-lg font-medium">
-                    <i class="fas fa-check-circle mr-2"></i>
-                    Confirmer la Commande
-                </button>
+               
             </div>
         </div>
     </form>
@@ -3614,7 +3590,7 @@ function mettreAJourTotalCommande() {
         fraisLivraison = parseFloat(fraisText) || 0;
     }
     
-    const totalFinal = sousTotal + fraisLivraison;
+    const totalFinal = sousTotal ;
     
     console.log(`📊 Sous-total articles: ${sousTotal.toFixed(2)} DH`);
     console.log(`🚚 Frais de livraison: ${fraisLivraison.toFixed(2)} DH`);
@@ -3632,6 +3608,7 @@ function mettreAJourTotalCommande() {
     if (sousTotalElement) {
         sousTotalElement.textContent = `${sousTotal.toFixed(2)} DH`;
     }
+    
 }
 
 // Fonction alternative qui additionne directement les sous-totaux affichés
@@ -4361,8 +4338,8 @@ function sauvegarderInformationsClient(sectionElement, sectionName) {
     const telephone = document.querySelector('[name="client_telephone"]').value.trim();
 
     // Simple validation côté client
-    if (!nom || !prenom || !telephone) {
-        showToast('⚠️ Tous les champs client (Nom, Prénom, Téléphone) sont obligatoires.', 'warning');
+    if (!nom || !telephone) {
+        showToast('⚠️ Tous les champs client Nom, Téléphone sont obligatoires.', 'warning');
         return;
     }
 
@@ -4436,6 +4413,10 @@ function sauvegarderInformationsLivraison(sectionElement, sectionName) {
     // Validation simple côté client
     if (!villeId) {
         showToast('⚠️ Veuillez sélectionner une ville de livraison.', 'warning');
+        return;
+    }
+    if (!adresse || adresse === '' || adresse === 'N/A') {
+        showToast('⚠️ Le champ Adresse doit être renseigné.', 'warning');
         return;
     }
     

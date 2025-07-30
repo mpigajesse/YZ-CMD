@@ -49,6 +49,7 @@ def liste_clients(request):
             search_conditions = Q(derniere_ville_init__iexact=search_query)
         else:
             # Sinon, on utilise la recherche normale par termes
+            term_conditions = Q()
             for term in search_terms:
                 term_conditions |= (
                 # Recherche dans les données du client
