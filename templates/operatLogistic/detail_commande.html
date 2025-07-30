@@ -887,7 +887,7 @@
                                      data-panier-id="{{ panier.id }}" 
                                      data-article-id="{{ panier.article.id }}"
                                      data-article-nom="{{ panier.article.nom }}"
-                                     data-article-prix="{{ panier.article.prix_unitaire }}"
+                                     data-article-prix="{{ panier.prix_actuel_pour_affichage|stringformat:"%.2f" }}"
                                      data-quantite-max="{{ panier.quantite }}">
                                     <div class="flex items-start space-x-3">
                                         <input type="checkbox" 
@@ -908,7 +908,7 @@
                                                     {% if panier.article.pointure %}
                                                         Pointure: {{ panier.article.pointure }}<br>
                                                     {% endif %}
-                                                    Prix: {{ panier.article.prix_unitaire|floatformat:2 }} DH
+                                                    Prix: {{ panier.prix_actuel_pour_affichage|stringformat:"%.2f" }} DH
                                                 </div>
                                             </label>
                                             <div class="mt-3">
@@ -3313,38 +3313,40 @@ function mettreAJourResumeLivraisonPartielle() {
         const panierId = parseInt(card.dataset.panierId);
         const articleId = parseInt(card.dataset.articleId);
         const articleNom = card.dataset.articleNom;
+        
+        // --- DEBUG PRIX START ---
+        console.log('DEBUG LP - Raw data-article-prix:', card.dataset.articlePrix); // Log 1: Raw string from DOM
         const articlePrix = parseFloat(card.dataset.articlePrix);
+        console.log('DEBUG LP - Parsed articlePrix (float):', articlePrix); // Log 2: Result of parseFloat
+        // --- DEBUG PRIX END ---
+
         const quantiteMax = parseInt(card.dataset.quantiteMax);
         
         const checkbox = card.querySelector('.article-livrer-checkbox');
         const quantiteInput = card.querySelector('.quantite-livrer-input');
-        const etatSelect = card.querySelector('.etat-article-renvoye'); // Récupère le select d'état
+        const etatSelect = card.querySelector('.etat-article-renvoye');
 
         let quantiteLivree = 0;
         let quantiteRenvoyee = 0;
         let etatArticleRenvoye = 'bon';
         
         if (checkbox.checked) {
-            // L'article est coché pour être livré (totalement ou partiellement)
             quantiteLivree = parseInt(quantiteInput.value) || 0;
             quantiteRenvoyee = quantiteMax - quantiteLivree;
 
-            // Si une quantité est livrée, on l'ajoute aux articles livrés
             if (quantiteLivree > 0) {
                 articlesLivres.push({
                     panier_id: panierId,
                     article_id: articleId,
                     quantite: quantiteLivree,
                     nom: articleNom,
-                    prix: articlePrix
+                    prix_unitaire: articlePrix // This should be a float
                 });
                 totalArticlesLivres += quantiteLivree;
                 totalValeurLivree += quantiteLivree * articlePrix;
             }
             
-            // Si une partie est renvoyée (car quantiteLivree < quantiteMax)
             if (quantiteRenvoyee > 0) {
-                // Chercher le select d'état correspondant à cet article
                 const selectEtat = document.querySelector(`.etat-article-renvoye[data-article-id="${articleId}"][data-panier-id="${panierId}"]`);
                 etatArticleRenvoye = selectEtat ? selectEtat.value : 'bon';
                 
@@ -3353,15 +3355,13 @@ function mettreAJourResumeLivraisonPartielle() {
                     article_id: articleId,
                     quantite: quantiteRenvoyee,
                     nom: articleNom,
-                    prix: articlePrix,
+                    prix_unitaire: articlePrix,
                     etat: etatArticleRenvoye
                 });
                 totalArticlesRenvoyes += quantiteRenvoyee;
             }
         } else {
-            // L'article n'est PAS coché pour être livré (totalement renvoyé)
             quantiteRenvoyee = quantiteMax;
-            // Chercher le select d'état correspondant à cet article
             const selectEtat = document.querySelector(`.etat-article-renvoye[data-article-id="${articleId}"][data-panier-id="${panierId}"]`);
             etatArticleRenvoye = selectEtat ? selectEtat.value : 'bon';
             
@@ -3370,13 +3370,18 @@ function mettreAJourResumeLivraisonPartielle() {
                 article_id: articleId,
                 quantite: quantiteRenvoyee,
                 nom: articleNom,
-                prix: articlePrix,
+                prix_unitaire: articlePrix,
                 etat: etatArticleRenvoye
             });
             totalArticlesRenvoyes += quantiteRenvoyee;
         }
     });
     
+    // --- DEBUG PRIX FINAL ---
+    console.log('DEBUG LP - Final articlesLivres before send:', articlesLivres); // Log 3: Final array
+    console.log('DEBUG LP - Final articlesRenvoyes before send:', articlesRenvoyes); // Log 4: Final array
+    // --- DEBUG PRIX FINAL ---
+
     // Mettre à jour les champs cachés (qui seront utilisés par le submit handler)
     document.getElementById('articlesLivresJsonInput').value = JSON.stringify(articlesLivres);
     document.getElementById('articlesRenvoyesJsonInput').value = JSON.stringify(articlesRenvoyes);
@@ -3393,14 +3398,7 @@ function mettreAJourResumeLivraisonPartielle() {
     const confirmerBtn = document.getElementById('confirmerLivraisonPartielleBtn');
     const commentaireInput = document.getElementById('commentaireLivraisonPartielle');
     
-    // Le bouton est activé si des articles sont livrés OU des articles sont renvoyés, et un commentaire est présent.
-    if ((articlesLivres.length > 0 || articlesRenvoyes.length > 0) && commentaireInput.value.trim() !== '') {
-        confirmerBtn.disabled = false;
-        confirmerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-    } else {
-        confirmerBtn.disabled = true;
-        confirmerBtn.classList.add('opacity-50', 'cursor-not-allowed');
-    }
+    confirmerBtn.disabled = !(commentaireInput.value.trim().length > 0 && (totalArticlesLivres > 0 || totalArticlesRenvoyes > 0));
 }
 
 // Fonction qui gère l'affichage des articles à renvoyer dans la section dédiée
@@ -3438,8 +3436,8 @@ function mettreAJourSectionArticlesRenvoyes(articlesRenvoyes) {
                     <div class="font-medium text-gray-900">${article.nom}</div>
                     <div class="text-sm text-gray-500">
                         Quantité à renvoyer: <span class="font-semibold text-orange-600">${article.quantite}</span><br>
-                        Prix unitaire: ${article.prix.toFixed(2)} DH<br>
-                        Valeur: <span class="font-semibold text-orange-600">${(article.quantite * article.prix).toFixed(2)} DH</span>
+                        Prix unitaire: ${article.prix_unitaire.toFixed(2)} DH<br>
+                        Valeur: <span class="font-semibold text-orange-600">${(article.quantite * article.prix_unitaire).toFixed(2)} DH</span>
                     </div>
                     <label class="block text-xs font-medium text-gray-700 mt-2 mb-1">État :</label>
                     <select class="etat-article-renvoye w-full px-2 py-1 border border-gray-300 rounded" data-article-id="${article.article_id}" data-panier-id="${article.panier_id}">

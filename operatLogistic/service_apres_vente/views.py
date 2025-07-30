@@ -165,17 +165,91 @@ def commandes_reportees(request):
             type_operation='LIVRAISON_PARTIELLE'
         ).order_by('-date_operation').first()
         
-        if operation_livraison_partielle:
-            # Analyser la conclusion pour extraire les informations sur les articles
-            conclusion = operation_livraison_partielle.conclusion
-            
-            # Identifier les articles dans la commande actuelle (ceux qui ont été livrés partiellement)
-            for panier in commande.paniers.all():
-                # Si l'article est encore dans la commande, c'est qu'il a été livré partiellement
-                commande.articles_livres_partiellement.append({
-                    'article': panier.article,
-                    'quantite_livree': panier.quantite
-                })
+        if operation_livraison_partielle and operation_livraison_partielle.conclusion:
+            try:
+                parsed_conclusion = json.loads(operation_livraison_partielle.conclusion)
+                temp_articles_livres = []
+                for item in parsed_conclusion.get('articles_livres', []):
+                    try:
+                        article_obj = Article.objects.get(id=item['article_id'])
+                        # Correction: Toujours prendre le prix de l'objet Article si le prix de l'item est 0.0 ou None
+                        item_prix = item.get('prix_unitaire')
+                        if item_prix is not None and float(item_prix) != 0.0:
+                            prix_unitaire_final = float(item_prix)
+                        else:
+                            prix_unitaire_final = float(article_obj.prix_unitaire) if article_obj.prix_unitaire is not None else 0.0
+                        
+                        temp_articles_livres.append({
+                            'article_id': item['article_id'],
+                            'nom': article_obj.nom,
+                            'reference': article_obj.reference,
+                            'pointure': getattr(article_obj, 'pointure', ''),
+                            'couleur': getattr(article_obj, 'couleur', ''),
+                            'quantite_livree': item.get('quantite', 0),
+                            'prix_unitaire': prix_unitaire_final
+                        })
+                    except Article.DoesNotExist:
+                        temp_articles_livres.append({
+                            'article_id': item.get('article_id'),
+                            'nom': 'Inconnu',
+                            'reference': '',
+                            'pointure': '',
+                            'couleur': '',
+                            'quantite_livree': item.get('quantite', 0),
+                            'prix_unitaire': float(item.get('prix_unitaire', 0.0) or 0.0)
+                        })
+                commande.articles_livres_partiellement = temp_articles_livres
+                temp_articles_renvoyes = []
+                for item in parsed_conclusion.get('recap_articles_renvoyes', []):
+                    try:
+                        article_obj = Article.objects.get(id=item['article_id'])
+                        # Correction: Toujours prendre le prix de l'objet Article si le prix de l'item est 0.0 ou None
+                        item_prix = item.get('prix_unitaire')
+                        if item_prix is not None and float(item_prix) != 0.0:
+                            prix_unitaire_final = float(item_prix)
+                        else:
+                            prix_unitaire_final = float(article_obj.prix_unitaire) if article_obj.prix_unitaire is not None else 0.0
+
+                        temp_articles_renvoyes.append({
+                            'article_id': item['article_id'],
+                            'nom': article_obj.nom,
+                            'reference': article_obj.reference,
+                            'pointure': getattr(article_obj, 'pointure', ''),
+                            'couleur': getattr(article_obj, 'couleur', ''),
+                            'quantite': item.get('quantite', 0),
+                            'prix_unitaire': prix_unitaire_final,
+                            'etat': item.get('etat', 'inconnu').lower()
+                        })
+                    except Article.DoesNotExist:
+                        temp_articles_renvoyes.append({
+                            'article_id': item.get('article_id'),
+                            'nom': 'Inconnu',
+                            'reference': '',
+                            'pointure': '',
+                            'couleur': '',
+                            'quantite': item.get('quantite', 0),
+                            'prix_unitaire': float(item.get('prix_unitaire', 0.0) or 0.0),
+                            'etat': item.get('etat', 'inconnu').lower()
+                        })
+                commande.articles_renvoyes = temp_articles_renvoyes
+            except Exception:
+                commande.articles_livres_partiellement = []
+                commande.articles_renvoyes = []
+        else:
+            # fallback : tous les articles du panier comme livrés partiellement
+            commande.articles_livres_partiellement = [
+                {
+                    'article_id': panier.article.id,
+                    'nom': panier.article.nom,
+                    'reference': panier.article.reference,
+                    'pointure': getattr(panier.article, 'pointure', ''),
+                    'couleur': getattr(panier.article, 'couleur', ''),
+                    'quantite_livree': panier.quantite,
+                    'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0)
+                }
+                for panier in commande.paniers.all()
+            ]
+            commande.articles_renvoyes = []
     
     return _render_sav_list(request, commandes, 'Commandes Reportées', 'Liste des livraisons reportées.')
 
@@ -243,24 +317,35 @@ def commandes_livrees_partiellement(request):
                 for item in parsed_conclusion.get('articles_livres', []):
                     try:
                         article_obj = Article.objects.get(id=item['article_id'])
+                        # prix_unitaire = float(item.get('prix_unitaire', article_obj.prix_unitaire) or article_obj.prix_unitaire or 0.0)
+                        # Log ajouté
+                        # print(f"DEBUG: Article {article_obj.nom}, Prix Unitaire: {prix_unitaire}")
+
+                        # Correction: Toujours prendre le prix de l'objet Article si le prix de l'item est 0.0 ou None
+                        item_prix = item.get('prix_unitaire')
+                        if item_prix is not None and float(item_prix) != 0.0:
+                            prix_unitaire_final = float(item_prix)
+                        else:
+                            prix_unitaire_final = float(article_obj.prix_unitaire) if article_obj.prix_unitaire is not None else 0.0
+                        
                         temp_articles_livres.append({
-                            'article_id': item['article_id'], # Ajout de article_id
+                            'article_id': item['article_id'],
                             'nom': article_obj.nom,
                             'reference': article_obj.reference,
                             'pointure': getattr(article_obj, 'pointure', ''),
                             'couleur': getattr(article_obj, 'couleur', ''),
-                            'quantite_livree': item['quantite'],
-                            'prix_unitaire': item.get('prix_unitaire', 0.0)
+                            'quantite_livree': item.get('quantite', 0),
+                            'prix_unitaire': prix_unitaire_final
                         })
                     except Article.DoesNotExist:
                         temp_articles_livres.append({
-                            'article_id': item.get('article_id'), # Ajout de article_id même si Article non trouvé
+                            'article_id': item.get('article_id'),
                             'nom': 'Inconnu',
                             'reference': '',
                             'pointure': '',
                             'couleur': '',
                             'quantite_livree': item.get('quantite', 0),
-                            'prix_unitaire': item.get('prix_unitaire', 0.0)
+                            'prix_unitaire': float(item.get('prix_unitaire', 0.0) or 0.0) # Fallback pour articles inconnus
                         })
                 commande.articles_livres_partiellement = temp_articles_livres
 
@@ -268,26 +353,37 @@ def commandes_livrees_partiellement(request):
                 for item in parsed_conclusion.get('recap_articles_renvoyes', []):
                     try:
                         article_obj = Article.objects.get(id=item['article_id'])
+                        # prix_unitaire = float(item.get('prix_unitaire', 0.0) or 0.0) # Ancien code
+                        # Log ajouté
+                        # print(f"DEBUG: Article renvoyé {article_obj.nom}, Prix Unitaire: {prix_unitaire}")
+
+                        # Correction: Toujours prendre le prix de l'objet Article si le prix de l'item est 0.0 ou None
+                        item_prix = item.get('prix_unitaire')
+                        if item_prix is not None and float(item_prix) != 0.0:
+                            prix_unitaire_final = float(item_prix)
+                        else:
+                            prix_unitaire_final = float(article_obj.prix_unitaire) if article_obj.prix_unitaire is not None else 0.0
+
                         temp_articles_renvoyes.append({
-                            'article_id': item['article_id'], # Ajout de article_id
+                            'article_id': item['article_id'],
                             'nom': article_obj.nom,
                             'reference': article_obj.reference,
                             'pointure': getattr(article_obj, 'pointure', ''),
                             'couleur': getattr(article_obj, 'couleur', ''),
                             'quantite': item.get('quantite', 0),
-                            'prix_unitaire': item.get('prix_unitaire', 0.0),
-                            'etat': item.get('etat', 'inconnu').lower() # Convertir en minuscules pour la cohérence
+                            'prix_unitaire': prix_unitaire_final,
+                            'etat': item.get('etat', 'inconnu').lower()
                         })
                     except Article.DoesNotExist:
                         temp_articles_renvoyes.append({
-                            'article_id': item.get('article_id'), # Ajout de article_id même si Article non trouvé
+                            'article_id': item.get('article_id'),
                             'nom': 'Inconnu',
                             'reference': '',
                             'pointure': '',
                             'couleur': '',
                             'quantite': item.get('quantite', 0),
-                            'prix_unitaire': item.get('prix_unitaire', 0.0),
-                            'etat': item.get('etat', 'inconnu').lower() # Convertir en minuscules
+                            'prix_unitaire': float(item.get('prix_unitaire', 0.0) or 0.0),
+                            'etat': item.get('etat', 'inconnu').lower()
                         })
                 commande.articles_renvoyes = temp_articles_renvoyes
             else:
@@ -328,6 +424,21 @@ def commandes_livrees_avec_changement(request):
         
         # Calculer le nombre d'articles dans la commande
         commande.nombre_articles = commande.paniers.count()
+        
+        # Préparer les articles pour la modale (même logique que pour les livraisons partielles)
+        commande.articles_livres_partiellement = [
+            {
+                'article_id': panier.article.id,
+                'nom': panier.article.nom,
+                'reference': panier.article.reference,
+                'pointure': getattr(panier.article, 'pointure', ''),
+                'couleur': getattr(panier.article, 'couleur', ''),
+                'quantite_livree': panier.quantite,
+                'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0)
+            }
+            for panier in commande.paniers.all()
+        ]
+        commande.articles_renvoyes = []
     
     return _render_sav_list(request, commandes, 'Commandes Livrées avec Changement', 'Liste des livraisons avec modifications.')
 
@@ -352,6 +463,20 @@ def commandes_annulees_sav(request):
         
         # Calculer le nombre d'articles dans la commande
         commande.nombre_articles = commande.paniers.count()
+        
+        commande.articles_livres_partiellement = [
+            {
+                'article_id': panier.article.id,
+                'nom': panier.article.nom,
+                'reference': panier.article.reference,
+                'pointure': getattr(panier.article, 'pointure', ''),
+                'couleur': getattr(panier.article, 'couleur', ''),
+                'quantite_livree': panier.quantite,
+                'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0)
+            }
+            for panier in commande.paniers.all()
+        ]
+        commande.articles_renvoyes = []
     
     return _render_sav_list(request, commandes, 'Commandes Annulées (SAV)', 'Liste des commandes annulées lors de la livraison.')
 
@@ -376,6 +501,20 @@ def commandes_retournees(request):
         
         # Calculer le nombre d'articles dans la commande
         commande.nombre_articles = commande.paniers.count()
+        
+        commande.articles_livres_partiellement = [
+            {
+                'article_id': panier.article.id,
+                'nom': panier.article.nom,
+                'reference': panier.article.reference,
+                'pointure': getattr(panier.article, 'pointure', ''),
+                'couleur': getattr(panier.article, 'couleur', ''),
+                'quantite_livree': panier.quantite,
+                'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0)
+            }
+            for panier in commande.paniers.all()
+        ]
+        commande.articles_renvoyes = []
     
     return _render_sav_list(request, commandes, 'Commandes Retournées', 'Liste des commandes retournées par l\'opérateur logistique.')
 
@@ -400,5 +539,19 @@ def commandes_livrees(request):
         
         # Calculer le nombre d'articles dans la commande
         commande.nombre_articles = commande.paniers.count()
+        
+        commande.articles_livres_partiellement = [
+            {
+                'article_id': panier.article.id,
+                'nom': panier.article.nom,
+                'reference': panier.article.reference,
+                'pointure': getattr(panier.article, 'pointure', ''),
+                'couleur': getattr(panier.article, 'couleur', ''),
+                'quantite_livree': panier.quantite,
+                'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0)
+            }
+            for panier in commande.paniers.all()
+        ]
+        commande.articles_renvoyes = []
     
     return _render_sav_list(request, commandes, 'Commandes Livrées', 'Liste des commandes livrées avec succès.') 
