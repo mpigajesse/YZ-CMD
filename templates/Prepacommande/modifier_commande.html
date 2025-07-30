@@ -1,5 +1,6 @@
 {% extends 'composant_generale/operatPrepa/base.html' %}
 {% load static %}
+{% load prepa_filters %}
 
 {% block title %}Modifier Commande {{ commande.id_yz }} - Préparation{% endblock %}
 
@@ -11,29 +12,232 @@
     .btn-prepa { background: linear-gradient(to right, #361f27, #4b2e3a); color: white; transition: all 0.3s; }
     .btn-prepa:hover { background: #412a34; }
     .section-title { color: #361f27; }
+    .renvoi-alert { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #f59e0b; }
+    .renvoi-badge { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+    .modification-section { background: linear-gradient(135deg, #dbeafe, #bfdbfe); border: 2px solid #3b82f6; }
+    .quick-action-btn { transition: all 0.3s ease; }
+    .quick-action-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .filter-btn { transition: all 0.3s ease; }
+    .filter-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .filter-btn.active { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="main-content transition-all duration-300" id="mainContent">
+        <!-- En-tête avec informations de renvoi -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #361f27, #4b2e3a);">
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
                 <i class="fas fa-edit mr-3"></i> Modifier Commande {{ commande.id_yz }}
+                <button type="button" onclick="ouvrirModalInfoTotal()" class="ml-3 text-white/80 hover:text-white">
+                    <i class="fas fa-info-circle text-lg"></i>
+                </button>
             </h1>
             <p>Modification des détails de la commande en préparation</p>
+            
+            <!-- Badge de renvoi si applicable -->
+            {% if is_commande_renvoyee %}
+                <div class="mt-3 renvoi-badge inline-flex items-center px-3 py-1 rounded-full text-sm font-medium">
+                    <i class="fas fa-undo mr-2"></i>
+                    Commande renvoyée par la logistique
+                </div>
+            {% endif %}
         </div>
         <div class="flex items-center gap-4 mt-4 md:mt-0">
             <div class="text-right">
-                <div class="text-2xl font-bold">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                <div class="text-2xl font-bold total-final-commande">{{ total_articles|add:commande.ville.frais_livraison|default:0|floatformat:2 }} DH</div>
                 <div class="text-sm opacity-80">Total commande</div>
             </div>
         </div>
     </div>
 
+    <!-- Section d'alerte pour les commandes renvoyées -->
+    {% if is_commande_renvoyee and operation_renvoi %}
+        <div class="renvoi-alert rounded-lg p-4 mb-4 animate-slideInUp">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-triangle text-amber-600 text-lg mr-3"></i>
+                <div class="flex-1">
+                    <h3 class="text-base font-bold text-amber-800 mb-1">
+                        <i class="fas fa-undo mr-2"></i>Commande renvoyée pour modification
+                    </h3>
+                    <p class="text-sm text-amber-700 mb-1">{{ operation_renvoi.conclusion }}</p>
+                    <div class="text-xs text-amber-600">
+                        <i class="fas fa-clock mr-1"></i>
+                        Renvoyée le {{ operation_renvoi.date_operation|date:"d/m/Y à H:i" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Section spéciale pour les commandes livrées partiellement -->
+    {% if is_commande_livree_partiellement %}
+    <div class="bg-orange-50 border-l-4 border-orange-400 rounded-lg p-6 mb-6 animate-slideInUp">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-orange-100">
+                    <i class="fas fa-exclamation-triangle text-orange-400 text-xl"></i>
+                </div>
+            </div>
+            <div class="ml-4 flex-1">
+                <h3 class="text-lg font-semibold text-orange-800 mb-3">Modification d'une Commande Livrée Partiellement</h3>
+                
+                <div class="bg-orange-100 border border-orange-200 p-4 rounded-lg mb-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-info-circle text-orange-500"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-orange-700">
+                                <strong>Important :</strong> Cette commande a été livrée partiellement. Certains articles ont été livrés au client, d'autres ont été renvoyés pour correction.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Articles Livrés -->
+                {% if articles_livres %}
+                <div class="mb-4">
+                    <h4 class="font-medium text-green-800 mb-2 flex items-center">
+                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                        Articles Livrés au Client (Ne pas modifier)
+                    </h4>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div class="space-y-2">
+                            {% for article_data in articles_livres %}
+                            <div class="flex items-center justify-between bg-white rounded px-3 py-2 border border-green-200">
+                                <div class="flex items-center">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-3">
+                                        <i class="fas fa-check-circle mr-1"></i>Livré
+                                    </span>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-900">{{ article_data.article.nom }}</div>
+                                        <div class="text-xs text-gray-500">
+                                            Réf: {{ article_data.article.reference }} | 
+                                            {{ article_data.article.couleur }} | 
+                                            {{ article_data.article.pointure }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-medium text-green-600">
+                                        {{ article_data.quantite_livree }}x
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        {{ article_data.prix|floatformat:2 }} DH
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Articles Renvoyés -->
+                {% if articles_renvoyes %}
+                <div class="mb-4">
+                    <h4 class="font-medium text-red-800 mb-2 flex items-center">
+                        <i class="fas fa-undo text-red-500 mr-2"></i>
+                        Articles Renvoyés pour Correction
+                    </h4>
+                    <!-- DEBUG: Afficher la liste complète des articles_renvoyes -->
+                    <pre style="background:#fff0f0;color:#b91c1c;padding:8px;border-radius:6px;font-size:12px;overflow-x:auto;">DEBUG articles_renvoyes: {{ articles_renvoyes|safe }}</pre>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div class="space-y-2">
+                            {% for article_data in articles_renvoyes %}
+                            <!-- DEBUG: Afficher chaque article_data -->
+                            <pre style="background:#fef9c3;color:#92400e;padding:4px 8px;border-radius:4px;font-size:11px;overflow-x:auto;">DEBUG article_data: {{ article_data|safe }}</pre>
+                            <div class="flex items-center justify-between bg-white rounded px-3 py-2 border border-red-200">
+                                <div class="flex items-center">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mr-3">
+                                        <i class="fas fa-undo mr-1"></i>Renvoyé
+                                    </span>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-900 flex items-center">
+                                            {{ article_data.article.nom }}
+                                            {% if article_data.etat == 'defectueux' %}
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-base font-bold bg-red-100 text-red-700 ml-3">
+                                                    <i class="fas fa-times-circle mr-2"></i>Défectueux
+                                                </span>
+                                            {% elif article_data.etat == 'bon' %}
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-base font-bold bg-green-100 text-green-700 ml-3">
+                                                    <i class="fas fa-check-circle mr-2"></i>Bon
+                                                </span>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 text-gray-700 ml-3"><i class="fas fa-question-circle mr-2"></i>État inconnu: {{ article_data.etat }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-xs text-gray-500">
+                                            Réf: {{ article_data.article.reference }} | 
+                                            {{ article_data.article.couleur }} | 
+                                            {{ article_data.article.pointure }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-medium text-red-600">
+                                        {{ article_data.quantite }}x
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        {{ article_data.prix|floatformat:2 }} DH
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 class="font-medium text-blue-800 mb-2 flex items-center">
+                        <i class="fas fa-list-ol text-blue-500 mr-2"></i>
+                        Actions de Modification Autorisées
+                    </h4>
+                    <ol class="text-sm text-blue-700 space-y-2 ml-6">
+                        <li><strong>1.</strong> <span class="text-red-600 font-medium">Remplacer</span> les articles renvoyés par des articles disponibles</li>
+                        <li><strong>2.</strong> <span class="text-red-600 font-medium">Modifier</span> les quantités des articles renvoyés</li>
+                        <li><strong>3.</strong> <span class="text-red-600 font-medium">Supprimer</span> les articles renvoyés si non disponibles</li>
+                        <li><strong>4.</strong> <span class="text-green-600 font-medium">Conserver</span> les articles déjà livrés</li>
+                        <li><strong>5.</strong> <span class="text-blue-600 font-medium">Ajouter</span> de nouveaux articles si nécessaire</li>
+                    </ol>
+                </div>
+
+                <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                        <span class="text-sm font-medium text-yellow-800">Conseil :</span>
+                    </div>
+                    <p class="text-sm text-yellow-700 mt-1">
+                        Utilisez les filtres et la recherche pour trouver rapidement des articles de remplacement. 
+                        Vérifiez toujours la disponibilité en stock avant de faire des modifications.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <form method="post" id="modification-form">
         {% csrf_token %}
         <div class="space-y-6">
+            
+            <!-- Section Actions Rapides pour les commandes renvoyées -->
+            {% if is_commande_renvoyee %}
+                <div class="modification-section rounded-lg p-4 animate-slideInUp">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-base font-semibold text-blue-800">
+                            <i class="fas fa-tools mr-2"></i>Actions Rapides
+                        </h3>
+                        <button type="button" onclick="ouvrirModalAjoutArticle()" class="quick-action-btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Ajouter Article
+                        </button>
+                    </div>
+                </div>
+            {% endif %}
+
             <!-- Informations principales -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
@@ -66,15 +270,15 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Nom</label>
-                            <input type="text" name="client_nom" value="{{ commande.client.nom }}" class="w-full p-3 border rounded-lg">
+                            <input type="text" name="client_nom" value="{{ commande.client.nom }}" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
-                            <input type="text" name="client_prenom" value="{{ commande.client.prenom }}" class="w-full p-3 border rounded-lg">
+                            <input type="text" name="client_prenom" value="{{ commande.client.prenom }}" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
-                            <input type="text" name="client_telephone" value="{{ commande.client.numero_tel }}" class="w-full p-3 border rounded-lg">
+                            <input type="text" name="client_telephone" value="{{ commande.client.numero_tel }}" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Ville Client</label>
@@ -83,6 +287,7 @@
                     </div>
                 </div>
             </div>
+
             <!-- Livraison -->
             <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
                 <h3 class="text-lg font-semibold mb-4 section-title">
@@ -91,7 +296,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Ville de livraison</label>
-                        <select name="ville_id" id="ville-select" class="w-full p-3 border rounded-lg">
+                        <select name="ville_id" id="ville-select" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="">-- Sélectionner une ville --</option>
                             {% for ville in villes %}
                                 <option value="{{ ville.id }}" 
@@ -114,81 +319,478 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Adresse de livraison</label>
-                    <textarea name="adresse" rows="3" class="w-full p-3 border rounded-lg" placeholder="Adresse complète de livraison">{{ commande.adresse }}</textarea>
+                    <textarea name="adresse" rows="3" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Adresse complète de livraison">{{ commande.adresse }}</textarea>
                 </div>
             </div>
-            <!-- Panier -->
+
+            <!-- Panier avec fonctionnalités améliorées -->
             <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
-                <h3 class="text-lg font-semibold mb-4 section-title">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold section-title">
                     <i class="fas fa-box mr-3"></i>Articles du Panier
                 </h3>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn-prepa px-3 py-2 rounded text-sm" onclick="ouvrirModalAjoutArticle()">
+                            <i class="fas fa-plus mr-1"></i>Ajouter
+                        </button>
+
+                    </div>
+                </div>
+                <!-- DEBUG: Afficher le contenu de articles_renvoyes_map -->
+                <pre style="background:#f0fdf4;color:#166534;padding:8px;border-radius:6px;font-size:12px;overflow-x:auto;">DEBUG articles_renvoyes_map: {{ articles_renvoyes_map|safe }}</pre>
+                
+                <div class="overflow-x-auto">
                 <table class="w-full bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
                     <thead>
                         <tr class="bg-gray-50 border-b border-gray-200">
-                            <th class="px-4 py-3">Article</th>
-                            <th class="px-4 py-3">Référence</th>
-                            <th class="px-4 py-3">Couleur</th>
-                            <th class="px-4 py-3">Pointure</th>
-                            <th class="px-4 py-3">Quantité</th>
-                            <th class="px-4 py-3">Prix unitaire</th>
-                            <th class="px-4 py-3">Sous-total</th>
-                            <th class="px-4 py-3">Action</th>
+                                <th class="px-4 py-3 text-left">Article</th>
+                                <th class="px-4 py-3 text-left">Référence</th>
+                                <th class="px-4 py-3 text-left">Couleur</th>
+                                <th class="px-4 py-3 text-left">Pointure</th>
+                                <th class="px-4 py-3 text-center">Quantité</th>
+                                <th class="px-4 py-3 text-right">
+                                    Prix unitaire
+                                    <button type="button" onclick="ouvrirModalInfoPrix()" class="ml-1 text-blue-500 hover:text-blue-700">
+                                        <i class="fas fa-info-circle"></i>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-right">
+                                    Sous-total
+                                    <button type="button" onclick="ouvrirModalInfoSousTotal()" class="ml-1 text-blue-500 hover:text-blue-700">
+                                        <i class="fas fa-info-circle"></i>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-center">État</th>
+                                <th class="px-4 py-3 text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for panier in paniers %}
-                        <tr>
-                            <td>{{ panier.article.nom }}</td>
-                            <td>{{ panier.article.reference }}</td>
-                            <td>{{ panier.article.couleur }}</td>
-                            <td>{{ panier.article.pointure }}</td>
-                            <td>{{ panier.quantite }}</td>
-                            <td>{{ panier.article.prix_unitaire|floatformat:2 }} DH</td>
-                            <td>{{ panier.sous_total|floatformat:2 }} DH</td>
-                            <td>
-                                <button type="button" class="btn-prepa px-2 py-1 rounded" onclick="supprimerArticle({{ panier.id }})"><i class="fas fa-trash"></i></button>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50" data-panier-id="{{ panier.id }}">
+                                <td class="px-4 py-3">
+                                    <div class="font-medium flex items-center">
+                                        {{ panier.article.nom }}
+                                        <!-- DEBUG: Afficher l'ID de l'article du panier -->
+                                        <pre style="background:#e0f2fe;color:#0369a1;padding:2px 5px;border-radius:3px;font-size:9px;">ID: {{ panier.article.id }}</pre>
+                                        {% for article_data in articles_renvoyes %}
+                                            {% if article_data.article.id == panier.article.id %}
+                                                {% if article_data.etat == 'defectueux' %}
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 ml-2">
+                                                        <i class="fas fa-times-circle mr-1"></i>Défectueux
+                                                    </span>
+                                                {% elif article_data.etat == 'bon' %}
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 ml-2">
+                                                        <i class="fas fa-check-circle mr-1"></i>Bon
+                                                    </span>
+                                                {% elif article_data.etat == 'inconnu' %}
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 ml-2">
+                                                        <i class="fas fa-question-circle mr-1"></i>Inconnu
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    {% if panier.article.description %}
+                                        <div class="text-sm text-gray-500">{{ panier.article.description|truncatechars:50 }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 text-sm">{{ panier.article.reference }}</td>
+                                <td class="px-4 py-3 text-sm">{{ panier.article.couleur }}</td>
+                                <td class="px-4 py-3 text-sm">{{ panier.article.pointure }}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <button type="button" onclick="modifierQuantite({{ panier.id }}, -1)" class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors hover:bg-red-200">-</button>
+                                        <input type="number" id="quantite-{{ panier.id }}" value="{{ panier.quantite }}" min="1" max="99" 
+                                               data-previous-value="{{ panier.quantite }}"
+                                               class="w-16 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:border-blue-500 focus:outline-none"
+                                               onchange="modifierQuantiteDirecte({{ panier.id }}, this.value)"
+                                               onblur="modifierQuantiteDirecte({{ panier.id }}, this.value)">
+                                        <button type="button" onclick="modifierQuantite({{ panier.id }}, 1)" class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors hover:bg-green-200">+</button>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    {% load commande_filters %}
+                                    {% with prix_info=panier.article|get_prix_avec_phase_info:commande.compteur %}
+                                        <div class="text-right">
+                                            <div class="font-medium {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</div>
+                                            {% if prix_info.libelle != "Prix normal" %}
+                                                <div class="text-xs {{ prix_info.couleur_classe }} flex items-center justify-end gap-1">
+                                                    {% if panier.article.isUpsell and commande.compteur > 0 %}
+                                                        <i class="fas fa-arrow-up"></i>
+                                                    {% elif panier.article.has_promo_active %}
+                                                        <i class="fas fa-fire"></i>
+                                                    {% elif panier.article.phase == 'LIQUIDATION' %}
+                                                        <i class="fas fa-percentage"></i>
+                                                    {% elif panier.article.phase == 'EN_TEST' %}
+                                                        <i class="fas fa-flask"></i>
+                                                    {% endif %}
+                                                    {{ prix_info.libelle }}
+                                                </div>
+                                            {% endif %}
+                                            {% if panier.article.prix_unitaire != prix_info.prix %}
+                                                <div class="text-xs text-gray-400 line-through">{{ panier.article.prix_unitaire|floatformat:2 }} DH</div>
+                                            {% endif %}
+                                        </div>
+                                    {% endwith %}
+                                </td>
+                                <td class="px-4 py-3 text-right font-bold">{{ panier.sous_total|floatformat:2 }} DH</td>
+                                <td class="px-4 py-3 text-center">
+                                    {% with found=False %}
+                                    {% for article_data in articles_renvoyes %}
+                                        {% if article_data.article.id == panier.article.id %}
+                                            {% if article_data.etat == 'defectueux' %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                                                    <i class="fas fa-times-circle mr-1"></i>Défectueux
+                                                </span>
+                                            {% elif article_data.etat == 'bon' %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                                                    <i class="fas fa-check-circle mr-1"></i>Bon
+                                                </span>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
+                                                    <i class="fas fa-question-circle mr-1"></i>Inconnu: {{ article_data.etat }}
+                                                </span>
+                                            {% endif %}
+                                            {% with found=True %}{% endwith %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if not found %}
+                                        <span class="text-gray-400">-</span>
+                                    {% endif %}
+                                    {% endwith %}
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <button type="button" class="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded transition-colors" onclick="supprimerArticle({{ panier.id }})" title="Supprimer cet article">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                                    <i class="fas fa-box-open text-3xl mb-2"></i>
+                                    <div>Aucun article dans le panier</div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-                <div class="flex justify-end">
-                    <span class="font-bold">Total articles : {{ total_articles|floatformat:2 }} DH</span>
                 </div>
-                <div class="mt-4">
-                    <button type="button" class="btn-prepa px-4 py-2 rounded" onclick="ouvrirModalAjoutArticle()"><i class="fas fa-plus mr-2"></i>Ajouter un article</button>
+                
+                <div class="flex justify-between items-center mt-4 p-4 bg-gray-50 rounded-lg">
+                    <div class="text-sm text-gray-600">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        {{ paniers.count }} article{{ paniers.count|pluralize }} dans le panier
+                        {% if commande.compteur > 0 %}
+                            <span class="ml-2 text-purple-600 font-medium">
+                                <i class="fas fa-arrow-up mr-1"></i>
+                                Upsell niveau {{ commande.compteur }}
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm text-gray-600">Total articles</div>
+                        <div class="text-2xl font-bold text-blue-600 total-commande">{{ total_articles|floatformat:2 }} DH</div>
+                        <div class="text-sm text-gray-500 total-livraison">+ {{ commande.ville.frais_livraison|default:0|floatformat:2 }} DH livraison</div>
+                        <div class="text-lg font-bold text-green-600 total-final-commande">Total: {{ total_articles|add:commande.ville.frais_livraison|default:0|floatformat:2 }} DH</div>
+                        <button type="button" onclick="ouvrirModalInfoTotal()" class="text-xs text-blue-500 hover:text-blue-700 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>Détails
+                        </button>
+                    </div>
                 </div>
             </div>
-            <div class="flex justify-end mt-6">
-                <button type="submit" class="btn-prepa px-6 py-3 rounded text-lg font-bold">Enregistrer les modifications</button>
+
+            <!-- Section Commentaires -->
+            <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
+                <h3 class="text-lg font-semibold mb-4 section-title">
+                    <i class="fas fa-sticky-note mr-3"></i>Commentaires
+                </h3>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Commentaire opérateur <span class="text-gray-500">(optionnel)</span></label>
+                    <textarea name="commentaire_operateur" rows="3" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ajouter un commentaire sur les modifications effectuées..."></textarea>
+                </div>
+            </div>
+
+            <!-- Boutons d'action -->
+            <div class="flex justify-between items-center mt-6 p-6 bg-gray-50 rounded-xl">
+                <div class="flex gap-3">
+                    <a href="{% url 'Prepacommande:detail_prepa' commande.id %}" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i>Retour
+                    </a>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="btn-prepa px-8 py-3 rounded-lg text-lg font-bold">
+                        <i class="fas fa-check mr-2"></i>Enregistrer les modifications
+                    </button>
+                </div>
             </div>
         </div>
     </form>
 </div>
 
-<!-- Modales -->
+<!-- Modales améliorées -->
 <div id="modalAjoutArticle" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
                 <h3 class="text-xl font-semibold section-title">Ajouter un article</h3>
+                    <button type="button" onclick="fermerModalAjoutArticle()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
             </div>
             <div class="p-6">
-                <div class="mb-4">
+                <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Rechercher un article</label>
-                    <input type="text" id="searchArticle" placeholder="Nom, référence, couleur..." 
-                           class="w-full p-3 border rounded-lg">
+                    <div class="relative">
+                        <input type="text" id="searchArticle" placeholder="Nom, référence, couleur, pointure..." 
+                               class="w-full p-4 border rounded-lg pl-10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
                 </div>
-                <div id="articlesList" class="space-y-2 max-h-60 overflow-y-auto"></div>
-                <div class="mt-4 flex justify-end space-x-3">
+                
+                <!-- Légende des types d'articles -->
+                <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="flex items-center mb-2">
+                        <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+                        <span class="text-sm font-medium text-blue-800">Légende des types d'articles :</span>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div class="flex items-center">
+                            <i class="fas fa-box text-gray-600 mr-1"></i>
+                            <span class="text-gray-700">Normal</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-arrow-up text-purple-600 mr-1"></i>
+                            <span class="text-purple-700">Upsell</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-fire text-orange-600 mr-1"></i>
+                            <span class="text-orange-700">Promotion</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-money-bill-wave text-red-600 mr-1"></i>
+                            <span class="text-red-700">Liquidation</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtres rapides -->
+                <div class="mb-4 flex flex-wrap gap-2">
+                    <button type="button" onclick="filtrerArticles('tous')" class="filter-btn active px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center">
+                        <i class="fas fa-search mr-1"></i>
+                        TOUS
+                        <span class="ml-1 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full" id="count-tous">0</span>
+                    </button>
+                    <button type="button" onclick="filtrerArticles('disponible')" class="filter-btn px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium flex items-center">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        En stock
+                        <span class="ml-1 bg-gray-500 text-white text-xs px-2 py-0.5 rounded-full" id="count-disponible">0</span>
+                    </button>
+                    <button type="button" onclick="filtrerArticles('promo')" class="filter-btn px-3 py-2 bg-orange-200 text-orange-700 rounded-lg text-sm font-medium flex items-center">
+                        <i class="fas fa-fire mr-1"></i>
+                        PROMO
+                        <span class="ml-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full" id="count-promo">0</span>
+                    </button>
+                    <button type="button" onclick="filtrerArticles('upsell')" class="filter-btn px-3 py-2 bg-purple-200 text-purple-700 rounded-lg text-sm font-medium flex items-center">
+                        <i class="fas fa-arrow-up mr-1"></i>
+                        UPSELL
+                        <span class="ml-1 bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full" id="count-upsell">0</span>
+                    </button>
+                    <button type="button" onclick="filtrerArticles('liquidation')" class="filter-btn px-3 py-2 bg-red-200 text-red-700 rounded-lg text-sm font-medium flex items-center">
+                        <i class="fas fa-money-bill-wave mr-1"></i>
+                        LIQUIDATION
+                        <span class="ml-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full" id="count-liquidation">0</span>
+                    </button>
+                    <button type="button" onclick="filtrerArticles('test')" class="filter-btn px-3 py-2 bg-yellow-200 text-yellow-700 rounded-lg text-sm font-medium flex items-center">
+                        <i class="fas fa-flask mr-1"></i>
+                        TEST
+                        <span class="ml-1 bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full" id="count-test">0</span>
+                    </button>
+                </div>
+                
+                <div id="articlesList" class="space-y-3 max-h-96 overflow-y-auto"></div>
+                
+                <div class="mt-6 flex justify-end space-x-3">
                     <button type="button" onclick="fermerModalAjoutArticle()" 
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg">Annuler</button>
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Annuler</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+
+<!-- Modales d'information sur les calculs -->
+<div id="modalInfoPrix" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-800">
+                    <i class="fas fa-tag text-blue-500 mr-2"></i>Comment sont calculés les prix unitaires ?
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-blue-800 mb-2">Prix de base</h4>
+                        <p class="text-sm text-blue-700">Le prix unitaire défini pour chaque article.</p>
+                    </div>
+                    
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-purple-800 mb-2">
+                            <i class="fas fa-arrow-up mr-1"></i>Prix Upsell (niveau {{ commande.compteur }})
+                        </h4>
+                        <p class="text-sm text-purple-700">
+                            {% if commande.compteur > 0 %}
+                                Les articles upsell bénéficient d'un prix réduit selon le niveau atteint dans la commande.
+                            {% else %}
+                                Aucun niveau upsell actif pour cette commande.
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <div class="bg-red-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-red-800 mb-2">
+                            <i class="fas fa-fire mr-1"></i>Prix Promotionnel
+                        </h4>
+                        <p class="text-sm text-red-700">Articles en promotion avec réduction appliquée.</p>
+                    </div>
+                    
+                    <div class="bg-orange-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-orange-800 mb-2">
+                            <i class="fas fa-percentage mr-1"></i>Prix Liquidation
+                        </h4>
+                        <p class="text-sm text-orange-700">Articles en liquidation avec forte réduction.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200 text-right">
+                <button type="button" onclick="fermerModalInfoPrix()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modalInfoSousTotal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-800">
+                    <i class="fas fa-calculator text-green-500 mr-2"></i>Calcul des sous-totaux
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-green-800 mb-2">Formule de base</h4>
+                        <p class="text-sm text-green-700 font-mono bg-white p-2 rounded border">
+                            Sous-total = Prix unitaire × Quantité
+                        </p>
+                    </div>
+                    
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-blue-800 mb-2">Prise en compte automatique</h4>
+                        <ul class="text-sm text-blue-700 space-y-1">
+                            <li>• Réductions promotionnelles</li>
+                            <li>• Prix upsell selon le niveau de la commande</li>
+                            <li>• Prix de liquidation</li>
+                            <li>• Prix de test</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200 text-right">
+                <button type="button" onclick="fermerModalInfoSousTotal()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modalInfoTotal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-800">
+                    <i class="fas fa-receipt text-purple-500 mr-2"></i>Détail complet du calcul - Commande {{ commande.id_yz }}
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-6">
+                    <!-- Résumé des articles -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-gray-800 mb-3">
+                            <i class="fas fa-list mr-2"></i>Articles de la commande
+                        </h4>
+                        {% for panier in paniers %}
+                            {% load commande_filters %}
+                            {% with prix_info=panier.article|get_prix_avec_phase_info:commande.compteur %}
+                            <div class="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
+                                <div class="flex-1">
+                                    <div class="font-medium">{{ panier.article.nom }}</div>
+                                    <div class="text-sm text-gray-500">{{ panier.quantite }} × {{ prix_info.prix|floatformat:2 }} DH</div>
+                                    {% if prix_info.libelle != "Prix normal" %}
+                                        <div class="text-xs {{ prix_info.couleur_classe }}">{{ prix_info.libelle }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="text-right font-semibold">{{ panier.sous_total|floatformat:2 }} DH</div>
+                            </div>
+                            {% endwith %}
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Calcul du total -->
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-blue-800 mb-3">
+                            <i class="fas fa-calculator mr-2"></i>Calcul du total
+                        </h4>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span>Sous-total articles :</span>
+                                <span class="font-semibold">{{ total_articles|floatformat:2 }} DH</span>
+                            </div>
+                            {% if commande.ville.frais_livraison > 0 %}
+                                <div class="flex justify-between">
+                                    <span>Frais de livraison ({{ commande.ville.nom }}) :</span>
+                                    <span class="font-semibold">+ {{ commande.ville.frais_livraison|floatformat:2 }} DH</span>
+                                </div>
+                            {% endif %}
+                            <div class="border-t border-blue-300 pt-2 flex justify-between text-lg font-bold text-blue-800">
+                                <span>Total final :</span>
+                                <span>{{ total_articles|add:commande.ville.frais_livraison|default:0|floatformat:2 }} DH</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if commande.compteur > 0 %}
+                    <!-- Informations sur l'upsell -->
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-purple-800 mb-2">
+                            <i class="fas fa-arrow-up mr-2"></i>Niveau Upsell {{ commande.compteur }}
+                        </h4>
+                        <p class="text-sm text-purple-700">
+                            Cette commande bénéficie du niveau upsell {{ commande.compteur }}, 
+                            appliquant automatiquement les prix réduits aux articles éligibles.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200 text-right">
+                <button type="button" onclick="fermerModalInfoTotal()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation améliorée -->
 <div id="modalConfirmation" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
@@ -214,6 +816,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     let commandeId = {{ commande.id }};
     let articlesDisponibles = [];
+    let modificationsQuantites = {};
 
     // Fonctions globales pour les `onclick`
     window.ouvrirModalAjoutArticle = function() {
@@ -228,6 +831,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const modal = document.getElementById('modalAjoutArticle');
         if (modal) modal.classList.add('hidden');
     };
+
+
 
     function ouvrirModalConfirmation(message, action) {
         const msgElem = document.getElementById('messageConfirmation');
@@ -266,6 +871,234 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
+    window.modifierQuantite = function(panierId, delta) {
+        const input = document.getElementById(`quantite-${panierId}`);
+        if (input) {
+            const currentValue = parseInt(input.value) || 0;
+            const newValue = Math.max(1, currentValue + delta);
+            input.value = newValue;
+            modifierQuantiteDirecte(panierId, newValue);
+        }
+    };
+
+    window.modifierQuantiteDirecte = function(panierId, nouvelleQuantite) {
+        const quantite = parseInt(nouvelleQuantite);
+        
+        // Validation
+        if (isNaN(quantite) || quantite < 1) {
+            // Restaurer la valeur précédente
+            const input = document.getElementById(`quantite-${panierId}`);
+            if (input) {
+                input.value = input.getAttribute('data-previous-value') || 1;
+            }
+            Swal.fire({
+                icon: 'warning',
+                title: 'Quantité invalide',
+                text: 'La quantité doit être au moins de 1.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            return;
+        }
+
+        // Sauvegarder la valeur précédente
+        const input = document.getElementById(`quantite-${panierId}`);
+        if (input) {
+            input.setAttribute('data-previous-value', input.value);
+        }
+
+        // Envoyer la modification au serveur
+        const formData = new FormData();
+        formData.append('action', 'modifier_quantite_directe');
+        formData.append('panier_id', panierId);
+        formData.append('nouvelle_quantite', quantite);
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
+        
+        fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, { 
+            method: 'POST', 
+            body: formData 
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (quantite === 0) {
+                    // Supprimer la ligne du tableau si l'article a été supprimé
+                    const tableRow = document.querySelector(`tr[data-panier-id="${panierId}"]`);
+                    if (tableRow) {
+                        tableRow.remove();
+                    }
+                    showNotificationToast('Article supprimé', 'success');
+                } else {
+                    // Mettre à jour l'affichage du sous-total et du total
+                    mettreAJourTotaux(panierId, data);
+                    showNotificationToast('Quantité mise à jour', 'success');
+                }
+                
+                // Mettre à jour le total général dans tous les cas
+                if (data.total_commande) {
+                    const totalElements = document.querySelectorAll('.total-commande');
+                    totalElements.forEach(element => {
+                        element.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+                    });
+                }
+            } else {
+                // Restaurer la valeur précédente en cas d'erreur
+                if (input) {
+                    input.value = input.getAttribute('data-previous-value') || 1;
+                }
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erreur',
+                    text: data.error || 'Impossible de modifier la quantité.'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            // Restaurer la valeur précédente en cas d'erreur
+            if (input) {
+                input.value = input.getAttribute('data-previous-value') || 1;
+            }
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur de communication',
+                text: 'Impossible de contacter le serveur.'
+            });
+        });
+    };
+
+    // Fonction pour mettre à jour les totaux après modification
+    function mettreAJourTotaux(panierId, data) {
+        // Mettre à jour le sous-total de la ligne
+        if (data.sous_total !== undefined) {
+            const sousTotalCell = document.querySelector(`tr[data-panier-id="${panierId}"] td:nth-child(7)`);
+            if (sousTotalCell) {
+                sousTotalCell.textContent = `${parseFloat(data.sous_total).toFixed(2)} DH`;
+            }
+        }
+        // Mettre à jour le total articles
+        if (data.sous_total_articles !== undefined) {
+            const totalArticles = document.querySelectorAll('.total-commande');
+            totalArticles.forEach(el => {
+                el.textContent = `${parseFloat(data.sous_total_articles).toFixed(2)} DH`;
+            });
+        }
+        // Mettre à jour le total livraison et total final
+        if (data.total_commande !== undefined) {
+            // Total final (header, modale, etc.)
+            const totalFinals = document.querySelectorAll('.total-final-commande');
+            totalFinals.forEach(el => {
+                el.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+            });
+            // Si il y a un champ livraison
+            if (data.frais_livraison !== undefined) {
+                const livraisonEls = document.querySelectorAll('.total-livraison');
+                livraisonEls.forEach(el => {
+                    el.textContent = `+ ${parseFloat(data.frais_livraison).toFixed(2)} DH livraison`;
+                });
+            }
+        }
+    }
+
+    // Fonction pour afficher des notifications toast discrètes
+    function showNotificationToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-white text-sm font-medium transition-all duration-300 transform translate-x-full opacity-0`;
+        
+        if (type === 'success') {
+            toast.classList.add('bg-green-500');
+        } else if (type === 'error') {
+            toast.classList.add('bg-red-500');
+        } else {
+            toast.classList.add('bg-blue-500');
+        }
+        
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        // Animation d'apparition
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full', 'opacity-0');
+        }, 100);
+        
+        // Animation de disparition après 3 secondes
+        setTimeout(() => {
+            toast.classList.add('translate-x-full', 'opacity-0');
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 300);
+        }, 3000);
+    }
+
+    // Fonctions pour les boutons individuels dans le template des articles
+    window.modifierQuantitePrepa = function(panierId, quantiteActuelle) {
+        // Ouvrir une modal simple pour modifier la quantité
+        Swal.fire({
+            title: 'Modifier la quantité',
+            input: 'number',
+            inputValue: quantiteActuelle,
+            inputAttributes: {
+                min: '0',
+                step: '1'
+            },
+            showCancelButton: true,
+            confirmButtonText: 'Modifier',
+            cancelButtonText: 'Annuler',
+            inputValidator: (value) => {
+                if (value < 0) {
+                    return 'La quantité ne peut pas être négative';
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const nouvelleQuantite = parseInt(result.value);
+                if (nouvelleQuantite === 0) {
+                    // Supprimer l'article si quantité = 0
+                    supprimerArticle(panierId);
+                } else {
+                    // Modifier la quantité
+                    const formData = new FormData();
+                    formData.append('action', 'modifier_quantite_directe');
+                    formData.append('panier_id', panierId);
+                    formData.append('nouvelle_quantite', nouvelleQuantite);
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                    if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
+                    
+                    fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, { 
+                        method: 'POST', 
+                        body: formData 
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Succès !',
+                                text: 'Quantité modifiée avec succès.',
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => location.reload());
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erreur',
+                                text: data.error || 'Une erreur est survenue.'
+                            });
+                        }
+                    })
+                    .catch(handleError);
+                }
+            }
+        });
+    };
+
+    window.supprimerArticlePrepa = function(panierId) {
+        supprimerArticle(panierId);
+    };
+
+
+
     // Fonctions internes
     function chargerRegionEtFrais() {
         const select = document.getElementById('ville-select');
@@ -279,36 +1112,136 @@ document.addEventListener('DOMContentLoaded', function() {
         if(fraisDisplay) fraisDisplay.value = `${frais || 0} DH`;
     }
 
-    function chargerArticlesDisponibles() {
-        fetch("{% url 'Prepacommande:api_articles_disponibles_prepa' %}")
+    function chargerArticlesDisponibles(filterType = 'tous') {
+        const url = new URL("{% url 'Prepacommande:api_articles_disponibles_prepa' %}", window.location.origin);
+        url.searchParams.set('filter', filterType);
+        
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     articlesDisponibles = data.articles;
                     afficherArticles(articlesDisponibles);
+                    mettreAJourStatistiques(data.stats);
+                    mettreAJourFiltreActif(filterType);
                 }
             }).catch(error => console.error('Erreur de chargement des articles:', error));
     }
 
+    function mettreAJourStatistiques(stats) {
+        if (!stats) {
+            console.warn('Stats non définies');
+            return;
+        }
+        Object.keys(stats).forEach(key => {
+            const element = document.getElementById(`count-${key}`);
+            if (element) {
+                element.textContent = stats[key];
+            } else {
+                console.warn(`Element count-${key} non trouvé`);
+            }
+        });
+    }
+
+    function mettreAJourFiltreActif(filterType) {
+        // Retirer la classe active de tous les boutons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active', 'bg-blue-600', 'text-white');
+            btn.classList.add('bg-gray-200', 'text-gray-700');
+        });
+        
+        // Ajouter la classe active au bouton sélectionné
+        const activeBtn = document.querySelector(`[onclick="filtrerArticles('${filterType}')"]`);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+            activeBtn.classList.add('active', 'bg-blue-600', 'text-white');
+        }
+    }
+
+    window.filtrerArticles = function(filterType) {
+        chargerArticlesDisponibles(filterType);
+    };
+
     function afficherArticles(articles) {
         const container = document.getElementById('articlesList');
-        if (!container) return;
+        if (!container) {
+            console.warn('Container articlesList non trouvé');
+            return;
+        }
         container.innerHTML = '';
+        
+        if (articles.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-search text-4xl mb-4"></i>
+                    <div class="text-lg font-medium">Aucun article trouvé</div>
+                    <div class="text-sm">Essayez de modifier vos critères de recherche</div>
+                </div>
+            `;
+            return;
+        }
+        
         articles.forEach(article => {
             const div = document.createElement('div');
-            div.className = 'p-3 border rounded-lg hover:bg-gray-50 flex justify-between items-center';
-            div.innerHTML = `
-                <div>
-                    <div class="font-medium">${article.nom}</div>
-                    <div class="text-sm text-gray-600">Réf: ${article.reference || ''} | ${article.couleur} | Pt: ${article.pointure}</div>
-                    <div class="text-sm text-gray-500">Prix: <span class="font-semibold">${article.prix} DH</span> | Stock: <span class="font-semibold">${article.qte_disponible}</span></div>
+            div.className = 'p-4 border rounded-lg hover:bg-gray-50 flex justify-between items-center transition-all duration-200';
+            
+            // Badge de type d'article
+            const typeBadge = article.article_type !== 'normal' ? `
+                <div class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${article.type_color.replace('text-', 'bg-').replace('-600', '-100')} ${article.type_color}">
+                    <i class="${article.type_icon} mr-1"></i>
+                    ${article.article_type.toUpperCase()}
                 </div>
+            ` : '';
+            
+            // Affichage du prix avec réduction si applicable
+            const prixDisplay = article.has_reduction ? `
+                <div class="text-sm">
+                    <span class="font-semibold text-green-600">${article.prix} DH</span>
+                    <span class="line-through text-gray-400 ml-2">${article.prix_original} DH</span>
+                    <span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs ml-2">-${article.reduction_pourcentage}%</span>
+                </div>
+            ` : `
+                <div class="text-sm text-gray-500">Prix: <span class="font-semibold text-green-600">${article.prix} DH</span></div>
+            `;
+            
+            // Statut du stock
+            const stockStatus = article.qte_disponible > 0 ? 
+                `<span class="font-semibold text-green-600">${article.qte_disponible}</span>` : 
+                `<span class="font-semibold text-red-600">Rupture</span>`;
+            
+            div.innerHTML = `
+                <div class="flex-1">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="font-medium text-lg">${article.nom}</div>
+                        ${typeBadge}
+                    </div>
+                    <div class="text-sm text-gray-600 mb-2">Réf: ${article.reference || 'N/A'} | ${article.couleur} | Pt: ${article.pointure}</div>
+                    ${prixDisplay}
+                    <div class="text-sm text-gray-500 mt-1">Stock: ${stockStatus}</div>
+                    ${article.description ? `<div class="text-xs text-gray-400 mt-2 italic">"${article.description}"</div>` : ''}
+                </div>
+                <div class="flex items-center gap-3 ml-4">
                 <div class="flex items-center gap-2">
-                    <input type="number" id="qte-article-${article.id}" class="w-20 p-2 border rounded-lg text-center" value="1" min="1">
-                    <button type="button" class="btn-prepa px-4 py-2 rounded-lg font-medium" onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')"><i class="fas fa-plus"></i></button>
+                        <button type="button" onclick="changeQuantite(${article.id}, -1)" class="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">-</button>
+                        <input type="number" id="qte-article-${article.id}" class="w-16 p-2 border rounded-lg text-center" value="1" min="1" max="${article.qte_disponible}" ${article.qte_disponible <= 0 ? 'disabled' : ''}>
+                        <button type="button" onclick="changeQuantite(${article.id}, 1)" class="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">+</button>
+                    </div>
+                    <button type="button" class="btn-prepa px-4 py-2 rounded-lg font-medium transition-colors ${article.qte_disponible <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-90'}" 
+                            onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')" 
+                            ${article.qte_disponible <= 0 ? 'disabled' : ''}>
+                        <i class="fas fa-plus mr-1"></i>Ajouter
+                    </button>
                 </div>`;
             container.appendChild(div);
         });
+    }
+
+    function changeQuantite(articleId, delta) {
+        const input = document.getElementById(`qte-article-${articleId}`);
+        if (input) {
+            const newValue = Math.max(1, parseInt(input.value) + delta);
+            input.value = newValue;
+        }
     }
 
     function ajouterArticleAuPanier(articleId, quantite) {
@@ -324,19 +1257,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function handleResponse(data) {
         if (data.success) {
-            Swal.fire({ icon: 'success', title: 'Succès !', text: data.message || 'Opération réussie.', timer: 2000, showConfirmButton: false })
-                .then(() => location.reload());
+            Swal.fire({ 
+                icon: 'success', 
+                title: 'Succès !', 
+                text: data.message || 'Opération réussie.', 
+                timer: 2000, 
+                showConfirmButton: false 
+            }).then(() => location.reload());
         } else {
-            Swal.fire({ icon: 'error', title: 'Erreur', text: data.error || 'Une erreur est survenue.' });
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'Erreur', 
+                text: data.error || 'Une erreur est survenue.' 
+            });
         }
     }
 
     function handleError(error) {
         console.error('Erreur:', error);
-        Swal.fire({ icon: 'error', title: 'Erreur de communication', text: 'Impossible de contacter le serveur.' });
+        Swal.fire({ 
+            icon: 'error', 
+            title: 'Erreur de communication', 
+            text: 'Impossible de contacter le serveur.' 
+        });
     }
 
-    // Event Listeners
+    // Event Listeners avec vérifications
     const searchInput = document.getElementById('searchArticle');
     if (searchInput) {
         searchInput.addEventListener('input', function() {
@@ -349,15 +1295,57 @@ document.addEventListener('DOMContentLoaded', function() {
             );
             afficherArticles(filtered);
         });
+    } else {
+        console.warn('Element searchArticle non trouvé');
     }
 
     const villeSelect = document.getElementById('ville-select');
     if (villeSelect) {
         villeSelect.addEventListener('change', chargerRegionEtFrais);
+    } else {
+        console.warn('Element ville-select non trouvé');
     }
     
     // Initialisation
     chargerRegionEtFrais();
+    
+    // Fonctions pour les modales d'information
+    window.ouvrirModalInfoPrix = function() {
+        const modal = document.getElementById('modalInfoPrix');
+        if (modal) modal.classList.remove('hidden');
+    };
+
+    window.fermerModalInfoPrix = function() {
+        const modal = document.getElementById('modalInfoPrix');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.ouvrirModalInfoSousTotal = function() {
+        const modal = document.getElementById('modalInfoSousTotal');
+        if (modal) modal.classList.remove('hidden');
+    };
+
+    window.fermerModalInfoSousTotal = function() {
+        const modal = document.getElementById('modalInfoSousTotal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.ouvrirModalInfoTotal = function() {
+        const modal = document.getElementById('modalInfoTotal');
+        if (modal) modal.classList.remove('hidden');
+    };
+
+    window.fermerModalInfoTotal = function() {
+        const modal = document.getElementById('modalInfoTotal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    // Vérification que tous les éléments critiques sont présents
+    console.log('Vérification des éléments DOM:');
+    console.log('- modalAjoutArticle:', document.getElementById('modalAjoutArticle') ? 'OK' : 'MANQUANT');
+    console.log('- articlesList:', document.getElementById('articlesList') ? 'OK' : 'MANQUANT');
+    console.log('- searchArticle:', document.getElementById('searchArticle') ? 'OK' : 'MANQUANT');
+    console.log('- ville-select:', document.getElementById('ville-select') ? 'OK' : 'MANQUANT');
 });
 </script>
 {% endblock %} 

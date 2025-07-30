@@ -43,6 +43,7 @@ class Article(models.Model):
     qte_disponible = models.IntegerField()
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to='articles/', blank=True, null=True)
+    image_url = models.URLField(blank=True, null=True, help_text="Lien direct vers une image externe (ex: Unsplash)")
     date_creation = models.DateTimeField(default=timezone.now)
     date_modification = models.DateTimeField(auto_now=True)
     actif = models.BooleanField(default=True)

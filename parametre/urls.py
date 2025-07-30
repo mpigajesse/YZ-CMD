@@ -31,11 +31,17 @@ urlpatterns = [
     path('profile/modifier/', views.modifier_admin_profile, name='modifier_profile'),
     path('profile/changer-mot-de-passe/', views.changer_mot_de_passe_admin, name='changer_mot_de_passe'),
     
-    # Gestion des mots de passe des opérateurs
-    path('operateurs/mots-de-passe/', views.gestion_mots_de_passe, name='gestion_mots_de_passe'),
-    path('operateurs/<int:pk>/modifier-mot-de-passe/', views.modifier_mot_de_passe_operateur, name='modifier_mot_de_passe_operateur'),
+    # URLs Service Après-Vente pour Admin
+    path('sav/commandes-retournees/', views.sav_commandes_retournees, name='sav_commandes_retournees'),
+    path('sav/commandes-reportees/', views.sav_commandes_reportees, name='sav_commandes_reportees'),
+    path('sav/livrees-partiellement/', views.sav_livrees_partiellement, name='sav_livrees_partiellement'),
+    path('sav/annulees/', views.sav_annulees_sav, name='sav_annulees'),
+    path('sav/livrees-avec-changement/', views.sav_livrees_avec_changement, name='sav_livrees_avec_changement'),
+    path('sav/livrees/', views.sav_livrees, name='sav_livrees'),
+    path('sav/creer-nouvelle-commande/<int:commande_id>/', views.sav_creer_nouvelle_commande, name='sav_creer_nouvelle_commande'),
+    path('sav/renvoyer-preparation/<int:commande_id>/', views.sav_renvoyer_preparation, name='sav_renvoyer_preparation'),
     
-    # Vue 360
+    # URLs Dashboard 360
     path('vue360/', views_360.page_360, name='page_360'),
     path('export-csv/', views_360.export_all_data_csv, name='export_all_data_csv'),
     path('export-excel/', views_360.export_all_data_excel, name='export_all_data_excel'),

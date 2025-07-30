@@ -146,22 +146,25 @@ def export_all_data_csv(request):
         search = request.POST.get('search') or request.GET.get('search')
         date_debut = request.POST.get('date_debut') or request.GET.get('date_debut')
         date_fin = request.POST.get('date_fin') or request.GET.get('date_fin')
+        
         # Utiliser une réponse streaming pour de gros volumes
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="export_commandes_360.csv"'
+        response['Content-Disposition'] = 'attachment; filename="export_commandes_avec_paniers_360.csv"'
         
         # Utiliser un writer CSV directement sur la réponse
         writer = csv.writer(response)
 
-            # En-têtes du CSV consolidé
+        # En-têtes du CSV consolidé avec détails des paniers
         headers = [
-                'N°', 'Identifiant Yoozak', 'CLIENT', 'TELEPHONE', 'ADRESSE', 'VILLE', 'REGION',
-                'PANIER', 'PRIX TOTAL (DH)', 'DATE COMMANDE', 'CONFIRMATION', 'DATE CONFIRMATION',
-                'OBSERVATIONS CONFIRMATION', 'OPERATEUR', 'AGENT CONFIRMATION',
-                'CLIENT FIDELE', 'UPSELL', 'PREPARATION', 'ETAT LIVRAISON',
-                'ETAT PAIEMENT', 'TARIF', 'RESTE A PAYER', 'DATE PAIEMENT', 'PIECE RETOURNEE',
-                'OBSERVATION LIVRAISON'
-            ]
+            'N°', 'Identifiant Yoozak', 'CLIENT', 'TELEPHONE', 'ADRESSE', 'VILLE', 'REGION',
+            'ARTICLE NOM', 'ARTICLE REFERENCE', 'ARTICLE COULEUR', 'ARTICLE POINTURE', 
+            'QUANTITE', 'PRIX UNITAIRE', 'SOUS TOTAL ARTICLE',
+            'PRIX TOTAL COMMANDE (DH)', 'DATE COMMANDE', 'CONFIRMATION', 'DATE CONFIRMATION',
+            'OBSERVATIONS CONFIRMATION', 'OPERATEUR', 'AGENT CONFIRMATION',
+            'CLIENT FIDELE', 'UPSELL', 'PREPARATION', 'ETAT LIVRAISON',
+            'ETAT PAIEMENT', 'TARIF', 'RESTE A PAYER', 'DATE PAIEMENT', 'PIECE RETOURNEE',
+            'OBSERVATION LIVRAISON'
+        ]
         writer.writerow(headers)
             
         # Traitement par batch de 1000 commandes pour éviter de surcharger la mémoire
@@ -216,8 +219,6 @@ def export_all_data_csv(request):
                 etat_paiement = etat_paiement_obj.enum_etat.libelle if etat_paiement_obj else "Non Payé"
                 etat_livraison = etat_livraison_obj.enum_etat.libelle if etat_livraison_obj else "En attente"
                 piece_retournee = "Oui" if piece_retournee_obj else "Non"
-                
-                articles_noms = ", ".join([panier.article.nom for panier in cmd.paniers.all()]) or "N/A"
 
                 operateur_assigne_obj = cmd.etats.filter(enum_etat__libelle__icontains='Affectée').first()
                 operateur_assigne_nom = operateur_assigne_obj.operateur.mail if operateur_assigne_obj and operateur_assigne_obj.operateur else "N/A"
@@ -229,7 +230,8 @@ def export_all_data_csv(request):
                 date_paiement = "N/A"
                 observation_livraison = piece_retournee_obj.commentaire if piece_retournee_obj else ""
 
-                row_data = [
+                # Informations communes à la commande
+                commande_info = [
                     cmd.num_cmd,
                     cmd.id_yz,
                     f"{cmd.client.prenom} {cmd.client.nom}" if cmd.client else "N/A",
@@ -237,7 +239,10 @@ def export_all_data_csv(request):
                     cmd.client.adresse if cmd.client else "N/A",
                     cmd.ville.nom if cmd.ville else "N/A",
                     cmd.ville.region.nom_region if cmd.ville and cmd.ville.region else "N/A",
-                    articles_noms,
+                ]
+                
+                # Données communes de fin
+                commande_fin_info = [
                     cmd.total_cmd,
                     cmd.date_cmd.strftime('%d/%m/%Y') if cmd.date_cmd else "N/A",
                     confirmation_info.enum_etat.libelle if confirmation_info else "Non Confirmée",
@@ -256,7 +261,30 @@ def export_all_data_csv(request):
                     piece_retournee,
                     observation_livraison,
                 ]
-                writer.writerow(row_data)
+                
+                # Si la commande a des articles, créer une ligne par article
+                paniers = cmd.paniers.all()
+                if paniers:
+                    for panier in paniers:
+                        # Détails de l'article
+                        article_info = [
+                            panier.article.nom or "N/A",
+                            panier.article.reference or "N/A",
+                            panier.article.couleur or "N/A",
+                            panier.article.pointure or "N/A",
+                            panier.quantite,
+                            panier.article.prix_unitaire,
+                            panier.sous_total,
+                        ]
+                        
+                        # Combiner toutes les informations
+                        row_data = commande_info + article_info + commande_fin_info
+                        writer.writerow(row_data)
+                else:
+                    # Si pas d'articles, créer une ligne avec des valeurs N/A
+                    article_info = ["N/A", "N/A", "N/A", "N/A", 0, 0, 0]
+                    row_data = commande_info + article_info + commande_fin_info
+                    writer.writerow(row_data)
 
             offset += batch_size
 
@@ -273,16 +301,18 @@ def export_all_data_excel(request):
     
     # Créer un fichier Excel temporaire avec streaming
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="export_commandes_360.xlsx"'
+    response['Content-Disposition'] = 'attachment; filename="export_commandes_avec_paniers_360.xlsx"'
     
     wb = Workbook()
     ws = wb.active
-    ws.title = "Commandes 360"
+    ws.title = "Commandes avec Paniers"
 
-    # En-têtes Excel avec style
+    # En-têtes Excel avec style - Inclure les détails des paniers
     headers = [
         "N°", "Identifiant Yoozak", "CLIENT", "TELEPHONE", "ADRESSE", "VILLE", "REGION",
-        "PANIER", "PRIX TOTAL (DH)", "DATE COMMANDE", "CONFIRMATION", "DATE CONFIRMATION",
+        "ARTICLE NOM", "ARTICLE REFERENCE", "ARTICLE COULEUR", "ARTICLE POINTURE", 
+        "QUANTITE", "PRIX UNITAIRE", "SOUS TOTAL ARTICLE",
+        "PRIX TOTAL COMMANDE (DH)", "DATE COMMANDE", "CONFIRMATION", "DATE CONFIRMATION",
         "OBSERVATIONS CONFIRMATION", "OPERATEUR", "AGENT CONFIRMATION",
         "CLIENT FIDELE", "UPSELL", "PREPARATION", "ETAT LIVRAISON",
         "ETAT PAIEMENT", "TARIF", "RESTE A PAYER", "DATE PAIEMENT", "PIECE RETOURNEE",
@@ -317,7 +347,7 @@ def export_all_data_excel(request):
             'id', 'num_cmd', 'id_yz', 'date_cmd', 'total_cmd', 'is_upsell',
             'client__nom', 'client__prenom', 'client__numero_tel', 'client__adresse',
             'ville__nom', 'ville__region__nom_region'
-    )
+        )
         
         # Appliquer les filtres
         if search:
@@ -352,9 +382,6 @@ def export_all_data_excel(request):
             etat_paiement = etat_paiement_obj.enum_etat.libelle if etat_paiement_obj else "Non Payé"
             etat_livraison = etat_livraison_obj.enum_etat.libelle if etat_livraison_obj else "En attente"
             piece_retournee = "Oui" if piece_retournee_obj else "Non"
-            
-            # Pour le panier: Joindre les noms des articles du panier
-            articles_noms = ", ".join([panier.article.nom for panier in cmd.paniers.all()]) or "N/A"
 
             # Opérateur Assigné: Chercher l'opérateur lié à l'état 'Affectée' ou un autre état pertinent
             operateur_assigne_obj = cmd.etats.filter(enum_etat__libelle__icontains='Affectée').first()
@@ -368,7 +395,8 @@ def export_all_data_excel(request):
             date_paiement = "N/A"
             observation_livraison = piece_retournee_obj.commentaire if piece_retournee_obj else ""
 
-            row_data = [
+            # Informations communes à la commande
+            commande_info = [
                 cmd.num_cmd,
                 cmd.id_yz,
                 f"{cmd.client.prenom} {cmd.client.nom}" if cmd.client else "N/A",
@@ -376,32 +404,63 @@ def export_all_data_excel(request):
                 cmd.client.adresse if cmd.client else "N/A",
                 cmd.ville.nom if cmd.ville else "N/A",
                 cmd.ville.region.nom_region if cmd.ville and cmd.ville.region else "N/A",
-                articles_noms,
+            ]
+            
+            # Données communes de fin
+            commande_fin_info = [
                 cmd.total_cmd,
-            cmd.date_cmd.strftime('%d/%m/%Y') if cmd.date_cmd else "N/A",
-            confirmation_info.enum_etat.libelle if confirmation_info else "Non Confirmée",
-            confirmation_info.date_debut.strftime('%d/%m/%Y %H:%M') if confirmation_info and confirmation_info.date_debut else "N/A",
-            confirmation_info.commentaire if confirmation_info else "",
-            operateur_assigne_nom,
-            agent_confirmation_nom,
+                cmd.date_cmd.strftime('%d/%m/%Y') if cmd.date_cmd else "N/A",
+                confirmation_info.enum_etat.libelle if confirmation_info else "Non Confirmée",
+                confirmation_info.date_debut.strftime('%d/%m/%Y %H:%M') if confirmation_info and confirmation_info.date_debut else "N/A",
+                confirmation_info.commentaire if confirmation_info else "",
+                operateur_assigne_nom,
+                agent_confirmation_nom,
                 "future qui seras des les tables models plustard dans le projet", # Client Fidèle
                 "Oui" if cmd.is_upsell else "Non", # UPSELL
-            preparation_info.enum_etat.libelle if preparation_info else "Non Préparée",
-            etat_livraison,
-            etat_paiement,
+                preparation_info.enum_etat.libelle if preparation_info else "Non Préparée",
+                etat_livraison,
+                etat_paiement,
                 tarif_livraison,
                 reste_a_payer,
                 date_paiement,
                 piece_retournee,
                 observation_livraison,
             ]
-            ws.append(row_data)
+            
+            # Si la commande a des articles, créer une ligne par article
+            paniers = cmd.paniers.all()
+            if paniers:
+                for panier in paniers:
+                    # Détails de l'article
+                    article_info = [
+                        panier.article.nom or "N/A",
+                        panier.article.reference or "N/A",
+                        panier.article.couleur or "N/A",
+                        panier.article.pointure or "N/A",
+                        panier.quantite,
+                        panier.article.prix_unitaire,
+                        panier.sous_total,
+                    ]
+                    
+                    # Combiner toutes les informations
+                    row_data = commande_info + article_info + commande_fin_info
+                    ws.append(row_data)
+            else:
+                # Si pas d'articles, créer une ligne avec des valeurs N/A
+                article_info = ["N/A", "N/A", "N/A", "N/A", 0, 0, 0]
+                row_data = commande_info + article_info + commande_fin_info
+                ws.append(row_data)
             
         offset += batch_size
 
     # Ajuster la largeur des colonnes
     for i, col in enumerate(headers, 1):
-        ws.column_dimensions[get_column_letter(i)].width = 20
+        if i <= 7:  # Colonnes de base commande
+            ws.column_dimensions[get_column_letter(i)].width = 20
+        elif i <= 14:  # Colonnes articles
+            ws.column_dimensions[get_column_letter(i)].width = 15
+        else:  # Autres colonnes
+            ws.column_dimensions[get_column_letter(i)].width = 18
 
     wb.save(response)
     return response 

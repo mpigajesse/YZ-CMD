@@ -16,28 +16,18 @@
         /* --- Sidebar --- */
         #sidebar { 
             width: 256px; 
-            min-width: 256px;
             transition: all 0.3s ease-in-out;
-            overflow: hidden;
+            transform: translateX(0);
         }
 
-        /* Comportement unifié sur tous les écrans - pousser complètement hors écran */
-        body.sidebar-collapsed #sidebar { 
-            margin-left: -256px !important;
-            opacity: 0;
-        }
-        
-        body.sidebar-open #sidebar { 
-            margin-left: 0 !important;
-            opacity: 1;
-        }
-
-        /* Comportement spécifique sur petit écran (overlay) */
+        /* Comportement sur petit écran (overlay) */
         @media (max-width: 1023.98px) {
             #sidebar { 
-                position: absolute; 
-                height: 100%; 
-                z-index: 100; 
+                position: fixed;
+                height: 100vh;
+                z-index: 1000;
+                top: 0;
+                left: 0;
             }
             
             #content-overlay { 
@@ -45,24 +35,12 @@
                 position: fixed; 
                 inset: 0; 
                 background-color: rgba(0, 0, 0, 0.5); 
-                z-index: 99; 
+                z-index: 999;
             }
             
             body.sidebar-open #content-overlay { 
                 display: block; 
             }
-        }
-
-        /* Animation pour le contenu principal */
-        .flex-1 {
-            transition: all 0.3s ease-in-out;
-        }
-
-        /* Quand sidebar fermée, le contenu principal occupe toute la largeur */
-        body.sidebar-collapsed .flex-1 {
-            margin-left: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
         }
 
         /* Styles pour les dropdowns */
@@ -113,6 +91,32 @@
             transform: translateX(4px) !important;
         }
 
+        /* Scrollbar personnalisée pour la sidebar */
+        .scrollbar-custom::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-custom::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .scrollbar-custom::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            transition: background 0.3s ease;
+        }
+
+        .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Pour Firefox */
+        .scrollbar-custom {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+        }
+
 
     </style>
     {% endblock %}
@@ -148,267 +152,93 @@
         <div id="content-overlay"></div>
     </div>
     
-    {% block extra_js %}
+    <!-- Script sidebar global - toujours exécuté -->
     <script>
-    console.log('=== BASE SCRIPT STARTING ===');
+    console.log('=== SIDEBAR SCRIPT GLOBAL ===');
     
-    // Script désactivé - utilisation du script direct dans sidebar.html
-    /*
-    // Système de sidebar robuste et illimité
-    window.SidebarManager = {
-        initialized: false,
-        
-        init: function() {
-            if (this.initialized) {
-                console.log('Sidebar already initialized, skipping...');
-                return;
-            }
-            
-            this.setupMobileToggle();
-            this.setupDropdowns();
-            this.initialized = true;
-            console.log('Sidebar initialized successfully');
-        },
-        
-        setupMobileToggle: function() {
-            const body = document.body;
-            const menuToggle = document.getElementById('menu-toggle');
-            
-            if (menuToggle) {
-                // Supprimer les anciens listeners
-                menuToggle.removeEventListener('click', this.mobileToggleHandler);
-                
-                // Fonction handler réutilisable
-                this.mobileToggleHandler = function() {
-                    body.classList.toggle('sidebar-open');
-                    body.classList.toggle('sidebar-collapsed');
-                };
-                
-                menuToggle.addEventListener('click', this.mobileToggleHandler);
-            }
-            
-            // Set initial state
-            if (window.innerWidth <= 1023) {
-                body.classList.add('sidebar-collapsed');
-            } else {
-                body.classList.add('sidebar-open');
-            }
-        },
-        
-        setupDropdowns: function() {
-            console.log('Setting up dropdowns with unlimited usage...');
-            
-            // Fonction de toggle réutilisable
-            const toggleDropdown = function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const targetId = this.dataset.target;
-                console.log('DROPDOWN CLICKED:', targetId);
-                
-                const menu = document.querySelector(targetId);
-                const chevron = this.querySelector('.fa-chevron-down');
-                
-                if (menu && chevron) {
-                    const isHidden = menu.classList.contains('hidden');
-                    
-                    if (isHidden) {
-                        // Ouvrir
-                        menu.classList.remove('hidden');
-                        menu.style.display = 'block';
-                        chevron.style.transform = 'rotate(180deg)';
-                        console.log('OPENED:', targetId);
-                    } else {
-                        // Fermer
-                        menu.classList.add('hidden');
-                        menu.style.display = 'none';
-                        chevron.style.transform = 'rotate(0deg)';
-                        console.log('CLOSED:', targetId);
-                    }
-                } else {
-                    console.error('Menu ou chevron non trouvé pour:', targetId);
-                }
-            };
-            
-            // Appliquer aux éléments existants et futurs
-            document.querySelectorAll('.toggle-dropdown').forEach(function(toggle) {
-                // Supprimer les anciens listeners
-                toggle.removeEventListener('click', toggleDropdown);
-                // Ajouter le nouveau listener
-                toggle.addEventListener('click', toggleDropdown);
-                console.log('Dropdown setup for:', toggle.dataset.target);
-            });
-        },
-        
-        // Méthode pour réinitialiser si nécessaire
-        reset: function() {
-            console.log('Resetting sidebar...');
-            this.initialized = false;
-            this.init();
-        }
-    };
-    
-    // Initialisation unique et simple
+    // Script pour le menu hamburger - fonctionne sur tous les écrans
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM ready, initializing sidebar...');
-        window.SidebarManager.init();
-    });
-    
-    // Méthode globale pour débloquer si nécessaire
-    window.resetSidebar = function() {
-        window.SidebarManager.reset();
-        console.log('Sidebar reset manually');
-    };
-    
-         // Observer pour les changements dynamiques
-     if (typeof MutationObserver !== 'undefined') {
-         const observer = new MutationObserver(function(mutations) {
-             mutations.forEach(function(mutation) {
-                 if (mutation.type === 'childList') {
-                     mutation.addedNodes.forEach(function(node) {
-                         if (node.nodeType === 1 && node.querySelector && node.querySelector('.toggle-dropdown')) {
-                             console.log('New dropdown detected, reinitializing...');
-                             window.SidebarManager.setupDropdowns();
-                         }
-                     });
-                 }
-             });
-         });
-         
-         observer.observe(document.body, {
-             childList: true,
-             subtree: true
-         });
-     }
-     
-     // Vérification périodique pour maintenir la fonctionnalité
-     setInterval(function() {
-         // Vérifier que les dropdowns fonctionnent
-         const dropdowns = document.querySelectorAll('.toggle-dropdown');
-         if (dropdowns.length > 0) {
-             let needsReset = false;
-             dropdowns.forEach(function(dropdown) {
-                 // Vérifier si l'élément a toujours ses listeners
-                 if (!dropdown.onclick && !dropdown._clickHandler) {
-                     needsReset = true;
-                 }
-             });
-             
-             if (needsReset) {
-                 console.log('Dropdowns detected as non-functional, resetting...');
-                 window.SidebarManager.setupDropdowns();
-             }
-         }
-     }, 10000); // Vérification toutes les 10 secondes
-     
-     // Fonction de test pour l'utilisateur
-     window.testSidebar = function() {
-         console.log('=== SIDEBAR TEST ===');
-         const dropdowns = document.querySelectorAll('.toggle-dropdown');
-         console.log('Dropdowns found:', dropdowns.length);
-         
-         dropdowns.forEach((dropdown, index) => {
-             const target = dropdown.dataset.target;
-             const menu = document.querySelector(target);
-             const chevron = dropdown.querySelector('.fa-chevron-down');
-             
-             console.log(`Dropdown ${index + 1}:`, {
-                 target: target,
-                 hasMenu: !!menu,
-                 hasChevron: !!chevron,
-                 isHidden: menu ? menu.classList.contains('hidden') : 'N/A'
-             });
-         });
-         
-                   console.log('SidebarManager initialized:', window.SidebarManager.initialized);
-          console.log('=== END TEST ===');
-      };
-      */
-      
-      // Script pour le menu hamburger - fonctionne sur tous les écrans
-      document.addEventListener('DOMContentLoaded', function() {
-          console.log('🔧 Setting up hamburger menu...');
-          
-          const body = document.body;
-          const menuToggle = document.getElementById('menu-toggle');
-          const contentOverlay = document.getElementById('content-overlay');
-          
-          // État initial - sidebar ouverte par défaut sur desktop, fermée sur mobile
+        const body = document.body;
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const contentOverlay = document.getElementById('content-overlay');
+        const sidebar = document.getElementById('sidebar');
+        console.log('🔍 Sidebar element found:', !!sidebar, sidebar);
+        let isSidebarOpen = true;
+        
+        // Toggle de la sidebar avec animation du hamburger
+        function toggleSidebar() {
+            console.log('🔄 Toggle sidebar clicked, current state:', isSidebarOpen);
+            isSidebarOpen = !isSidebarOpen;
+            
+            if (isSidebarOpen) {
+                // Ouvrir la sidebar
+                console.log('✅ Opening sidebar');
+                sidebar.style.transform = 'translateX(0)';
+                sidebar.style.width = '256px';
+                menuToggle.classList.remove('hamburger-active');
+            } else {
+                // Fermer la sidebar
+                console.log('❌ Closing sidebar');
+                sidebar.style.transform = 'translateX(-100%)';
+                sidebar.style.width = '0px';
+                menuToggle.classList.add('hamburger-active');
+            }
+            
+            console.log('📏 New state - isSidebarOpen:', isSidebarOpen);
+            console.log('📏 Transform:', sidebar.style.transform);
+            console.log('📏 Width:', sidebar.style.width);
+            }
+            
+        function closeSidebarMobile() {
+            if (window.innerWidth <= 1023) {
+                sidebar.style.transform = 'translateX(-100%)';
+                menuToggle.classList.add('hamburger-active');
+                isSidebarOpen = false;
+            }
+        }
+
           if (window.innerWidth <= 1023) {
-              body.classList.remove('sidebar-open');
               body.classList.add('sidebar-collapsed');
-              console.log('📱 Mobile: sidebar fermée par défaut');
           } else {
-              body.classList.remove('sidebar-collapsed');
-              body.classList.add('sidebar-open');
-              console.log('🖥️ Desktop: sidebar ouverte par défaut');
-          }
-          
-          // Fonction pour toggle la sidebar
-          function toggleSidebar() {
-              console.log('🔄 Toggle sidebar clicked');
-              
-              const sidebar = document.getElementById('sidebar');
-              const isCollapsed = body.classList.contains('sidebar-collapsed');
-              
-              if (isCollapsed) {
-                  // Ouvrir la sidebar
-                  body.classList.remove('sidebar-collapsed');
                   body.classList.add('sidebar-open');
-                  console.log('✅ Sidebar opened');
-              } else {
-                  // Fermer la sidebar
-                  body.classList.remove('sidebar-open');
-                  body.classList.add('sidebar-collapsed');
-                  console.log('❌ Sidebar closed');
-              }
-              
-              // Debug: afficher l'état de la sidebar
-              if (sidebar) {
-                  setTimeout(() => {
-                      const styles = window.getComputedStyle(sidebar);
-                      console.log('📏 Sidebar margin-left:', styles.marginLeft);
-                      console.log('📏 Sidebar opacity:', styles.opacity);
-                  }, 100);
-              }
-          }
-          
-          // Event listener pour le bouton hamburger
+        }
+
           if (menuToggle) {
               menuToggle.addEventListener('click', toggleSidebar);
-              console.log('🎯 Hamburger button listener added');
-          } else {
-              console.warn('⚠️ Menu toggle button not found');
-          }
-          
-          // Event listener pour l'overlay (fermer sur mobile)
+        }
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', closeSidebarMobile);
+        }
           if (contentOverlay) {
-              contentOverlay.addEventListener('click', function() {
-                  if (window.innerWidth <= 1023) {
-                      body.classList.remove('sidebar-open');
-                      body.classList.add('sidebar-collapsed');
-                      console.log('📱 Sidebar closed via overlay');
-                  }
-              });
-          }
-          
-          // Réajuster lors du redimensionnement
-          window.addEventListener('resize', function() {
-              if (window.innerWidth <= 1023) {
-                  // Mobile: fermer la sidebar
-                  body.classList.remove('sidebar-open');
-                  body.classList.add('sidebar-collapsed');
+            contentOverlay.addEventListener('click', closeSidebarMobile);
+        }
+
+        // Responsive : fermer la sidebar sur mobile
+        function checkScreenSize() {
+            if (window.innerWidth < 1024) { // lg breakpoint
+                if (isSidebarOpen) {
+                    sidebar.style.transform = 'translateX(-100%)';
+                    menuToggle.classList.add('hamburger-active');
+                    isSidebarOpen = false;
+                }
               } else {
-                  // Desktop: ouvrir la sidebar si elle était fermée par le redimensionnement
-                  if (!body.classList.contains('sidebar-open') && !body.classList.contains('sidebar-collapsed')) {
-                      body.classList.add('sidebar-open');
+                if (!isSidebarOpen) {
+                    sidebar.style.transform = 'translateX(0)';
+                    sidebar.style.width = '256px';
+                    menuToggle.classList.remove('hamburger-active');
+                    isSidebarOpen = true;
                   }
               }
-          });
-          
-          console.log('✅ Hamburger menu setup complete');
+        }
+        
+        // Vérifier la taille d'écran au chargement et au redimensionnement
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
       });
     </script>
+    
+    {% block extra_js %}
     {% endblock %}
 </body>
 </html>

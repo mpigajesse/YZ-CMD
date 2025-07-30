@@ -77,11 +77,15 @@
                     <small class="text-gray-600">Nombre de paires en stock (minimum 0)</small>
                 </div>
                 <div>
-                    <label for="id_image" class="block text-sm font-semibold mb-2" style="color: #023535;">Image actuelle:</label>
+                    <label class="block text-sm font-semibold mb-2" style="color: #023535;">Image actuelle:</label>
                     {% if article.image %}
-                        <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-32 h-32 object-cover rounded-lg shadow-sm mb-2"/>
+                        <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-32 h-32 object-cover rounded-lg shadow-sm mb-2" onerror="this.onerror=null;this.src='/static/img/default.png';"/>
+                    {% elif article.image_url %}
+                        <img src="{{ article.image_url }}" alt="{{ article.nom }}" class="w-32 h-32 object-cover rounded-lg shadow-sm mb-2" onerror="this.onerror=null;this.src='/static/img/default.png';"/>
                     {% else %}
-                        <p class="text-gray-500 text-sm mb-2">Aucune image actuelle.</p>
+                        <div class="w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-3xl shadow-sm mb-2">
+                            <i class="fas fa-image"></i>
+                        </div>
                     {% endif %}
                     <label for="id_image" class="block text-sm font-semibold mb-2" style="color: #023535;">Changer l'image:</label>
                     <input type="file" name="image" id="id_image" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">

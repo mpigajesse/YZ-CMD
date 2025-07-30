@@ -801,91 +801,279 @@ def changer_mot_de_passe_admin(request):
         form = PasswordChangeForm(request.user)
     return render(request, 'parametre/changer_mot_de_passe_admin.html', {'form': form})
 
-@staff_member_required
-@login_required
-def modifier_mot_de_passe_operateur(request, pk):
-    """Permet à l'admin de modifier le mot de passe d'un opérateur"""
-    operateur = get_object_or_404(Operateur, pk=pk)
-    
-    if request.method == 'POST':
-        nouveau_mot_de_passe = request.POST.get('nouveau_mot_de_passe')
-        confirmer_mot_de_passe = request.POST.get('confirmer_mot_de_passe')
-        
-        # Validation
-        if not nouveau_mot_de_passe:
-            messages.error(request, "Le nouveau mot de passe est obligatoire.")
-            return render(request, 'parametre/modifier_mot_de_passe_operateur.html', {'operateur': operateur})
-        
-        if len(nouveau_mot_de_passe) < 6:
-            messages.error(request, "Le mot de passe doit contenir au moins 6 caractères.")
-            return render(request, 'parametre/modifier_mot_de_passe_operateur.html', {'operateur': operateur})
-        
-        if nouveau_mot_de_passe != confirmer_mot_de_passe:
-            messages.error(request, "Les mots de passe ne correspondent pas.")
-            return render(request, 'parametre/modifier_mot_de_passe_operateur.html', {'operateur': operateur})
-        
-        try:
-            # Changer le mot de passe
-            user = operateur.user
-            user.set_password(nouveau_mot_de_passe)
-            user.save()
-            
-            # Enregistrer dans l'historique
-            def get_client_ip(request):
-                x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-                if x_forwarded_for:
-                    ip = x_forwarded_for.split(',')[0]
-                else:
-                    ip = request.META.get('REMOTE_ADDR')
-                return ip
-            
-            HistoriqueMotDePasse.objects.create(
-                operateur=operateur,
-                administrateur=request.user,
-                adresse_ip=get_client_ip(request),
-                commentaire=f"Mot de passe modifié par l'administrateur {request.user.get_full_name() or request.user.username}"
-            )
-            
-            messages.success(request, f"Le mot de passe de {operateur.prenom} {operateur.nom} a été modifié avec succès.")
-            return redirect('app_admin:detail_operateur', pk=operateur.pk)
-            
-        except Exception as e:
-            messages.error(request, f"Une erreur est survenue lors de la modification du mot de passe : {str(e)}")
-    
-    context = {
-        'operateur': operateur,
-    }
-    return render(request, 'parametre/modifier_mot_de_passe_operateur.html', context)
+# ======================== VUES SERVICE APRÈS-VENTE POUR ADMIN ========================
 
 @staff_member_required
 @login_required
-def gestion_mots_de_passe(request):
-    """Vue pour la gestion globale des mots de passe des opérateurs"""
-    operateurs = Operateur.objects.select_related('user').prefetch_related('historique_mots_de_passe').exclude(type_operateur='ADMIN').order_by('nom', 'prenom')
+def sav_commandes_retournees(request):
+    """Vue admin pour afficher les commandes retournées"""
+    from commande.models import Commande, EtatCommande
     
-    # Recherche
-    search = request.GET.get('search')
-    if search:
-        operateurs = operateurs.filter(
-            Q(nom__icontains=search) | 
-            Q(prenom__icontains=search) |
-            Q(mail__icontains=search)
-        )
-    
-    # Filtrage par type
-    type_filter = request.GET.get('type')
-    if type_filter:
-        operateurs = operateurs.filter(type_operateur=type_filter)
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Retournée',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
+        'etats__enum_etat', 'etats__operateur', 'paniers__article'
+    ).order_by('-etats__date_debut').distinct()
     
     # Pagination
-    paginator = Paginator(operateurs, 20)
+    paginator = Paginator(commandes, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
     context = {
         'page_obj': page_obj,
-        'search': search,
-        'type_filter': type_filter,
-        'types_operateur': [choice for choice in Operateur.TYPE_OPERATEUR_CHOICES if choice[0] != 'ADMIN'],
+        'title': 'Commandes Retournées',
+        'subtitle': 'Commandes retournées par les clients ou opérateurs logistiques',
+        'icon': 'fa-undo',
+        'color': 'red'
     }
-    return render(request, 'parametre/gestion_mots_de_passe.html', context)
+    return render(request, 'parametre/sav/liste_commandes_sav.html', context)
+
+@staff_member_required
+@login_required
+def sav_commandes_reportees(request):
+    """Vue admin pour afficher les commandes reportées"""
+    from commande.models import Commande, EtatCommande
+    
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Reportée',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
+        'etats__enum_etat', 'etats__operateur', 'paniers__article'
+    ).order_by('-etats__date_debut').distinct()
+            
+    # Pagination
+    paginator = Paginator(commandes, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'title': 'Commandes Reportées',
+        'subtitle': 'Commandes dont la livraison a été reportée',
+        'icon': 'fa-clock',
+        'color': 'orange'
+    }
+    return render(request, 'parametre/sav/liste_commandes_sav.html', context)
+
+@staff_member_required
+@login_required
+def sav_livrees_partiellement(request):
+    """Vue admin pour afficher les commandes livrées partiellement"""
+    from commande.models import Commande, EtatCommande
+    
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée Partiellement',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
+        'etats__enum_etat', 'etats__operateur', 'paniers__article'
+    ).order_by('-etats__date_debut').distinct()
+    
+    # Pagination
+    paginator = Paginator(commandes, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'title': 'Commandes Livrées Partiellement',
+        'subtitle': 'Commandes avec livraison partielle',
+        'icon': 'fa-box-open',
+        'color': 'yellow'
+    }
+    return render(request, 'parametre/sav/liste_commandes_sav.html', context)
+
+@staff_member_required
+@login_required
+def sav_annulees_sav(request):
+    """Vue admin pour afficher les commandes annulées au niveau SAV"""
+    from commande.models import Commande, EtatCommande
+    
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Annulée (SAV)',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
+        'etats__enum_etat', 'etats__operateur', 'paniers__article'
+    ).order_by('-etats__date_debut').distinct()
+    
+    # Pagination
+    paginator = Paginator(commandes, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'title': 'Commandes Annulées (SAV)',
+        'subtitle': 'Commandes annulées lors de la livraison',
+        'icon': 'fa-times-circle',
+        'color': 'gray'
+    }
+    return render(request, 'parametre/sav/liste_commandes_sav.html', context)
+
+@staff_member_required
+@login_required
+def sav_livrees_avec_changement(request):
+    """Vue admin pour afficher les commandes livrées avec changement"""
+    from commande.models import Commande, EtatCommande
+    
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée avec changement',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
+        'etats__enum_etat', 'etats__operateur', 'paniers__article'
+    ).order_by('-etats__date_debut').distinct()
+    
+    # Pagination
+    paginator = Paginator(commandes, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'title': 'Commandes Livrées avec Changement',
+        'subtitle': 'Commandes livrées avec modifications',
+        'icon': 'fa-exchange-alt',
+        'color': 'blue'
+    }
+    return render(request, 'parametre/sav/liste_commandes_sav.html', context)
+
+@staff_member_required
+@login_required
+def sav_livrees(request):
+    """Vue admin pour afficher les commandes livrées avec succès"""
+    from commande.models import Commande, EtatCommande
+    
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée',
+        etats__date_fin__isnull=True
+    ).select_related('client', 'ville', 'ville__region').prefetch_related(
+        'etats__enum_etat', 'etats__operateur', 'paniers__article'
+    ).order_by('-etats__date_debut').distinct()
+    
+    # Pagination
+    paginator = Paginator(commandes, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'title': 'Commandes Livrées',
+        'subtitle': 'Commandes livrées avec succès',
+        'icon': 'fa-check-circle',
+        'color': 'green'
+    }
+    return render(request, 'parametre/sav/liste_commandes_sav.html', context)
+
+@staff_member_required
+@login_required
+@require_POST
+def sav_creer_nouvelle_commande(request, commande_id):
+    """Créer une nouvelle commande pour les articles défectueux retournés"""
+    from commande.models import Commande, Panier, EtatCommande, EnumEtatCmd
+    from django.db import transaction
+    from django.utils import timezone
+    import json
+    
+    try:
+        commande_originale = get_object_or_404(Commande, id=commande_id)
+        
+        # Récupérer les articles défectueux depuis la requête POST
+        articles_defectueux = json.loads(request.POST.get('articles_defectueux', '[]'))
+        commentaire = request.POST.get('commentaire', '')
+        
+        if not articles_defectueux:
+            messages.error(request, "Aucun article défectueux spécifié.")
+            return redirect('app_admin:sav_commandes_retournees')
+        
+        with transaction.atomic():
+            # Créer une nouvelle commande
+            nouvelle_commande = Commande.objects.create(
+                client=commande_originale.client,
+                ville=commande_originale.ville,
+                total_cmd=0,  # Sera recalculé
+                num_cmd=f"SAV-{commande_originale.num_cmd}",
+                id_yz=f"SAV-{commande_originale.id_yz}",
+                is_upsell=False
+            )
+            
+            total = 0
+            # Créer les paniers pour les articles défectueux
+            for article_data in articles_defectueux:
+                article_id = article_data['article_id']
+                quantite = int(article_data['quantite'])
+                
+                # Récupérer l'article original
+                panier_original = commande_originale.paniers.filter(
+                    article_id=article_id
+                ).first()
+                
+                if panier_original:
+                    Panier.objects.create(
+                        commande=nouvelle_commande,
+                        article=panier_original.article,
+                        quantite=quantite,
+                        sous_total=panier_original.article.prix_unitaire * quantite
+                    )
+                    total += panier_original.article.prix_unitaire * quantite
+            
+            # Mettre à jour le total de la commande
+            nouvelle_commande.total_cmd = total
+            nouvelle_commande.save()
+            
+            # Créer l'état initial "Non affectée"
+            enum_etat = EnumEtatCmd.objects.get(libelle='Non affectée')
+            EtatCommande.objects.create(
+                commande=nouvelle_commande,
+                enum_etat=enum_etat,
+                operateur=request.user.profil_operateur,
+                date_debut=timezone.now(),
+                commentaire=f"Commande SAV créée pour articles défectueux. {commentaire}"
+            )
+            
+            messages.success(request, 
+                f"Nouvelle commande SAV créée avec succès : {nouvelle_commande.num_cmd}")
+            return redirect('commande:detail', commande_id=nouvelle_commande.id)
+            
+    except Exception as e:
+        messages.error(request, f"Erreur lors de la création de la commande SAV : {str(e)}")
+        return redirect('app_admin:sav_commandes_retournees')
+
+@staff_member_required
+@login_required
+@require_POST
+def sav_renvoyer_preparation(request, commande_id):
+    """Renvoyer la commande aux opérateurs de préparation suite aux modifications du client"""
+    from commande.models import Commande, EtatCommande, EnumEtatCmd
+    from django.db import transaction
+    from django.utils import timezone
+    
+    try:
+        commande = get_object_or_404(Commande, id=commande_id)
+        commentaire = request.POST.get('commentaire', '')
+        modifications = request.POST.get('modifications', '')
+        
+        with transaction.atomic():
+            # Fermer l'état actuel
+            etat_actuel = commande.etat_actuel
+            if etat_actuel:
+                etat_actuel.date_fin = timezone.now()
+                etat_actuel.save()
+            
+            # Créer un nouvel état "En préparation"
+            enum_etat = EnumEtatCmd.objects.get(libelle='Préparation en cours')
+            EtatCommande.objects.create(
+                commande=commande,
+                enum_etat=enum_etat,
+                operateur=request.user.profil_operateur,
+                date_debut=timezone.now(),
+                commentaire=f"Renvoyé en préparation suite à modification client. {modifications}. {commentaire}"
+            )
+            
+            messages.success(request, 
+                f"Commande {commande.num_cmd} renvoyée en préparation avec succès.")
+            return redirect('commande:detail', commande_id=commande.id)
+            
+    except Exception as e:
+        messages.error(request, f"Erreur lors du renvoi en préparation : {str(e)}")
+        return redirect('app_admin:sav_commandes_retournees')
