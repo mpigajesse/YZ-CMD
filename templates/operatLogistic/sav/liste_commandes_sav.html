@@ -5,6 +5,13 @@
 
 {% block content %}
 <div class="main-content transition-all duration-300" id="mainContent">
+    <!-- DEBUG: Affichage brut des articles livrés et renvoyés pour chaque commande -->
+    {% for commande in commandes %}
+        <pre style="color:red; background:#fffbe6; border:1px solid #fbbf24; padding:8px; margin-bottom:8px;">
+        LIVRES: {{ commande.articles_livres_partiellement|safe }}
+        RENVOYES: {{ commande.articles_renvoyes|safe }}
+        </pre>
+    {% endfor %}
     <!-- En-tête de la page -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" 
          style="background: linear-gradient(to right, 
@@ -60,8 +67,8 @@
                 {% for commande in commandes %}
                 <tr class="hover:bg-gray-50" 
                     data-commande-id="{{ commande.id }}"
-                    data-articles-livres='{% if commande.articles_livres_partiellement %}[{% for article_data in commande.articles_livres_partiellement %}{"nom": "{{ article_data.nom|escapejs }}", "reference": "{{ article_data.reference|escapejs }}", "quantite_livree": {{ article_data.quantite_livree }}, "prix_unitaire": "{{ article_data.prix_unitaire|floatformat:2 }}", "pointure": "{{ article_data.pointure|default:''|escapejs }}", "couleur": "{{ article_data.couleur|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %}'
-                    data-articles-renvoyes='{% if commande.articles_renvoyes %}[{% for article_data in commande.articles_renvoyes %}{"nom": "{{ article_data.nom|escapejs }}", "reference": "{{ article_data.reference|escapejs }}", "quantite": {{ article_data.quantite }}, "prix_unitaire": "{{ article_data.prix_unitaire|floatformat:2 }}", "pointure": "{{ article_data.pointure|default:''|escapejs }}", "couleur": "{{ article_data.couleur|default:''|escapejs }}", "etat": "{{ article_data.etat|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %}'
+                    data-articles-livres='{% if commande.articles_livres_partiellement %}[{% for article_data in commande.articles_livres_partiellement %}{"nom": "{{ article_data.nom|escapejs }}", "reference": "{{ article_data.reference|escapejs }}", "quantite_livree": {{ article_data.quantite_livree }}, "prix_unitaire": "{{ article_data.prix_unitaire|stringformat:'%.2f' }}", "pointure": "{{ article_data.pointure|default:''|escapejs }}", "couleur": "{{ article_data.couleur|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %}'
+                    data-articles-renvoyes='{% if commande.articles_renvoyes %}[{% for article_data in commande.articles_renvoyes %}{"nom": "{{ article_data.nom|escapejs }}", "reference": "{{ article_data.reference|escapejs }}", "quantite": {{ article_data.quantite }}, "prix_unitaire": "{{ article_data.prix_unitaire|stringformat:'%.2f' }}", "pointure": "{{ article_data.pointure|default:''|escapejs }}", "couleur": "{{ article_data.couleur|default:''|escapejs }}", "etat": "{{ article_data.etat|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %}'
                     data-commentaire="{{ commande.commentaire_livraison_partielle|escapejs }}"
                     data-date-livraison="{% if commande.date_livraison_partielle %}{{ commande.date_livraison_partielle|date:'d/m/Y H:i' }}{% endif %}"
                     data-operateur="{% if commande.operateur_livraison %}{{ commande.operateur_livraison.prenom }} {{ commande.operateur_livraison.nom }}{% endif %}">
@@ -385,6 +392,12 @@ function afficherDetailsArticles(commandeId, commandeNum) {
     
     // Section des articles livrés
     if (articlesLivres.length > 0) {
+        // --- DEBUG PRIX ARTICLES LIVRES ---
+        console.log('DEBUG SAV - Articles Livrés (raw):', articlesLivres);
+        articlesLivres.forEach(article => {
+            console.log('DEBUG SAV - Article Livré:', article.nom, '| Prix brut:', article.prix_unitaire, '| Type:', typeof article.prix_unitaire);
+        });
+        // --- FIN DEBUG ---
         content += `
             <div class="bg-green-50 p-4 rounded-lg border border-green-200">
                 <h4 class="font-semibold text-green-800 mb-4 flex items-center">
@@ -394,6 +407,8 @@ function afficherDetailsArticles(commandeId, commandeNum) {
         `;
         
         articlesLivres.forEach(article => {
+            let prix = parseFloat(article.prix_unitaire);
+            if (isNaN(prix) || prix === 0) prix = 0.00;
             content += `
                 <div class="bg-white p-3 rounded-lg border border-green-200 shadow-sm">
                     <div class="flex items-center justify-between">
@@ -412,7 +427,7 @@ function afficherDetailsArticles(commandeId, commandeNum) {
                                 </span>
                                 <span class="text-lg font-bold text-green-600">${article.quantite_livree}x</span>
                             </div>
-                            <div class="text-sm text-gray-600 mt-1">${article.prix_unitaire} DH</div>
+                            <div class="text-sm text-gray-600 mt-1">${prix.toFixed(2)} DH</div>
                         </div>
                     </div>
                 </div>
@@ -427,6 +442,12 @@ function afficherDetailsArticles(commandeId, commandeNum) {
     
     // Section des articles renvoyés
     if (articlesRenvoyes.length > 0) {
+        // --- DEBUG PRIX ARTICLES RENVOYES ---
+        console.log('DEBUG SAV - Articles Renvoyés (raw):', articlesRenvoyes);
+        articlesRenvoyes.forEach(article => {
+            console.log('DEBUG SAV - Article Renvoyé:', article.nom, '| Prix brut:', article.prix_unitaire, '| Type:', typeof article.prix_unitaire);
+        });
+        // --- FIN DEBUG ---
         content += `
             <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
                 <h4 class="font-semibold text-orange-800 mb-4 flex items-center">
@@ -444,6 +465,8 @@ function afficherDetailsArticles(commandeId, commandeNum) {
             } else {
                 badgeEtat = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 ml-2"><i class="fas fa-question-circle mr-1"></i>Inconnu</span>`;
             }
+            let prix = parseFloat(article.prix_unitaire);
+            if (isNaN(prix) || prix === 0) prix = 0.00;
             content += `
                 <div class="bg-white p-3 rounded-lg border border-orange-200 shadow-sm">
                     <div class="flex items-center justify-between">
@@ -462,7 +485,7 @@ function afficherDetailsArticles(commandeId, commandeNum) {
                                 </span>
                                 <span class="text-lg font-bold text-orange-600">${article.quantite}x</span>
                             </div>
-                            <div class="text-sm text-gray-600 mt-1">${article.prix_unitaire} DH</div>
+                            <div class="text-sm text-gray-600 mt-1">${prix.toFixed(2)} DH</div>
                         </div>
                     </div>
                 </div>
