@@ -1,0 +1,85 @@
+{% extends 'composant_generale/admin/base.html' %}
+
+{% block title %}Accueil - Administration YZ-CMD{% endblock %}
+
+{% block page_title %}Tableau de Bord{% endblock %}
+{% block page_subtitle %}Vue d'overview de l'activité{% endblock %}
+
+{% block content %}
+<!-- Statistiques rapides avec animations -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.1s;">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                    <i class="fas fa-shopping-cart text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Commandes</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ stats.total_commandes }}</p>
+                </div>
+            </div>
+            <div class="text-green-500 text-sm font-semibold bg-green-50 px-2 py-1 rounded-full">
+                +0%
+            </div>
+        </div>
+    </div>
+    
+    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.2s;">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                    <i class="fas fa-box text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Articles</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.total_articles }}</p>
+                </div>
+            </div>
+            <div class="text-green-500 text-sm font-semibold bg-green-50 px-2 py-1 rounded-full">
+                {{ stats.articles_disponibles }} disponibles
+            </div>
+        </div>
+    </div>
+    
+    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-red-300 animate-slideInUp" style="animation-delay: 0.4s;">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
+                    <i class="fas fa-truck text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Livraisons</p>
+                    <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600" id="livraisons-count">0</p>
+                </div>
+            </div>
+            <div class="text-green-500 text-sm font-semibold bg-green-50 px-2 py-1 rounded-full">
+                +0%
+        </div>
+    </div>
+</div>
+
+    <div class="group bg-white rounded-2xl shadow-lg p-6 transform transition-all duration-500 hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s; hover:border-color: #66cccc;">
+        <div class="flex items-center justify-between">
+            <div class="p-4 rounded-full transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(to right, #f0fffe, #e6fffe); color: #023535; group-hover:background: linear-gradient(to right, #023535, #034a4a); group-hover:color: white;">
+                <div class="flex -space-x-2">
+                    {% for operateur in active_operators_for_display %}
+                        {% if operateur.photo %}
+                            <img src="{{ operateur.photo.url }}" alt="Photo de profil" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md">
+                        {% else %}
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500 text-white font-bold text-lg leading-none border-2 border-white" style="background-color: #4B352A; color: white;">
+                                {{ operateur.prenom|first|upper }}{{ operateur.nom|first|upper }}
+        </div>
+                        {% endif %}
+                    {% endfor %}
+        </div>
+            </div>
+            <div class="text-right">
+                <p class="text-sm font-medium text-gray-600 mb-1">Opérateurs Actifs</p>
+                <p class="text-3xl font-bold text-gray-900 transition-all duration-300" style="group-hover:color: #023535;">{{ stats.operateurs_actifs }}</p>
+                <p class="text-xs text-green-600 font-semibold">sur {{ stats.total_operateurs }} total</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

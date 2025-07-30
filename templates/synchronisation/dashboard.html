@@ -1,0 +1,373 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard Synchronisation - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    /* Spinner animations */
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    @keyframes progressBar {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+    }
+
+    .spinner-sync {
+        animation: spin 1s linear infinite;
+    }
+
+    .pulse-sync {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .progress-bar-sync {
+        animation: progressBar 3s ease-in-out infinite;
+    }
+
+    /* Modal de synchronisation avec effet glassmorphism */
+    .sync-modal-backdrop {
+        backdrop-filter: blur(10px);
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .sync-modal-content {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-tachometer-alt mr-3" style="color: var(--admin-accent-color);"></i>
+                Dashboard Synchronisation
+            </h1>
+            <p style="color: var(--admin-accent-color);">Vue d'ensemble des synchronisations</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'synchronisation:config_list' %}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-cogs mr-2"></i>Configurations
+            </a>
+            <a href="{% url 'synchronisation:logs' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-history mr-2"></i>Logs
+            </a>
+        </div>
+    </div>
+
+    <!-- Cartes d'actions rapides -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Configurations -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-cogs text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Configurations</p>
+                        <p class="text-lg font-semibold text-gray-900 transition-all duration-300 group-hover:text-blue-600">Gérer les configurations</p>
+                    </div>
+                </div>
+                <a href="{% url 'synchronisation:config_list' %}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                    Voir
+                </a>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-history text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Logs</p>
+                        <p class="text-lg font-semibold text-gray-900 transition-all duration-300 group-hover:text-green-600">Historique des syncs</p>
+                    </div>
+                </div>
+                <a href="{% url 'synchronisation:logs' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                    Voir
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cartes de statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Carte des configurations actives -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-cogs text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Configurations Actives</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ configs.count }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Carte des synchronisations récentes -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-sync text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Synchronisations Récentes</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ recent_logs.count }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Carte des erreurs -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-red-300 animate-slideInUp" style="animation-delay: 0.5s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Erreurs récentes</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600">{{ nb_erreurs }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des configurations -->
+    <div class="bg-white rounded-lg shadow-md mb-8">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-gray-800">Configurations actives</h2>
+                <div class="flex space-x-3">
+                    <a href="{% url 'synchronisation:config_create' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                        <i class="fas fa-plus mr-2"></i>
+                        Nouvelle configuration
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+                <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Nom de la feuille</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">URL</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Statut</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Dernière Sync</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for config in configs %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">{{ config.sheet_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ config.sheet_url|truncatechars:50 }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {% if config.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ config.is_active|yesno:"Actif,Inactif" }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
+                            {% if config.last_sync %}
+                                <div class="flex flex-col">
+                                    <div class="flex items-center">
+                                        <span class="font-medium">{{ config.last_sync|date:"d/m/Y" }}</span>
+                                        {% if config.last_sync_status == 'success' %}
+                                            <i class="fas fa-check-circle text-green-500 ml-2" title="Synchronisation réussie"></i>
+                                        {% elif config.last_sync_status == 'partial' %}
+                                            <i class="fas fa-exclamation-triangle text-yellow-500 ml-2" title="Synchronisation partielle"></i>
+                                        {% elif config.last_sync_status == 'error' %}
+                                            <i class="fas fa-times-circle text-red-500 ml-2" title="Erreur de synchronisation"></i>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-xs text-gray-400">{{ config.last_sync|date:"H:i" }}</span>
+                                    {% if config.last_sync_records > 0 %}
+                                        <span class="text-xs text-blue-600 font-medium">{{ config.last_sync_records }} enreg.</span>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span class="text-gray-400 italic">Jamais synchronisé</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div class="flex space-x-3">
+                                <button onclick="syncNow({{ config.id }}, '{{ config.sheet_name|escapejs }}')" class="text-blue-600 hover:text-blue-900 transition-colors" title="Synchroniser cette configuration">
+                                    <i class="fas fa-sync"></i>
+                                </button>
+                                <button onclick="testConnectionWithSpinner({{ config.id }})" class="text-purple-600 hover:text-purple-900 transition-colors" title="Tester la connexion">
+                                    <i class="fas fa-plug"></i>
+                                </button>
+                                <a href="{% url 'synchronisation:config_edit' config.id %}" class="text-indigo-600 hover:text-indigo-900 transition-colors">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button onclick="showCustomConfirmModal('{% url 'synchronisation:config_delete' config.id %}', 'la configuration &quot;{{ config.sheet_name|escapejs }}&quot;')" class="text-red-600 hover:text-red-900 transition-colors">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500 border-gray-200">
+                            Aucune configuration active
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Logs récents -->
+    <div class="bg-white rounded-lg shadow-md">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-gray-800">Logs récents</h2>
+                <a href="{% url 'synchronisation:logs' %}" class="text-sm text-blue-600 hover:text-blue-900 flex items-center">
+                    <i class="fas fa-history mr-2"></i>Voir tous les logs
+                </a>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+                <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Configuration</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Statut</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Enregistrements</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for log in recent_logs %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ log.sync_date|date:"d/m/Y H:i" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ log.sheet_config.sheet_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {% if log.status == 'success' %}bg-green-100 text-green-800
+                                {% elif log.status == 'error' %}bg-red-100 text-red-800
+                                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                {{ log.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.records_imported }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">
+                            Aucun log récent
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Inclusion du modal de synchronisation réutilisable -->
+{% include 'synchronisation/_sync_progress_modal.html' %}
+
+<!-- Inclusion du toast de notification -->
+{% include 'composant_generale/sync_notification_toast.html' %}
+
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chargement du système de spinners de synchronisation centralisé -->
+<script src="{% static 'js/sync-spinner.js' %}"></script>
+<!-- Chargement du système de notifications amélioré -->
+<script src="{% static 'js/sync-enhanced.js' %}"></script>
+
+<script>
+    // Scripts spécifiques au dashboard
+
+    // Surcharge de la fonction showCustomConfirmModal pour les callbacks personnalisés
+    document.addEventListener('DOMContentLoaded', function() {
+        const originalShowCustomConfirmModal = window.showCustomConfirmModal;
+        if (typeof originalShowCustomConfirmModal === 'function') {
+            window.showCustomConfirmModal = function(deleteUrl, itemDescription, selectedIds = null, customCallback = null) {
+                const confirmBtn = document.getElementById('confirmDeleteBtn');
+                const modalText = document.getElementById('itemName');
+
+                if (customCallback) {
+                    // Mode callback personnalisé
+                    modalText.textContent = itemDescription;
+                    confirmBtn.onclick = function() {
+                        customCallback();
+                        document.getElementById('customConfirmModal').classList.add('hidden');
+                    };
+                } else {
+                    // Mode suppression standard
+                    modalText.textContent = itemDescription;
+                    confirmBtn.onclick = function() {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = deleteUrl;
+
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = 'csrfmiddlewaretoken';
+                        csrfInput.value = getCookie('csrftoken');
+                        form.appendChild(csrfInput);
+
+                        if (selectedIds) {
+                            selectedIds.forEach(id => {
+                                const idInput = document.createElement('input');
+                                idInput.type = 'hidden';
+                                idInput.name = 'ids[]';
+                                idInput.value = id;
+                                form.appendChild(idInput);
+                            });
+                        }
+                        document.body.appendChild(form);
+                        form.submit();
+                    };
+                }
+                document.getElementById('customConfirmModal').classList.remove('hidden');
+            };
+        }
+    });
+</script>
+{% endblock %} 

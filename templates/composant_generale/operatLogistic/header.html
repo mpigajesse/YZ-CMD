@@ -1,0 +1,65 @@
+<header class="bg-white shadow-md px-6 py-4 border-b" style="border-color: var(--logistic-border-accent);">
+    <div class="flex items-center justify-between">
+        <!-- Menu hamburger pour mobile -->
+        <button id="menu-toggle" class="p-2 rounded-lg transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-opacity-50" style="hover:background-color: var(--logistic-hover-bg); focus:ring-color: var(--logistic-primary); background-color: var(--logistic-light);">
+            <div class="space-y-1.5">
+                <span id="hamburger-line-1" class="block w-6 h-0.5 transition-all duration-300 transform origin-center bg-white"></span>
+                <span id="hamburger-line-2" class="block w-6 h-0.5 mt-1.5 transition-all duration-300 transform origin-center bg-white"></span>
+                <span id="hamburger-line-3" class="block w-6 h-0.5 mt-1.5 transition-all duration-300 transform origin-center bg-white"></span>
+            </div>
+        </button>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">{% block page_title %}Commandes{% endblock %}</h1>
+            <p class="text-gray-600 text-sm">{% block page_subtitle %}Interface Opérateur Logistique{% endblock %}</p>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <div class="text-right">
+                <p class="text-gray-700 font-medium">{{ user.get_full_name|default:user.username }}</p>
+                <p class="text-xs text-gray-500">
+                    {% if user.profil_operateur %}
+                        {{ user.profil_operateur.mail }}
+                    {% elif user.email %}
+                        {{ user.email }}
+                    {% else %}
+                        Email non défini
+                    {% endif %}
+                </p>
+            </div>
+            <form method="post" action="{% url 'logout' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="text-red-600 hover:text-red-800 transition-colors">
+                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                </button>
+            </form>
+        </div>
+    </div>
+</header>
+
+<!-- Styles essentiels pour le menu hamburger uniquement -->
+<style>
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.6s ease-out;
+}
+
+/* Animation pour le menu hamburger */
+.hamburger-active #hamburger-line-1 {
+    transform: rotate(45deg) translate(6px, 6px);
+}
+
+.hamburger-active #hamburger-line-2 {
+    opacity: 0;
+    transform: scale(0);
+}
+
+.hamburger-active #hamburger-line-3 {
+    transform: rotate(-45deg) translate(6px, -6px);
+}
+</style>
+
+ 

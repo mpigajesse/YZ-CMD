@@ -1,0 +1,381 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load widget_tweaks %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}Modifier{% else %}Nouvelle{% endif %} Configuration{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas {% if form.instance.pk %}fa-edit{% else %}fa-plus{% endif %} mr-3" style="color: var(--admin-accent-color);"></i>
+                {% if form.instance.pk %}Modifier la Configuration{% else %}Nouvelle Configuration{% endif %}
+            </h1>
+            <p style="color: var(--admin-accent-color);">
+                {% if form.instance.pk %}
+                    Modifiez les paramètres de synchronisation avec Google Sheets.
+                {% else %}
+                    Créez une nouvelle configuration de synchronisation avec Google Sheets.
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex flex-col md:flex-row gap-3 mt-4 md:mt-0">
+            <a href="{% url 'synchronisation:config_list' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm bg-white hover:bg-gray-50" style="color: var(--admin-color);">
+                <i class="fas fa-arrow-left mr-2"></i> Retour à la liste
+            </a>
+            {% if form.instance.pk %}
+            <a href="{% url 'synchronisation:dashboard' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: var(--admin-color); color: white; hover:background-color: var(--admin-gradient-end);">
+                <i class="fas fa-tachometer-alt mr-2"></i> Dashboard
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Messages d'alerte -->
+    {% if messages %}
+        <div class="mb-6">
+            {% for message in messages %}
+                <div class="p-4 rounded-lg mb-3 flex items-center {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-3"></i>
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="max-w-4xl mx-auto">
+        <!-- Formulaire principal -->
+        <div class="bg-white rounded-xl shadow-lg border overflow-hidden" style="border-color: var(--admin-accent-color);">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-cogs mr-3" style="color: var(--admin-color);"></i>
+                    Configuration de synchronisation
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">Remplissez les informations pour configurer la synchronisation avec Google Sheets.</p>
+            </div>
+
+            <form method="post" class="p-6" id="configForm">
+                {% csrf_token %}
+
+                <!-- Erreurs générales du formulaire -->
+                {% if form.non_field_errors %}
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center">
+                    <i class="fas fa-exclamation-circle mr-3"></i>
+                    <div>
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="space-y-6">
+                    <!-- URL du Google Sheet -->
+                    <div>
+                        <label for="{{ form.sheet_url.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-link mr-2" style="color: var(--admin-color);"></i>
+                            {{ form.sheet_url.label }}
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-external-link-alt text-gray-400"></i>
+                            </div>
+                            {% render_field form.sheet_url class="w-full pl-10 pr-4 py-3 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" style="border-color: #99dddd; focus:ring-color: var(--admin-color);" placeholder="https://docs.google.com/spreadsheets/d/..." %}
+                        </div>
+                        {% for error in form.sheet_url.errors %}
+                            <p class="mt-2 text-sm text-red-600 flex items-center">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                {{ error }}
+                            </p>
+                        {% endfor %}
+                        {% if form.sheet_url.help_text %}
+                            <p class="mt-2 text-sm text-gray-500 flex items-center">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                {{ form.sheet_url.help_text|safe }}
+                            </p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Nom de la feuille -->
+                    <div>
+                        <label for="{{ form.sheet_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-table mr-2" style="color: var(--admin-color);"></i>
+                            {{ form.sheet_name.label }}
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-file-alt text-gray-400"></i>
+                            </div>
+                            {% render_field form.sheet_name class="w-full pl-10 pr-4 py-3 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" style="border-color: #99dddd; focus:ring-color: var(--admin-color);" placeholder="Feuille1" %}
+                        </div>
+                        {% for error in form.sheet_name.errors %}
+                            <p class="mt-2 text-sm text-red-600 flex items-center">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                {{ error }}
+                            </p>
+                        {% endfor %}
+                        {% if form.sheet_name.help_text %}
+                            <p class="mt-2 text-sm text-gray-500 flex items-center">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                {{ form.sheet_name.help_text|safe }}
+                            </p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Statut actif -->
+                    <div class="bg-gray-50 p-4 rounded-lg border" style="border-color: var(--admin-accent-color);">
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {% render_field form.is_active class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2" style="focus:ring-color: var(--admin-color);" %}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.is_active.id_for_label }}" class="text-sm font-medium text-gray-700 flex items-center">
+                                    <i class="fas fa-power-off mr-2" style="color: var(--admin-color);"></i>
+                                    {{ form.is_active.label }}
+                                </label>
+                                {% if form.is_active.help_text %}
+                                    <p class="mt-1 text-sm text-gray-500">{{ form.is_active.help_text|safe }}</p>
+                                {% endif %}
+                                <p class="mt-1 text-xs text-gray-500">
+                                    Seules les configurations actives peuvent être synchronisées automatiquement.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                        <!-- Boutons de gauche -->
+                        <div class="flex gap-3">
+                            {% if form.instance.pk %}
+                            <button type="button" onclick="testConnection()" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm border" style="border-color: var(--admin-color); color: var(--admin-color);">
+                                <i class="fas fa-plug mr-2"></i>
+                                Tester la connexion
+                            </button>
+                            {% endif %}
+                        </div>
+
+                        <!-- Boutons de droite -->
+                        <div class="flex gap-3">
+                            <a href="{% url 'synchronisation:config_list' %}" class="inline-flex items-center px-6 py-2 rounded-lg font-medium transition-colors shadow-sm bg-gray-500 hover:bg-gray-600 text-white">
+                                <i class="fas fa-times mr-2"></i>
+                                Annuler
+                            </a>
+                            <button type="submit" class="inline-flex items-center px-6 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: var(--admin-color); color: white; hover:background-color: var(--admin-gradient-end);">
+                                <i class="fas {% if form.instance.pk %}fa-save{% else %}fa-plus{% endif %} mr-2"></i>
+                                {% if form.instance.pk %}Enregistrer{% else %}Créer{% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Informations supplémentaires -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            <!-- Aide -->
+            <div class="bg-blue-50 rounded-xl p-6 border border-blue-200">
+                <h3 class="text-lg font-semibold text-blue-800 mb-3 flex items-center">
+                    <i class="fas fa-question-circle mr-2"></i>
+                    Aide
+                </h3>
+                <ul class="text-sm text-blue-700 space-y-2">
+                    <li class="flex items-start">
+                        <i class="fas fa-check-circle mr-2 mt-0.5 text-blue-600"></i>
+                        L'URL doit être celle d'un Google Sheet public ou partagé
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-check-circle mr-2 mt-0.5 text-blue-600"></i>
+                        Le nom de la feuille correspond à l'onglet dans Google Sheets
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-check-circle mr-2 mt-0.5 text-blue-600"></i>
+                        Les configurations actives peuvent être synchronisées automatiquement
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Format URL attendu -->
+            <div class="bg-yellow-50 rounded-xl p-6 border border-yellow-200">
+                <h3 class="text-lg font-semibold text-yellow-800 mb-3 flex items-center">
+                    <i class="fas fa-link mr-2"></i>
+                    Format URL attendu
+                </h3>
+                <div class="text-sm text-yellow-700 space-y-2">
+                    <p class="font-medium">Format Google Sheets :</p>
+                    <code class="block bg-yellow-100 p-2 rounded text-xs break-all">
+                        https://docs.google.com/spreadsheets/d/[ID]/edit#gid=0
+                    </code>
+                    <p class="text-xs">
+                        Copiez l'URL directement depuis votre navigateur quand vous êtes sur la feuille Google.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        {% if form.instance.pk %}
+        <!-- Historique et actions -->
+        <div class="bg-white rounded-xl shadow-lg border mt-8 p-6" style="border-color: var(--admin-accent-color);">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-history mr-2" style="color: var(--admin-color);"></i>
+                Actions rapides
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <button onclick="syncNow({{ form.instance.pk }}, '{{ form.instance.sheet_name|escapejs }}')" class="flex items-center justify-center p-4 border border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors">
+                    <div class="text-center">
+                        <i class="fas fa-sync text-2xl text-green-600 mb-2"></i>
+                        <p class="text-sm font-medium text-gray-700">Synchroniser maintenant</p>
+                    </div>
+                </button>
+                
+                <a href="{% url 'synchronisation:logs' %}?search={{ form.instance.sheet_name }}" class="flex items-center justify-center p-4 border border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                    <div class="text-center">
+                        <i class="fas fa-list text-2xl text-blue-600 mb-2"></i>
+                        <p class="text-sm font-medium text-gray-700">Voir les logs</p>
+                    </div>
+                </a>
+                
+                <a href="{{ form.instance.sheet_url }}" target="_blank" class="flex items-center justify-center p-4 border border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors">
+                    <div class="text-center">
+                        <i class="fas fa-external-link-alt text-2xl text-purple-600 mb-2"></i>
+                        <p class="text-sm font-medium text-gray-700">Ouvrir la feuille</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Inclusion du modal de synchronisation réutilisable -->
+{% include 'synchronisation/_sync_progress_modal.html' %}
+
+<!-- Inclusion du toast de notification -->
+{% include 'composant_generale/sync_notification_toast.html' %}
+
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chargement du système de spinners de synchronisation centralisé -->
+<script src="{% static 'js/sync-spinner.js' %}"></script>
+<!-- Chargement du système de notifications amélioré -->
+<script src="{% static 'js/sync-enhanced.js' %}"></script>
+<script>
+    // Scripts spécifiques au formulaire de configuration
+    
+    function testConnection() {
+        const url = document.getElementById('{{ form.sheet_url.id_for_label }}').value;
+        const sheetName = document.getElementById('{{ form.sheet_name.id_for_label }}').value;
+        
+        if (!url || !sheetName) {
+            showSyncErrorMessage('Veuillez remplir l\'URL et le nom de la feuille avant de tester la connexion.');
+            return;
+        }
+        
+        // Afficher un modal de chargement
+        showSyncInfoMessage('Test de connexion en cours...');
+        
+        // Faire l'appel AJAX vers l'API de test
+        const csrftoken = getCookie('csrftoken');
+        
+        {% if form.instance.pk %}
+        // Configuration existante - tester avec les valeurs du formulaire
+        fetch('{% url "synchronisation:test_connection" form.instance.pk %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                sheet_url: url,
+                sheet_name: sheetName
+            })
+        })
+        {% else %}
+        // Nouvelle configuration - afficher un message d'information
+        const existingModals = document.querySelectorAll('.fixed');
+        existingModals.forEach(modal => modal.remove());
+        showSyncInfoMessage('Veuillez d\'abord enregistrer la configuration avant de tester la connexion.');
+        return;
+        {% endif %}
+        .then(response => response.json())
+        .then(data => {
+            // Fermer le modal de chargement
+            const existingModals = document.querySelectorAll('.fixed');
+            existingModals.forEach(modal => modal.remove());
+            
+            if (data.success) {
+                const details = data.details;
+                const message = `Connexion réussie !
+                
+📊 Feuille: "${details.spreadsheet_title}"
+📋 Onglet: "${details.worksheet_name}"  
+📈 Lignes: ${details.total_rows}
+📋 Colonnes: ${details.total_columns}
+${details.headers.length > 0 ? `🏷️ En-têtes: ${details.headers.join(', ')}` : ''}
+${details.has_data ? '✅ Contient des données' : '⚠️ Aucune donnée trouvée'}`;
+                
+                showSyncSuccessMessage(message);
+            } else {
+                let errorMessage = `❌ ${data.error}`;
+                if (data.details && Array.isArray(data.details)) {
+                    errorMessage += '\n\n💡 Suggestions:\n' + data.details.map(detail => `• ${detail}`).join('\n');
+                }
+                showSyncErrorMessage(errorMessage);
+            }
+        })
+        .catch(error => {
+            // Fermer le modal de chargement
+            const existingModals = document.querySelectorAll('.fixed');
+            existingModals.forEach(modal => modal.remove());
+            
+            showSyncErrorMessage('Erreur réseau lors du test de connexion. Vérifiez votre connexion internet.');
+            console.error('Erreur:', error);
+        });
+    }
+    
+    function getCookie(name) {
+        const csrf_input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (csrf_input) {
+            return csrf_input.value;
+        }
+        return null;
+    }
+
+    // Validation en temps réel
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlField = document.getElementById('{{ form.sheet_url.id_for_label }}');
+        const nameField = document.getElementById('{{ form.sheet_name.id_for_label }}');
+        
+        if (urlField) {
+            urlField.addEventListener('blur', function() {
+                const url = this.value;
+                if (url && !url.includes('docs.google.com/spreadsheets')) {
+                    this.classList.add('border-red-500');
+                    if (!document.getElementById('url-warning')) {
+                        const warning = document.createElement('p');
+                        warning.id = 'url-warning';
+                        warning.className = 'mt-2 text-sm text-red-600 flex items-center';
+                        warning.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>L\'URL ne semble pas être une URL Google Sheets valide.';
+                        this.parentNode.appendChild(warning);
+                    }
+                } else {
+                    this.classList.remove('border-red-500');
+                    const warning = document.getElementById('url-warning');
+                    if (warning) {
+                        warning.remove();
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

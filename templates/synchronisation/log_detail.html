@@ -1,0 +1,759 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Détail du Log #{{ log.id }}{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-info-circle mr-3" style="color: var(--admin-accent-color);"></i>
+                Détail du Log #{{ log.id }}
+            </h1>
+            <p style="color: var(--admin-accent-color);">Informations détaillées de la synchronisation.</p>
+        </div>
+        <div class="flex flex-col md:flex-row gap-3 mt-4 md:mt-0">
+            <a href="{% url 'synchronisation:logs' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm bg-white hover:bg-gray-50" style="color: var(--admin-color);">
+                <i class="fas fa-arrow-left mr-2"></i> Retour aux Logs
+            </a>
+            <a href="{% url 'synchronisation:dashboard' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: var(--admin-color); color: white; hover:background-color: var(--admin-gradient-end);">
+                <i class="fas fa-tachometer-alt mr-2"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Statut principal -->
+    <div class="mb-8">
+        <div class="bg-white rounded-xl shadow-lg border p-8 text-center" style="border-color: var(--admin-accent-color);">
+            <div class="flex items-center justify-center mb-4">
+                {% if log.status == 'success' %}
+                    <div class="p-4 rounded-full bg-green-100">
+                        <i class="fas fa-check-circle text-4xl text-green-600"></i>
+                    </div>
+                {% elif log.status == 'error' %}
+                    <div class="p-4 rounded-full bg-red-100">
+                        <i class="fas fa-exclamation-circle text-4xl text-red-600"></i>
+                    </div>
+                {% elif log.status == 'pending' %}
+                    <div class="p-4 rounded-full bg-yellow-100">
+                        <i class="fas fa-clock text-4xl text-yellow-600"></i>
+                    </div>
+                {% else %}
+                    <div class="p-4 rounded-full bg-gray-100">
+                        <i class="fas fa-question-circle text-4xl text-gray-600"></i>
+                    </div>
+                {% endif %}
+            </div>
+            <h2 class="text-2xl font-bold mb-2
+                {% if log.status == 'success' %} text-green-600
+                {% elif log.status == 'error' %} text-red-600
+                {% elif log.status == 'pending' %} text-yellow-600
+                {% else %} text-gray-600
+                {% endif %}">
+                {{ log.get_status_display }}
+            </h2>
+            <p class="text-gray-600">
+                Synchronisation 
+                {% if log.sheet_config %}
+                    de "{{ log.sheet_config.sheet_name }}"
+                {% else %}
+                    (configuration supprimée)
+                {% endif %}
+                le {{ log.sync_date|date:"d/m/Y à H:i:s" }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Informations détaillées -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Informations générales -->
+        <div class="bg-white rounded-xl shadow-lg border" style="border-color: var(--admin-accent-color);">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-info mr-3" style="color: var(--admin-color);"></i>
+                    Informations générales
+                </h3>
+            </div>
+            <div class="p-6">
+                <dl class="space-y-4">
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">ID du log</dt>
+                        <dd class="text-sm text-gray-900 font-mono">#{{ log.id }}</dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Date & Heure</dt>
+                        <dd class="text-sm text-gray-900">{{ log.sync_date|date:"d/m/Y H:i:s" }}</dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Configuration</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if log.sheet_config %}
+                                <span class="flex items-center">
+                                    <i class="fas fa-table mr-2" style="color: var(--admin-color);"></i>
+                                    {{ log.sheet_config.sheet_name }}
+                                </span>
+                            {% else %}
+                                <span class="text-red-500 italic">Configuration supprimée</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Déclenché par</dt>
+                        <dd class="text-sm text-gray-900">
+                            <span class="flex items-center">
+                                <i class="fas fa-user mr-2 text-gray-400"></i>
+                                {{ log.triggered_by|default:"Système" }}
+                            </span>
+                        </dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2">
+                        <dt class="text-sm font-medium text-gray-500">Enregistrements importés</dt>
+                        <dd class="text-sm text-gray-900">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                <i class="fas fa-database mr-1"></i>
+                                {{ log.records_imported|default:0 }}
+                            </span>
+                        </dd>
+                    </div>
+                    
+                    <!-- Nouvelles statistiques détaillées -->
+                    {% if log.new_orders_created or log.existing_orders_updated or log.existing_orders_skipped or log.duplicate_orders_found %}
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <h4 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                            <i class="fas fa-chart-pie mr-2" style="color: var(--admin-color);"></i>
+                            Répartition des actions
+                        </h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            {% if log.new_orders_created %}
+                            <div class="flex items-center justify-between p-2 bg-green-50 rounded">
+                                <span class="text-xs text-green-700 flex items-center">
+                                    <i class="fas fa-plus-circle mr-1"></i>
+                                    Nouvelles
+                                </span>
+                                <span class="text-xs font-bold text-green-800">{{ log.new_orders_created }}</span>
+                            </div>
+                            {% endif %}
+                            {% if log.existing_orders_updated %}
+                            <div class="flex items-center justify-between p-2 bg-orange-50 rounded">
+                                <span class="text-xs text-orange-700 flex items-center">
+                                    <i class="fas fa-edit mr-1"></i>
+                                    Mises à jour
+                                </span>
+                                <span class="text-xs font-bold text-orange-800">{{ log.existing_orders_updated }}</span>
+                            </div>
+                            {% endif %}
+                            {% if log.duplicate_orders_found %}
+                            <div class="flex items-center justify-between p-2 bg-red-50 rounded">
+                                <span class="text-xs text-red-700 flex items-center">
+                                    <i class="fas fa-shield-alt mr-1"></i>
+                                    Doublons évités
+                                </span>
+                                <span class="text-xs font-bold text-red-800">{{ log.duplicate_orders_found }}</span>
+                            </div>
+                            {% endif %}
+                            {% if log.existing_orders_skipped %}
+                            <div class="flex items-center justify-between p-2 bg-gray-100 rounded">
+                                <span class="text-xs text-gray-700 flex items-center">
+                                    <i class="fas fa-minus-circle mr-1"></i>
+                                    Inchangées
+                                </span>
+                                <span class="text-xs font-bold text-gray-800">{{ log.existing_orders_skipped }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+
+        <!-- Détails de l'exécution -->
+        <div class="bg-white rounded-xl shadow-lg border" style="border-color: var(--admin-accent-color);">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-cogs mr-3" style="color: var(--admin-color);"></i>
+                    Détails de l'exécution
+                </h3>
+            </div>
+            <div class="p-6">
+                <dl class="space-y-4">
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Début</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if log.start_time %}
+                                {{ log.start_time|date:"d/m/Y H:i:s" }}
+                            {% else %}
+                                {{ log.sync_date|date:"d/m/Y H:i:s" }}
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Fin</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if log.end_time %}
+                                {{ log.end_time|date:"d/m/Y H:i:s" }}
+                            {% else %}
+                                <span class="text-gray-400">Non terminée</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Durée</dt>
+                        <dd class="text-sm text-gray-900">
+                            <span class="flex items-center">
+                                <i class="fas fa-stopwatch mr-2 text-gray-400"></i>
+                                {{ log.duration_formatted }}
+                            </span>
+                        </dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Titre de la feuille</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if log.sheet_title %}
+                                <span class="flex items-center">
+                                    <i class="fas fa-file-alt mr-2 text-gray-400"></i>
+                                    {{ log.sheet_title }}
+                                </span>
+                            {% else %}
+                                <span class="text-gray-400">Non disponible</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Lignes totales</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if log.total_rows %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <i class="fas fa-list mr-1"></i>
+                                    {{ log.total_rows }}
+                                </span>
+                            {% else %}
+                                <span class="text-gray-400">Non disponible</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Lignes traitées</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if log.processed_rows %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check mr-1"></i>
+                                    {{ log.processed_rows }}
+                                </span>
+                            {% else %}
+                                <span class="text-gray-400">0</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Lignes ignorées</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if log.skipped_rows %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    {{ log.skipped_rows }}
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check mr-1"></i>
+                                    0
+                                </span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Taux de réussite</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if log.execution_details.success_rate %}
+                                <span class="flex items-center">
+                                    <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                                        <div class="bg-green-600 h-2 rounded-full" style="width: {{ log.execution_details.success_rate }}%"></div>
+                                    </div>
+                                    <span class="text-xs font-medium">{{ log.execution_details.success_rate|floatformat:1 }}%</span>
+                                </span>
+                            {% else %}
+                                <span class="text-gray-400">Non calculé</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    {% if log.sheet_config %}
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">URL de la feuille</dt>
+                        <dd class="text-sm text-gray-900">
+                            <a href="{{ log.sheet_config.sheet_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 break-all">
+                                <i class="fas fa-external-link-alt mr-1"></i>
+                                Ouvrir la feuille
+                            </a>
+                        </dd>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between items-center py-2">
+                        <dt class="text-sm font-medium text-gray-500">Type de synchronisation</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if log.triggered_by %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-hand-paper mr-1"></i>
+                                    Manuelle
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <i class="fas fa-robot mr-1"></i>
+                                    Automatique
+                                </span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages d'erreur ou de succès -->
+    {% if log.errors %}
+    <div class="bg-white rounded-xl shadow-lg border border-red-200 mb-8">
+        <div class="p-6 border-b border-red-200 bg-red-50">
+            <h3 class="text-xl font-semibold text-red-800 flex items-center">
+                <i class="fas fa-exclamation-triangle mr-3"></i>
+                Messages d'erreur
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <pre class="text-sm text-red-600 whitespace-pre-wrap font-mono overflow-x-auto">{{ log.errors }}</pre>
+            </div>
+            
+            <!-- Suggestions de résolution -->
+            <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <h4 class="text-sm font-medium text-yellow-800 mb-2 flex items-center">
+                    <i class="fas fa-lightbulb mr-2"></i>
+                    Suggestions pour résoudre l'erreur
+                </h4>
+                <ul class="text-sm text-yellow-700 space-y-1">
+                    <li>• Vérifiez que l'URL de la feuille Google est correcte et accessible</li>
+                    <li>• Assurez-vous que les permissions de partage sont configurées</li>
+                    <li>• Vérifiez la structure de la feuille (colonnes requises)</li>
+                    <li>• Consultez les logs détaillés pour plus d'informations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% elif log.status == 'success' %}
+    <div class="bg-white rounded-xl shadow-lg border border-green-200 mb-8">
+        <div class="p-6 border-b border-green-200 bg-green-50">
+            <h3 class="text-xl font-semibold text-green-800 flex items-center">
+                <i class="fas fa-check-circle mr-3"></i>
+                Synchronisation réussie
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="flex items-center p-4 bg-green-50 border border-green-200 rounded-lg">
+                <i class="fas fa-info-circle text-green-600 mr-3"></i>
+                <div>
+                    <p class="text-green-800 font-medium">La synchronisation s'est déroulée sans erreur.</p>
+                    <p class="text-green-600 text-sm">{{ log.records_imported|default:0 }} enregistrement(s) ont été traités avec succès.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Détails techniques d'exécution -->
+    {% if log.execution_details %}
+    <div class="bg-white rounded-xl shadow-lg border border-gray-200 mb-8">
+        <div class="p-6 border-b border-gray-200 bg-gray-50">
+            <h3 class="text-xl font-semibold text-gray-800 flex items-center">
+                <i class="fas fa-code mr-3"></i>
+                Détails techniques
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {% if log.execution_details.headers %}
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h4 class="text-sm font-medium text-blue-800 mb-2 flex items-center">
+                        <i class="fas fa-columns mr-2"></i>
+                        En-têtes détectés
+                    </h4>
+                    <div class="text-xs text-blue-700 space-y-1">
+                        {% for header in log.execution_details.headers %}
+                        <span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded mr-1 mb-1">{{ header }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if log.execution_details.duration_seconds %}
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <h4 class="text-sm font-medium text-purple-800 mb-2 flex items-center">
+                        <i class="fas fa-clock mr-2"></i>
+                        Performance
+                    </h4>
+                    <div class="text-xs text-purple-700 space-y-1">
+                        <p><strong>Durée:</strong> {{ log.execution_details.duration_seconds|floatformat:2 }}s</p>
+                        {% if log.execution_details.data_rows %}
+                                                 <p><strong>Vitesse:</strong> {{ log.processing_speed_formatted }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <details class="mt-4">
+                <summary class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
+                    <i class="fas fa-eye mr-2"></i>
+                    Voir tous les détails JSON
+                </summary>
+                <div class="mt-3 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <pre class="text-xs text-gray-600 whitespace-pre-wrap font-mono overflow-x-auto">{{ log.execution_details|pprint }}</pre>
+                </div>
+            </details>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions disponibles -->
+    <div class="bg-white rounded-xl shadow-lg border p-6" style="border-color: var(--admin-accent-color);">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-tools mr-3" style="color: var(--admin-color);"></i>
+            Actions disponibles
+        </h3>
+        <div class="flex flex-wrap gap-3">
+            {% if log.sheet_config %}
+            <button onclick="retrySync()" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: var(--admin-color); color: white;">
+                <i class="fas fa-redo mr-2"></i>
+                Relancer la synchronisation
+            </button>
+            {% endif %}
+            
+            <a href="{% url 'synchronisation:logs' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm border" style="border-color: var(--admin-color); color: var(--admin-color);">
+                <i class="fas fa-list mr-2"></i>
+                Voir tous les logs
+            </a>
+            
+            {% if log.sheet_config %}
+            <a href="{% url 'synchronisation:config_edit' log.sheet_config.id %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm bg-yellow-500 hover:bg-yellow-600 text-white">
+                <i class="fas fa-edit mr-2"></i>
+                Modifier la configuration
+            </a>
+            {% endif %}
+            
+            <button onclick="downloadLog()" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors shadow-sm bg-gray-500 hover:bg-gray-600 text-white">
+                <i class="fas fa-download mr-2"></i>
+                Télécharger le log
+            </button>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<!-- Script de synchronisation amélioré -->
+<script src="{% load static %}{% static 'js/sync-enhanced.js' %}"></script>
+<script>
+    // Fonction utilitaire pour récupérer les cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    function retrySync() {
+        {% if log.sheet_config %}
+            // Utiliser le nouveau système de synchronisation améliorée
+            if (typeof syncNow === 'function') {
+                syncNow({{ log.sheet_config.id }}, '{{ log.sheet_config.sheet_name|escapejs }}');
+            } else {
+                showSyncConfirmModal('Voulez-vous relancer cette synchronisation ?', function() {
+                    // Fallback si le script amélioré n'est pas chargé
+                    fetch('/synchronisation/sync-now/{{ log.sheet_config.id }}/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showSyncSuccessMessage(data.message || 'Synchronisation lancée avec succès');
+                            // Recharger la page après 3 secondes
+                            setTimeout(() => location.reload(), 3000);
+                        } else {
+                            showSyncErrorMessage(data.message || 'Erreur lors du lancement de la synchronisation');
+                        }
+                    })
+                    .catch(error => {
+                        showSyncErrorMessage('Erreur de connexion: ' + error.message);
+                    });
+                });
+            }
+        {% else %}
+            showSyncErrorMessage('Configuration non disponible. Impossible de relancer la synchronisation.');
+        {% endif %}
+    }
+
+    function downloadLog() {
+        try {
+            // Créer le contenu du log à télécharger avec plus de détails
+            const logContent = `Log de Synchronisation #{{ log.id }}
+=================================================
+
+📊 INFORMATIONS GÉNÉRALES
+========================
+Date: {{ log.sync_date|date:"d/m/Y H:i:s" }}
+Configuration: {% if log.sheet_config %}{{ log.sheet_config.sheet_name }}{% else %}Configuration supprimée{% endif %}
+Statut: {{ log.get_status_display }}
+Déclenché par: {{ log.triggered_by|default:"Système" }}
+{% if log.duration %}Durée: {{ log.duration }}s{% endif %}
+
+📈 STATISTIQUES DÉTAILLÉES
+==========================
+Enregistrements importés: {{ log.records_imported|default:0 }}
+{% if log.new_orders_created %}Nouvelles commandes créées: {{ log.new_orders_created }}{% endif %}
+{% if log.existing_orders_updated %}Commandes existantes mises à jour: {{ log.existing_orders_updated }}{% endif %}
+{% if log.existing_orders_skipped %}Commandes existantes inchangées: {{ log.existing_orders_skipped }}{% endif %}
+{% if log.duplicate_orders_found %}Doublons évités: {{ log.duplicate_orders_found }}{% endif %}
+
+{% if log.execution_details %}📋 DÉTAILS D'EXÉCUTION
+=====================
+{{ log.execution_details }}{% endif %}
+
+{% if log.error_message %}❌ ERREUR RENCONTRÉE
+==================
+{{ log.error_message }}{% endif %}
+
+📄 MÉTADONNÉES
+==============
+ID du log: {{ log.id }}
+{% if log.sheet_config %}ID de configuration: {{ log.sheet_config.id }}{% endif %}
+Généré le: ${new Date().toLocaleString()}
+Système: YZ-CMD - Gestion de Commandes`;
+
+            // Créer et télécharger le fichier
+            const blob = new Blob([logContent], { type: 'text/plain; charset=utf-8' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `sync_log_{{ log.id }}_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // Afficher une notification de succès
+            if (typeof showSyncToast === 'function') {
+                showSyncToast('📥 Log téléchargé avec succès !', 'success', 3000);
+            } else {
+                showSyncSuccessMessage('📥 Log téléchargé avec succès !');
+            }
+            
+        } catch (error) {
+            console.error('Erreur lors du téléchargement:', error);
+            if (typeof showSyncToast === 'function') {
+                showSyncToast('❌ Erreur lors du téléchargement du log', 'error', 4000);
+            } else {
+                showSyncErrorMessage('❌ Erreur lors du téléchargement du log');
+            }
+        }
+    }
+
+    // Auto-refresh si le log est en cours
+    {% if log.status == 'pending' %}
+    setTimeout(() => {
+        location.reload();
+    }, 10000); // Refresh toutes les 10 secondes
+    {% endif %}
+
+    function showSyncConfirmModal(message, callback) {
+        const modal = createSyncModal('confirm', 'Confirmation de synchronisation', message, callback);
+        document.body.appendChild(modal);
+        modal.classList.remove('hidden');
+    }
+
+    function showSyncSuccessMessage(message) {
+        const modal = createSyncModal('success', 'Synchronisation réussie', message);
+        document.body.appendChild(modal);
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.remove();
+        }, 3000);
+    }
+
+    function showSyncErrorMessage(message) {
+        const modal = createSyncModal('error', 'Erreur de synchronisation', message);
+        document.body.appendChild(modal);
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.remove();
+        }, 5000);
+    }
+
+    function showSyncInfoMessage(message) {
+        const modal = createSyncModal('info', 'Information', message);
+        document.body.appendChild(modal);
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.remove();
+        }, 3000);
+    }
+
+    function createSyncModal(type, title, message, callback = null) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 flex items-center justify-center z-50';
+        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
+        modal.style.backdropFilter = 'blur(8px)';
+        modal.style.webkitBackdropFilter = 'blur(8px)';
+        
+        const syncColors = {
+            success: { 
+                bg: 'bg-gradient-to-br from-green-50 to-emerald-50', 
+                icon: 'text-green-600', 
+                button: 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700',
+                border: 'border-green-200'
+            },
+            error: { 
+                bg: 'bg-gradient-to-br from-red-50 to-pink-50', 
+                icon: 'text-red-600', 
+                button: 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700',
+                border: 'border-red-200'
+            },
+            info: { 
+                bg: 'bg-gradient-to-br from-blue-50 to-cyan-50', 
+                icon: 'text-blue-600', 
+                button: 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700',
+                border: 'border-blue-200'
+            },
+            confirm: { 
+                bg: 'bg-gradient-to-br from-teal-50 to-cyan-50', 
+                icon: 'text-teal-600', 
+                confirmBtn: 'bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700',
+                cancelBtn: 'bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700',
+                border: 'border-teal-200'
+            }
+        };
+        
+        const iconClass = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle', 
+            info: 'fa-info-circle',
+            confirm: 'fa-sync-alt'
+        };
+        
+        if (type === 'confirm') {
+            modal.innerHTML = `
+                <div class="${syncColors[type].bg} ${syncColors[type].border} border-2 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all duration-300">
+                    <div class="text-center mb-6">
+                        <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-teal-100 mb-4">
+                            <i class="fas ${iconClass[type]} ${syncColors[type].icon} text-3xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">${title}</h3>
+                        <p class="text-gray-600">${message}</p>
+                    </div>
+                    <div class="flex justify-center gap-4">
+                        <button onclick="confirmSyncAction()" class="${syncColors[type].confirmBtn} text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 shadow-lg">
+                            <i class="fas fa-check mr-2"></i>Confirmer
+                        </button>
+                        <button onclick="this.closest('.fixed').remove()" class="${syncColors[type].cancelBtn} text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 shadow-lg">
+                            <i class="fas fa-times mr-2"></i>Annuler
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Stocker le callback pour l'utiliser plus tard
+            window.currentSyncCallback = callback;
+        } else {
+            modal.innerHTML = `
+                <div class="${syncColors[type].bg} ${syncColors[type].border} border-2 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all duration-300">
+                    <div class="text-center mb-6">
+                        <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full ${type === 'success' ? 'bg-green-100' : type === 'error' ? 'bg-red-100' : 'bg-blue-100'} mb-4">
+                            <i class="fas ${iconClass[type]} ${syncColors[type].icon} text-3xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">${title}</h3>
+                        <p class="text-gray-600">${message}</p>
+                    </div>
+                    <div class="flex justify-center">
+                        <button onclick="this.closest('.fixed').remove()" class="${syncColors[type].button} text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 shadow-lg">
+                            <i class="fas fa-check mr-2"></i>OK
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        return modal;
+    }
+
+    function confirmSyncAction() {
+        if (window.currentSyncCallback) {
+            window.currentSyncCallback();
+            window.currentSyncCallback = null;
+        }
+        // Fermer le modal
+        document.querySelector('.fixed').remove();
+    }
+
+    // Surcharge de la fonction showCustomConfirmModal pour les callbacks personnalisés
+    const originalShowCustomConfirmModal = window.showCustomConfirmModal;
+    if (originalShowCustomConfirmModal) {
+        window.showCustomConfirmModal = function(deleteUrl, itemDescription, selectedIds = null, customCallback = null) {
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            const modalText = document.getElementById('itemName');
+
+            if (customCallback) {
+                // Mode callback personnalisé
+                modalText.textContent = itemDescription;
+                confirmBtn.onclick = function() {
+                    customCallback();
+                    document.getElementById('customConfirmModal').classList.add('hidden');
+                };
+            } else {
+                // Mode suppression standard
+                modalText.textContent = itemDescription;
+                confirmBtn.onclick = function() {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = deleteUrl;
+
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = getCookie('csrftoken');
+                    form.appendChild(csrfInput);
+
+                    if (selectedIds) {
+                        selectedIds.forEach(id => {
+                            const idInput = document.createElement('input');
+                            idInput.type = 'hidden';
+                            idInput.name = 'ids[]';
+                            idInput.value = id;
+                            form.appendChild(idInput);
+                        });
+                    }
+                    document.body.appendChild(form);
+                    form.submit();
+                };
+            }
+            document.getElementById('customConfirmModal').classList.remove('hidden');
+        };
+    }
+</script>
+{% endblock %}
+
+<!-- Inclusion du modal de synchronisation réutilisable -->
+{% include 'synchronisation/_sync_progress_modal.html' %}
+
+<!-- Inclusion du toast de notification -->
+{% include 'composant_generale/sync_notification_toast.html' %}
+
+{% endblock content %}

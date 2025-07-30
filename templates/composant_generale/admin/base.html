@@ -1,0 +1,284 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}YZ-CMD - Administration{% endblock %}</title>
+    
+    {% tailwind_css %}
+    
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Animations CSS -->
+    <link href="{% static 'css/animations.css' %}" rel="stylesheet">
+    
+    <style>
+        :root {
+            --admin-color: #023535;
+            --admin-gradient-start: #023535;
+            --admin-gradient-end: #034a4a;
+            --admin-accent-color: #66cccc;
+            --admin-light-accent: #f0fffe;
+        }
+
+        /* --- Sidebar --- */
+        #sidebar { width: 256px; }
+
+        /* Comportement sur grand écran */
+        @media (min-width: 1024px) {
+            body.sidebar-collapsed #sidebar { width: 0; }
+        }
+
+        /* Comportement sur petit écran (overlay) */
+        @media (max-width: 1023.98px) {
+            #sidebar { position: absolute; height: 100%; z-index: 100; }
+            body.sidebar-collapsed #sidebar { transform: translateX(-100%); }
+            body.sidebar-open #sidebar { transform: translateX(0); }
+            
+            #content-overlay { display: none; position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 99; }
+            body.sidebar-open #content-overlay { display: block; }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="relative flex h-screen overflow-x-hidden">
+        <!-- Sidebar -->
+        {% include 'composant_generale/admin/sidebar.html' %}
+        
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <!-- Header -->
+            {% include 'composant_generale/admin/header.html' %}
+            
+            <!-- Page Content -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+                {% if messages %}
+                    <div class="mb-4">
+                        {% for message in messages %}
+                            <div class="p-4 rounded-lg
+                                {% if message.tags == 'success' %} bg-green-100 border-green-400 text-green-700
+                                {% elif message.tags == 'error' %} bg-red-100 border-red-400 text-red-700
+                                {% elif message.tags == 'warning' %} bg-yellow-100 border-yellow-400 text-yellow-700
+                                {% else %} bg-blue-100 border-blue-400 text-blue-700
+                                {% endif %}" role="alert">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+        
+        <!-- Overlay for mobile -->
+        <div id="content-overlay"></div>
+    </div>
+    
+    <!-- Custom Confirmation Modal -->
+    <div id="customConfirmModal" class="fixed inset-0 flex items-center justify-center z-50 hidden" style="background-color: rgba(0, 0, 0, 0.2); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+        <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <i class="fas fa-exclamation-triangle text-red-500 text-6xl mb-4"></i>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">Confirmation de suppression</h3>
+                <p id="confirmModalText" class="text-gray-600">
+                    Êtes-vous sûr de vouloir supprimer <strong><span id="itemName" class="font-semibold"></span></strong> ? Cette action est irréversible.
+                </p>
+            </div>
+            <div class="flex justify-center gap-4">
+                <button id="confirmDeleteBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105">
+                    <i class="fas fa-trash-alt mr-2"></i>Confirmer la suppression
+                </button>
+                <button id="cancelDeleteBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105">
+                    <i class="fas fa-times mr-2"></i>Annuler
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const body = document.body;
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const contentOverlay = document.getElementById('content-overlay');
+        
+        function toggleSidebar() {
+            body.classList.toggle('sidebar-open');
+            body.classList.toggle('sidebar-collapsed');
+            }
+
+        function closeSidebarMobile() {
+            if (window.innerWidth <= 1023) {
+                body.classList.add('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
+            }
+        }
+
+        // Définir l'état initial en fonction de la taille de l'écran
+        if (window.innerWidth <= 1023) {
+            body.classList.add('sidebar-collapsed');
+        } else {
+            body.classList.add('sidebar-open');
+        }
+
+        if (menuToggle) menuToggle.addEventListener('click', toggleSidebar);
+        if (sidebarToggle) sidebarToggle.addEventListener('click', closeSidebarMobile);
+        if (contentOverlay) contentOverlay.addEventListener('click', closeSidebarMobile);
+
+        // Adapter au redimensionnement
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1023) {
+                body.classList.add('sidebar-open');
+                body.classList.remove('sidebar-collapsed');
+            } else {
+                body.classList.add('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
+            }
+        });
+
+        // --- Gestion du dropdown du profil ---
+        const profileDropdownButton = document.getElementById('profile-dropdown');
+        const profileMenu = document.getElementById('profile-menu');
+        const dropdownArrow = document.getElementById('dropdown-arrow');
+
+        console.log('Dropdown elements:', { profileDropdownButton, profileMenu, dropdownArrow });
+
+        if (profileDropdownButton && profileMenu) {
+            console.log('Adding event listener to profile dropdown button.');
+            profileDropdownButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                console.log('Profile dropdown button clicked!');
+                profileMenu.classList.toggle('hidden');
+                if (dropdownArrow) {
+                    dropdownArrow.classList.toggle('rotate-180');
+                    console.log('Toggled rotate-180 on dropdownArrow.');
+                }
+                console.log('profileMenu classes after toggle:', profileMenu.classList.value);
+            });
+
+            // Fermer le menu en cliquant ailleurs
+            document.addEventListener('click', function(event) {
+                if (!profileDropdownButton.contains(event.target) && !profileMenu.contains(event.target)) {
+                    if (!profileMenu.classList.contains('hidden')) {
+                        console.log('Clicked outside dropdown. Hiding menu.');
+                        profileMenu.classList.add('hidden');
+                        if (dropdownArrow) {
+                            dropdownArrow.classList.remove('rotate-180');
+                            console.log('Removed rotate-180 from dropdownArrow.');
+                        }
+                        console.log('profileMenu classes after outside click hide:', profileMenu.classList.value);
+                    }
+                }
+            });
+        }
+
+        // --- Barre de progression ---
+        const progressBar = document.getElementById('progress-bar');
+        if(progressBar) {
+            setTimeout(() => {
+                progressBar.style.width = '100%';
+                setTimeout(() => {
+                    progressBar.style.opacity = '0';
+                }, 1000);
+            }, 100);
+        }
+
+        // --- Custom Confirmation Modal Logic ---
+        const customConfirmModal = document.getElementById('customConfirmModal');
+        const itemNameSpan = document.getElementById('itemName');
+        const confirmModalText = document.getElementById('confirmModalText');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+        let currentDeleteUrl = null;
+        let currentSelectedIds = null;
+
+        // Event listener pour le bouton Annuler
+        cancelDeleteBtn.addEventListener('click', function() {
+            customConfirmModal.classList.add('hidden');
+            currentDeleteUrl = null;
+            currentSelectedIds = null;
+        });
+
+        // Event listener pour le bouton Confirmer
+        confirmDeleteBtn.addEventListener('click', function() {
+            if (currentDeleteUrl) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = currentDeleteUrl;
+                form.style.display = 'none';
+                
+                const csrfTokenInput = document.createElement('input');
+                csrfTokenInput.type = 'hidden';
+                csrfTokenInput.name = 'csrfmiddlewaretoken';
+                csrfTokenInput.value = getCookie('csrftoken');
+                form.appendChild(csrfTokenInput);
+                
+                // Si c'est une suppression en masse, ajouter les IDs
+                if (currentSelectedIds && currentSelectedIds.length > 0) {
+                    currentSelectedIds.forEach(id => {
+                        const idInput = document.createElement('input');
+                        idInput.type = 'hidden';
+                        idInput.name = 'ids[]';
+                        idInput.value = id;
+                        form.appendChild(idInput);
+                    });
+                }
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+            customConfirmModal.classList.add('hidden');
+        });
+
+        // Fonction globale pour la modal de confirmation (compatible avec suppressions simples et multiples)
+        window.showCustomConfirmModal = function(deleteUrl, itemDescription, selectedIds = null) {
+            currentDeleteUrl = deleteUrl;
+            currentSelectedIds = selectedIds;
+            
+            if (confirmModalText) {
+                confirmModalText.innerHTML = `Êtes-vous sûr de vouloir supprimer <strong>${itemDescription}</strong> ? Cette action est irréversible.`;
+            } else {
+                itemNameSpan.textContent = itemDescription;
+            }
+            
+            customConfirmModal.classList.remove('hidden');
+        };
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            
+            // Si le cookie n'est pas trouvé et qu'on cherche le token CSRF, essayer la méta tag
+            if (!cookieValue && name === 'csrftoken') {
+                const metaTag = document.querySelector('meta[name="csrf-token"]');
+                if (metaTag) {
+                    cookieValue = metaTag.getAttribute('content');
+                }
+            }
+            
+            return cookieValue;
+        }
+    });
+    </script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

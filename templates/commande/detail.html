@@ -1,0 +1,380 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Détail Commande: {{ commande.id_yz }} - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-shopping-cart mr-3" style="color: var(--admin-accent-color);"></i>
+                Détail de la Commande: {{ commande.id_yz }}
+            </h1>
+            <p style="color: var(--admin-accent-color);">Consultez les informations détaillées de cette commande.</p>
+        </div>
+        <a href="{% url 'commande:confirmees' %}" class="mt-4 md:mt-0 inline-flex items-center text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+            <i class="fas fa-arrow-left mr-2"></i>Retour aux commandes confirmées
+        </a>
+    </div>
+
+    <!-- Section 1: Informations Client -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--admin-accent-color);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--admin-color);">
+            <i class="fas fa-user mr-2"></i>Informations Client
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Nom complet -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Nom complet :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-user mr-2" style="color: var(--admin-color);"></i>
+                    {% if commande.client %}
+                        {{ commande.client.nom }} {{ commande.client.prenom }}
+                    {% else %}
+                        Client non défini
+                    {% endif %}
+                </p>
+            </div>
+            
+            <!-- Téléphone -->
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+                <label class="block text-sm font-semibold mb-2 text-emerald-600">Téléphone de la commande :</label>
+                <p class="text-lg font-medium text-emerald-800">
+                    <i class="fas fa-phone mr-2"></i>
+                    {% if commande.client %}
+                        {{ commande.client.numero_tel|default:"Non spécifié" }}
+                    {% else %}
+                        Non spécifié
+                    {% endif %}
+                </p>
+            </div>
+            
+            <!-- Ville client -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Ville client :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-map-marker-alt mr-2" style="color: var(--admin-color);"></i>
+                    {% if commande.ville %}
+                        {{ commande.ville.nom }}
+                    {% else %}
+                        {{ commande.ville_init|default:"Non spécifiée" }}
+                    {% endif %}
+                </p>
+            </div>
+            
+       
+        </div>
+    </div>
+
+    <!-- Section 2: Informations Générales -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--admin-accent-color);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--admin-color);">
+            <i class="fas fa-info-circle mr-2"></i>Informations Générales
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- ID YZ -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">ID YZ :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-barcode mr-2" style="color: var(--admin-color);"></i>
+                    {{ commande.id_yz }}
+                </p>
+            </div>
+            
+            <!-- N° Externe -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">N° Externe :</label>
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                            {% if commande.origine == 'OC' %}
+                                <span class="text-orange-600">{{ commande.num_cmd }}</span>
+                                <span class="text-sm text-gray-500">(Créée par un opérateur)</span>
+                            {% elif commande.origine == 'ADMIN' %}
+                                <span class="text-blue-600">{{ commande.num_cmd }}</span>
+                                <span class="text-sm text-gray-500">(Créée par un administrateur)</span>
+                            {% else %}
+                                <span>{{ commande.num_cmd }}</span>
+                                <span class="text-sm text-gray-500">(Synchronisée)</span>
+                            {% endif %}
+                        </h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">
+                            ID YZ: {{ commande.id_yz }}
+                </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Date de commande -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Date de commande :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-calendar mr-2" style="color: var(--admin-color);"></i>
+                    {{ commande.date_cmd|date:"d/m/Y" }}
+                </p>
+            </div>
+            
+            <!-- Valeur de commande -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Valeur de la commande :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-money-bill-wave mr-2" style="color: var(--admin-color);"></i>
+                    {{ commande.total_cmd|floatformat:2 }} DH
+                </p>
+            </div>
+            
+            <!-- Ville initiale -->
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <label class="block text-sm font-semibold mb-2 text-blue-600">Ville initiale :</label>
+                <p class="text-lg font-medium text-blue-800">
+                    <i class="fas fa-map-marker-alt mr-2"></i>
+                    {% if commande.ville %}
+                        {{ commande.ville.nom }}
+                    {% else %}
+                        {{ commande.ville_init|default:"Non spécifiée" }}
+                    {% endif %}
+                    <small class="text-blue-600">(ville de la commande)</small>
+                </p>
+                <p class="text-xs text-blue-600 mt-1">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Ville récupérée lors de la passation de commande
+                </p>
+            </div>
+            
+            <!-- État actuel -->
+            <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                <label class="block text-sm font-semibold mb-2 text-indigo-600">État actuel :</label>
+                {% if commande.etat_actuel %}
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 rounded-full mr-2" style="background-color: {{ commande.etat_actuel.enum_etat.couleur }};"></div>
+                        <p class="text-lg font-medium" style="color: {{ commande.etat_actuel.enum_etat.couleur }};">
+                            <i class="fas fa-layer-group mr-2"></i>
+                            {{ commande.etat_actuel.enum_etat.libelle }}
+                        </p>
+                    </div>
+                    <p class="text-xs text-indigo-600 mt-1">
+                        <i class="fas fa-clock mr-1"></i>
+                        Depuis le {{ commande.etat_actuel.date_debut|date:"d/m/Y à H:i" }}
+                        {% if commande.etat_actuel.operateur %}
+                                                            par {{ commande.etat_actuel.operateur.mail }}
+                        {% endif %}
+                    </p>
+                {% else %}
+                    <p class="text-lg font-medium text-gray-500">
+                        <i class="fas fa-question-circle mr-2"></i>
+                        Aucun état défini
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Cette commande n'a pas encore d'état assigné
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Adresse de livraison -->
+        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <label class="block text-sm font-semibold mb-2 text-orange-600">
+                <i class="fas fa-map-marker-alt mr-2"></i>Adresse de livraison :
+            </label>
+            <div class="text-lg font-medium text-orange-800">
+                {% if commande.adresse %}
+                    {{ commande.adresse|linebreaks }}
+                {% else %}
+                    <span class="text-gray-500">Aucune adresse de livraison spécifiée</span>
+                {% endif %}
+            </div>
+            <div class="text-xs text-orange-600 mt-2">
+                <i class="fas fa-info-circle mr-1"></i>
+                <strong>Ville de livraison :</strong> 
+                {% if commande.ville %}
+                    {{ commande.ville.nom }}
+                {% else %}
+                    {{ commande.ville_init|default:"Ville de la commande" }}
+                {% endif %}
+            </div>
+        </div>
+
+
+    </div>
+
+    <!-- Section 3: Gestion du Panier -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--admin-accent-color);">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold flex items-center" style="color: var(--admin-color);">
+                <i class="fas fa-shopping-cart mr-2"></i>Articles Commandés (Panier)
+            </h2>
+            <div class="bg-gradient-to-r from-blue-50 to-green-50 px-4 py-3 rounded-lg border border-blue-200">
+                <div class="text-xs text-gray-600 mb-1">Détail du total</div>
+                <div class="space-y-1">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-700">Articles:</span>
+                        <span class="font-medium">{{ commande.sous_total_articles|floatformat:2 }} DH</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-700">Livraison:</span>
+                        <span class="font-medium text-blue-600">{{ commande.frais_livraison|floatformat:2 }} DH</span>
+                    </div>
+                    <hr class="border-gray-300">
+                    <div class="flex justify-between">
+                <span class="text-sm font-medium text-blue-800">Total: </span>
+                <span class="text-lg font-bold text-blue-900">{{ commande.total_cmd|floatformat:2 }} DH</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if paniers %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-b border-gray-200">Article</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-b border-gray-200">Quantité</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Sous-total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for panier in paniers %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 text-sm font-medium text-gray-900 border-r border-gray-200">
+                                <div class="flex items-center">
+                                    {% if panier.article.image %}
+                                        <img src="{{ panier.article.image.url }}" alt="{{ panier.article.nom }}" class="h-10 w-10 rounded-full object-cover mr-3">
+                                    {% else %}
+                                        <div class="h-10 w-10 rounded-full flex items-center justify-center mr-3" style="background-color: var(--admin-light-accent);">
+                                            <i class="fas fa-box-open text-gray-400"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div>
+                                        <div class="font-medium text-gray-900">{{ panier.article.nom }}</div>
+                                        <div class="text-xs text-gray-500">{{ panier.article.reference }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ panier.quantite }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ panier.sous_total|floatformat:2 }} DH
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-shopping-cart text-4xl text-gray-300 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Panier vide</h3>
+                <p class="text-gray-500">Aucun article dans cette commande.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Section 4: Historique des États -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--admin-accent-color);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--admin-color);">
+            <i class="fas fa-history mr-2"></i>Historique des États
+        </h2>
+        
+        {% if historique_etats %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-b border-gray-200">État</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-b border-gray-200">Début</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-b border-gray-200">Fin</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-b border-gray-200">Durée</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-b border-gray-200">Opérateur</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Commentaire</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for etat in historique_etats %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium border-r border-gray-200">
+                                <div class="flex items-center">
+                                    <div class="w-3 h-3 rounded-full mr-2" style="background-color: {{ etat.enum_etat.couleur }};"></div>
+                                    <span style="color: {{ etat.enum_etat.couleur }};">{{ etat.enum_etat.libelle }}</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
+                                {{ etat.date_debut|date:"d/m/Y H:i" }}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
+                                {% if etat.date_fin %}
+                                    {{ etat.date_fin|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="fas fa-circle mr-1 text-xs"></i>Actuel
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
+                                {{ etat.duree|default:"-" }}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
+                                {% if etat.operateur %}
+                                    <div class="flex items-center">
+                                        <i class="fas fa-user mr-2 text-gray-400"></i>
+                                        {{ etat.operateur.mail }}
+                                    </div>
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 text-sm text-gray-500">
+                                {% if etat.commentaire %}
+                                    <div class="max-w-xs truncate" title="{{ etat.commentaire }}">
+                                        {{ etat.commentaire }}
+                                    </div>
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-history text-4xl text-gray-300 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun historique</h3>
+                <p class="text-gray-500">Aucun historique d'état pour cette commande.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8" style="border-color: var(--admin-accent-color);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--admin-color);">
+            <i class="fas fa-tools mr-2"></i>Actions
+        </h2>
+        
+        <div class="flex flex-wrap gap-4">
+            <a href="{% url 'commande:modifier' commande.pk %}" class="inline-flex items-center px-6 py-3 text-white rounded-lg font-medium shadow-md transition-colors duration-300" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+                <i class="fas fa-edit mr-2"></i> Modifier la commande
+            </a>
+            
+            <a href="{% url 'commande:confirmees' %}" class="inline-flex items-center px-6 py-3 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600 transition-colors shadow-md">
+                <i class="fas fa-list mr-2"></i> Retour aux commandes confirmées
+            </a>
+            
+            <a href="{% url 'commande:paniers' %}" class="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors shadow-md">
+                <i class="fas fa-shopping-cart mr-2"></i> Voir tous les paniers
+            </a>
+        </div>
+    </div>
+</div>
+
+
+{% endblock content %} 

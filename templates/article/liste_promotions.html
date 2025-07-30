@@ -1,0 +1,1416 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Gestion des Promotions - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+    
+    /* Mini décomptes pour les tableaux - Version améliorée temps réel */
+    .countdown-mini {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 10px;
+        padding: 0.75rem;
+        border: 2px solid #dee2e6;
+        min-width: 140px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .countdown-mini:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .countdown-mini-display {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.2rem;
+        font-family: 'Courier New', monospace;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--admin-color);
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.5px;
+    }
+    
+    .countdown-mini-number {
+        background: linear-gradient(135deg, var(--admin-gradient-start), var(--admin-gradient-end));
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        font-size: 1rem;
+        min-width: 22px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .countdown-mini-separator {
+        color: #6c757d;
+        font-weight: 600;
+        margin: 0 1px;
+    }
+    
+    .countdown-mini-status {
+        text-align: center;
+        font-size: 0.65rem;
+        color: #6c757d;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.9;
+    }
+    
+    .countdown-mini.pending {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        border-color: #ffc107;
+        box-shadow: 0 3px 10px rgba(255, 193, 7, 0.2);
+    }
+    
+    .countdown-mini.pending .countdown-mini-number {
+        background: linear-gradient(135deg, #e09900, #ffeb3b);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .countdown-mini.pending .countdown-mini-status {
+        color: #856404;
+    }
+    
+    .countdown-mini.active {
+        background: linear-gradient(135deg, #d4edda, #c3e6cb);
+        border-color: #28a745;
+        box-shadow: 0 3px 10px rgba(40, 167, 69, 0.2);
+    }
+    
+    .countdown-mini.active .countdown-mini-number {
+        background: linear-gradient(135deg, #198754, #4caf50);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .countdown-mini.active .countdown-mini-status {
+        color: #155724;
+    }
+    
+    .countdown-mini.expired {
+        background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+        border-color: #dc3545;
+        box-shadow: 0 3px 10px rgba(220, 53, 69, 0.2);
+    }
+    
+    .countdown-mini.expired .countdown-mini-number {
+        background: linear-gradient(135deg, #dc3545, #f44336);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .countdown-mini.expired .countdown-mini-status {
+        color: #721c24;
+    }
+    
+    .countdown-mini.critical {
+        animation: miniPulse 1.5s infinite;
+        border-color: #dc3545;
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+    }
+    
+    .countdown-mini.near-start {
+        animation: miniGlow 2s infinite;
+        border-color: #ffc107;
+    }
+    
+    @keyframes miniPulse {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 3px 10px rgba(220, 53, 69, 0.2);
+        }
+        50% {
+            transform: scale(1.03);
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+        }
+    }
+    
+    @keyframes miniGlow {
+        0%, 100% {
+            box-shadow: 0 3px 10px rgba(255, 193, 7, 0.2);
+        }
+        50% {
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
+        }
+    }
+    
+    /* Animation pour les chiffres qui changent */
+    .countdown-mini-number.changing {
+        animation: numberChange 0.6s ease;
+    }
+    
+    @keyframes numberChange {
+        0% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.2);
+            text-shadow: 0 0 10px rgba(var(--admin-color), 0.5);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+    
+    /* Styles pour la colonne prix - Version compacte */
+    .prix-stats-compact {
+        min-width: 120px;
+        max-width: 140px;
+    }
+    
+    .prix-ligne-compact {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.125rem;
+        font-size: 0.75rem;
+    }
+    
+    .prix-ligne-compact:last-child {
+        margin-bottom: 0;
+    }
+    
+    .prix-original-compact {
+        text-decoration: line-through;
+        color: #6c757d;
+        font-size: 0.7rem;
+    }
+    
+    .prix-reduit-compact {
+        color: #28a745;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+    
+    .economie-compact {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        color: #856404;
+        padding: 0.125rem 0.25rem;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        border: 1px solid #ffc107;
+        text-align: center;
+        display: block;
+        margin-top: 0.25rem;
+    }
+    
+    .prix-range-compact {
+        color: #6c757d;
+        font-size: 0.65rem;
+        text-align: center;
+        margin-top: 0.125rem;
+    }
+    
+    /* Icône info améliorée */
+    .info-icon-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .info-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--admin-color), #045555);
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.7rem;
+        margin-left: 0.5rem;
+        border: 2px solid transparent;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .info-icon-btn:hover {
+        background: linear-gradient(135deg, #045555, var(--admin-color));
+        transform: scale(1.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        border-color: #99dddd;
+    }
+    
+    .info-icon-btn:active {
+        transform: scale(0.95);
+    }
+    
+    /* Modal pour les détails prix */
+    .prix-details-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .prix-details-modal.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    .prix-details-modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        transform: scale(0.9);
+        transition: all 0.3s ease;
+    }
+    
+    .prix-details-modal.active .prix-details-modal-content {
+        transform: scale(1);
+    }
+    
+    .prix-details-modal-header {
+        background: linear-gradient(135deg, var(--admin-color), #045555);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .prix-details-modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .prix-details-modal-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    
+    .prix-details-modal-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: rotate(90deg);
+    }
+    
+    .prix-details-modal-body {
+        padding: 1.5rem;
+    }
+    
+    .prix-details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .prix-details-card {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+    }
+    
+    .prix-details-card-title {
+        font-size: 0.75rem;
+        color: #6c757d;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+    
+    .prix-details-card-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--admin-color);
+    }
+    
+    .prix-details-card.economie {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        border-color: #ffc107;
+    }
+    
+    .prix-details-card.economie .prix-details-card-value {
+        color: #856404;
+    }
+    
+    .prix-details-card.total {
+        background: linear-gradient(135deg, #e2e3ff, #c5c6ff);
+        border-color: #6366f1;
+    }
+    
+    .prix-details-card.total .prix-details-card-value {
+        color: #4c63d2;
+    }
+    
+    .prix-details-comparison {
+        background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        border: 1px solid #0284c7;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .prix-details-comparison-title {
+        font-size: 0.9rem;
+        color: #0284c7;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .prix-comparison-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+    
+    .prix-comparison-line:last-child {
+        margin-bottom: 0;
+    }
+    
+    .prix-before {
+        color: #6c757d;
+        text-decoration: line-through;
+        font-size: 0.9rem;
+    }
+    
+    .prix-after {
+        color: #28a745;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .prix-arrow {
+        color: #6c757d;
+        font-size: 0.8rem;
+    }
+    
+    /* Icône info pour Gestion Auto */
+    .info-icon-container-gestion-auto {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .info-icon-btn-gestion-auto {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.6rem;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .info-icon-btn-gestion-auto:hover {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2));
+        transform: scale(1.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        border-color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .info-icon-btn-gestion-auto:active {
+        transform: scale(0.95);
+    }
+    
+    /* Modal pour la gestion automatique */
+    .gestion-auto-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .gestion-auto-modal.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    .gestion-auto-modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        transform: scale(0.9);
+        transition: all 0.3s ease;
+    }
+    
+    .gestion-auto-modal.active .gestion-auto-modal-content {
+        transform: scale(1);
+    }
+    
+    .gestion-auto-modal-header {
+        background: linear-gradient(135deg, var(--admin-color), #045555);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .gestion-auto-modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .gestion-auto-modal-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    
+    .gestion-auto-modal-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: rotate(90deg);
+    }
+    
+    .gestion-auto-modal-body {
+        padding: 1.5rem;
+    }
+    
+    .feature-card {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .feature-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+    
+    .feature-icon.activate {
+        background: linear-gradient(135deg, #d4edda, #c3e6cb);
+        color: #155724;
+    }
+    
+    .feature-icon.deactivate {
+        background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+        color: #721c24;
+    }
+    
+    .feature-icon.update {
+        background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+        color: #0c5460;
+    }
+    
+    .feature-content h4 {
+        font-weight: 600;
+        color: var(--admin-color);
+        margin-bottom: 0.5rem;
+    }
+    
+    .feature-content p {
+        color: #6c757d;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-tags mr-3" style="color: var(--admin-accent-color);"></i>
+                Gestion des Promotions
+            </h1>
+            <p style="color: var(--admin-accent-color);">Gérez vos promotions et offres spéciales</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <div class="flex items-center">
+                <a href="{% url 'article:gerer_promotions_automatiquement' %}" class="px-4 py-2 rounded-lg text-white border border-white/30 hover:border-white/60 transition-all duration-200">
+                    <i class="fas fa-sync-alt mr-2"></i>Gestion Auto
+                </a>
+                <div class="info-icon-container-gestion-auto ml-2">
+                    <button class="info-icon-btn-gestion-auto" 
+                            onclick="openGestionAutoModal()" 
+                            title="Voir les détails de la gestion automatique">
+                        <i class="fas fa-info"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="button" data-modal-target="promotionModal" class="px-4 py-2 rounded-lg text-white border border-white/30 hover:border-white/60 transition-all duration-200">
+                    <i class="fas fa-plus mr-2"></i>Nouvelle Promotion
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- Total Promotions -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-purple-100 to-purple-200 text-purple-600 group-hover:from-purple-500 group-hover:to-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-tags text-2xl"></i>
+            </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Promotions</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ stats.total }}</p>
+            </div>
+            </div>
+        </div>
+        
+        <!-- Promotions Actives -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-play-circle text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Promotions Actives</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ stats.actives }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Promotions Futures -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-clock text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Promotions Futures</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ stats.futures }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Articles en Promotion -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-shopping-bag text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Articles en Promotion</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{{ stats.articles_en_promo }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et filtres -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8" style="border-color: #e6fffe;">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+            <form method="get" class="flex-grow flex items-center gap-4">
+                <div class="relative flex-grow">
+                    <input type="text" name="search" value="{{ search|default:'' }}" 
+                           class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                           style="border-color: #99dddd; focus:ring-color: #023535;"
+                           placeholder="Rechercher par nom, description...">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
+                <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                        style="background-color: #023535;">
+                    Rechercher
+                </button>
+                {% if search %}
+                <a href="{% url 'article:liste_promotions' %}" class="px-4 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    Réinitialiser
+                </a>
+                {% endif %}
+            </form>
+            
+            <!-- Filtres par statut -->
+            <div class="flex gap-2">
+                <a href="?filtre=toutes" class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 {% if filtre == 'toutes' %}text-white{% else %}text-gray-700 hover:text-white{% endif %}" style="{% if filtre == 'toutes' %}background-color: var(--admin-color);{% else %}background-color: #f3f4f6; hover:background-color: var(--admin-color);{% endif %}">
+                Toutes
+            </a>
+                <a href="?filtre=actives" class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 {% if filtre == 'actives' %}bg-green-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-green-600 hover:text-white{% endif %}">
+                Actives
+            </a>
+                <a href="?filtre=futures" class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 {% if filtre == 'futures' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-blue-600 hover:text-white{% endif %}">
+                Futures
+            </a>
+                <a href="?filtre=expirees" class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 {% if filtre == 'expirees' %}bg-red-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-red-600 hover:text-white{% endif %}">
+                Expirées
+            </a>
+            </div>
+        </div>
+        </div>
+
+    <!-- Message si aucun résultat -->
+    {% if not page_obj.object_list %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    {% if search %}
+                        Aucune promotion trouvée pour la recherche "{{ search }}".
+                    {% else %}
+                        Aucune promotion trouvée avec ces filtres.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+        <!-- Tableau des promotions -->
+    {% if page_obj.object_list %}
+    <div class="overflow-x-auto mb-8 bg-white rounded-xl shadow-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Nom</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Réduction</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Début</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Fin</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Temps Restant</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Statut</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Articles</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Prix & Économies</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for promotion in page_obj %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ promotion.nom }}</div>
+                            <div class="text-sm text-gray-500">{{ promotion.description|truncatechars:50 }}</div>
+                        </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="status-badge bg-purple-100 text-purple-800">
+                                {{ promotion.pourcentage_reduction }}%
+                            </span>
+                        </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ promotion.date_debut|date:"d/m/Y" }}</div>
+                        <div class="text-xs text-gray-500">{{ promotion.date_debut|date:"H:i" }}</div>
+                        </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ promotion.date_fin|date:"d/m/Y" }}</div>
+                        <div class="text-xs text-gray-500">{{ promotion.date_fin|date:"H:i" }}</div>
+                        </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="countdown-mini" 
+                             data-start="{{ promotion.date_debut|date:'c' }}" 
+                             data-end="{{ promotion.date_fin|date:'c' }}" 
+                             data-active="{{ promotion.active|yesno:'true,false' }}">
+                            <div class="countdown-mini-display">
+                                <span class="countdown-mini-number days">--</span><span class="countdown-mini-separator">j</span>
+                                <span class="countdown-mini-number hours">--</span><span class="countdown-mini-separator">h</span>
+                                <span class="countdown-mini-number minutes">--</span><span class="countdown-mini-separator">m</span>
+                                <span class="countdown-mini-number seconds">--</span><span class="countdown-mini-separator">s</span>
+                            </div>
+                            <div class="countdown-mini-status text-xs">
+                                Chargement...
+                            </div>
+                        </div>
+                        </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                            {% if promotion.est_active %}
+                        <span class="status-badge bg-green-100 text-green-800">
+                            <i class="fas fa-circle mr-1 text-xs"></i>Active
+                            </span>
+                            {% elif promotion.est_future %}
+                        <span class="status-badge bg-blue-100 text-blue-800">
+                            <i class="fas fa-clock mr-1 text-xs"></i>Future
+                            </span>
+                            {% else %}
+                        <span class="status-badge bg-red-100 text-red-800">
+                            <i class="fas fa-times-circle mr-1 text-xs"></i>Expirée
+                            </span>
+                            {% endif %}
+                        </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-bold text-gray-900">{{ promotion.articles.count }}</div>
+                        </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        {% if promotion.articles.count > 0 %}
+                            {% with prix_stats=promotion.calculer_statistiques_prix %}
+                                <div class="prix-stats-compact">
+                                    <div class="prix-ligne-compact">
+                                        <span class="prix-original-compact">{{ prix_stats.prix_moyen_original|floatformat:0 }} DH</span>
+                                        <span class="prix-reduit-compact">{{ prix_stats.prix_moyen_reduit|floatformat:0 }} DH</span>
+                                        <div class="info-icon-container">
+                                            <button class="info-icon-btn" 
+                                                    onclick="openPrixModal({{ promotion.id }})" 
+                                                    title="Voir les détails des prix et économies"
+                                                    data-promotion-id="{{ promotion.id }}"
+                                                    data-promotion-nom="{{ promotion.nom }}"
+                                                    data-promotion-reduction="{{ promotion.pourcentage_reduction }}"
+                                                    data-nb-articles="{{ prix_stats.nb_articles }}"
+                                                    data-prix-moyen-original="{{ prix_stats.prix_moyen_original|floatformat:0 }}"
+                                                    data-prix-moyen-reduit="{{ prix_stats.prix_moyen_reduit|floatformat:0 }}"
+                                                    data-economie-moyenne="{{ prix_stats.economie_moyenne|floatformat:0 }}"
+                                                    data-economie-totale="{{ prix_stats.economie_totale|floatformat:0 }}"
+                                                    data-prix-min="{{ prix_stats.prix_min_reduit|floatformat:0 }}"
+                                                    data-prix-max="{{ prix_stats.prix_max_reduit|floatformat:0 }}"
+                                                    data-prix-min-original="{{ prix_stats.prix_min_original|floatformat:0 }}"
+                                                    data-prix-max-original="{{ prix_stats.prix_max_original|floatformat:0 }}">
+                                                <i class="fas fa-info"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="economie-compact">
+                                        -{{ prix_stats.economie_moyenne|floatformat:0 }} DH
+                                    </div>
+                                    <div class="prix-range-compact">
+                                        {{ prix_stats.prix_min_reduit|floatformat:0 }}-{{ prix_stats.prix_max_reduit|floatformat:0 }} DH
+                                    </div>
+                                </div>
+                            {% endwith %}
+                        {% else %}
+                            <div class="prix-stats-compact">
+                                <span class="text-xs text-gray-400">Aucun article</span>
+                            </div>
+                        {% endif %}
+                        </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-center">
+                        <div class="flex justify-center items-center space-x-3">
+                            <a href="{% url 'article:detail_promotion' promotion.id %}" class="text-indigo-600 hover:text-indigo-900 transition-colors" title="Voir les détails">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'article:modifier_promotion' promotion.id %}" class="text-green-600 hover:text-green-900 transition-colors" title="Modifier">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="{% url 'article:activer_desactiver_promotion' promotion.id %}" class="{% if promotion.active %}text-orange-600 hover:text-orange-900{% else %}text-green-600 hover:text-green-900{% endif %} transition-colors" title="{% if promotion.active %}Désactiver{% else %}Activer{% endif %}">
+                                <i class="fas fa-{% if promotion.active %}pause{% else %}play{% endif %}"></i>
+                            </a>
+                        </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="flex items-center justify-between bg-white px-4 py-3 sm:px-6 rounded-lg shadow-md mt-4">
+        <div class="flex flex-1 justify-between sm:hidden">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
+            {% endif %}
+        </div>
+        <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700">
+                    Affiche de
+                    <span class="font-medium">{{ page_obj.start_index }}</span>
+                    à
+                    <span class="font-medium">{{ page_obj.end_index }}</span>
+                    sur
+                    <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                    résultats
+                </p>
+            </div>
+            <div>
+                <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                    <span class="sr-only">Précédent</span>
+                            <i class="fas fa-chevron-left h-5 w-5"></i>
+                </a>
+                {% endif %}
+                
+                {% for i in page_obj.paginator.page_range %}
+                        {% if i == page_obj.number %}
+                            <a href="#" aria-current="page" class="relative z-10 inline-flex items-center px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style="background-color: var(--admin-color);">{{ i }}</a>
+                        {% else %}
+                             <a href="?page={{ i }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">{{ i }}</a>
+                        {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                    <span class="sr-only">Suivant</span>
+                            <i class="fas fa-chevron-right h-5 w-5"></i>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+    </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<!-- Inclure le modal de promotion -->
+{% include "article/promotion_modal.html" %}
+
+<!-- Modal des détails prix et économies -->
+<div id="prixDetailsModal" class="prix-details-modal">
+    <div class="prix-details-modal-content">
+        <div class="prix-details-modal-header">
+            <div class="prix-details-modal-title">
+                <i class="fas fa-chart-line"></i>
+                <span id="modal-promotion-nom">Détails Prix & Économies</span>
+            </div>
+            <button class="prix-details-modal-close" onclick="closePrixModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="prix-details-modal-body">
+            <!-- Grille des statistiques principales -->
+            <div class="prix-details-grid">
+                <div class="prix-details-card">
+                    <div class="prix-details-card-title">
+                        <i class="fas fa-percentage mr-1"></i>
+                        Réduction
+                    </div>
+                    <div class="prix-details-card-value" id="modal-reduction">0%</div>
+                </div>
+                
+                <div class="prix-details-card">
+                    <div class="prix-details-card-title">
+                        <i class="fas fa-shopping-bag mr-1"></i>
+                        Articles concernés
+                    </div>
+                    <div class="prix-details-card-value" id="modal-nb-articles">0</div>
+                </div>
+                
+                <div class="prix-details-card economie">
+                    <div class="prix-details-card-title">
+                        <i class="fas fa-coins mr-1"></i>
+                        Économie par article
+                    </div>
+                    <div class="prix-details-card-value" id="modal-economie-moyenne">0 DH</div>
+                </div>
+                
+                <div class="prix-details-card total">
+                    <div class="prix-details-card-title">
+                        <i class="fas fa-piggy-bank mr-1"></i>
+                        Économie totale possible
+                    </div>
+                    <div class="prix-details-card-value" id="modal-economie-totale">0 DH</div>
+                </div>
+            </div>
+            
+            <!-- Comparaison des prix -->
+            <div class="prix-details-comparison">
+                <div class="prix-details-comparison-title">
+                    <i class="fas fa-balance-scale"></i>
+                    Comparaison des prix
+                </div>
+                
+                <div class="prix-comparison-line">
+                    <span>Prix moyen:</span>
+                    <div>
+                        <span class="prix-before" id="modal-prix-moyen-original">0 DH</span>
+                        <span class="prix-arrow"><i class="fas fa-arrow-right"></i></span>
+                        <span class="prix-after" id="modal-prix-moyen-reduit">0 DH</span>
+                    </div>
+                </div>
+                
+                <div class="prix-comparison-line">
+                    <span>Prix le plus bas:</span>
+                    <div>
+                        <span class="prix-before" id="modal-prix-min-original">0 DH</span>
+                        <span class="prix-arrow"><i class="fas fa-arrow-right"></i></span>
+                        <span class="prix-after" id="modal-prix-min">0 DH</span>
+                    </div>
+                </div>
+                
+                <div class="prix-comparison-line">
+                    <span>Prix le plus élevé:</span>
+                    <div>
+                        <span class="prix-before" id="modal-prix-max-original">0 DH</span>
+                        <span class="prix-arrow"><i class="fas fa-arrow-right"></i></span>
+                        <span class="prix-after" id="modal-prix-max">0 DH</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Informations supplémentaires -->
+            <div class="prix-details-card">
+                <div class="prix-details-card-title">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Informations complémentaires
+                </div>
+                <div style="font-size: 0.85rem; color: #6c757d; line-height: 1.5;">
+                    <div>• L'économie totale est calculée si tous les articles de la promotion sont vendus</div>
+                    <div>• Les prix affichés correspondent aux prix actuels avec la réduction appliquée</div>
+                    <div>• La gamme de prix montre la fourchette des prix réduits pour tous les articles</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour la gestion automatique -->
+<div id="gestionAutoModal" class="gestion-auto-modal">
+    <div class="gestion-auto-modal-content">
+        <div class="gestion-auto-modal-header">
+            <div class="gestion-auto-modal-title">
+                <i class="fas fa-sync-alt"></i>
+                <span>Gestion Automatique des Promotions</span>
+            </div>
+            <button class="gestion-auto-modal-close" onclick="closeGestionAutoModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="gestion-auto-modal-body">
+            <div class="mb-4">
+                <h4 style="color: var(--admin-color); font-weight: 600; margin-bottom: 1rem;">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Que fait la gestion automatique ?
+                </h4>
+                <p style="color: #6c757d; font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem;">
+                    La gestion automatique traite intelligemment vos promotions selon leur état actuel. 
+                    Elle applique, désactive ou met à jour automatiquement les promotions selon leurs dates et statuts.
+                </p>
+            </div>
+
+            <!-- Fonctionnalités -->
+            <div class="feature-card">
+                <div class="feature-icon activate">
+                    <i class="fas fa-play"></i>
+                </div>
+                <div class="feature-content">
+                    <h4>Activation automatique</h4>
+                    <p>Les promotions programmées sont activées automatiquement quand leur date de début arrive. 
+                       Tous les articles concernés voient leurs prix réduits instantanément.</p>
+                </div>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon deactivate">
+                    <i class="fas fa-stop"></i>
+                </div>
+                <div class="feature-content">
+                    <h4>Désactivation automatique</h4>
+                    <p>Les promotions expirées sont désactivées automatiquement. Les prix des articles 
+                       reviennent à leur valeur normale et les upsells sont ajustés selon les règles.</p>
+                </div>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon update">
+                    <i class="fas fa-sync"></i>
+                </div>
+                <div class="feature-content">
+                    <h4>Mise à jour des prix</h4>
+                    <p>Tous les prix sont recalculés et synchronisés. Les réductions sont appliquées 
+                       correctement et les incohérences sont corrigées automatiquement.</p>
+                </div>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon update">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="feature-content">
+                    <h4>Gestion des upsells</h4>
+                    <p>Les upsells sont désactivés automatiquement pour les articles en promotion, 
+                       liquidation ou test selon les règles métier définies.</p>
+                </div>
+            </div>
+
+            <div style="background: linear-gradient(135deg, #e8f5e8, #d4edda); 
+                        border: 1px solid #c3e6cb; 
+                        border-radius: 8px; 
+                        padding: 1rem; 
+                        margin-top: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <i class="fas fa-lightbulb" style="color: #155724;"></i>
+                    <strong style="color: #155724;">Conseil d'utilisation</strong>
+                </div>
+                <p style="color: #155724; font-size: 0.85rem; line-height: 1.5; margin: 0;">
+                    Utilisez la gestion automatique quotidiennement pour maintenir vos promotions à jour. 
+                    C'est particulièrement utile après avoir créé de nouvelles promotions ou modifié des dates.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Animation d'entrée pour les cartes de statistiques
+        const cards = document.querySelectorAll('.animate-slideInUp');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '1';
+            }, index * 100);
+        });
+
+        // Gestionnaire pour le bouton d'ouverture du modal
+        const openModalBtn = document.querySelector('[data-modal-target="promotionModal"]');
+        const modal = document.getElementById('promotionModal');
+        
+        if (openModalBtn && modal) {
+            openModalBtn.addEventListener('click', function() {
+                modal.classList.remove('hidden');
+            });
+        }
+        
+        // Initialiser les mini décomptes
+        initMiniCountdowns();
+    });
+    
+    // Fonctions pour gérer le modal des détails prix
+    function openPrixModal(promotionId) {
+        const btn = document.querySelector(`[data-promotion-id="${promotionId}"]`);
+        const modal = document.getElementById('prixDetailsModal');
+        
+        if (btn && modal) {
+            // Récupérer les données depuis les attributs data
+            const data = {
+                nom: btn.dataset.promotionNom,
+                reduction: btn.dataset.promotionReduction,
+                nbArticles: btn.dataset.nbArticles,
+                prixMoyenOriginal: btn.dataset.prixMoyenOriginal,
+                prixMoyenReduit: btn.dataset.prixMoyenReduit,
+                economieMoyenne: btn.dataset.economieMoyenne,
+                economieTotale: btn.dataset.economieTotale,
+                prixMin: btn.dataset.prixMin,
+                prixMax: btn.dataset.prixMax,
+                prixMinOriginal: btn.dataset.prixMinOriginal,
+                prixMaxOriginal: btn.dataset.prixMaxOriginal
+            };
+            
+            // Remplir le modal avec les données
+            document.getElementById('modal-promotion-nom').textContent = `${data.nom} - Détails Prix & Économies`;
+            document.getElementById('modal-reduction').textContent = `${data.reduction}%`;
+            document.getElementById('modal-nb-articles').textContent = data.nbArticles;
+            document.getElementById('modal-economie-moyenne').textContent = `${data.economieMoyenne} DH`;
+            document.getElementById('modal-economie-totale').textContent = `${data.economieTotale} DH`;
+            document.getElementById('modal-prix-moyen-original').textContent = `${data.prixMoyenOriginal} DH`;
+            document.getElementById('modal-prix-moyen-reduit').textContent = `${data.prixMoyenReduit} DH`;
+            document.getElementById('modal-prix-min-original').textContent = `${data.prixMinOriginal} DH`;
+            document.getElementById('modal-prix-min').textContent = `${data.prixMin} DH`;
+            document.getElementById('modal-prix-max-original').textContent = `${data.prixMaxOriginal} DH`;
+            document.getElementById('modal-prix-max').textContent = `${data.prixMax} DH`;
+            
+            // Afficher le modal
+            modal.classList.add('active');
+            
+            // Empêcher le scroll du body
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    
+    function closePrixModal() {
+        const modal = document.getElementById('prixDetailsModal');
+        if (modal) {
+            modal.classList.remove('active');
+            // Restaurer le scroll du body
+            document.body.style.overflow = 'auto';
+        }
+    }
+    
+    // Fermer le modal en cliquant en dehors
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('prixDetailsModal');
+        if (e.target === modal) {
+            closePrixModal();
+        }
+    });
+    
+    // Fermer le modal avec la touche Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closePrixModal();
+            closeGestionAutoModal();
+        }
+    });
+    
+    // Fonctions pour gérer le modal de gestion automatique
+    function openGestionAutoModal() {
+        const modal = document.getElementById('gestionAutoModal');
+        if (modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    
+    function closeGestionAutoModal() {
+        const modal = document.getElementById('gestionAutoModal');
+        if (modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+    }
+    
+    // Fermer le modal gestion auto en cliquant en dehors
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('gestionAutoModal');
+        if (e.target === modal) {
+            closeGestionAutoModal();
+        }
+    });
+    
+    // Fonction pour initialiser tous les mini décomptes - VERSION TEMPS RÉEL
+    function initMiniCountdowns() {
+        const countdowns = document.querySelectorAll('.countdown-mini');
+        
+        countdowns.forEach(function(countdown) {
+            const startDate = new Date(countdown.dataset.start);
+            const endDate = new Date(countdown.dataset.end);
+            const isActive = countdown.dataset.active === 'true';
+            
+            // Stocker les valeurs précédentes pour les animations
+            let previousValues = {
+                days: null,
+                hours: null,
+                minutes: null,
+                seconds: null
+            };
+            
+            let timerInterval = null; // Pour pouvoir arrêter le timer
+            let isExpired = false; // Pour éviter les mises à jour inutiles
+            
+            function animateNumberChange(element) {
+                if (element) {
+                    element.classList.add('changing');
+                    setTimeout(() => {
+                        element.classList.remove('changing');
+                    }, 600);
+                }
+            }
+            
+            function updateMiniCountdown() {
+                // Si déjà expiré, ne plus mettre à jour
+                if (isExpired) return;
+                
+                const now = new Date();
+                let diff, status, statusText;
+                
+                // Déterminer l'état
+                if (now < startDate) {
+                    status = 'pending';
+                    statusText = 'Démarre dans';
+                    diff = startDate - now;
+                } else if (now >= startDate && now <= endDate) {
+                    status = 'active';
+                    statusText = isActive ? 'Se termine dans' : 'Inactive';
+                    diff = endDate - now;
+                } else {
+                    // Promotion expirée - arrêter le timer
+                    status = 'expired';
+                    statusText = 'Terminée';
+                    isExpired = true;
+                    
+                    // Arrêter le timer
+                    if (timerInterval) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                    }
+                    
+                    // Affichage final pour les promotions expirées
+                    const daysElement = countdown.querySelector('.days');
+                    const hoursElement = countdown.querySelector('.hours');
+                    const minutesElement = countdown.querySelector('.minutes');
+                    const secondsElement = countdown.querySelector('.seconds');
+                    const statusElement = countdown.querySelector('.countdown-mini-status');
+                    
+                    // Afficher "00" partout
+                    if (daysElement) daysElement.textContent = '00';
+                    if (hoursElement) hoursElement.textContent = '00';
+                    if (minutesElement) minutesElement.textContent = '00';
+                    if (secondsElement) secondsElement.textContent = '00';
+                    if (statusElement) statusElement.textContent = statusText;
+                    
+                    // Mettre à jour les classes CSS
+                    countdown.className = `countdown-mini ${status}`;
+                    
+                    return; // Sortir de la fonction
+                }
+                
+                // Calculer le temps avec les secondes (seulement si pas expiré)
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                // Mettre à jour l'affichage avec animations
+                const daysElement = countdown.querySelector('.days');
+                const hoursElement = countdown.querySelector('.hours');
+                const minutesElement = countdown.querySelector('.minutes');
+                const secondsElement = countdown.querySelector('.seconds');
+                const statusElement = countdown.querySelector('.countdown-mini-status');
+                
+                // Animer les changements
+                if (daysElement && previousValues.days !== days) {
+                    daysElement.textContent = days.toString().padStart(2, '0');
+                    animateNumberChange(daysElement);
+                    previousValues.days = days;
+                } else if (daysElement && previousValues.days === null) {
+                    daysElement.textContent = days.toString().padStart(2, '0');
+                    previousValues.days = days;
+                }
+                
+                if (hoursElement && previousValues.hours !== hours) {
+                    hoursElement.textContent = hours.toString().padStart(2, '0');
+                    animateNumberChange(hoursElement);
+                    previousValues.hours = hours;
+                } else if (hoursElement && previousValues.hours === null) {
+                    hoursElement.textContent = hours.toString().padStart(2, '0');
+                    previousValues.hours = hours;
+                }
+                
+                if (minutesElement && previousValues.minutes !== minutes) {
+                    minutesElement.textContent = minutes.toString().padStart(2, '0');
+                    animateNumberChange(minutesElement);
+                    previousValues.minutes = minutes;
+                } else if (minutesElement && previousValues.minutes === null) {
+                    minutesElement.textContent = minutes.toString().padStart(2, '0');
+                    previousValues.minutes = minutes;
+                }
+                
+                if (secondsElement && previousValues.seconds !== seconds) {
+                    secondsElement.textContent = seconds.toString().padStart(2, '0');
+                    animateNumberChange(secondsElement);
+                    previousValues.seconds = seconds;
+                } else if (secondsElement && previousValues.seconds === null) {
+                    secondsElement.textContent = seconds.toString().padStart(2, '0');
+                    previousValues.seconds = seconds;
+                }
+                
+                if (statusElement) statusElement.textContent = statusText;
+                
+                // Mettre à jour les classes CSS
+                countdown.className = `countdown-mini ${status}`;
+                
+                // Ajouter classe critique si moins de 24h (pour les promotions actives)
+                if (status === 'active' && days === 0 && hours < 24) {
+                    countdown.classList.add('critical');
+                }
+                
+                // Ajouter classe pour promotions qui commencent bientôt (moins de 1h)
+                if (status === 'pending' && days === 0 && hours === 0 && minutes < 60) {
+                    countdown.classList.add('near-start');
+                }
+            }
+            
+            // Vérifier immédiatement si la promotion est déjà expirée
+            const now = new Date();
+            if (now > endDate) {
+                // Promotion déjà expirée, pas besoin de timer
+                updateMiniCountdown();
+            } else {
+                // Mettre à jour immédiatement et démarrer le timer
+                updateMiniCountdown();
+                timerInterval = setInterval(updateMiniCountdown, 1000);
+            }
+        });
+    }
+</script>
+{% endblock %} 

@@ -1,0 +1,311 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Créer Commande - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-plus-circle mr-3" style="color: var(--admin-accent-color);"></i>
+                Nouvelle Commande
+            </h1>
+            <p style="color: var(--admin-accent-color);">Enregistrez une nouvelle commande dans le système.</p>
+        </div>
+        <a href="{% url 'commande:liste' %}" class="mt-4 md:mt-0 inline-flex items-center text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+            <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
+        </a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-8" style="border-color: var(--admin-accent-color);">
+        <form method="post" id="commandeForm">
+            {% csrf_token %}
+            
+            <!-- Section Client -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 flex items-center" style="color: var(--admin-color);">
+                    <i class="fas fa-user mr-2"></i>
+                    Informations Client
+                </h3>
+
+                <!-- Type de client -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Type de client</label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="type_client" value="existant" checked 
+                                   class="form-radio" style="color: var(--admin-color);">
+                            <span class="ml-2">Client existant</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="type_client" value="nouveau" 
+                                   class="form-radio" style="color: var(--admin-color);">
+                            <span class="ml-2">Nouveau client</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Section client existant -->
+                <div id="section-client-existant" class="mb-6">
+                    <label for="client" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Sélectionner un client</label>
+                    <select name="client" id="client" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200">
+                        <option value="">Sélectionner un client</option>
+                        {% for client in clients %}
+                            <option value="{{ client.pk }}">{{ client.get_full_name }} ({{ client.telephone }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Section nouveau client -->
+                <div id="section-nouveau-client" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="display: none;">
+                    <div>
+                        <label for="nouveau_prenom" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Prénom</label>
+                        <input type="text" id="nouveau_prenom" name="nouveau_prenom" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200">
+                    </div>
+                    <div>
+                        <label for="nouveau_nom" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Nom</label>
+                        <input type="text" id="nouveau_nom" name="nouveau_nom" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200">
+                    </div>
+                    <div>
+                        <label for="nouveau_telephone" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Téléphone</label>
+                        <input type="tel" id="nouveau_telephone" name="nouveau_telephone" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200">
+                    </div>
+                    <div>
+                        <label for="nouveau_email" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Email (Optionnel)</label>
+                        <input type="email" id="nouveau_email" name="nouveau_email" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Livraison -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 flex items-center" style="color: var(--admin-color);">
+                    <i class="fas fa-truck mr-2"></i>
+                    Informations de Livraison
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="ville_livraison" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Ville de livraison</label>
+                        <select name="ville_livraison" id="ville_livraison" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200">
+                            <option value="">Sélectionner une ville...</option>
+                            {% for ville in villes %}
+                                <option value="{{ ville.pk }}" 
+                                        data-frais="{{ ville.frais_livraison|stringformat:'.2f' }}"
+                                        data-region="{{ ville.region.nom_region|default:'' }}">
+                                    {{ ville.nom }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="frais_livraison" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Frais de livraison (DH)</label>
+                        <input type="text" id="frais_livraison" name="frais_livraison" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" readonly>
+                    </div>
+                    <div>
+                        <label for="region_livraison" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Région</label>
+                        <input type="text" id="region_livraison" name="region_livraison" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" readonly>
+                    </div>
+                    <div>
+                        <label for="adresse" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Adresse complète</label>
+                        <textarea name="adresse" id="adresse" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200" required></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Articles -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 flex items-center" style="color: var(--admin-color);">
+                    <i class="fas fa-shopping-cart mr-2"></i>
+                    Articles
+                </h3>
+                <div id="articles-container">
+                    <!-- Les articles seront ajoutés ici dynamiquement -->
+                </div>
+                <button type="button" id="add-article" class="mt-4 px-4 py-2 text-white rounded-lg font-medium transition-all shadow-md" style="background-color: var(--admin-color);">
+                    <i class="fas fa-plus mr-2"></i>
+                    Ajouter un article
+                </button>
+            </div>
+
+            <!-- Options et Total -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 mb-6 pt-4 border-t" style="border-color: var(--admin-accent-color);">
+                <div class="flex items-center">
+                    <input type="checkbox" name="is_upsell" id="is_upsell" class="h-5 w-5 text-[var(--admin-color)] rounded focus:ring-2 focus:ring-[var(--admin-accent-color)]">
+                    <label for="is_upsell" class="ml-2 text-sm font-medium" style="color: var(--admin-color);">Commande Upsell</label>
+                </div>
+                <div>
+                    <label for="total_cmd" class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Total Commande (DH)</label>
+                    <input type="number" name="total_cmd" id="total_cmd" step="0.01" min="0" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" readonly required>
+                </div>
+            </div>
+
+            <!-- Bouton de soumission -->
+            <button type="submit" class="px-6 py-3 text-white rounded-lg font-medium transition-all shadow-md" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+                <i class="fas fa-save mr-2"></i>
+                Créer la commande
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Gestion de l'affichage des sections selon le type de client
+document.querySelectorAll('input[name="type_client"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const clientExistantSection = document.getElementById('section-client-existant');
+        const nouveauClientSection = document.getElementById('section-nouveau-client');
+        
+        if (this.value === 'existant') {
+            clientExistantSection.style.display = 'block';
+            nouveauClientSection.style.display = 'none';
+            // Réinitialiser les champs du nouveau client
+            document.getElementById('nouveau_prenom').value = '';
+            document.getElementById('nouveau_nom').value = '';
+            document.getElementById('nouveau_telephone').value = '';
+            document.getElementById('nouveau_email').value = '';
+        } else {
+            clientExistantSection.style.display = 'none';
+            nouveauClientSection.style.display = 'block';
+            // Réinitialiser la sélection du client existant
+            document.getElementById('client').selectedIndex = 0;
+        }
+    });
+});
+
+// Mise à jour des informations de livraison
+document.getElementById('ville_livraison').addEventListener('change', function() {
+    console.log('Changement de ville détecté');
+    
+    const selectedOption = this.options[this.selectedIndex];
+    console.log('Option sélectionnée:', selectedOption);
+    
+    if (selectedOption && selectedOption.value) {
+        console.log('Valeur de l\'option:', selectedOption.value);
+        console.log('Dataset de l\'option:', selectedOption.dataset);
+        
+        const frais = selectedOption.dataset.frais;
+        const region = selectedOption.dataset.region;
+        
+        console.log('Frais extraits:', frais);
+        console.log('Région extraite:', region);
+        
+        const fraisInput = document.getElementById('frais_livraison');
+        const regionInput = document.getElementById('region_livraison');
+        
+        // Formater les frais avec 2 décimales et remplacer le point par une virgule
+        const fraisFormates = parseFloat(frais || 0).toLocaleString('fr-FR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        
+        fraisInput.value = fraisFormates;
+        regionInput.value = region || '';
+        
+        console.log('Valeur mise à jour des frais:', fraisInput.value);
+        console.log('Valeur mise à jour de la région:', regionInput.value);
+    } else {
+        console.log('Aucune ville sélectionnée');
+        document.getElementById('frais_livraison').value = '';
+        document.getElementById('region_livraison').value = '';
+    }
+});
+
+// Gestion des articles
+let articleCounter = 0;
+
+function createArticleRow() {
+    const container = document.createElement('div');
+    container.className = 'grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg';
+    container.innerHTML = `
+        <div>
+            <label class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Article</label>
+            <select name="article_${articleCounter}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200 article-select" required>
+                <option value="">Sélectionner un article</option>
+                {% for article in articles %}
+                <option value="{{ article.pk }}" 
+                        data-prix="{{ article.prix_unitaire }}"
+                        data-stock="{{ article.qte_disponible }}">
+                    {{ article.nom }} ({{ article.reference }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Quantité</label>
+            <input type="number" name="quantite_${articleCounter}" min="1" value="1" 
+                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200 quantite-input">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Prix unitaire (DH)</label>
+            <input type="text" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed prix-unitaire" readonly>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-2" style="color: var(--admin-color);">Sous-total (DH)</label>
+            <input type="text" name="sous_total_${articleCounter}" 
+                   class="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed sous-total" readonly>
+        </div>
+    `;
+
+    // Ajouter un bouton de suppression
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'mt-2 text-red-600 hover:text-red-800';
+    deleteButton.innerHTML = '<i class="fas fa-trash mr-1"></i> Supprimer';
+    deleteButton.onclick = function() {
+        container.remove();
+        calculerTotal();
+    };
+    container.appendChild(deleteButton);
+
+    // Ajouter les événements
+    container.querySelector('.article-select').addEventListener('change', function() {
+        const option = this.options[this.selectedIndex];
+        const prixUnitaire = option.dataset.prix || 0;
+        container.querySelector('.prix-unitaire').value = prixUnitaire;
+        calculerSousTotal(container);
+    });
+
+    container.querySelector('.quantite-input').addEventListener('input', function() {
+        calculerSousTotal(container);
+    });
+
+    return container;
+}
+
+function calculerSousTotal(container) {
+    const quantite = parseInt(container.querySelector('.quantite-input').value) || 0;
+    const prixUnitaire = parseFloat(container.querySelector('.prix-unitaire').value) || 0;
+    const sousTotal = quantite * prixUnitaire;
+    container.querySelector('.sous-total').value = sousTotal.toFixed(2);
+    calculerTotal();
+}
+
+function calculerTotal() {
+    const sousTotal = Array.from(document.querySelectorAll('.sous-total'))
+        .map(input => parseFloat(input.value) || 0)
+        .reduce((a, b) => a + b, 0);
+    document.getElementById('total_cmd').value = sousTotal.toFixed(2);
+}
+
+document.getElementById('add-article').addEventListener('click', function() {
+    const container = document.getElementById('articles-container');
+    container.appendChild(createArticleRow());
+    articleCounter++;
+});
+
+// Initialisation
+window.addEventListener('load', function() {
+    // Créer une première ligne d'article
+    document.getElementById('add-article').click();
+    
+    // Initialiser l'affichage du type de client
+    const typeClientRadios = document.querySelectorAll('input[name="type_client"]');
+    const checkedRadio = Array.from(typeClientRadios).find(radio => radio.checked);
+    if (checkedRadio) {
+        checkedRadio.dispatchEvent(new Event('change'));
+    }
+});
+</script>
+{% endblock %} 

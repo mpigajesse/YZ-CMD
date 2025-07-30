@@ -1,0 +1,108 @@
+{% load commande_filters %}
+
+{% for panier in commande.paniers.all %}
+<div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" 
+    data-article-id="{{ panier.id }}"
+    data-article='{"id": {{ panier.article.id }}, "nom": "{{ panier.article.nom }}", "reference": "{{ panier.article.reference }}", "prix_actuel": {{ panier.article.prix_actuel|default:0 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0 }}, "prix_upsell_4": {{ panier.article.prix_upsell_4|default:0 }}, "isUpsell": {{ panier.article.isUpsell|yesno:"true,false" }}, "pointure": "{{ panier.article.pointure|default:'' }}", "couleur": "{{ panier.article.couleur|default:'' }}", "categorie": "{{ panier.article.categorie|default:'' }}", "qte_disponible": {{ panier.article.qte_disponible|default:0 }}, "phase": "{{ panier.article.phase|default:'' }}", "has_promo_active": {{ panier.article.has_promo_active|yesno:"true,false" }}}'>
+    <div class="flex items-center justify-between">
+        <!-- Informations de l'article -->
+        <div class="flex-1">
+            <div class="flex items-center space-x-4">
+                <!-- Nom et référence -->
+                <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-lg" style="color: #4B352A;">{{ panier.article.nom }}</div>
+                    <div class="text-sm text-gray-500">
+                        <i class="fas fa-hashtag mr-1"></i>Réf: {{ panier.article.reference }}
+                    </div>
+                    <!-- Informations détaillées -->
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        {% if panier.article.pointure %}
+                        <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-ruler-vertical mr-1"></i>{{ panier.article.pointure }}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                            <i class="fas fa-ruler-vertical mr-1"></i>Taille N/A
+                        </span>
+                        {% endif %}
+                        
+                        {% if panier.article.couleur %}
+                        <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-palette mr-1"></i>{{ panier.article.couleur }}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                            <i class="fas fa-palette mr-1"></i>Couleur N/A
+                        </span>
+                        {% endif %}
+                        
+                        {% if panier.article.categorie %}
+                        <span class="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-tag mr-1"></i>{{ panier.article.categorie }}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                            <i class="fas fa-tag mr-1"></i>Catégorie N/A
+                        </span>
+                        {% endif %}
+                                            
+                        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.qte_disponible|default:0 }}
+                        </span>
+
+                    </div>
+                </div>
+                
+                <!-- Quantité -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">Quantité</div>
+                    <div class="flex items-center justify-center gap-1">
+                        <button type="button" onclick="modifierQuantite({{ panier.id }}, -1)" class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors hover:bg-red-200">-</button>
+                        <input type="number" id="quantite-{{ panier.id }}" value="{{ panier.quantite }}" min="1" max="99" 
+                               data-previous-value="{{ panier.quantite }}"
+                               class="w-16 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:border-blue-500 focus:outline-none"
+                               onchange="modifierQuantiteDirecte({{ panier.id }}, this.value)"
+                               onblur="modifierQuantiteDirecte({{ panier.id }}, this.value)">
+                        <button type="button" onclick="modifierQuantite({{ panier.id }}, 1)" class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors hover:bg-green-200">+</button>
+                    </div>
+                </div>
+                
+                <!-- Prix unitaire -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">Prix actuel</div>
+                    {% with panier.article|get_prix_avec_phase_info:commande.compteur as prix_info %}
+                    <div class="font-medium {{ prix_info.couleur_classe }}">
+                        {{ prix_info.prix|floatformat:2 }} DH
+                    </div>
+                    <div class="text-xs {{ prix_info.couleur_classe }} mt-1">
+                        {{ prix_info.libelle }}
+                    </div>
+                    {% endwith %}
+                </div>
+                
+                <!-- Sous-total -->
+                <div class="text-center min-w-0">
+                    <div class="text-sm text-gray-500">Sous-total</div>
+                    <div class="text-lg font-bold" style="color: #6d4b3b;">
+                        {{ panier|calculer_sous_total_avec_compteur:commande.compteur|floatformat:2 }} DH
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex space-x-2 ml-4">
+            <button type="button" onclick="modifierArticle({{ panier.id }})" 
+                    class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" 
+                    title="Modifier">
+                <i class="fas fa-edit mr-1"></i>Modifier
+            </button>
+            <button type="button" onclick="supprimerArticle({{ panier.id }})" 
+                    class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" 
+                    title="Supprimer">
+                <i class="fas fa-trash mr-1"></i>Supprimer
+            </button>
+        </div>
+    </div>
+</div>
+{% endfor %} 

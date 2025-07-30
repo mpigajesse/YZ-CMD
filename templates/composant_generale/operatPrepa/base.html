@@ -1,0 +1,181 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}YZ-CMD - Opérateur de Préparation{% endblock %}</title>
+    
+    {% tailwind_css %}
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="{% static 'vendor/sweetalert2.min.css' %}">
+
+    {% block extra_css %}
+    <style>
+        :root {
+            --preparation-primary: #361f27; /* Couleur principale (brun très foncé) */
+            --preparation-dark: #2c1a21;   /* Encore plus foncé */
+            --preparation-light: #4b2e3a;  /* Plus clair */
+            --preparation-text-light: #F0F8F8; /* Texte très clair */
+            --preparation-border-accent: #9a6a4d; /* Accent (doré/orangé terreux) */
+            --preparation-hover-bg: #412a34; /* Arrière-plan au survol */
+        }
+
+        /* --- Sidebar --- */
+        #sidebar { width: 256px; }
+
+        /* Comportement sur grand écran */
+        @media (min-width: 1024px) {
+            body.sidebar-collapsed #sidebar { width: 0; }
+        }
+
+        /* Comportement sur petit écran (overlay) */
+        @media (max-width: 1023.98px) {
+            #sidebar { position: absolute; height: 100%; z-index: 100; }
+            body.sidebar-collapsed #sidebar { transform: translateX(-100%); }
+            body.sidebar-open #sidebar { transform: translateX(0); }
+            
+            #content-overlay { display: none; position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 99; }
+            body.sidebar-open #content-overlay { display: block; }
+        }
+
+        /* Notifications SweetAlert2 personnalisées - avec haute spécificité */
+        body .swal2-toast.swal2-success {
+            background-color: #2f855a !important;
+            color: white !important;
+        }
+        body .swal2-toast.swal2-error {
+            background-color: #c53030 !important;
+            color: white !important;
+        }
+        body .swal2-toast.swal2-warning {
+            background-color: #dd6b20 !important;
+            color: white !important;
+        }
+        body .swal2-toast.swal2-info {
+            background-color: #2b6cb0 !important;
+            color: white !important;
+        }
+        body .swal2-toast .swal2-title {
+            color: white !important;
+        }
+        body .swal2-toast .swal2-icon.swal2-success .swal2-success-line-tip,
+        body .swal2-toast .swal2-icon.swal2-success .swal2-success-line-long {
+            stroke: white !important;
+        }
+    </style>
+    {% endblock %}
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="relative flex h-screen overflow-x-hidden">
+        <!-- Sidebar -->
+        {% include 'composant_generale/operatPrepa/sidebar.html' %}
+        
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <!-- Header -->
+            {% include 'composant_generale/operatPrepa/header.html' %}
+            
+            <!-- Page Content -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+        
+        <!-- Overlay for mobile -->
+        <div id="content-overlay"></div>
+    </div>
+    
+    <!-- SweetAlert2 -->
+    <script src="{% static 'vendor/sweetalert2.min.js' %}"></script>
+
+    {% block extra_js %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Afficher les messages Django avec SweetAlert2
+        {% if messages %}
+            {% for message in messages %}
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3500,
+                    timerProgressBar: true,
+                    icon: '{{ message.tags }}',
+                    title: '{{ message }}',
+                    customClass: {
+                        popup: 'swal2-toast swal2-{{ message.tags|lower }}'
+                    },
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer);
+                        toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    }
+                });
+            {% endfor %}
+        {% endif %}
+
+        const body = document.body;
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const contentOverlay = document.getElementById('content-overlay');
+        
+        function toggleSidebar() {
+            body.classList.toggle('sidebar-open');
+            body.classList.toggle('sidebar-collapsed');
+        }
+
+        function closeSidebarMobile() {
+            if (window.innerWidth <= 1023) {
+                body.classList.add('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
+            }
+        }
+
+        if (window.innerWidth <= 1023) {
+            body.classList.add('sidebar-collapsed');
+        } else {
+            body.classList.add('sidebar-open');
+        }
+
+        if (menuToggle) {
+            menuToggle.addEventListener('click', toggleSidebar);
+        }
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', closeSidebarMobile);
+        }
+        if (contentOverlay) {
+            contentOverlay.addEventListener('click', closeSidebarMobile);
+        }
+
+        document.querySelectorAll('.toggle-dropdown').forEach(dropdownToggle => {
+            dropdownToggle.addEventListener('click', () => {
+                const targetId = dropdownToggle.dataset.target;
+                const targetMenu = document.querySelector(targetId);
+                const chevronIcon = dropdownToggle.querySelector('.fa-chevron-down');
+
+                if (targetMenu && chevronIcon) {
+                    targetMenu.classList.toggle('hidden');
+                    chevronIcon.classList.toggle('rotate-180');
+                }
+            });
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1023) {
+                body.classList.add('sidebar-open');
+                body.classList.remove('sidebar-open');
+            } else {
+                body.classList.add('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
+            }
+        });
+    });
+    </script>
+    {% endblock %}
+</body>
+</html> 

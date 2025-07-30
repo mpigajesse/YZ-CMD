@@ -1,0 +1,810 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Modifier Commande - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-edit mr-3" style="color: var(--admin-accent-color);"></i>
+                Modifier Commande: {{ commande.id_yz }}
+            </h1>
+            <p style="color: var(--admin-accent-color);">Mettez à jour les informations de cette commande.</p>
+        </div>
+        {% if from_a_traiter %}
+        <a href="{% url 'commande:a_traiter' %}" class="mt-4 md:mt-0 inline-flex items-center text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+            <i class="fas fa-arrow-left mr-2"></i>Retour à "À Traiter"
+        </a>
+        {% else %}
+        <a href="{% url 'commande:detail' commande.pk %}" class="mt-4 md:mt-0 inline-flex items-center text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg" style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+            <i class="fas fa-arrow-left mr-2"></i>Retour aux détails
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Bannière d'aide pour la correction de problèmes -->
+    {% if from_a_traiter %}
+    <div class="mb-6">
+        {% if probleme_type == 'doublon' %}
+        <div class="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl p-4">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-copy text-orange-500 text-xl mt-0.5"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-orange-800 mb-2">
+                        <i class="fas fa-tools mr-2"></i>Correction d'un Doublon
+                    </h3>
+                    <p class="text-sm text-orange-700 leading-relaxed mb-3">
+                        Cette commande est marquée comme <strong>doublon</strong>. Voici les actions recommandées :
+                    </p>
+                    <ul class="text-sm text-orange-700 space-y-1 ml-4">
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-orange-500 text-xs mr-2 mt-1"></i>
+                            Vérifiez les informations du client (nom, téléphone, adresse)
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-orange-500 text-xs mr-2 mt-1"></i>
+                            Corrigez les erreurs dans les coordonnées si nécessaire
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-orange-500 text-xs mr-2 mt-1"></i>
+                            Modifiez l'état vers "Confirmée" si les informations sont correctes
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-orange-500 text-xs mr-2 mt-1"></i>
+                            Supprimez cette commande si c'est vraiment un doublon à éliminer
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% elif probleme_type == 'erronnee' %}
+        <div class="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl p-4">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-circle text-red-500 text-xl mt-0.5"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800 mb-2">
+                        <i class="fas fa-tools mr-2"></i>Correction d'une Commande Erronée
+                    </h3>
+                    <p class="text-sm text-red-700 leading-relaxed mb-3">
+                        Cette commande contient des <strong>erreurs</strong> qui nécessitent une correction :
+                    </p>
+                    <ul class="text-sm text-red-700 space-y-1 ml-4">
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-red-500 text-xs mr-2 mt-1"></i>
+                            Vérifiez et corrigez les informations client
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-red-500 text-xs mr-2 mt-1"></i>
+                            Contrôlez les articles du panier et leurs quantités
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-red-500 text-xs mr-2 mt-1"></i>
+                            Vérifiez l'adresse de livraison et la ville
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-red-500 text-xs mr-2 mt-1"></i>
+                            Modifiez l'état vers "Confirmée" une fois les erreurs corrigées
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-tools text-blue-500 text-xl mt-0.5"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-blue-800 mb-2">
+                        <i class="fas fa-edit mr-2"></i>Correction de Commande Problématique
+                    </h3>
+                    <p class="text-sm text-blue-700 leading-relaxed">
+                        Cette commande nécessite une intervention manuelle. Vérifiez toutes les informations et corrigez les erreurs détectées avant de modifier l'état vers "Confirmée".
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Section 1: Informations Client -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: #10b981;">
+        <div class="flex items-center mb-6">
+            <h2 class="text-2xl font-bold flex items-center text-emerald-600">
+                <i class="fas fa-user-circle mr-2"></i>Informations Client
+            </h2>
+        </div>
+        
+        <form method="post" id="clientForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_client">
+            {% if from_a_traiter %}
+            <input type="hidden" name="from" value="a_traiter">
+            {% endif %}
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Nom complet du client (lecture seule) -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label class="block text-sm font-semibold mb-2 text-gray-600">Nom complet :</label>
+                    <p class="text-lg font-medium text-gray-800">
+                        <i class="fas fa-user mr-2 text-emerald-500"></i>
+                        {{ commande.client.nom }} {{ commande.client.prenom }}
+                    </p>
+                </div>
+                
+                <!-- Téléphone de la commande (récupéré et modifiable) -->
+                <div>
+                    <label for="telephone_client" class="block text-sm font-semibold mb-2 text-emerald-600">
+                        <i class="fas fa-phone mr-2"></i>Téléphone de la commande (modifiable) :
+                    </label>
+                    <input type="tel" name="telephone_client" id="telephone_client" 
+                           value="{{ commande.client.numero_tel }}" 
+                           class="w-full p-3 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition duration-200"
+                           required>
+                    <p class="text-xs text-emerald-600 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Téléphone utilisé lors de la passation de commande
+                    </p>
+                </div>
+                
+                <!-- Ville du client (récupérée) -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label class="block text-sm font-semibold mb-2 text-gray-600">Ville du client :</label>
+                    <p class="text-lg font-medium text-gray-800">
+                        <i class="fas fa-map-marker-alt mr-2 text-emerald-500"></i>
+                        {% if commande.ville %}
+                            {{ commande.ville.nom }}
+                        {% else %}
+                            {{ commande.ville_init|default:"Non spécifiée" }}
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <!-- Adresse du client (récupérée) -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label class="block text-sm font-semibold mb-2 text-gray-600">Adresse du client :</label>
+                    <p class="text-lg font-medium text-gray-800">
+                        <i class="fas fa-home mr-2 text-emerald-500"></i>
+                        {{ commande.client.adresse|default:"Non spécifiée" }}
+                    </p>
+                </div>
+            </div>
+            
+            <div class="flex justify-end">
+                <button type="submit" class="px-6 py-2 bg-emerald-500 text-white rounded-lg font-semibold hover:bg-emerald-600 transition-colors shadow-md">
+                    <i class="fas fa-save mr-2"></i> Mettre à jour le téléphone
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Section 2: Informations Générales -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--admin-accent-color);">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold flex items-center" style="color: var(--admin-color);">
+                <i class="fas fa-info-circle mr-2"></i>Informations Générales
+            </h2>
+            <!-- Boutons d'actions rapides -->
+            <div class="flex space-x-2">
+                {% if commande.etat_actuel and commande.etat_actuel.enum_etat.libelle != 'Annulée' %}
+                <button type="button" id="btnNonAffectee" 
+                        class="px-4 py-2 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600 transition-colors shadow-md text-sm">
+                    <i class="fas fa-tasks mr-1"></i>Non affectée
+                </button>
+                <button type="button" id="btnAnnulerCommande" 
+                        class="px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors shadow-md text-sm">
+                    <i class="fas fa-ban mr-1"></i>Annuler
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        
+        <form method="post" id="commandeForm">
+            {% csrf_token %}
+            {% if from_a_traiter %}
+            <input type="hidden" name="from" value="a_traiter">
+            {% endif %}
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- ID YZ (lecture seule) -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label class="block text-sm font-semibold mb-2 text-gray-600">ID YZ :</label>
+                    <p class="text-lg font-medium text-gray-800">
+                        <i class="fas fa-barcode mr-2" style="color: var(--admin-color);"></i>
+                        {{ commande.id_yz }}
+                    </p>
+                </div>
+                
+                <!-- Numéro de commande externe (lecture seule) -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label class="block text-sm font-semibold mb-2 text-gray-600">N° Externe :</label>
+                    <p class="text-lg font-medium text-gray-800">
+                        <i class="fas fa-hashtag mr-2" style="color: var(--admin-color);"></i>
+                        {{ commande.num_cmd|default:"Non spécifié" }}
+                    </p>
+                </div>
+                
+                <!-- Date de commande (lecture seule) -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label class="block text-sm font-semibold mb-2 text-gray-600">Date de commande :</label>
+                    <p class="text-lg font-medium text-gray-800">
+                        <i class="fas fa-calendar mr-2" style="color: var(--admin-color);"></i>
+                        {{ commande.date_cmd|date:"d/m/Y" }}
+                    </p>
+                </div>
+                
+                <!-- Valeur de commande (lecture seule) -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label class="block text-sm font-semibold mb-2 text-gray-600">Valeur de la commande :</label>
+                    <p class="text-lg font-medium text-gray-800">
+                        <i class="fas fa-money-bill-wave mr-2" style="color: var(--admin-color);"></i>
+                        {{ commande.total_cmd|floatformat:2 }} DH
+                    </p>
+                </div>
+                
+                <!-- Ville initiale (récupérée de la commande) -->
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <label class="block text-sm font-semibold mb-2 text-blue-600">Ville initiale :</label>
+                    <p class="text-lg font-medium text-blue-800">
+                        <i class="fas fa-map-marker-alt mr-2"></i>
+                        {% if commande.ville %}
+                            {{ commande.ville.nom }}
+                        {% else %}
+                            {{ commande.ville_init|default:"Non spécifiée" }}
+                        {% endif %}
+                        <small class="text-blue-600">(ville de la commande)</small>
+                    </p>
+                    <p class="text-xs text-blue-600 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Ville récupérée lors de la passation de commande
+                    </p>
+                </div>
+                
+                <!-- État actuel de la commande (lecture seule) -->
+                <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                    <label class="block text-sm font-semibold mb-2 text-indigo-600">État actuel :</label>
+                    {% if commande.etat_actuel %}
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 rounded-full mr-2" style="background-color: {{ commande.etat_actuel.enum_etat.couleur }};"></div>
+                            <p class="text-lg font-medium" style="color: {{ commande.etat_actuel.enum_etat.couleur }};">
+                                <i class="fas fa-layer-group mr-2"></i>
+                                {{ commande.etat_actuel.enum_etat.libelle }}
+                            </p>
+                        </div>
+                        <p class="text-xs text-indigo-600 mt-1">
+                            <i class="fas fa-clock mr-1"></i>
+                            Depuis le {{ commande.etat_actuel.date_debut|date:"d/m/Y à H:i" }}
+                            {% if commande.etat_actuel.operateur %}
+                                par {{ commande.etat_actuel.operateur.mail }}
+                            {% endif %}
+                        </p>
+                    {% else %}
+                        <p class="text-lg font-medium text-gray-500">
+                            <i class="fas fa-question-circle mr-2"></i>
+                            Aucun état défini
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Cette commande n'a pas encore d'état assigné
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Adresse de livraison (saisie manuelle obligatoire) -->
+            <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <label for="adresse" class="block text-sm font-semibold mb-2 text-orange-600">
+                    <i class="fas fa-map-marker-alt mr-2"></i>Adresse de livraison (saisie manuelle) :
+                </label>
+                <textarea name="adresse" id="adresse" rows="4" 
+                          class="w-full p-3 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition duration-200" 
+                          required placeholder="Saisissez l'adresse complète de livraison...&#10;Exemple:&#10;Rue, Quartier&#10;Immeuble/Villa, Étage&#10;Point de repère...">{{ commande.adresse }}</textarea>
+                <div class="flex items-start gap-2 mt-2">
+                    <i class="fas fa-lightbulb text-orange-500 mt-0.5 text-sm"></i>
+                                         <div class="text-xs text-orange-600">
+                         <strong>À saisir manuellement :</strong> Cette adresse peut être différente de l'adresse du client.<br>
+                         <strong>Ville :</strong> 
+                         {% if commande.ville %}
+                             {{ commande.ville.nom }}
+                         {% else %}
+                             {{ commande.ville_init|default:"Ville de la commande" }}
+                         {% endif %}
+                     </div>
+                </div>
+            </div>
+
+
+            <div class="flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    <i class="fas fa-edit mr-1"></i>
+                    <strong>Champs modifiables :</strong> Téléphone de la commande, Adresse de livraison<br>
+                    <i class="fas fa-database mr-1 text-blue-500"></i>
+                    <strong>Récupérés :</strong> Ville initiale et données client de la commande originale
+                </div>
+                <button type="submit" class="px-6 py-3 text-white rounded-lg font-semibold transition-colors shadow-md" 
+                        style="background-color: var(--admin-color); hover:background-color: var(--admin-gradient-end);">
+                    <i class="fas fa-save mr-2"></i> Enregistrer les modifications
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Section 3: Gestion du Panier -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--admin-accent-color);">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold flex items-center" style="color: var(--admin-color);">
+                <i class="fas fa-shopping-cart mr-2"></i>Gestion du Panier
+            </h2>
+            <div class="bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+                <span class="text-sm font-medium text-blue-800">Total: </span>
+                <span id="totalDisplay" class="text-lg font-bold text-blue-900">{{ commande.total_cmd|floatformat:2 }} DH</span>
+            </div>
+        </div>
+        
+        <form method="post" id="panierForm" action="{% url 'commande:modifier' commande.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_panier">
+            {% if from_a_traiter %}
+            <input type="hidden" name="from" value="a_traiter">
+            {% endif %}
+
+            <!-- Articles du Panier -->
+            <div id="cartItemsContainer" class="space-y-4 mb-6">
+                <!-- Les articles seront ajoutés ici par JavaScript -->
+            </div>
+            
+            <div class="flex justify-between items-center">
+            <button type="button" id="addArticleBtn" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors shadow-md">
+                <i class="fas fa-plus mr-2"></i> Ajouter un article
+            </button>
+
+                <div class="flex space-x-3">
+                    <input type="number" name="total_cmd" id="total_cmd" step="0.01" min="0" value="{{ commande.total_cmd|floatformat:2 }}" class="w-32 p-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-center font-bold" readonly required>
+                    <button type="submit" class="px-6 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-md">
+                        <i class="fas fa-save mr-2"></i> Mettre à jour le panier
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Container pour les toasts -->
+<div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2">
+</div>
+
+<style>
+.toast {
+    max-width: 400px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast.success {
+    background-color: #10b981;
+}
+
+.toast.error {
+    background-color: #ef4444;
+}
+
+.toast.warning {
+    background-color: #f59e0b;
+}
+
+.toast.info {
+    background-color: #3b82f6;
+}
+</style>
+
+<script type="application/json" id="articles_data">
+    {{ articles_json|safe }}
+</script>
+<script type="application/json" id="paniers_data">
+    {{ paniers_json|safe }}
+</script>
+<script>
+    // Fonction pour afficher les toasts
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        // Ajouter une icône selon le type
+        let icon = '';
+        switch(type) {
+            case 'success': icon = '<i class="fas fa-check-circle"></i>'; break;
+            case 'error': icon = '<i class="fas fa-exclamation-circle"></i>'; break;
+            case 'warning': icon = '<i class="fas fa-exclamation-triangle"></i>'; break;
+            case 'info': icon = '<i class="fas fa-info-circle"></i>'; break;
+        }
+        
+        toast.innerHTML = `${icon}<span>${message}</span>`;
+        container.appendChild(toast);
+        
+        // Afficher le toast
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        // Supprimer le toast après 4 secondes
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => container.removeChild(toast), 300);
+        }, 4000);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Afficher les messages Django sous forme de toasts
+        {% if messages %}
+            {% for message in messages %}
+                showToast('{{ message|escapejs }}', '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}');
+            {% endfor %}
+        {% endif %}
+
+        const addArticleBtn = document.getElementById('addArticleBtn');
+        const cartItemsContainer = document.getElementById('cartItemsContainer');
+        const articles = JSON.parse(document.getElementById('articles_data').textContent);
+        const totalCmdInput = document.getElementById('total_cmd');
+
+        let articleCounter = 0;
+
+        function calculateTotal() {
+            let total = 0;
+            document.querySelectorAll('.sous-total-article').forEach(input => {
+                total += parseFloat(input.value) || 0;
+            });
+            totalCmdInput.value = total.toFixed(2);
+        }
+
+        function addArticleRow(articleData = null) {
+            const div = document.createElement('div');
+            div.classList.add('flex', 'flex-col', 'md:flex-row', 'gap-4', 'bg-gray-50', 'p-4', 'rounded-lg', 'border', 'border-gray-200');
+            div.innerHTML = `
+                <div class="flex-grow">
+                    <label for="article_${articleCounter}" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Article:</label>
+                    <select name="article_${articleCounter}" id="article_${articleCounter}" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200 article-select" required>
+                        <option value="">Sélectionner un article</option>
+                        ${articles.map(article => `<option value="${article.pk}" data-prix="${article.fields.prix_unitaire}">${article.fields.nom} (${article.fields.reference}) - ${article.fields.prix_unitaire} DH</option>`).join('')}
+                    </select>
+                </div>
+                <div class="w-full md:w-auto">
+                    <label for="quantite_${articleCounter}" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Quantité:</label>
+                    <input type="number" name="quantite_${articleCounter}" id="quantite_${articleCounter}" min="1" value="${articleData ? articleData.quantite : 1}" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--admin-accent-color)] focus:border-transparent transition duration-200 quantite-input" required>
+                </div>
+                <div class="w-full md:w-auto">
+                    <label for="sous_total_${articleCounter}" class="block text-sm font-semibold mb-2" style="color: var(--admin-color);">Sous-total (DH):</label>
+                    <input type="number" name="sous_total_${articleCounter}" id="sous_total_${articleCounter}" step="0.01" min="0" class="w-full p-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed sous-total-article" readonly required value="${articleData ? articleData.sous_total : ''}">
+                </div>
+                <div class="flex items-end">
+                    <button type="button" class="remove-article-btn px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-md">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+
+            cartItemsContainer.appendChild(div);
+
+            const currentArticleSelect = document.getElementById(`article_${articleCounter}`);
+            const currentQuantiteInput = document.getElementById(`quantite_${articleCounter}`);
+            const currentSousTotalInput = document.getElementById(`sous_total_${articleCounter}`);
+            const removeBtn = div.querySelector('.remove-article-btn');
+
+            if (articleData && articleData.article_pk) {
+                currentArticleSelect.value = articleData.article_pk;
+            }
+
+            const updateSousTotal = () => {
+                const selectedArticleId = currentArticleSelect.value;
+                const quantite = parseFloat(currentQuantiteInput.value);
+                const selectedArticle = articles.find(art => art.pk == selectedArticleId);
+
+                if (selectedArticle && !isNaN(quantite) && quantite > 0) {
+                    const prixUnitaire = parseFloat(selectedArticle.fields.prix_unitaire);
+                    currentSousTotalInput.value = (prixUnitaire * quantite).toFixed(2);
+                } else {
+                    currentSousTotalInput.value = '0.00';
+                }
+                calculateTotal();
+            };
+
+            currentArticleSelect.addEventListener('change', updateSousTotal);
+            currentQuantiteInput.addEventListener('input', updateSousTotal);
+
+            removeBtn.addEventListener('click', () => {
+                div.remove();
+                calculateTotal();
+            });
+
+            // Initial calculation if data is provided (for modification scenario)
+            if (articleData) {
+                updateSousTotal();
+            }
+            
+            articleCounter++;
+        }
+
+        addArticleBtn.addEventListener('click', () => addArticleRow());
+
+        // Handle initial articles if any (for modification view)
+        const initialArticlesDataElement = document.getElementById('paniers_data');
+        if (initialArticlesDataElement) {
+            const initialArticles = JSON.parse(initialArticlesDataElement.textContent);
+            initialArticles.forEach(item => {
+                addArticleRow({
+                    article_pk: item.fields.article, // Access fields directly
+                    quantite: item.fields.quantite,
+                    sous_total: item.fields.sous_total
+                });
+            });
+        }
+        // No else block needed here as for modification, we only add rows if data exists.
+
+        // Initial total calculation
+        calculateTotal();
+        
+        // Gestion de l'annulation de commande
+        const btnAnnulerCommande = document.getElementById('btnAnnulerCommande');
+        if (btnAnnulerCommande) {
+            btnAnnulerCommande.addEventListener('click', function() {
+                // Créer et afficher la modal d'annulation
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+                        <div class="flex items-center mb-4">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-lg font-bold text-gray-900">Annuler la commande</h3>
+                                <p class="text-sm text-gray-600">Cette action est irréversible</p>
+                            </div>
+                        </div>
+                        
+                                                 <div class="mb-4">
+                             <label for="motifAnnulationSelect" class="block text-sm font-semibold mb-2 text-gray-700">
+                                 Motif d'annulation <span class="text-red-500">*</span>
+                             </label>
+                             <select id="motifAnnulationSelect" 
+                                     class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent mb-3" 
+                                     required>
+                                 <option value="">Sélectionner un motif...</option>
+                                 <option value="Doublon confirmé">Doublon confirmé</option>
+                                 <option value="Numéro tel incorrect">Numéro tel incorrect</option>
+                                 <option value="Numéro de téléphone injoignable">Numéro de téléphone injoignable</option>
+                                 <option value="Client non intéressé">Client non intéressé</option>
+                                 <option value="Adresse erronée">Adresse erronée</option>
+                                 <option value="Erreur de saisie">Erreur de saisie</option>
+                                 <option value="Autre">Autre (préciser ci-dessous)</option>
+                             </select>
+                             
+                             <div id="motifPersonnaliseDiv" style="display: none;">
+                                 <label for="motifAnnulation" class="block text-sm font-medium mb-2 text-gray-700">
+                                     Motif personnalisé
+                                 </label>
+                                 <textarea id="motifAnnulation" rows="2" 
+                                         class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" 
+                                         placeholder="Précisez le motif..."></textarea>
+                             </div>
+                             
+                             <p class="text-xs text-gray-500 mt-1">Le motif est obligatoire et sera visible dans l'historique</p>
+                         </div>
+                        
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" id="btnAnnulerModal" 
+                                    class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                                Annuler
+                            </button>
+                            <button type="button" id="btnConfirmerAnnulation" 
+                                    class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                                <i class="fas fa-ban mr-1"></i>Confirmer l'annulation
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                                 // Focus sur le select
+                 const motifSelect = document.getElementById('motifAnnulationSelect');
+                 const motifInput = document.getElementById('motifAnnulation');
+                 const motifPersonnaliseDiv = document.getElementById('motifPersonnaliseDiv');
+                 
+                 motifSelect.focus();
+                 
+                 // Gérer l'affichage du champ personnalisé
+                 motifSelect.addEventListener('change', function() {
+                     if (this.value === 'Autre') {
+                         motifPersonnaliseDiv.style.display = 'block';
+                         motifInput.focus();
+                     } else {
+                         motifPersonnaliseDiv.style.display = 'none';
+                         motifInput.value = '';
+                     }
+                 });
+                 
+                 // Fermer la modal
+                 document.getElementById('btnAnnulerModal').addEventListener('click', function() {
+                     document.body.removeChild(modal);
+                 });
+                 
+                 // Confirmer l'annulation
+                 document.getElementById('btnConfirmerAnnulation').addEventListener('click', function() {
+                     let motif = '';
+                     
+                     if (motifSelect.value === 'Autre') {
+                         motif = motifInput.value.trim();
+                         if (!motif) {
+                             motifInput.classList.add('border-red-500');
+                             motifInput.focus();
+                             return;
+                         }
+                     } else {
+                         motif = motifSelect.value;
+                         if (!motif) {
+                             motifSelect.classList.add('border-red-500');
+                             motifSelect.focus();
+                             return;
+                         }
+                     }
+                    
+                    // Envoyer la requête d'annulation
+                    fetch('{% url "commande:annuler_commande" commande.pk %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: JSON.stringify({
+                            motif: motif
+                        })
+                    })
+                    .then(response => response.json())
+                                         .then(data => {
+                         if (data.success) {
+                             // Afficher un message de succès et rediriger
+                             showToast('✅ ' + data.message, 'success');
+                             setTimeout(() => {
+                                 window.location.href = data.redirect_url || '/commande/annulees/';
+                             }, 1000);
+                         } else {
+                             // Afficher l'erreur dans un toast personnalisé
+                             showToast('❌ Erreur : ' + data.message, 'error');
+                         }
+                     })
+                    .catch(error => {
+                        console.error('Erreur:', error);
+                        alert('Une erreur est survenue lors de l\'annulation');
+                    })
+                    .finally(() => {
+                        document.body.removeChild(modal);
+                    });
+                });
+                
+                // Fermer en cliquant à l'extérieur
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        document.body.removeChild(modal);
+                    }
+                });
+            });
+        }
+        
+        // Gestion du bouton "Non affectée"
+        const btnNonAffectee = document.getElementById('btnNonAffectee');
+        if (btnNonAffectee) {
+            btnNonAffectee.addEventListener('click', function() {
+                // Créer et afficher la modal de confirmation
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                modal.innerHTML = `
+                    <div class="bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-200 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all duration-300">
+                        <div class="text-center mb-6">
+                            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gray-100 mb-4">
+                                <i class="fas fa-tasks text-gray-600 text-3xl"></i>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-800 mb-2">Marquer comme "Non affectée"</h3>
+                            <p class="text-gray-600">Êtes-vous sûr de vouloir changer l'état de cette commande vers "Non affectée" ?</p>
+                            <p class="text-gray-500 text-sm mt-2">La commande sera visible dans la liste des commandes à traiter.</p>
+                        </div>
+                        <div class="flex justify-center gap-4">
+                            <button id="confirmNonAffecteeBtn" class="bg-gradient-to-r from-gray-600 to-slate-600 hover:from-gray-700 hover:to-slate-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 shadow-lg">
+                                <i class="fas fa-check mr-2"></i>Confirmer
+                            </button>
+                            <button id="cancelNonAffecteeBtn" class="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 shadow-lg">
+                                <i class="fas fa-times mr-2"></i>Annuler
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Gestionnaires d'événements pour les boutons de la modal
+                document.getElementById('confirmNonAffecteeBtn').addEventListener('click', function() {
+                    // Envoyer la requête pour changer l'état vers "Non affectée"
+                    fetch('{% url "commande:changer_statut_commande_unique" commande.pk %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: JSON.stringify({
+                            nouveau_statut: 'Non affectée'
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Afficher un message de succès et rediriger vers "à traiter"
+                            showToast('✅ Commande marquée comme "Non affectée" avec succès', 'success');
+                            setTimeout(() => {
+                                window.location.href = '/commande/a-traiter/';
+                            }, 1000);
+                        } else {
+                            showToast('❌ Erreur : ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erreur:', error);
+                        showToast('❌ Une erreur est survenue lors du changement d\'état', 'error');
+                    })
+                    .finally(() => {
+                        document.body.removeChild(modal);
+                    });
+                });
+                
+                document.getElementById('cancelNonAffecteeBtn').addEventListener('click', function() {
+                    document.body.removeChild(modal);
+                });
+                
+                // Fermer en cliquant à l'extérieur
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        document.body.removeChild(modal);
+                    }
+                });
+            });
+        }
+        
+        // Mise à jour du total affiché en temps réel
+        function updateTotalDisplay() {
+            const totalDisplay = document.getElementById('totalDisplay');
+            if (totalDisplay) {
+                const total = document.getElementById('total_cmd').value;
+                totalDisplay.textContent = parseFloat(total).toFixed(2) + ' DH';
+            }
+        }
+        
+        // Observer les changements du total
+        const totalInput = document.getElementById('total_cmd');
+        if (totalInput) {
+            const originalCalculateTotal = calculateTotal;
+            calculateTotal = function() {
+                originalCalculateTotal();
+                updateTotalDisplay();
+            };
+        }
+    });
+</script>
+{% endblock content %} 

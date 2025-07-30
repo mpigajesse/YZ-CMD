@@ -1,0 +1,90 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Synchronisation - YZ-CMD{% endblock %}
+
+{% block page_title %}Synchronisation{% endblock %}
+{% block page_subtitle %}Gestion de la synchronisation des données{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: #e6fffe;">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold" style="color: #023535;">Synchronisation des données</h2>
+        <button onclick="showDemoSyncModal()" class="px-4 py-2 rounded-lg font-medium transition-colors shadow-sm hover:opacity-90" style="background-color: #034a4a; color: white;">
+            <i class="fas fa-sync mr-2"></i>Synchroniser maintenant (Démo)
+        </button>
+    </div>
+    
+    <!-- Message "Bientôt disponible" -->
+    <div class="text-center py-10">
+        <div class="mb-6">
+            <i class="fas fa-sync-alt text-6xl mb-4" style="color: #99dddd;"></i>
+        </div>
+        <h3 class="text-2xl font-semibold mb-3" style="color: #023535;">Fonctionnalité en développement</h3>
+        <p class="mb-2" style="color: #023535;">La synchronisation des données sera bientôt disponible</p>
+        <p class="text-sm mb-4" style="color: #034a4a;">Cette page permettra de gérer la synchronisation avec les systèmes externes</p>
+        
+        <!-- Aperçu des fonctionnalités à venir -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+            <div class="p-4 rounded-lg" style="background-color: #f0fffe; border: 1px solid #e6fffe;">
+                <i class="fas fa-database text-2xl mb-2" style="color: #023535;"></i>
+                <p class="text-sm" style="color: #023535;">Sync bases de données</p>
+            </div>
+            <div class="p-4 rounded-lg" style="background-color: #f0fffe; border: 1px solid #e6fffe;">
+                <i class="fas fa-cloud text-2xl mb-2" style="color: #023535;"></i>
+                <p class="text-sm" style="color: #023535;">Sync cloud</p>
+            </div>
+            <div class="p-4 rounded-lg" style="background-color: #f0fffe; border: 1px solid #e6fffe;">
+                <i class="fas fa-clock text-2xl mb-2" style="color: #023535;"></i>
+                <p class="text-sm" style="color: #023535;">Sync programmée</p>
+            </div>
+        </div>
+        
+        <!-- Statut simulation -->
+        <div class="mt-8 max-w-md mx-auto">
+            <div class="border rounded-lg p-4" style="background-color: #e6fffe; border-color: #99dddd;">
+                <h4 class="text-sm font-semibold mb-2" style="color: #023535;">Statut de synchronisation (simulation)</h4>
+                <div class="flex items-center justify-between text-sm">
+                    <span style="color: #023535;">Dernière sync:</span>
+                    <span style="color: #034a4a;">Non configurée</span>
+                </div>
+                <div class="flex items-center justify-between text-sm mt-1">
+                    <span style="color: #023535;">Prochaine sync:</span>
+                    <span style="color: #034a4a;">À définir</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Inclusion du modal de synchronisation réutilisable -->
+{% include 'synchronisation/_sync_progress_modal.html' %}
+
+<!-- Inclusion du toast de notification -->
+{% include 'composant_generale/sync_notification_toast.html' %}
+
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chargement du système de spinners de synchronisation centralisé -->
+<script src="{% static 'js/sync-spinner.js' %}"></script>
+<!-- Chargement du système de notifications amélioré -->
+<script src="{% static 'js/sync-enhanced.js' %}"></script>
+
+<script>
+    function showDemoSyncModal() {
+        showSyncConfirmModal('Voulez-vous lancer une synchronisation de démonstration ?', function() {
+            // Afficher le modal de progression
+            showSyncProgressModal();
+            
+            // Simuler une synchronisation de démo
+            setTimeout(() => {
+                hideSyncProgressModal();
+                markAllStepsComplete();
+                showSyncSuccessMessage('Synchronisation de démonstration terminée ! 15 enregistrements simulés importés.');
+            }, 4000);
+        });
+    }
+</script>
+{% endblock %} 

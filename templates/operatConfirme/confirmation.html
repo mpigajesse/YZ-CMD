@@ -1,0 +1,1502 @@
+{% extends 'composant_generale/operatConfirme/base.html' %}
+
+{% block title %}Lancer les Confirmations - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+    
+    .btn-operation {
+        background-color: #8B5A2B !important;
+        color: white !important;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-operation:hover {
+        background-color: #6d4b3b !important;
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .card-shadow {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .card-shadow:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+
+    .btn-confirm {
+        background: linear-gradient(to right, #4B352A, #6d4b3b);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-confirm:hover {
+        background: linear-gradient(to right, #6d4b3b, #8B5A2B);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.2);
+    }
+
+    .confirmation-card {
+        background: white;
+        border-radius: 0.75rem;
+        border: 1px solid #f7d9c4;
+        transition: all 0.3s ease;
+    }
+
+    .confirmation-card:hover {
+        transform: translateY(-2px);
+        border-color: #6d4b3b;
+    }
+
+    .client-info-section {
+        background: linear-gradient(to right, #f7d9c4, #ede0d3);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .phone-highlight {
+        background: linear-gradient(135deg, #4B352A, #6d4b3b);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        text-align: center;
+        margin-bottom: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #4B352A, #6d4b3b);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-play-circle mr-3" style="color: #f7d9c4;"></i>
+                Lancer les Confirmations
+            </h1>
+            <p style="color: #f7d9c4;">Interface pour lancer la confirmation des commandes affectées</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <div class="text-right">
+                <div class="text-2xl font-bold" style="color: #f7d9c4;">{{ commandes_a_confirmer.count }}</div>
+                <div class="text-sm opacity-80">Commandes à lancer</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert mb-6 p-4 rounded-xl border-l-4 animate-slideInUp
+                    {% if message.tags == 'success' %}border-green-500 bg-green-50 text-green-700{% endif %}
+                    {% if message.tags == 'error' %}border-red-500 bg-red-50 text-red-700{% endif %}
+                    {% if message.tags == 'warning' %}border-yellow-500 bg-yellow-50 text-yellow-700{% endif %}">
+            <i class="{% if message.tags == 'success' %}fas fa-check-circle{% elif message.tags == 'error' %}fas fa-exclamation-circle{% else %}fas fa-info-circle{% endif %} mr-2"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Actions globales -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h2 class="text-xl font-semibold" style="color: #4B352A;">
+                    <i class="fas fa-tasks mr-2" style="color: #6d4b3b;"></i>
+                    Actions Rapides
+                </h2>
+                <p class="text-gray-600 text-sm mt-1">Gérer toutes les commandes affectées</p>
+            </div>
+                        <div class="flex gap-3">
+                <a href="{% url 'operatConfirme:liste_commandes' %}" class="px-6 py-3 rounded-lg font-medium transition-all" style="background-color: #f7d9c4; color: #4B352A;">
+                    <i class="fas fa-list mr-2"></i>
+                    Voir Liste Complète
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boutons de basculement d'affichage -->
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center space-x-4">
+            <button onclick="switchToTable()" id="btn-table" class="btn-confirm">
+                <i class="fas fa-table mr-2"></i>
+                Vue Tableau
+            </button>
+            <button onclick="switchToGrid()" id="btn-grid" class="flex items-center px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                <i class="fas fa-th-large mr-2"></i>
+                Vue Grille
+            </button>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="text-sm text-gray-600">
+                <strong>{{ commandes_a_confirmer.count }}</strong> commande{{ commandes_a_confirmer.count|pluralize }} à lancer
+            </div>
+            <button onclick="lancerSelection()" 
+                    class="flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors shadow-lg">
+                <i class="fas fa-rocket mr-2"></i>
+                Lancer Sélection
+            </button>
+        </div>
+    </div>
+
+    <!-- Liste des commandes à confirmer -->
+    {% if commandes_a_confirmer %}
+        <!-- Vue Tableau (par défaut) -->
+        <div id="table-view" class="bg-white rounded-xl shadow-lg overflow-hidden animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead style="background: linear-gradient(to right, #4B352A, #6d4b3b);">
+                        <tr class="text-white text-left">
+                            <th class="px-4 py-3 font-semibold">
+                                <input type="checkbox" id="select-all">
+                            </th>
+                            <th class="px-4 py-3 font-semibold">ID YZ</th>
+                            <th class="px-4 py-3 font-semibold">N° Externe</th>
+                            <th class="px-4 py-3 font-semibold">Client</th>
+                            <th class="px-4 py-3 font-semibold">Téléphone</th>
+                            <th class="px-4 py-3 font-semibold">Ville Client</th>
+                            <th class="px-4 py-3 font-semibold">Ville & Région</th>
+                            <th class="px-4 py-3 font-semibold">Date</th>
+                            <th class="px-4 py-3 font-semibold">Total</th>
+                            <th class="px-4 py-3 font-semibold">État</th>
+                            <th class="px-4 py-3 font-semibold">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for commande in commandes_a_confirmer %}
+                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-3">
+                                <input type="checkbox" name="commandes_selectionnees" value="{{ commande.id }}" class="commande-checkbox">
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="font-bold" style="color: #4B352A;">{{ commande.id_yz }}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="text-sm text-gray-500">{{ commande.num_cmd }}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="font-medium text-gray-900">{{ commande.client.get_full_name }}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <a href="tel:{{ commande.client.numero_tel }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                                    <i class="fas fa-phone mr-1"></i>
+                                    {{ commande.client.numero_tel }}
+                                </a>
+                            </td>
+                            <!-- Colonne Ville Client -->
+                            <td class="px-4 py-3">
+                                {% if commande.ville_init and commande.ville_init != '' %}
+                                    <div class="text-sm font-medium text-gray-700">{{ commande.ville_init }}</div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non spécifiée</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville & Région (ville de livraison) -->
+                            <td class="px-4 py-3">
+                                {% if commande.ville %}
+                                    <div class="text-sm font-medium text-gray-900">{{ commande.ville.nom|default:"Nom manquant" }}</div>
+                                    <div class="text-xs text-gray-500">
+                                        {% if commande.ville.region and commande.ville.region.nom_region %}
+                                            {{ commande.ville.region.nom_region }}
+                                        {% else %}
+                                            Région non spécifiée
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non assignée</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="text-sm">{{ commande.date_cmd|date:"d/m/Y" }}</div>
+                                <div class="text-xs text-gray-500">{{ commande.date_creation|date:"H:i" }}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                {% if commande.etat_actuel %}
+                                    {% if commande.etat_actuel.enum_etat.libelle == 'Affectée' %}
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                            <i class="fas fa-clock mr-1"></i>
+                                            {{ commande.etat_actuel.enum_etat.libelle|capfirst }}
+                                        </span>
+                                    {% elif commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %}
+                                        <div class="text-center">
+                                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                <i class="fas fa-spinner mr-1"></i>
+                                                En cours
+                                            </span>
+                                            <!-- Afficher l'opération sélectionnée en indice -->
+                                            {% if commande.operations.exists %}
+                                                {% with operation_actuelle=commande.operations.first %}
+                                                    <div class="text-xs text-green-600 mt-1" style="font-size: 10px;">
+                                                        <i class="fas fa-arrow-right mr-1"></i>
+                                                        <span id="operation-{{ commande.id }}">{{ operation_actuelle.get_type_operation_display }}</span>
+                                                    </div>
+                                                {% endwith %}
+                                            {% else %}
+                                                <div class="text-xs text-gray-400 mt-1" style="font-size: 10px;">
+                                                    <span id="operation-{{ commande.id }}">Aucune opération</span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                            {{ commande.etat_actuel.enum_etat.libelle|capfirst }}
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                        Aucun état
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td class="px-4 py-3">
+                                <div class="flex space-x-2">
+                                    {% if commande.etat_actuel %}
+                                        {% if commande.etat_actuel.enum_etat.libelle == 'Affectée' %}
+                                            <button onclick="lancerCommande({{ commande.id }})" 
+                                                    class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded transition-colors" 
+                                                    title="Lancer la confirmation">
+                                                <i class="fas fa-play mr-1"></i>
+                                                Lancer
+                                            </button>
+                                            <button onclick="annulerCommandeConfirmation({{ commande.id }})" 
+                                                    class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                                                    title="Annuler la commande">
+                                                <i class="fas fa-ban mr-1"></i>
+                                                Annuler
+                                            </button>
+                                        {% elif commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %}
+                                            <button onclick="confirmerCommande({{ commande.id }})" 
+                                                    class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
+                                                    title="Confirmer la commande">
+                                                <i class="fas fa-check mr-1"></i>
+                                                Confirmer
+                                            </button>
+                                            <button onclick="annulerCommandeConfirmation({{ commande.id }})" 
+                                                    class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                                                    title="Annuler la commande">
+                                                <i class="fas fa-ban mr-1"></i>
+                                                Annuler
+                                            </button>
+                                        {% endif %}
+                                    {% endif %}
+                                    <a href="{% url 'operatConfirme:modifier_commande' commande.id %}" 
+                                       class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors">
+                                        <i class="fas fa-edit mr-1"></i>
+                                        Modifier
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Vue Grille (cachée par défaut) -->
+        <div id="grid-view" class="grid grid-cols-1 lg:grid-cols-2 gap-6 hidden">
+            {% for commande in commandes_a_confirmer %}
+            <div class="confirmation-card bg-white rounded-xl shadow-lg p-6 animate-slideInUp" style="animation-delay: 0.{{ forloop.counter0 }}s;">
+                <!-- En-tête de la commande -->
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" name="commandes_selectionnees" value="{{ commande.id }}" 
+                               class="commande-checkbox mr-3 h-4 w-4 rounded border-gray-300">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg" style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                            {{ commande.id_yz }}
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-bold" style="color: #4B352A;">Commande {{ commande.id_yz }}</h3>
+                            <p class="text-sm text-gray-600">{{ commande.date_cmd|date:"d/m/Y" }} - {{ commande.total_cmd|floatformat:2 }} DH</p>
+                        </div>
+                    </div>
+                    {% if commande.etat_actuel %}
+                        {% if commande.etat_actuel.enum_etat.libelle == 'Affectée' %}
+                            <span class="status-badge bg-yellow-100 text-yellow-800">
+                                <i class="fas fa-clock mr-1"></i>
+                                Affectée
+                            </span>
+                        {% elif commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %}
+                            <div class="text-center">
+                                <span class="status-badge bg-blue-100 text-blue-800">
+                                    <i class="fas fa-spinner mr-1"></i>
+                                    En cours
+                                </span>
+                                <!-- Afficher l'opération sélectionnée en indice -->
+                                {% if commande.operations.exists %}
+                                    {% with operation_actuelle=commande.operations.first %}
+                                        <div class="text-xs text-green-600 mt-1" style="font-size: 10px;">
+                                            <i class="fas fa-arrow-right mr-1"></i>
+                                            <span id="operation-grid-{{ commande.id }}">{{ operation_actuelle.get_type_operation_display }}</span>
+                                        </div>
+                                    {% endwith %}
+                                {% else %}
+                                    <div class="text-xs text-gray-400 mt-1" style="font-size: 10px;">
+                                        <span id="operation-grid-{{ commande.id }}">Aucune opération</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <span class="status-badge bg-gray-100 text-gray-800">
+                                {{ commande.etat_actuel.enum_etat.libelle|capfirst }}
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span class="status-badge bg-red-100 text-red-800">
+                            Aucun état
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Informations client mises en évidence -->
+                <div class="client-info-section">
+                    <h4 class="font-semibold mb-3" style="color: #4B352A;">
+                        <i class="fas fa-user mr-2"></i>
+                        Informations Client
+                    </h4>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="text-xs font-medium text-gray-600">NOM COMPLET</label>
+                            <div class="text-sm font-medium" style="color: #4B352A;">
+                                {{ commande.client.get_full_name|default:"Client sans nom" }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-medium text-gray-600">VILLE CLIENT</label>
+                            <div class="text-sm" style="color: #6d4b3b;">
+                                {% if commande.ville_init and commande.ville_init != '' %}
+                                    {{ commande.ville_init }}
+                                {% else %}
+                                    Non spécifiée
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Ville de livraison -->
+                    <div class="mb-3">
+                        <label class="text-xs font-medium text-gray-600">VILLE & RÉGION DE LIVRAISON</label>
+                        <div class="text-sm">
+                            {% if commande.ville %}
+                                <div class="font-medium" style="color: #4B352A;">{{ commande.ville.nom|default:"Nom manquant" }}</div>
+                                <div class="text-xs text-gray-500">
+                                    {% if commande.ville.region and commande.ville.region.nom_region %}
+                                        {{ commande.ville.region.nom_region }}
+                                    {% else %}
+                                        Région non spécifiée
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="text-gray-500">Non assignée</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Numéro de téléphone en évidence -->
+                    <div class="phone-highlight">
+                        <div class="flex items-center justify-center">
+                            <i class="fas fa-phone-alt mr-3 text-xl"></i>
+                            <div>
+                                <div class="text-xs opacity-90">NUMÉRO DE TÉLÉPHONE</div>
+                                <div class="text-lg font-bold">{{ commande.client.numero_tel }}</div>
+                            </div>
+                            <a href="tel:{{ commande.client.numero_tel }}" class="ml-4 bg-white bg-opacity-20 p-2 rounded-full hover:bg-opacity-30 transition-all">
+                                <i class="fas fa-phone text-lg"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <label class="text-xs font-medium text-gray-600">ADRESSE DE LIVRAISON</label>
+                        <div class="text-sm mt-1 p-2 bg-white rounded" style="color: #4B352A;">
+                            {{ commande.adresse|default:"Adresse non renseignée" }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Articles de la commande -->
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2" style="color: #4B352A;">
+                        <i class="fas fa-box mr-2"></i>
+                        Articles ({{ commande.paniers.count }})
+                    </h4>
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        {% for panier in commande.paniers.all|slice:":3" %}
+                        <div class="flex justify-between items-center {% if not forloop.last %}border-b border-gray-200 pb-2 mb-2{% endif %}">
+                            <div class="text-sm">
+                                <div class="font-medium">{{ panier.article.nom }}</div>
+                                <div class="text-xs text-gray-500">Réf: {{ panier.article.reference }}</div>
+                            </div>
+                            <div class="text-right text-sm">
+                                <div class="font-medium">{{ panier.quantite }}x {{ panier.article.prix_unitaire }} DH</div>
+                                <div class="text-xs" style="color: #6d4b3b;">{{ panier.sous_total }} DH</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if commande.paniers.count > 3 %}
+                        <div class="text-center text-xs text-gray-500 mt-2">
+                            ... et {{ commande.paniers.count|add:"-3" }} autre{{ commande.paniers.count|add:"-3"|pluralize }} article{{ commande.paniers.count|add:"-3"|pluralize }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Résumé financier -->
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2" style="color: #4B352A;">
+                        <i class="fas fa-calculator mr-2"></i>
+                        Résumé financier
+                    </h4>
+                    <div class="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-3">
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Sous-total articles:</span>
+                                <span class="font-medium">{{ commande.sous_total_articles|floatformat:2 }} DH</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Frais de livraison:</span>
+                                <span class="font-medium text-blue-600">{{ commande.frais_livraison|floatformat:2 }} DH</span>
+                            </div>
+                            <hr class="border-gray-300">
+                            <div class="flex justify-between">
+                                <span class="font-semibold" style="color: #4B352A;">Total commande:</span>
+                                <span class="font-bold text-lg" style="color: #4B352A;">{{ commande.total_cmd|floatformat:2 }} DH</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="pt-4 border-t border-gray-200 text-center">
+                    <a href="{% url 'operatConfirme:modifier_commande' commande.id %}" class="px-4 py-2 rounded-lg border-2 font-medium transition-all hover:bg-gray-50" style="border-color: #f7d9c4; color: #4B352A;">
+                        <i class="fas fa-edit mr-2"></i>
+                        Modifier
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+            <div class="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, #f7d9c4, #ede0d3);">
+                <i class="fas fa-clipboard-check text-4xl" style="color: #4B352A;"></i>
+            </div>
+            <h3 class="text-2xl font-bold mb-3" style="color: #4B352A;">Aucune commande à lancer</h3>
+            <p class="text-gray-600 mb-6">Toutes vos commandes affectées ont été lancées en confirmation !</p>
+            <a href="{% url 'operatConfirme:liste_commandes' %}" class="btn-confirm">
+                <i class="fas fa-list mr-2"></i>
+                Voir toutes les commandes
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal de confirmation individuelle -->
+<div id="confirmModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50" style="backdrop-filter: blur(8px);">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-play-circle text-orange-500 mr-3"></i>
+            Lancer la confirmation
+        </h3>
+        <p class="text-gray-600 mb-6">Êtes-vous sûr de vouloir lancer la confirmation de cette commande ? Cela changera son état vers "En cours de confirmation".</p>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Commentaire (optionnel)</label>
+            <textarea id="confirmComment" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" placeholder="Ajouter un commentaire..."></textarea>
+        </div>
+        <div class="flex justify-end space-x-3">
+            <button onclick="hideConfirmModal()" class="px-4 py-2 rounded-lg font-medium transition-all" style="background-color: #f7d9c4; color: #4B352A;">
+                Annuler
+            </button>
+            <button onclick="lancerCommandes([window.currentCommandeId])" class="btn-confirm">
+                <i class="fas fa-play mr-2"></i>
+                Lancer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal liste des opérations -->
+<div id="operationsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50" style="backdrop-filter: blur(8px);">
+    <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 shadow-2xl max-h-[80vh] overflow-y-auto">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-cogs text-amber-600 mr-3"></i>
+            Liste des Opérations de Confirmation
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+            <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="text-sm font-medium text-blue-800">Aucune action</div>
+                <div class="text-xs text-blue-600">Pas d'action spécifique requise</div>
+            </div>
+            
+            <div class="col-span-1 md:col-span-2">
+                <h4 class="font-medium text-gray-700 mb-2">Appels téléphoniques :</h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <div class="text-sm font-medium text-green-800">Appel 1</div>
+                    </div>
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <div class="text-sm font-medium text-green-800">Appel 2</div>
+                    </div>
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <div class="text-sm font-medium text-green-800">Appel 3</div>
+                    </div>
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <div class="text-sm font-medium text-green-800">Appel 4</div>
+                    </div>
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <div class="text-sm font-medium text-green-800">Appel 5</div>
+                    </div>
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <div class="text-sm font-medium text-green-800">Appel 6</div>
+                    </div>
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <div class="text-sm font-medium text-green-800">Appel 7</div>
+                    </div>
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <div class="text-sm font-medium text-green-800">Appel 8</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <div class="text-sm font-medium text-purple-800">Envoi de SMS</div>
+                <div class="text-xs text-purple-600">Message SMS au client</div>
+            </div>
+            
+            <div class="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <div class="text-sm font-medium text-purple-800">Envoi de MSG</div>
+                <div class="text-xs text-purple-600">Message direct au client</div>
+            </div>
+            
+            <div class="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div class="text-sm font-medium text-orange-800">Proposition d'abonnement</div>
+                <div class="text-xs text-orange-600">Offre d'abonnement au client</div>
+            </div>
+            
+            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div class="text-sm font-medium text-red-800">Proposition de réduction</div>
+                <div class="text-xs text-red-600">Offre promotionnelle</div>
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <button onclick="hideOperationsModal()" class="px-6 py-2 rounded-lg font-medium transition-all" style="background-color: #f7d9c4; color: #4B352A;">
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal sélecteur d'opération pour une commande -->
+<div id="operationSelectorModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50" style="backdrop-filter: blur(8px);">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-cog text-amber-600 mr-3"></i>
+            Sélectionner une opération
+        </h3>
+        <p class="text-gray-600 mb-4">Choisissez l'opération à effectuer pour cette commande :</p>
+        
+        <div class="space-y-2 mb-6">
+            <button onclick="selectOperation('AUCUNE_ACTION')" class="w-full p-3 text-left bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-all">
+                <div class="font-medium text-blue-800">Aucune action</div>
+            </button>
+            
+            <div class="border-t pt-2">
+                <div class="text-xs font-medium text-gray-500 mb-2">APPELS TÉLÉPHONIQUES</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="selectOperation('APPEL_1')" class="p-2 text-center bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all">
+                        <div class="text-sm font-medium text-green-800">Appel 1</div>
+                    </button>
+                    <button onclick="selectOperation('APPEL_2')" class="p-2 text-center bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all">
+                        <div class="text-sm font-medium text-green-800">Appel 2</div>
+                    </button>
+                    <button onclick="selectOperation('APPEL_3')" class="p-2 text-center bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all">
+                        <div class="text-sm font-medium text-green-800">Appel 3</div>
+                    </button>
+                    <button onclick="selectOperation('APPEL_4')" class="p-2 text-center bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all">
+                        <div class="text-sm font-medium text-green-800">Appel 4</div>
+                    </button>
+                </div>
+            </div>
+            
+            <button onclick="selectOperation('ENVOI_SMS')" class="w-full p-3 text-left bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-all">
+                <div class="font-medium text-purple-800">Envoi de SMS</div>
+            </button>
+            
+            <button onclick="selectOperation('PROPOSITION_ABONNEMENT')" class="w-full p-3 text-left bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-all">
+                <div class="font-medium text-orange-800">Proposition d'abonnement</div>
+            </button>
+        </div>
+        
+        <div class="flex justify-end">
+            <button onclick="hideOperationSelectorModal()" class="px-4 py-2 rounded-lg font-medium transition-all" style="background-color: #f7d9c4; color: #4B352A;">
+                Annuler
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+// Variables globales
+window.currentCommandeId = null;
+window.currentOperationCommandeId = null;
+
+// Basculement entre vues
+function switchToTable() {
+    document.getElementById('table-view').classList.remove('hidden');
+    document.getElementById('grid-view').classList.add('hidden');
+    
+    // Mise à jour des boutons
+    document.getElementById('btn-table').className = 'btn-confirm';
+    document.getElementById('btn-grid').className = 'flex items-center px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors';
+}
+
+function switchToGrid() {
+    document.getElementById('table-view').classList.add('hidden');
+    document.getElementById('grid-view').classList.remove('hidden');
+    
+    // Mise à jour des boutons
+    document.getElementById('btn-grid').className = 'btn-confirm';
+    document.getElementById('btn-table').className = 'flex items-center px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors';
+}
+
+// Gestion de la sélection
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.commande-checkbox');
+    
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+    }
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            const noneChecked = Array.from(checkboxes).every(cb => !cb.checked);
+            
+            if (selectAll) {
+                selectAll.checked = allChecked;
+                selectAll.indeterminate = !allChecked && !noneChecked;
+            }
+        });
+    });
+});
+
+// Lancement individuel
+function lancerCommande(commandeId) {
+    window.currentCommandeId = commandeId;
+    showConfirmModal();
+}
+
+// Confirmation individuelle
+function confirmerCommande(commandeId) {
+    fetch(`/operateur-confirme/commandes/${commandeId}/confirmer-ajax/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            'commentaire': 'Commande confirmée depuis la page confirmation'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Afficher une notification de succès
+            Swal.fire({
+                icon: 'success',
+                title: 'Succès !',
+                text: 'La commande a été confirmée avec succès.',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                // Recharger la page après la confirmation
+                location.reload();
+            });
+        } else {
+            // Afficher une notification d'erreur
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: data.message,
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#4B352A'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        // Afficher une notification d'erreur générique
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur',
+            text: 'Une erreur est survenue lors de la confirmation de la commande.',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#4B352A'
+        });
+    });
+}
+
+// Annulation individuelle
+function annulerCommandeConfirmation(commandeId) {
+    // Créer et afficher la modal d'annulation
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div class="flex items-center mb-4">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-lg font-bold text-gray-900">Annuler la commande</h3>
+                    <p class="text-sm text-gray-600">Cette action est irréversible</p>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <label for="motifAnnulationSelect" class="block text-sm font-semibold mb-2 text-gray-700">
+                    Motif d'annulation <span class="text-red-500">*</span>
+                </label>
+                <select id="motifAnnulationSelect" 
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent mb-3" 
+                        required>
+                    <option value="">Sélectionner un motif...</option>
+                    <option value="Doublon confirmé">Doublon confirmé</option>
+                    <option value="Numéro tel incorrect">Numéro tel incorrect</option>
+                    <option value="Numéro de téléphone injoignable">Numéro de téléphone injoignable</option>
+                    <option value="Client non intéressé">Client non intéressé</option>
+                    <option value="Adresse erronée">Adresse erronée</option>
+                    <option value="Erreur de saisie">Erreur de saisie</option>
+                    <option value="Autre">Autre (préciser ci-dessous)</option>
+                </select>
+                
+                <div id="motifPersonnaliseDiv" style="display: none;">
+                    <label for="motifAnnulation" class="block text-sm font-medium mb-2 text-gray-700">
+                        Motif personnalisé
+                    </label>
+                    <textarea id="motifAnnulation" rows="2" 
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" 
+                            placeholder="Précisez le motif..."></textarea>
+                </div>
+                
+                <p class="text-xs text-gray-500 mt-1">Le motif est obligatoire et sera visible dans l'historique</p>
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="btnAnnulerModal" 
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                    Annuler
+                </button>
+                <button type="button" id="btnConfirmerAnnulation" 
+                        class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                    <i class="fas fa-ban mr-1"></i>Confirmer l'annulation
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Focus sur le select
+    const motifSelect = document.getElementById('motifAnnulationSelect');
+    const motifInput = document.getElementById('motifAnnulation');
+    const motifPersonnaliseDiv = document.getElementById('motifPersonnaliseDiv');
+    
+    motifSelect.focus();
+    
+    // Gérer l'affichage du champ personnalisé
+    motifSelect.addEventListener('change', function() {
+        if (this.value === 'Autre') {
+            motifPersonnaliseDiv.style.display = 'block';
+            motifInput.focus();
+        } else {
+            motifPersonnaliseDiv.style.display = 'none';
+            motifInput.value = '';
+        }
+    });
+    
+    // Fermer la modal
+    document.getElementById('btnAnnulerModal').addEventListener('click', function() {
+        document.body.removeChild(modal);
+    });
+    
+    // Confirmer l'annulation
+    document.getElementById('btnConfirmerAnnulation').addEventListener('click', function() {
+        let motif = '';
+        
+        if (motifSelect.value === 'Autre') {
+            motif = motifInput.value.trim();
+            if (!motif) {
+                motifInput.classList.add('border-red-500');
+                motifInput.focus();
+                return;
+            }
+        } else {
+            motif = motifSelect.value;
+            if (!motif) {
+                motifSelect.classList.add('border-red-500');
+                motifSelect.focus();
+                return;
+            }
+        }
+        
+        // Envoyer la requête d'annulation
+        fetch(`/operateur-confirme/commandes/${commandeId}/annuler-commande/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                motif: motif
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Commande annulée avec succès !', 'success');
+                // Recharger la page pour voir les changements
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                alert(data.message || 'Erreur lors de l\'annulation de la commande.');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            if (error && error.message) {
+                alert(error.message);
+            } else {
+                alert('Une erreur est survenue lors de l\'annulation de la commande.');
+            }
+        })
+        .finally(() => {
+            document.body.removeChild(modal);
+        });
+    });
+    
+    // Fermer en cliquant à l'extérieur
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
+// Lancement en masse
+function lancerSelection() {
+    const selectedCommandes = Array.from(document.querySelectorAll('.commande-checkbox:checked'))
+                                  .map(cb => cb.value);
+    
+    if (selectedCommandes.length === 0) {
+        showSelectionErrorModal();
+        return;
+    }
+    
+    // Stocker les commandes sélectionnées et afficher le modal
+    window.selectedCommandes = selectedCommandes;
+    document.getElementById('selectedCommandesCount').textContent = selectedCommandes.length;
+    showMassConfirmationModal();
+}
+
+// Fonction AJAX pour lancer les confirmations
+function lancerCommandes(commandeIds) {
+    fetch('{% url "operatConfirme:lancer_confirmations_masse" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            'commande_ids': commandeIds
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.redirect_url) {
+                // Si une URL de redirection est fournie, l'utiliser
+                window.location.href = data.redirect_url;
+            } else {
+                // Sinon, recharger la page (cas de la sélection multiple)
+                location.reload();
+            }
+        } else {
+            showErrorModal('Erreur : ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showErrorModal('Une erreur est survenue lors du lancement.');
+    });
+    
+    hideConfirmModal();
+}
+
+// Fonction pour voir les détails
+function voirDetail(commandeId) {
+    window.location.href = `/operateur-confirme/commandes/${commandeId}/`;
+}
+
+// Gestion des modals
+function showConfirmModal() {
+    document.getElementById('confirmModal').classList.remove('hidden');
+    document.getElementById('confirmModal').classList.add('flex');
+}
+
+function hideConfirmModal() {
+    document.getElementById('confirmModal').classList.add('hidden');
+    document.getElementById('confirmModal').classList.remove('flex');
+    document.getElementById('confirmComment').value = '';
+}
+
+// Toast notification simple
+function showNotification(message, type) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.style.background = type === 'success' ? '#22c55e' : '#ef4444';
+    toast.style.color = 'white';
+    toast.style.position = 'fixed';
+    toast.style.top = '30px';
+    toast.style.right = '30px';
+    toast.style.zIndex = 9999;
+    toast.style.padding = '16px 28px';
+    toast.style.borderRadius = '8px';
+    toast.style.fontWeight = 'bold';
+    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.transition = 'opacity 0.4s';
+        toast.style.opacity = 0;
+        setTimeout(() => toast.remove(), 400);
+    }, 2500);
+}
+
+// Fonctions simplifiées - Les opérations sont maintenant automatisées
+
+// Fermer les modals en cliquant à l'extérieur
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        hideConfirmModal();
+    }
+});
+
+// ================== MODAL DE CONFIRMATION SIMPLE ==================
+
+// Fonction pour afficher le modal de confirmation simple
+function showConfirmationModalSimple() {
+    const modal = document.getElementById('confirmationModalSimple');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de confirmation simple
+function hideConfirmationModalSimple() {
+    const modal = document.getElementById('confirmationModalSimple');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour procéder à la confirmation simple
+function proceedWithSimpleConfirmation() {
+    hideConfirmationModalSimple();
+    
+    if (window.currentCommandeId) {
+        fetch(`/operateur-confirme/commandes/${window.currentCommandeId}/confirmer-ajax/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                'commentaire': 'Commande confirmée depuis la page confirmation'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Rechargement de la page pour voir les modifications
+                location.reload();
+            } else {
+                showErrorModal('Erreur : ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showErrorModal('Une erreur est survenue lors de la confirmation.');
+        });
+    }
+}
+
+// ================== MODAL DE CONFIRMATION EN MASSE ==================
+
+// Fonction pour afficher le modal de confirmation en masse
+function showMassConfirmationModal() {
+    const modal = document.getElementById('massConfirmationModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de confirmation en masse
+function hideMassConfirmationModal() {
+    const modal = document.getElementById('massConfirmationModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour procéder à la confirmation en masse
+function proceedWithMassConfirmation() {
+    hideMassConfirmationModal();
+    
+    if (window.selectedCommandes && window.selectedCommandes.length > 0) {
+        lancerCommandes(window.selectedCommandes);
+    }
+}
+
+// ================== MODALS D'ERREUR ET DE SÉLECTION ==================
+
+// Fonction pour afficher le modal d'erreur de sélection
+function showSelectionErrorModal() {
+    const modal = document.getElementById('selectionErrorModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal d'erreur de sélection
+function hideSelectionErrorModal() {
+    const modal = document.getElementById('selectionErrorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour afficher le modal d'erreur générique
+function showErrorModal(message) {
+    const modal = document.getElementById('errorModal');
+    const messageElement = document.getElementById('errorMessage');
+    if (modal && messageElement) {
+        messageElement.textContent = message;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal d'erreur générique
+function hideErrorModal() {
+    const modal = document.getElementById('errorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Gestion des modals
+function showConfirmModal() {
+    document.getElementById('confirmModal').classList.remove('hidden');
+    document.getElementById('confirmModal').classList.add('flex');
+}
+
+function hideConfirmModal() {
+    document.getElementById('confirmModal').classList.add('hidden');
+    document.getElementById('confirmModal').classList.remove('flex');
+    document.getElementById('confirmComment').value = '';
+}
+
+// Fonctions simplifiées - Les opérations sont maintenant automatisées
+
+// Fermer les modals en cliquant à l'extérieur
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        hideConfirmModal();
+    }
+});
+
+// ================== MODAL DE CONFIRMATION SIMPLE ==================
+
+// Fonction pour afficher le modal de confirmation simple
+function showConfirmationModalSimple() {
+    const modal = document.getElementById('confirmationModalSimple');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de confirmation simple
+function hideConfirmationModalSimple() {
+    const modal = document.getElementById('confirmationModalSimple');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour procéder à la confirmation simple
+function proceedWithSimpleConfirmation() {
+    hideConfirmationModalSimple();
+    
+    if (window.currentCommandeId) {
+        fetch(`/operateur-confirme/commandes/${window.currentCommandeId}/confirmer-ajax/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                'commentaire': 'Commande confirmée depuis la page confirmation'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Rechargement de la page pour voir les modifications
+                location.reload();
+            } else {
+                showErrorModal('Erreur : ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showErrorModal('Une erreur est survenue lors de la confirmation.');
+        });
+    }
+}
+
+// ================== MODAL DE CONFIRMATION EN MASSE ==================
+
+// Fonction pour afficher le modal de confirmation en masse
+function showMassConfirmationModal() {
+    const modal = document.getElementById('massConfirmationModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal de confirmation en masse
+function hideMassConfirmationModal() {
+    const modal = document.getElementById('massConfirmationModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour procéder à la confirmation en masse
+function proceedWithMassConfirmation() {
+    hideMassConfirmationModal();
+    
+    if (window.selectedCommandes && window.selectedCommandes.length > 0) {
+        lancerCommandes(window.selectedCommandes);
+    }
+}
+
+// ================== MODALS D'ERREUR ET DE SÉLECTION ==================
+
+// Fonction pour afficher le modal d'erreur de sélection
+function showSelectionErrorModal() {
+    const modal = document.getElementById('selectionErrorModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal d'erreur de sélection
+function hideSelectionErrorModal() {
+    const modal = document.getElementById('selectionErrorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// Fonction pour afficher le modal d'erreur générique
+function showErrorModal(message) {
+    const modal = document.getElementById('errorModal');
+    const messageElement = document.getElementById('errorMessage');
+    if (modal && messageElement) {
+        messageElement.textContent = message;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+// Fonction pour masquer le modal d'erreur générique
+function hideErrorModal() {
+    const modal = document.getElementById('errorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+</script>
+
+<!-- Modal de Confirmation Simple Tailwind -->
+<div id="confirmationModalSimple" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f7d9c4;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b" style="border-color: #f7d9c4;">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                    <i class="fas fa-check-circle text-white text-lg"></i>
+                </div>
+                <h3 class="text-xl font-bold" style="color: #4B352A;">Confirmer la Commande</h3>
+            </div>
+            <button onclick="hideConfirmationModalSimple()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-question text-yellow-600"></i>
+                </div>
+                <p class="text-gray-700 font-medium">Êtes-vous sûr de vouloir confirmer cette commande ?</p>
+            </div>
+            <p class="text-sm text-gray-500 ml-11">Cette action ne peut pas être annulée.</p>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t" style="border-color: #f7d9c4;">
+            <button onclick="hideConfirmationModalSimple()" 
+                    class="px-5 py-2 rounded-lg font-medium transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300" 
+                    style="background-color: #f7d9c4; color: #4B352A;">
+                <i class="fas fa-times mr-1"></i>
+                Annuler
+            </button>
+            <button onclick="proceedWithSimpleConfirmation()" 
+                    class="px-5 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5" 
+                    style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                <i class="fas fa-check mr-1"></i>
+                Confirmer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes fade-in-down {
+        0% {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    .animate-fade-in-down {
+        animation: fade-in-down 0.4s ease-out;
+    }
+</style>
+
+<!-- Modal de Confirmation en Masse Tailwind -->
+<div id="massConfirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f7d9c4;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b" style="border-color: #f7d9c4;">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                    <i class="fas fa-list-check text-white text-lg"></i>
+                </div>
+                <h3 class="text-xl font-bold" style="color: #4B352A;">Confirmation en Masse</h3>
+            </div>
+            <button onclick="hideMassConfirmationModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-rocket text-blue-600"></i>
+                </div>
+                <div>
+                    <p class="text-gray-700 font-medium">
+                        Lancer la confirmation de <span id="selectedCommandesCount" class="font-bold text-blue-600">0</span> commande(s) sélectionnée(s) ?
+                    </p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-500 ml-11">Cette action va démarrer le processus de confirmation pour toutes les commandes sélectionnées.</p>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t" style="border-color: #f7d9c4;">
+            <button onclick="hideMassConfirmationModal()" 
+                    class="px-5 py-2 rounded-lg font-medium transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300" 
+                    style="background-color: #f7d9c4; color: #4B352A;">
+                <i class="fas fa-times mr-1"></i>
+                Annuler
+            </button>
+            <button onclick="proceedWithMassConfirmation()" 
+                    class="px-5 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5" 
+                    style="background: linear-gradient(135deg, #4B352A, #6d4b3b);">
+                <i class="fas fa-rocket mr-1"></i>
+                Lancer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'Erreur de Sélection -->
+<div id="selectionErrorModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f87171;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b border-red-200">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-lg"></i>
+                </div>
+                <h3 class="text-xl font-bold text-red-800">Sélection requise</h3>
+            </div>
+            <button onclick="hideSelectionErrorModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-hand-point-up text-orange-600"></i>
+                </div>
+                <p class="text-gray-700 font-medium">Veuillez sélectionner au moins une commande</p>
+            </div>
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 ml-11">
+                <p class="text-sm text-orange-700">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Cochez les cases à côté des commandes que vous souhaitez lancer en confirmation, puis cliquez sur "Lancer Sélection".
+                </p>
+            </div>
+        </div>
+        
+        <!-- Bouton d'action -->
+        <div class="flex justify-end pt-4 border-t border-red-200">
+            <button onclick="hideSelectionErrorModal()" 
+                    class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                <i class="fas fa-check mr-1"></i>
+                Compris
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'Erreur Générique -->
+<div id="errorModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid #f87171;">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b border-red-200">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-times-circle text-red-600 text-lg"></i>
+                </div>
+                <h3 class="text-xl font-bold text-red-800">Erreur</h3>
+            </div>
+            <button onclick="hideErrorModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-exclamation text-red-600"></i>
+                </div>
+                <p id="errorMessage" class="text-gray-700 font-medium"></p>
+            </div>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 ml-11">
+                <p class="text-sm text-red-700">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Veuillez réessayer ou contacter l'administrateur si le problème persiste.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Bouton d'action -->
+        <div class="flex justify-end pt-4 border-t border-red-200">
+            <button onclick="hideErrorModal()" 
+                    class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                <i class="fas fa-times mr-1"></i>
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %} 

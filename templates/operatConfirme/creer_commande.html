@@ -1,0 +1,768 @@
+{% extends 'composant_generale/operatConfirme/base.html' %}
+{% load static %}
+
+{% block title %}Nouvelle Commande - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .btn-confirm {
+        background: linear-gradient(to right, #4B352A, #6d4b3b);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-confirm:hover {
+        background: linear-gradient(to right, #6d4b3b, #8B5A2B);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 0.75rem;
+        border: 1px solid #f7d9c4;
+        transition: all 0.3s ease;
+    }
+
+    .form-section {
+        background: linear-gradient(to right, #f7d9c4, #ede0d3);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .panier-section {
+        background: linear-gradient(135deg, #4B352A, #6d4b3b);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .input-field {
+        border: 1px solid #f7d9c4;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .input-field:focus {
+        border-color: #6d4b3b;
+        ring-color: #4B352A;
+        box-shadow: 0 0 0 3px rgba(75, 53, 42, 0.1);
+        outline: none;
+    }
+
+    .label-style {
+        color: #4B352A;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .panier-item {
+        background: rgba(255, 255, 255, 0.95);
+        color: #4B352A;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border: 1px solid #f7d9c4;
+    }
+
+    .btn-action {
+        background-color: #8B5A2B;
+        color: white;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-action:hover {
+        background-color: #6d4b3b;
+        transform: scale(1.05);
+    }
+
+    .btn-success {
+        background-color: #059669;
+    }
+
+    .btn-success:hover {
+        background-color: #047857;
+    }
+
+    .btn-danger {
+        background-color: #DC2626;
+    }
+
+    .btn-danger:hover {
+        background-color: #B91C1C;
+    }
+
+    /* Styles pour le système de basculement client */
+    .client-type-btn {
+        background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+        color: #6b7280;
+        border: 2px solid #e5e7eb;
+        min-width: 150px;
+        justify-content: center;
+    }
+
+    .client-type-btn.active {
+        background: linear-gradient(135deg, #4B352A, #6d4b3b);
+        color: white;
+        border-color: #4B352A;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(75, 53, 42, 0.3);
+    }
+
+    .client-type-btn:hover:not(.active) {
+        background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+        color: #4B352A;
+        border-color: #d1d5db;
+        transform: translateY(-1px);
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+        width: 60px;
+        height: 30px;
+        background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+        border-radius: 15px;
+        position: relative;
+        cursor: pointer;
+        transition: all 0.4s ease;
+        border: 2px solid #d1d5db;
+    }
+
+    .toggle-switch.active {
+        background: linear-gradient(135deg, #4B352A, #6d4b3b);
+        border-color: #4B352A;
+    }
+
+    .toggle-handle {
+        width: 22px;
+        height: 22px;
+        background: white;
+        border-radius: 50%;
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .toggle-switch.active .toggle-handle {
+        transform: translateX(30px);
+        box-shadow: 0 2px 8px rgba(75, 53, 42, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #4B352A, #6d4b3b);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-plus-circle mr-3" style="color: #f7d9c4;"></i>
+                Nouvelle Commande
+            </h1>
+            <p style="color: #f7d9c4;">Enregistrez une nouvelle commande dans le système</p>
+        </div>
+        <a href="{% url 'operatConfirme:liste_commandes' %}" class="mt-4 md:mt-0 inline-flex items-center text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg" style="background-color: #f7d9c4; color: #4B352A; hover:background-color: #ede0d3;">
+            <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
+        </a>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert mb-6 p-4 rounded-xl border-l-4 animate-slideInUp
+                    {% if message.tags == 'success' %}border-green-500 bg-green-50 text-green-700{% endif %}
+                    {% if message.tags == 'error' %}border-red-500 bg-red-50 text-red-700{% endif %}
+                    {% if message.tags == 'warning' %}border-yellow-500 bg-yellow-50 text-yellow-700{% endif %}">
+            <i class="{% if message.tags == 'success' %}fas fa-check-circle{% elif message.tags == 'error' %}fas fa-exclamation-circle{% else %}fas fa-info-circle{% endif %} mr-2"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="form-card shadow-lg p-6 md:p-8 mb-8 animate-slideInUp">
+        <form method="post" id="commandeForm">
+            {% csrf_token %}
+            
+            <!-- Section Information Commande -->
+            <div class="form-section">
+                <h3 class="text-lg font-semibold mb-4 flex items-center" style="color: #4B352A;">
+                    <i class="fas fa-info-circle mr-2" style="color: #6d4b3b;"></i>
+                    Informations de la commande
+                </h3>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-info-circle text-blue-600 mr-3"></i>
+                        <div>
+                            <h4 class="font-semibold text-blue-800">Génération automatique</h4>
+                            <p class="text-blue-700 text-sm">L'ID YZ et la date de commande seront générés automatiquement par le système</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Client -->
+            <div class="bg-white rounded-xl p-6 mb-6 shadow-lg">
+                <h3 class="text-lg font-semibold mb-4" style="color: #4B352A;">
+                    <i class="fas fa-user mr-2"></i>
+                    Informations Client
+                </h3>
+                
+                <!-- Sélection du type de client -->
+                <div class="mb-4">
+                    <label class="label-style">Type de client</label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="type_client" value="existant" checked class="form-radio text-brown-600">
+                            <span class="ml-2">Client existant</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="type_client" value="nouveau" class="form-radio text-brown-600">
+                            <span class="ml-2">Nouveau client</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Recherche rapide par numéro de téléphone -->
+                <div class="mb-3">
+                    <label for="search_phone" class="label-style">Rechercher par numéro de téléphone</label>
+                    <input type="tel" id="search_phone" class="input-field w-full" placeholder="Saisir un numéro de téléphone...">
+                    <div id="search_phone_results" class="bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-50 absolute w-full hidden"></div>
+                </div>
+
+                <!-- Section pour sélectionner un client existant -->
+                <div id="section-client-existant">
+                    <label for="client" class="label-style">Sélectionner un client</label>
+                    <select id="client" name="client" class="input-field w-full">
+                        <option value="" disabled selected>-- Rechercher et choisir un client --</option>
+                        {% for c in clients %}
+                        <option value="{{ c.pk }}">{{ c.get_full_name }} ({{ c.numero_tel }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Section pour créer un nouveau client -->
+                <div id="section-nouveau-client" style="display: none;">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="nouveau_prenom" class="label-style">Prénom</label>
+                            <input type="text" id="nouveau_prenom" name="nouveau_prenom" class="input-field w-full">
+                        </div>
+                        <div>
+                            <label for="nouveau_nom" class="label-style">Nom</label>
+                            <input type="text" id="nouveau_nom" name="nouveau_nom" class="input-field w-full">
+                        </div>
+                        <div>
+                            <label for="nouveau_telephone" class="label-style">Téléphone</label>
+                            <input type="tel" id="nouveau_telephone" name="nouveau_telephone" class="input-field w-full">
+                        </div>
+                        <div>
+                            <label for="nouveau_email" class="label-style">Email (Optionnel)</label>
+                            <input type="email" id="nouveau_email" name="nouveau_email" class="input-field w-full">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Livraison -->
+            <div class="form-section">
+                <h3 class="text-lg font-semibold mb-4 flex items-center" style="color: #4B352A;">
+                    <i class="fas fa-truck mr-2" style="color: #6d4b3b;"></i>
+                    Livraison
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="ville_livraison" class="label-style">Ville de livraison:</label>
+                        <select id="ville_livraison" name="ville_livraison" class="input-field w-full" required>
+                            <option value="" disabled selected>-- Choisir une ville --</option>
+                            {% for ville in villes %}
+                            <option value="{{ ville.pk }}" data-frais="{{ ville.frais_livraison|default_if_none:0 }}" data-region="{{ ville.region.nom_region|default:'' }}">{{ ville.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="frais_livraison" class="label-style">Frais de livraison (DH):</label>
+                        <input type="text" id="frais_livraison" class="input-field w-full bg-gray-100" readonly>
+                    </div>
+                    <div>
+                        <label for="region_livraison" class="label-style">Région:</label>
+                        <input type="text" id="region_livraison" class="input-field w-full bg-gray-100" readonly>
+                    </div>
+                     <div>
+                        <label for="adresse" class="label-style">Adresse complète:</label>
+                        <input type="text" id="adresse" name="adresse" class="input-field w-full" placeholder="Entrez l'adresse complète..." required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Articles -->
+            <div class="form-section">
+                <h3 class="text-lg font-semibold mb-4 flex items-center" style="color: #4B352A;">
+                    <i class="fas fa-box mr-2" style="color: #6d4b3b;"></i>
+                    Sélection des articles
+                </h3>
+                
+                <!-- Recherche rapide par référence d'article -->
+                <div class="mb-3 relative">
+                    <label for="search_article_ref" class="label-style">Rechercher par référence d'article</label>
+                    <input type="text" id="search_article_ref" class="input-field w-full" placeholder="Saisir une référence d'article...">
+                    <div id="search_article_results" class="bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-50 absolute w-full hidden"></div>
+                </div>
+
+                <div class="flex items-center gap-2 mb-4">
+                    <select id="article-select" class="input-field flex-grow">
+                        <option value="">Sélectionner un article…</option>
+                        {% for article in articles %}
+                            <option value="{{ article.pk }}" data-prix="{{ article.prix_unitaire }}">{{ article.nom }} ({{ article.reference }}) – {{ article.prix_unitaire }} DH</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Panier dynamique -->
+            <div id="panier-items-container" class="mb-6 hidden">
+                <div class="panier-section">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-shopping-basket mr-2"></i>
+                        Panier de la commande
+                    </h3>
+                    <div id="panierItems" class="space-y-3">
+                        <!-- Les articles seront ajoutés ici dynamiquement -->
+                    </div>
+                    <div class="border-t border-white/20 mt-4 pt-4">
+                        <div class="flex justify-between items-center text-lg font-semibold">
+                            <span>Total Panier:</span>
+                            <span id="totalPanier">0.00 DH</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total et options -->
+            <div class="form-section">
+                <h3 class="text-lg font-semibold mb-4 flex items-center" style="color: #4B352A;">
+                    <i class="fas fa-calculator mr-2" style="color: #6d4b3b;"></i>
+                    Total et options
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" name="is_upsell" id="is_upsell" class="h-5 w-5 rounded" style="color: #4B352A;">
+                        <label for="is_upsell" class="ml-2 text-sm font-semibold" style="color: #4B352A;">Commande Upsell</label>
+                    </div>
+                    <div>
+                        <label for="total_cmd" class="label-style">Total Commande (DH):</label>
+                        <input type="number" name="total_cmd" id="total_cmd" step="0.01" min="0" class="input-field w-full bg-gray-100 cursor-not-allowed" readonly required>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-confirm">
+                <i class="fas fa-save mr-2"></i> Créer la commande
+            </button>
+        </form>
+    </div>
+</div>
+
+{% block extra_js %}
+{{ block.super }} {# Garde le script de la sidebar du template de base #}
+
+<script>
+    // Le script pour la page de création de commande commence ici
+    // On n'utilise PAS 'DOMContentLoaded' ici car le bloc est déjà à la fin du body
+    
+    console.log("Initialisation du script spécifique à la création de commande...");
+
+    // ---- ELEMENTS DU DOM ----
+    const clientTypeToggle = document.getElementById('client-type-toggle');
+    const btnClientExistant = document.getElementById('btn-client-existant');
+    const btnNouveauClient = document.getElementById('btn-nouveau-client');
+    const sectionClientExistant = document.getElementById('section-client-existant');
+    const sectionNouveauClient = document.getElementById('section-nouveau-client');
+    const typeClientHidden = document.getElementById('type_client_hidden');
+
+    const selectClient = document.getElementById('client');
+    const nouveauPrenom = document.getElementById('nouveau_prenom');
+    const nouveauNom = document.getElementById('nouveau_nom');
+    const nouveauTelephone = document.getElementById('nouveau_telephone');
+
+    const selectVille = document.getElementById('ville_livraison');
+    const fraisLivraisonInput = document.getElementById('frais_livraison');
+    const regionLivraisonInput = document.getElementById('region_livraison');
+    const fraisLivraisonDisplay = document.getElementById('frais-livraison-display');
+
+    // ---- DIAGNOSTIC ----
+    console.log({
+        clientTypeToggle,
+        btnClientExistant,
+        btnNouveauClient,
+        sectionClientExistant,
+        sectionNouveauClient,
+        typeClientHidden,
+        selectVille,
+        fraisLivraisonInput,
+        regionLivraisonInput,
+        fraisLivraisonDisplay
+    });
+
+    // 1. Système de basculement Client
+    function setupClientToggle() {
+        if (!clientTypeToggle || !btnClientExistant || !btnNouveauClient) {
+            console.error("Erreur critique: Un des boutons de basculement est manquant. Le script ne peut continuer.");
+            return;
+        }
+
+        function setClientMode(isExistant) {
+            console.log(`Basculement vers le mode: ${isExistant ? 'Existant' : 'Nouveau'}`);
+            
+            // Affichage des sections
+            sectionClientExistant.style.display = isExistant ? 'block' : 'none';
+            sectionNouveauClient.style.display = isExistant ? 'none' : 'block';
+
+            // Style des boutons
+            btnClientExistant.classList.toggle('active', isExistant);
+            btnNouveauClient.classList.toggle('active', !isExistant);
+            clientTypeToggle.classList.toggle('active', !isExistant);
+            
+            // Mise à jour du champ caché
+            if (typeClientHidden) {
+                typeClientHidden.value = isExistant ? 'existant' : 'nouveau';
+            }
+
+            // Gestion des champs requis
+            if (selectClient) selectClient.required = isExistant;
+            if (nouveauPrenom) nouveauPrenom.required = !isExistant;
+            if (nouveauNom) nouveauNom.required = !isExistant;
+            if (nouveauTelephone) nouveauTelephone.required = !isExistant;
+        }
+
+        btnClientExistant.addEventListener('click', () => setClientMode(true));
+        btnNouveauClient.addEventListener('click', () => setClientMode(false));
+        clientTypeToggle.addEventListener('click', () => {
+            const currentModeIsExistant = !clientTypeToggle.classList.contains('active');
+            setClientMode(!currentModeIsExistant);
+        });
+
+        // Initialisation
+        setClientMode(true);
+    }
+
+    // 2. Gestion de la sélection de ville
+    function setupVilleSelection() {
+        if (!selectVille) {
+            console.error("L'élément de sélection de ville est manquant.");
+            return;
+        }
+
+        selectVille.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const frais = selectedOption.dataset.frais || '0';
+            const region = selectedOption.dataset.region || 'N/A';
+
+            if (fraisLivraisonInput) fraisLivraisonInput.value = parseFloat(frais).toFixed(2);
+            if (regionLivraisonInput) regionLivraisonInput.value = region;
+            
+            // Mettre à jour également l'affichage dans le résumé
+            if (fraisLivraisonDisplay) fraisLivraisonDisplay.textContent = `${parseFloat(frais).toFixed(2)} DH`;
+
+            // Recalculer le total général de la commande
+            calculerTotal();
+        });
+    }
+
+    function calculerTotal() {
+        let totalPanier = 0;
+        panierItemsContainer.querySelectorAll('.panier-item').forEach(row => {
+            const quantite = parseInt(row.querySelector('.quantite-input').value) || 0;
+            const prix = parseFloat(row.querySelector('.quantite-input').dataset.price) || 0;
+            totalPanier += quantite * prix;
+        });
+        
+        // On récupère les frais depuis l'input qui est toujours à jour
+        const fraisLivraison = parseFloat(fraisLivraisonInput.value) || 0;
+        const totalCommande = totalPanier + fraisLivraison;
+
+        if(totalPanierElement) totalPanierElement.textContent = `${totalPanier.toFixed(2)} DH`;
+        if(fraisLivraisonDisplay) fraisLivraisonDisplay.textContent = `${fraisLivraison.toFixed(2)} DH`;
+        if(totalCmdInput) totalCmdInput.value = totalCommande.toFixed(2);
+    }
+
+    // Gestion du panier
+    const articleSelect = document.getElementById('article-select');
+    const panierItemsContainer = document.getElementById('panier-items-container');
+    const panierItems = document.getElementById('panierItems');
+    const totalPanierElement = document.getElementById('totalPanier');
+    const totalCmdInput = document.getElementById('total_cmd');
+
+    // Fonction pour charger les articles (appelée à l'initialisation)
+    function chargerArticles() {
+        if (!articleSelect) {
+            console.error("L'élément de sélection d'article est manquant.");
+            return;
+        }
+
+        // Ajouter un événement pour ajouter un article au panier
+        articleSelect.addEventListener('change', function() {
+            if (this.value) {
+                const selectedOption = this.options[this.selectedIndex];
+                const articleId = this.value;
+                const articleNom = selectedOption.text.split(' (')[0];
+                const articleRef = selectedOption.text.match(/\(([^)]+)\)/)[1];
+                const articlePrix = parseFloat(selectedOption.dataset.prix);
+                
+                ajouterArticleAuPanier(articleId, articleNom, articleRef, articlePrix);
+                
+                // Réinitialiser la sélection
+                this.selectedIndex = 0;
+            }
+        });
+    }
+
+    // Fonction pour ajouter un article au panier
+    function ajouterArticleAuPanier(id, nom, reference, prix) {
+        // Afficher le conteneur du panier s'il était caché
+        panierItemsContainer.classList.remove('hidden');
+        
+        // Créer un élément pour l'article
+        const articleElement = document.createElement('div');
+        articleElement.className = 'panier-item';
+        articleElement.dataset.articleId = id;
+        
+        // Générer un ID unique pour cet article dans le panier
+        const uniqueId = `article_${Date.now()}`;
+        
+        articleElement.innerHTML = `
+            <div class="flex justify-between items-center">
+                <div class="flex-1">
+                    <div class="font-semibold">${nom}</div>
+                    <div class="text-xs text-gray-200">Réf: ${reference}</div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="number" min="1" value="1" class="quantite-input w-16 p-1 text-center rounded bg-white/90 text-gray-800" 
+                           data-price="${prix}" data-article-id="${id}">
+                    <div class="text-sm font-semibold whitespace-nowrap">${prix.toFixed(2)} DH</div>
+                    <button type="button" class="btn-action btn-danger remove-article">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <input type="hidden" name="article_id" value="${id}">
+            <input type="hidden" name="quantite" value="1">
+        `;
+        
+        // Ajouter l'élément au panier
+        panierItems.appendChild(articleElement);
+        
+        // Ajouter les écouteurs d'événements pour la quantité et la suppression
+        const quantiteInput = articleElement.querySelector('.quantite-input');
+        quantiteInput.addEventListener('change', function() {
+            // Mettre à jour la valeur dans le champ caché
+            const hiddenInput = articleElement.querySelector('input[name="quantite"]');
+            hiddenInput.value = this.value;
+            calculerTotal();
+        });
+        
+        const removeButton = articleElement.querySelector('.remove-article');
+        removeButton.addEventListener('click', function() {
+            articleElement.remove();
+            calculerTotal();
+            
+            // Cacher le conteneur si le panier est vide
+            if (panierItems.children.length === 0) {
+                panierItemsContainer.classList.add('hidden');
+            }
+        });
+        
+        // Calculer le total
+        calculerTotal();
+    }
+
+    // Gestion de l'affichage des sections selon le type de client
+    document.querySelectorAll('input[name="type_client"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const clientExistantSection = document.getElementById('section-client-existant');
+            const nouveauClientSection = document.getElementById('section-nouveau-client');
+            
+            if (this.value === 'existant') {
+                clientExistantSection.style.display = 'block';
+                nouveauClientSection.style.display = 'none';
+                // Réinitialiser les champs du nouveau client
+                document.getElementById('nouveau_prenom').value = '';
+                document.getElementById('nouveau_nom').value = '';
+                document.getElementById('nouveau_telephone').value = '';
+                document.getElementById('nouveau_email').value = '';
+            } else {
+                clientExistantSection.style.display = 'none';
+                nouveauClientSection.style.display = 'block';
+                // Réinitialiser la sélection du client existant
+                document.getElementById('client').selectedIndex = 0;
+            }
+        });
+    });
+
+    // Initialisation au chargement de la page
+    window.addEventListener('load', function() {
+        const typeClientRadios = document.querySelectorAll('input[name="type_client"]');
+        const checkedRadio = Array.from(typeClientRadios).find(radio => radio.checked);
+        if (checkedRadio) {
+            checkedRadio.dispatchEvent(new Event('change'));
+        }
+    });
+
+    // ---- INITIALISATION ----
+    setupClientToggle();
+    setupVilleSelection();
+    chargerArticles();
+</script>
+
+<script>
+// --- SÉCURISATION DES VARIABLES ET ÉVITEMENT DES DOUBLONS ---
+(function() {
+    // Recherche client par numéro de téléphone
+    var searchPhoneInput = document.getElementById('search_phone');
+    var searchPhoneResults = document.getElementById('search_phone_results');
+    var clientSelect = document.getElementById('client');
+    var searchTimeout = null;
+
+    if (searchPhoneInput && searchPhoneResults && clientSelect) {
+        searchPhoneInput.addEventListener('input', function() {
+            var query = this.value.trim();
+            if (searchTimeout) clearTimeout(searchTimeout);
+            if (query.length < 3) {
+                searchPhoneResults.classList.add('hidden');
+                searchPhoneResults.innerHTML = '';
+                return;
+            }
+            searchTimeout = setTimeout(function() {
+                fetch('/operateur-confirme/api/recherche-client-tel/?q=' + encodeURIComponent(query))
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data.results && data.results.length > 0) {
+                            searchPhoneResults.innerHTML = data.results.map(function(client) {
+                                return '<div class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100" data-client-id="' + client.id + '"><span class="font-semibold">' + client.full_name + '</span> <span class="text-gray-500">(' + client.numero_tel + ')</span></div>';
+                            }).join('');
+                            searchPhoneResults.classList.remove('hidden');
+                            Array.prototype.forEach.call(searchPhoneResults.children, function(item) {
+                                item.addEventListener('click', function() {
+                                    var clientId = this.getAttribute('data-client-id');
+                                    clientSelect.value = clientId;
+                                    clientSelect.dispatchEvent(new Event('change'));
+                                    searchPhoneResults.classList.add('hidden');
+                                    searchPhoneResults.innerHTML = '';
+                                    searchPhoneInput.value = '';
+                                });
+                            });
+                        } else {
+                            searchPhoneResults.innerHTML = '<div class="px-4 py-2 text-gray-500">Aucun client trouvé</div>';
+                            searchPhoneResults.classList.remove('hidden');
+                        }
+                    })
+                    .catch(function() {
+                        searchPhoneResults.innerHTML = '<div class="px-4 py-2 text-red-500">Erreur de recherche</div>';
+                        searchPhoneResults.classList.remove('hidden');
+                    });
+            }, 300);
+        });
+        document.addEventListener('click', function(e) {
+            if (!searchPhoneResults.contains(e.target) && e.target !== searchPhoneInput) {
+                searchPhoneResults.classList.add('hidden');
+            }
+        });
+    }
+})();
+</script>
+
+<script>
+// --- Recherche d'article par référence ---
+(function() {
+    var searchArticleInput = document.getElementById('search_article_ref');
+    var searchArticleResults = document.getElementById('search_article_results');
+    var articleSelect = document.getElementById('article-select');
+    var searchTimeout = null;
+
+    if (searchArticleInput && searchArticleResults && articleSelect) {
+        searchArticleInput.addEventListener('input', function() {
+            var query = this.value.trim();
+            if (searchTimeout) clearTimeout(searchTimeout);
+            if (query.length < 2) {
+                searchArticleResults.classList.add('hidden');
+                searchArticleResults.innerHTML = '';
+                return;
+            }
+            searchTimeout = setTimeout(function() {
+                fetch('/operateur-confirme/api/recherche-article-ref/?q=' + encodeURIComponent(query))
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data.results && data.results.length > 0) {
+                            searchArticleResults.innerHTML = data.results.map(function(article) {
+                                return '<div class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100" data-article-id="' + article.id + '"><span class="font-semibold">' + article.nom + '</span> <span class="text-gray-500">(' + article.reference + ')</span> <span class="text-green-700 font-bold">' + article.prix_unitaire.toFixed(2) + ' DH</span></div>';
+                            }).join('');
+                            searchArticleResults.classList.remove('hidden');
+                            Array.prototype.forEach.call(searchArticleResults.children, function(item) {
+                                item.addEventListener('click', function() {
+                                    var articleId = this.getAttribute('data-article-id');
+                                    // Sélectionner l'article dans le select
+                                    articleSelect.value = articleId;
+                                    articleSelect.dispatchEvent(new Event('change'));
+                                    searchArticleResults.classList.add('hidden');
+                                    searchArticleResults.innerHTML = '';
+                                    searchArticleInput.value = '';
+                                });
+                            });
+                        } else {
+                            searchArticleResults.innerHTML = '<div class="px-4 py-2 text-gray-500">Aucun article trouvé</div>';
+                            searchArticleResults.classList.remove('hidden');
+                        }
+                    })
+                    .catch(function() {
+                        searchArticleResults.innerHTML = '<div class="px-4 py-2 text-red-500">Erreur de recherche</div>';
+                        searchArticleResults.classList.remove('hidden');
+                    });
+            }, 300);
+        });
+        document.addEventListener('click', function(e) {
+            if (!searchArticleResults.contains(e.target) && e.target !== searchArticleInput) {
+                searchArticleResults.classList.add('hidden');
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}
+
+{% endblock %} 

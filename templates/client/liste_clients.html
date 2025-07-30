@@ -1,0 +1,641 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Liste des Clients - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-users mr-3" style="color: var(--admin-accent-color);"></i>
+                Liste des Clients
+            </h1>
+            <p style="color: var(--admin-accent-color);">Gérez les clients du système</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'client:creer' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-plus mr-2"></i>Nouveau Client
+            </a>
+        </div>
+    </div>
+
+
+
+    <!-- Affichage des messages -->
+    {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+                <div class="p-3 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% endif %} flex items-center">
+                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% endif %} mr-2"></i>
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Statistiques de vérification -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Clients -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-users text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Clients</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ total_clients }}</p>
+                        {% if derniere_sync %}
+                        <p class="text-xs text-gray-400 mt-1">Sync: {{ derniere_sync.sync_date|date:"d/m H:i" }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Clients avec Commandes -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Avec Commandes</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ clients_avec_commandes }}</p>
+                        <p class="text-xs text-gray-400 mt-1">{{ pourcentage_avec_commandes }}% du total</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Clients avec Commandes Erronées -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-red-300 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-exclamation-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Clients Cmds Erronées</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600">{{ clients_avec_cmd_erronees }}</p>
+                        <p class="text-xs text-gray-400 mt-1">Clients avec cmds erronées</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Clients avec Commandes Doublons -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-orange-300 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 transition-all duration-300 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-copy text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Clients Cmds Doublons</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600">{{ clients_avec_cmd_doublons }}</p>
+                        <p class="text-xs text-gray-400 mt-1">Clients avec cmds en doublon</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertes de vérification -->
+    {% if doublons_detectes > 0 %}
+    <div class="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle text-yellow-400 mr-3"></i>
+            <div>
+                <h4 class="text-yellow-800 font-medium">{{ doublons_detectes }} doublon{{ doublons_detectes|pluralize }} détecté{{ doublons_detectes|pluralize }}</h4>
+                <p class="text-yellow-700 text-sm mt-1">Des clients ont le même numéro de téléphone. Utilisez le script de correction pour les fusionner.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if pourcentage_avec_commandes < 20 %}
+    <div class="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-circle text-red-400 mr-3"></i>
+            <div>
+                <h4 class="text-red-800 font-medium">Faible ratio de clients avec commandes</h4>
+                <p class="text-red-700 text-sm mt-1">Seulement {{ pourcentage_avec_commandes }}% des clients ont des commandes. Vérifiez la synchronisation.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Barre de recherche -->
+    <div class="bg-white p-6 rounded-lg mb-6 shadow-md border" style="border-color: var(--admin-accent-color);">
+        <form method="GET" class="space-y-4">
+            <!-- Ligne 1: Recherche générale et boutons -->
+            <div class="flex flex-col md:flex-row gap-4">
+            <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fas fa-search text-gray-400"></i>
+                </div>
+                <input type="text" 
+                       name="search" 
+                       class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                       style="border-color: #99dddd; focus:ring-color: var(--admin-color);"
+                           placeholder="Rechercher par nom, téléphone, ville, état commande..." 
+                           value="{{ search_query|default:'' }}">
+            </div>
+            <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                    style="background-color: var(--admin-color);">
+                <i class="fas fa-search mr-2"></i> Rechercher
+            </button>
+                {% if search_query or ville_filter or region_filter %}
+            <a href="{% url 'client:liste' %}" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+               style="background-color: #EF4444;">
+                <i class="fas fa-times mr-2"></i> Effacer
+            </a>
+            {% endif %}
+            </div>
+
+            <!-- Ligne 2: Filtres spécifiques -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                <!-- Filtre par Ville -->
+                <div>
+                    <label for="ville_filter" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-map-marker-alt mr-1"></i>Filtrer par ville système
+                    </label>
+                    <select name="ville_filter" id="ville_filter" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                            style="border-color: #99dddd; focus:ring-color: var(--admin-color);">
+                        <option value="">Toutes les villes</option>
+                        {% for ville in villes %}
+                        <option value="{{ ville.id }}" {% if ville_filter == ville.id|stringformat:"s" %}selected{% endif %}>
+                            {{ ville.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Filtre par Ville Initiale -->
+                <div>
+                    <label for="ville_init_filter" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-file-alt mr-1"></i>Filtrer par ville du fichier
+                    </label>
+                    <select name="ville_init_filter" id="ville_init_filter" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                            style="border-color: #99dddd; focus:ring-color: var(--admin-color);">
+                        <option value="">Toutes les villes</option>
+                        {% for ville_init in villes_init %}
+                        <option value="{{ ville_init }}" {% if ville_init_filter == ville_init %}selected{% endif %}>
+                            {{ ville_init }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Filtre par Région -->
+                <div>
+                    <label for="region_filter" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-globe-africa mr-1"></i>Filtrer par région
+                    </label>
+                    <select name="region_filter" id="region_filter" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all" 
+                            style="border-color: #99dddd; focus:ring-color: var(--admin-color);">
+                        <option value="">Toutes les régions</option>
+                        {% for region in regions %}
+                        <option value="{{ region.id }}" {% if region_filter == region.id|stringformat:"s" %}selected{% endif %}>
+                            {{ region.nom_region }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Boutons de vue et suppression en masse -->
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex gap-4">
+            
+        </div>
+        <!-- Bouton de suppression en masse -->
+        <div id="bulkDeleteClientBtnContainer" style="display: none;">
+            <button id="bulkDeleteClientBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm opacity-50 cursor-not-allowed" disabled>
+                <i class="fas fa-trash-alt mr-2"></i> Supprimer la sélection
+            </button>
+        </div>
+    </div>
+
+    <!-- Tableau des clients -->
+    <div class="bg-white rounded-xl shadow-lg border overflow-hidden mb-8" style="border-color: var(--admin-accent-color);">
+        {% if page_obj %}
+        <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+            <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">
+                        <input type="checkbox" id="selectAllClients" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" />
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Client</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Ville Initiale</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Contact</th>
+                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Commandes</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Date Création</th>
+                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for client in page_obj %}
+                <tr class="hover:bg-gray-50 transition-colors" id="clientRow-{{ client.pk }}">
+                    <td class="px-6 py-4 whitespace-nowrap border-r">
+                        <input type="checkbox" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 client-checkbox" data-client-id="{{ client.pk }}" />
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap border-r">
+                        <div class="font-medium text-gray-900">{{ client.get_full_name }}</div>
+                        <div class="text-sm text-gray-500">ID: {{ client.pk }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r">
+                        {{ client.derniere_ville_init|default:"N/A" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r">
+                        <div><i class="fas fa-phone mr-2 text-gray-400"></i>{{ client.numero_tel }}</div>
+                        {% if client.email %}
+                        <div><i class="fas fa-envelope mr-2 text-gray-400"></i>{{ client.email }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center border-r">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if client.nombre_commandes > 0 %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                            <i class="fas fa-shopping-cart mr-1"></i>
+                            {{ client.nombre_commandes }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium border-r border-gray-200">
+                        {{ client.date_creation|date:"d/m/Y" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{% url 'client:detail' client.id %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'client:modifier' client.id %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-6">
+            <div class="flex flex-1 justify-between sm:hidden">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Affichage de <span class="font-medium">{{ page_obj.start_index }}</span> à <span class="font-medium">{{ page_obj.end_index }}</span> sur <span class="font-medium">{{ page_obj.paginator.count }}</span> résultats
+                    </p>
+                </div>
+                <div>
+                    <ul class="flex items-center -space-x-px">
+                        {% if page_obj.has_previous %}
+                            <li>
+                                <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                            </li>
+                            <li>
+                                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li>
+                                    <span class="px-3 py-2 leading-tight text-white border" style="background-color: var(--admin-color); border-color: var(--admin-color);">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li>
+                                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                            <li>
+                                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                            </li>
+                            <li>
+                                <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if ville_filter %}&ville_filter={{ ville_filter }}{% endif %}{% if ville_init_filter %}&ville_init_filter={{ ville_init_filter }}{% endif %}{% if region_filter %}&region_filter={{ region_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-10">
+            <i class="fas fa-users text-6xl text-gray-300 mb-4" style="color: var(--admin-accent-color);"></i>
+            <h5 class="text-gray-500 text-lg mb-2" style="color: var(--admin-color);">Aucun client trouvé{% if search_query %} pour la recherche "{{ search_query }}"{% endif %}.</h5>
+            {% if search_query %}
+            <a href="{% url 'client:liste' %}" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+               style="background-color: var(--admin-color); color: white;">
+                <i class="fas fa-list mr-2"></i> Effacer la recherche
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    function confirmDeleteClient(deleteUrl, clientNom) {
+        showCustomConfirmModal(deleteUrl, `le client "${clientNom}"`);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllClientsCheckbox = document.getElementById('selectAllClients');
+        const clientCheckboxes = document.querySelectorAll('.client-checkbox');
+        const bulkDeleteClientBtn = document.getElementById('bulkDeleteClientBtn');
+        const bulkDeleteClientBtnContainer = document.getElementById('bulkDeleteClientBtnContainer');
+
+        // Afficher le bouton de suppression en masse
+        if (bulkDeleteClientBtnContainer) {
+            bulkDeleteClientBtnContainer.style.display = 'flex';
+        }
+
+        function updateBulkDeleteClientButton() {
+            const checkedCount = document.querySelectorAll('.client-checkbox:checked').length;
+            if (checkedCount > 0) {
+                bulkDeleteClientBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                bulkDeleteClientBtn.disabled = false;
+            } else {
+                bulkDeleteClientBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                bulkDeleteClientBtn.disabled = true;
+            }
+        }
+
+        if (selectAllClientsCheckbox) {
+            selectAllClientsCheckbox.addEventListener('change', function() {
+                clientCheckboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+                updateBulkDeleteClientButton();
+            });
+        }
+
+        clientCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                if (!this.checked && selectAllClientsCheckbox) {
+                    selectAllClientsCheckbox.checked = false;
+                }
+                updateBulkDeleteClientButton();
+            });
+        });
+
+        if (bulkDeleteClientBtn) {
+            bulkDeleteClientBtn.addEventListener('click', function() {
+                const selectedIds = [];
+                document.querySelectorAll('.client-checkbox:checked').forEach(checkbox => {
+                    selectedIds.push(checkbox.dataset.clientId);
+                });
+
+                if (selectedIds.length > 0) {
+                    // Créer le formulaire pour la suppression en masse
+                    const confirmBtn = document.getElementById('confirmDeleteBtn');
+                    const modalText = document.getElementById('confirmModalText');
+                    
+                    if (modalText) {
+                        modalText.innerHTML = `Êtes-vous sûr de vouloir supprimer <strong>les ${selectedIds.length} clients sélectionnés</strong> ? Cette action est irréversible.`;
+                    }
+                    
+                    if (confirmBtn) {
+                        confirmBtn.onclick = function() {
+                            const form = document.createElement('form');
+                            form.method = 'POST';
+                            form.action = '{% url "client:supprimer_clients_masse" %}';
+
+                            const csrfInput = document.createElement('input');
+                            csrfInput.type = 'hidden';
+                            csrfInput.name = 'csrfmiddlewaretoken';
+                            csrfInput.value = '{{ csrf_token }}';
+                            form.appendChild(csrfInput);
+
+                            selectedIds.forEach(id => {
+                                const idInput = document.createElement('input');
+                                idInput.type = 'hidden';
+                                idInput.name = 'ids[]';
+                                idInput.value = id;
+                                form.appendChild(idInput);
+                            });
+                            
+                            document.body.appendChild(form);
+                            form.submit();
+                        };
+                    }
+                    
+                    const modal = document.getElementById('customConfirmModal');
+                    if (modal) {
+                        modal.classList.remove('hidden');
+                    }
+                } else {
+                    alert("Veuillez sélectionner au moins un client à supprimer.");
+                }
+            });
+        }
+
+        updateBulkDeleteClientButton();
+
+        // Auto-submit form when filters change
+        const villeFilter = document.getElementById('ville_filter');
+        if (villeFilter) {
+            villeFilter.addEventListener('change', function() {
+                this.closest('form').submit();
+            });
+        }
+        
+        const villeInitFilter = document.getElementById('ville_init_filter');
+        if (villeInitFilter) {
+            villeInitFilter.addEventListener('change', function() {
+                this.closest('form').submit();
+            });
+        }
+        
+        const regionFilter = document.getElementById('region_filter');
+        if (regionFilter) {
+            regionFilter.addEventListener('change', function() {
+                this.closest('form').submit();
+            });
+        }
+    });
+
+    // Fonctions de diagnostic et correction
+    function executerDiagnostic() {
+        // Créer une fenêtre modale pour afficher le diagnostic
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        modal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">
+                            <i class="fas fa-stethoscope mr-2 text-blue-600"></i>
+                            Diagnostic des Clients
+                        </h3>
+                        <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="diagnostic-content" class="text-center py-8">
+                        <i class="fas fa-spinner fa-spin text-3xl text-blue-600 mb-4"></i>
+                        <p class="text-gray-600">Exécution du diagnostic en cours...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Exécuter le diagnostic via AJAX
+        fetch('/admin/diagnostic-clients/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            const content = document.getElementById('diagnostic-content');
+            if (data.success) {
+                content.innerHTML = \`
+                    <div class="text-left space-y-4">
+                        <div class="flex items-center text-green-600 mb-4">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            <span class="font-medium">Diagnostic terminé avec succès</span>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-medium mb-2">Résultats:</h4>
+                            <ul class="space-y-1 text-sm">
+                                <li>• Total clients: \${data.total_clients}</li>
+                                <li>• Doublons téléphone: \${data.doublons_tel}</li>
+                                <li>• Doublons nom: \${data.doublons_nom}</li>
+                                <li>• Clients avec commandes: \${data.clients_avec_commandes}</li>
+                                <li>• Clients sans téléphone: \${data.clients_sans_tel}</li>
+                            </ul>
+                        </div>
+                        \${data.recommendations ? \`
+                            <div class="bg-yellow-50 p-4 rounded-lg">
+                                <h4 class="font-medium text-yellow-800 mb-2">Recommandations:</h4>
+                                <div class="text-sm text-yellow-700">\${data.recommendations}</div>
+                            </div>
+                        \` : ''}
+                        <div class="flex justify-end mt-6">
+                            <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                                Actualiser la page
+                            </button>
+                        </div>
+                    </div>
+                \`;
+            } else {
+                content.innerHTML = \`
+                    <div class="text-center text-red-600">
+                        <i class="fas fa-exclamation-circle text-3xl mb-4"></i>
+                        <p>Erreur lors du diagnostic: \${data.error}</p>
+                    </div>
+                \`;
+            }
+        })
+        .catch(error => {
+            const content = document.getElementById('diagnostic-content');
+            content.innerHTML = \`
+                <div class="text-center text-red-600">
+                    <i class="fas fa-exclamation-circle text-3xl mb-4"></i>
+                    <p>Erreur de connexion: \${error.message}</p>
+                </div>
+            \`;
+        });
+    }
+
+    function confirmerCorrection() {
+        if (confirm('Voulez-vous vraiment corriger les doublons de clients ? Cette action fusionnera automatiquement les clients avec le même numéro de téléphone.')) {
+            // Afficher un indicateur de chargement
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Correction...';
+            btn.disabled = true;
+
+            // Exécuter la correction via AJAX
+            fetch('/admin/corriger-clients/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(\`Correction terminée: \${data.clients_fusionnes} clients fusionnés.\`);
+                    location.reload();
+                } else {
+                    alert(\`Erreur lors de la correction: \${data.error}\`);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            })
+            .catch(error => {
+                alert(\`Erreur de connexion: \${error.message}\`);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        }
+         }
+</script>
+
+<style>
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slideInUp {
+    animation: slideInUp 0.6s ease-out forwards;
+}
+</style>
+{% endblock extra_js %}
+{% endblock content %} 

@@ -1,0 +1,202 @@
+<!-- Sidebar avec animation - Thème Opérateur Préparation -->
+<div id="sidebar" class="text-white flex-shrink-0 relative h-full transition-all duration-300 ease-in-out shadow-2xl border-r overflow-hidden z-50 flex flex-col" style="background: linear-gradient(to bottom, var(--preparation-primary), var(--preparation-dark)); border-color: var(--preparation-dark);">
+    <!-- En-tête -->
+    <div class="p-4 flex items-center justify-between flex-shrink-0" style="border-bottom: 1px solid var(--preparation-dark);">
+        <div>
+            <h1 class="text-xl font-bold text-white whitespace-nowrap">YZ-CMD</h1>
+            <p class="text-sm text-white whitespace-nowrap opacity-80">Service Préparation</p>
+        </div>
+        <button id="sidebar-toggle" class="p-2 rounded-lg transition-colors duration-200 lg:hidden" style="hover:background-color: var(--preparation-hover-bg);">
+            <i class="fas fa-times text-lg text-white"></i>
+        </button>
+    </div>
+    
+    <!-- Navigation avec scrollbar personnalisée -->
+    <nav class="flex-1 overflow-y-auto py-4 scrollbar-custom">
+        <!-- Accueil -->
+        <div class="mb-6">
+            <a href="{% url 'Prepacommande:home' %}" class="flex items-center px-4 py-3 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-yellow-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                <i class="fas fa-home text-lg mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                <span class="whitespace-nowrap">Tableau de bord</span>
+            </a>
+        </div>
+        
+        <!-- Section Gestion de Préparation -->
+        <div class="mb-6">
+            <button class="flex items-center justify-between w-full px-4 py-3 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-orange-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);" onclick="toggleDropdown('preparation-dropdown')">
+                <div class="flex items-center">
+                    <i class="fas fa-boxes text-lg mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Gestion de Préparation</span>
+                </div>
+                <i class="fas fa-angle-down transition-transform duration-300" id="preparation-dropdown-icon"></i>
+            </button>
+            <div class="mt-2 space-y-1 pl-8 hidden" id="preparation-dropdown">
+                <a href="{% url 'Prepacommande:liste_prepa' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-blue-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-list-alt mr-3 text-blue-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Toutes les Commandes</span>
+                </a>
+                <a href="{% url 'Prepacommande:commandes_a_imprimer' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-yellow-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-print mr-3 text-yellow-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">À Imprimer</span>
+                </a>
+                <a href="{% url 'Prepacommande:commandes_en_preparation' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-green-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-box-open mr-3 text-green-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">En Préparation</span>
+                </a>
+                <a href="{% url 'Prepacommande:etiquette' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-blue-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-tags mr-3 text-blue-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Étiquettes</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Section Gestion de Stock -->
+        <div class="mb-6">
+            <button class="flex items-center justify-between w-full px-4 py-3 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-indigo-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);" onclick="toggleDropdown('stock-dropdown')">
+                <div class="flex items-center">
+                    <i class="fas fa-warehouse text-lg mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Gestion de Stock</span>
+                </div>
+                <i class="fas fa-angle-down transition-transform duration-300" id="stock-dropdown-icon"></i>
+            </button>
+            <div class="mt-2 space-y-1 pl-8 hidden" id="stock-dropdown">
+                <a href="{% url 'Prepacommande:liste_articles' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-indigo-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-boxes mr-3 text-indigo-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Liste des Articles</span>
+                </a>
+                <a href="{% url 'Prepacommande:alertes_stock' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-red-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-exclamation-triangle mr-3 text-red-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Alertes Stock</span>
+                </a>
+                <a href="{% url 'Prepacommande:mouvements_stock' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-teal-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-history mr-3 text-teal-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Mouvements Stock</span>
+                </a>
+                <a href="{% url 'Prepacommande:statistiques_stock' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-purple-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-chart-bar mr-3 text-purple-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Statistiques</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Section Répartition et Affectation -->
+        <div class="mb-6">
+            <button class="flex items-center justify-between w-full px-4 py-3 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-cyan-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);" onclick="toggleDropdown('repartition-dropdown')">
+                <div class="flex items-center">
+                    <i class="fas fa-random text-lg mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Répartition</span>
+                </div>
+                <i class="fas fa-angle-down transition-transform duration-300" id="repartition-dropdown-icon"></i>
+            </button>
+            <div class="mt-2 space-y-1 pl-8 hidden" id="repartition-dropdown">
+                <a href="{% url 'Prepacommande:repartition_automatique' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-cyan-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-magic mr-3 text-cyan-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Répartition Auto</span>
+                </a>
+                <a href="{% url 'Prepacommande:details_region' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-blue-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-map-marked-alt mr-3 text-blue-400 transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Par Région</span>
+                </a>
+            </div>
+        </div>
+
+
+        
+        <!-- Section Mon Profil -->
+        <div class="mb-6">
+            <button class="flex items-center justify-between w-full px-4 py-3 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-purple-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);" onclick="toggleDropdown('profile-dropdown')">
+                <div class="flex items-center">
+                    <i class="fas fa-user-circle text-lg mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Mon Profil</span>
+                </div>
+                <i class="fas fa-angle-down transition-transform duration-300" id="profile-dropdown-icon"></i>
+            </button>
+            <div class="mt-2 space-y-1 pl-8 hidden" id="profile-dropdown">
+                <a href="{% url 'Prepacommande:profile' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-purple-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-address-card mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Voir Profil</span>
+                </a>
+                <a href="{% url 'Prepacommande:modifier_profile' %}" class="flex items-center px-4 py-2 text-white hover:text-white transition-all duration-200 transform hover:translate-x-1 border-l-4 border-transparent hover:border-purple-400 hover:shadow-lg" style="hover:background-color: var(--preparation-hover-bg);">
+                    <i class="fas fa-user-edit mr-3 text-white transition-transform duration-200 flex-shrink-0"></i>
+                    <span class="whitespace-nowrap">Modifier Profil</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Bouton de déconnexion -->
+    <div class="absolute bottom-4 left-4 right-4">
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+                <i class="fas fa-sign-out-alt mr-2 transition-transform duration-200 flex-shrink-0"></i>
+                <span class="whitespace-nowrap">Déconnexion</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<style>
+/* Scrollbar personnalisée pour la sidebar préparation */
+.scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: var(--preparation-border-accent) transparent;
+}
+
+/* Webkit Scrollbar - Largeur */
+.scrollbar-custom::-webkit-scrollbar {
+    width: 6px;
+}
+
+/* Track (fond) */
+.scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+}
+
+/* Handle (poignée) */
+.scrollbar-custom::-webkit-scrollbar-thumb {
+    background: var(--preparation-border-accent);
+    border-radius: 10px;
+    opacity: 0.7;
+}
+
+/* Handle au survol */
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background: #b8825c;
+    opacity: 1;
+}
+
+/* Scrollbar visible au survol de la navigation */
+.scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.3s ease;
+}
+
+.scrollbar-custom:hover::-webkit-scrollbar-thumb {
+    background: var(--preparation-border-accent);
+    opacity: 0.8;
+}
+
+/* Responsive: masquer la scrollbar sur mobile */
+@media (max-width: 768px) {
+    .scrollbar-custom::-webkit-scrollbar {
+        width: 4px;
+    }
+    
+    .scrollbar-custom::-webkit-scrollbar-thumb {
+        background: var(--preparation-border-accent);
+        opacity: 0.6;
+    }
+}
+</style>
+
+<script>
+    function toggleDropdown(id) {
+        const dropdown = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+        dropdown.classList.toggle('hidden');
+        icon.classList.toggle('rotate-180');
+    }
+</script> 

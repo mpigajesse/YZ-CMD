@@ -1,0 +1,244 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}YZ-CMD - Opérateur Logistique{% endblock %}</title>
+    
+    {% tailwind_css %}
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    {% block extra_css %}
+    <style>
+        /* --- Sidebar --- */
+        #sidebar { 
+            width: 256px; 
+            transition: all 0.3s ease-in-out;
+            transform: translateX(0);
+        }
+
+        /* Comportement sur petit écran (overlay) */
+        @media (max-width: 1023.98px) {
+            #sidebar { 
+                position: fixed;
+                height: 100vh;
+                z-index: 1000;
+                top: 0;
+                left: 0;
+            }
+            
+            #content-overlay { 
+                display: none; 
+                position: fixed; 
+                inset: 0; 
+                background-color: rgba(0, 0, 0, 0.5); 
+                z-index: 999;
+            }
+            
+            body.sidebar-open #content-overlay { 
+                display: block; 
+            }
+        }
+
+        /* Styles pour les dropdowns */
+        .toggle-dropdown {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .toggle-dropdown:hover {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .rotate-180 {
+            transform: rotate(180deg);
+        }
+
+        /* Animations fluides pour les flèches */
+        .fa-chevron-down {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            transform-origin: center !important;
+        }
+
+        /* Animation pour les dropdowns */
+        #sidebar ul {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            overflow: hidden;
+            max-height: 500px;
+        }
+
+        #sidebar ul.hidden {
+            display: none !important;
+            max-height: 0 !important;
+            opacity: 0 !important;
+        }
+
+        #sidebar ul:not(.hidden) {
+            display: block !important;
+            max-height: 500px !important;
+            opacity: 1 !important;
+        }
+
+        /* Amélioration des animations des éléments de menu */
+        #sidebar ul li {
+            transition: all 0.2s ease !important;
+        }
+
+        #sidebar ul li:hover {
+            transform: translateX(4px) !important;
+        }
+
+        /* Scrollbar personnalisée pour la sidebar */
+        .scrollbar-custom::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-custom::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .scrollbar-custom::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            transition: background 0.3s ease;
+        }
+
+        .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Pour Firefox */
+        .scrollbar-custom {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+        }
+
+
+    </style>
+    {% endblock %}
+</head>
+<body class="bg-gray-100 font-sans" style="
+    --logistic-primary: #0B1D51;
+    --logistic-dark: #07153a;
+    --logistic-light: #1a3366;
+    --logistic-text-light: #cdd4e3;
+    --logistic-border-accent: #2e60b1;
+    --logistic-hover-bg: #152A5A;
+    --logistic-gradient-start: #07153a;
+    --logistic-gradient-end: #0B1D51;
+    --logistic-accent-color: #a7c7fa; /* Un bleu clair et doux pour les accents */
+">
+    <div class="relative flex h-screen overflow-x-hidden">
+        <!-- Sidebar -->
+        {% include 'composant_generale/operatLogistic/sidebar.html' %}
+        
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <!-- Header -->
+            {% include 'composant_generale/operatLogistic/header.html' %}
+            
+            <!-- Page Content -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+        
+        <!-- Overlay for mobile -->
+        <div id="content-overlay"></div>
+    </div>
+    
+    <!-- Script sidebar global - toujours exécuté -->
+    <script>
+    console.log('=== SIDEBAR SCRIPT GLOBAL ===');
+    
+    // Script pour le menu hamburger - fonctionne sur tous les écrans
+    document.addEventListener('DOMContentLoaded', function() {
+        const body = document.body;
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const contentOverlay = document.getElementById('content-overlay');
+        const sidebar = document.getElementById('sidebar');
+        console.log('🔍 Sidebar element found:', !!sidebar, sidebar);
+        let isSidebarOpen = true;
+        
+        // Toggle de la sidebar avec animation du hamburger
+        function toggleSidebar() {
+            console.log('🔄 Toggle sidebar clicked, current state:', isSidebarOpen);
+            isSidebarOpen = !isSidebarOpen;
+            
+            if (isSidebarOpen) {
+                // Ouvrir la sidebar
+                console.log('✅ Opening sidebar');
+                sidebar.style.transform = 'translateX(0)';
+                sidebar.style.width = '256px';
+                menuToggle.classList.remove('hamburger-active');
+            } else {
+                // Fermer la sidebar
+                console.log('❌ Closing sidebar');
+                sidebar.style.transform = 'translateX(-100%)';
+                sidebar.style.width = '0px';
+                menuToggle.classList.add('hamburger-active');
+            }
+            
+            console.log('📏 New state - isSidebarOpen:', isSidebarOpen);
+            console.log('📏 Transform:', sidebar.style.transform);
+            console.log('📏 Width:', sidebar.style.width);
+            }
+            
+        function closeSidebarMobile() {
+            if (window.innerWidth <= 1023) {
+                sidebar.style.transform = 'translateX(-100%)';
+                menuToggle.classList.add('hamburger-active');
+                isSidebarOpen = false;
+            }
+        }
+
+          if (window.innerWidth <= 1023) {
+              body.classList.add('sidebar-collapsed');
+          } else {
+                  body.classList.add('sidebar-open');
+        }
+
+          if (menuToggle) {
+              menuToggle.addEventListener('click', toggleSidebar);
+        }
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', closeSidebarMobile);
+        }
+          if (contentOverlay) {
+            contentOverlay.addEventListener('click', closeSidebarMobile);
+        }
+
+        // Responsive : fermer la sidebar sur mobile
+        function checkScreenSize() {
+            if (window.innerWidth < 1024) { // lg breakpoint
+                if (isSidebarOpen) {
+                    sidebar.style.transform = 'translateX(-100%)';
+                    menuToggle.classList.add('hamburger-active');
+                    isSidebarOpen = false;
+                }
+              } else {
+                if (!isSidebarOpen) {
+                    sidebar.style.transform = 'translateX(0)';
+                    sidebar.style.width = '256px';
+                    menuToggle.classList.remove('hamburger-active');
+                    isSidebarOpen = true;
+                  }
+              }
+        }
+        
+        // Vérifier la taille d'écran au chargement et au redimensionnement
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
+      });
+    </script>
+    
+    {% block extra_js %}
+    {% endblock %}
+</body>
+</html>

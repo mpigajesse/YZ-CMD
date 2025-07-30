@@ -1,0 +1,99 @@
+{% extends 'composant_generale/operatConfirme/base.html' %}
+{% load static %}
+
+{% block title %}Modifier Profil Opérateur Confirmation - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #4B352A, #6d4b3b);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-user-edit mr-3" style="color: #f7d9c4;"></i>
+                Modifier Mon Profil
+            </h1>
+            <p style="color: #f7d9c4;">Mettez à jour vos informations personnelles.</p>
+        </div>
+        <a href="{% url 'operatConfirme:profile' %}" class="mt-4 md:mt-0 inline-flex items-center bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg">
+            <i class="fas fa-arrow-left mr-2"></i>Retour au profil
+        </a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-8" style="border-color: #f7d9c4;">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label for="id_first_name" class="block text-sm font-semibold mb-2" style="color: #4B352A;">Prénom:</label>
+                    <input type="text" name="first_name" id="id_first_name" value="{{ user.first_name|default_if_none:'' }}" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#f7d9c4] focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_last_name" class="block text-sm font-semibold mb-2" style="color: #4B352A;">Nom:</label>
+                    <input type="text" name="last_name" id="id_last_name" value="{{ user.last_name|default_if_none:'' }}" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#f7d9c4] focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_email" class="block text-sm font-semibold mb-2" style="color: #4B352A;">Email:</label>
+                    <input type="email" name="email" id="id_email" value="{{ user.email|default_if_none:'' }}" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#f7d9c4] focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_telephone" class="block text-sm font-semibold mb-2" style="color: #4B352A;">Téléphone:</label>
+                    <input type="text" name="telephone" id="id_telephone" value="{{ operateur.telephone|default_if_none:'' }}" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#f7d9c4] focus:border-transparent transition duration-200">
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label for="id_adresse" class="block text-sm font-semibold mb-2" style="color: #4B352A;">Adresse:</label>
+                <textarea name="adresse" id="id_adresse" rows="3" 
+                          class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#f7d9c4] focus:border-transparent transition duration-200">{{ operateur.adresse|default_if_none:'' }}</textarea>
+            </div>
+
+            <div class="mb-6">
+                <label for="id_photo" class="block text-sm font-semibold mb-2" style="color: #4B352A;">Photo de profil:</label>
+                {% if operateur.photo %}
+                    <img id="photoPreview" src="{{ operateur.photo.url }}" alt="Photo de profil" class="w-24 h-24 object-cover rounded-full mb-3 shadow-md">
+                    <p class="text-sm text-gray-500 mb-2">Fichier actuel: {{ operateur.photo.name }}</p>
+                {% else %}
+                    <img id="photoPreview" src="{% static 'images/default_profile.png' %}" alt="Prévisualisation photo" class="w-24 h-24 object-cover rounded-full mb-3 shadow-md" style="display: none;">
+                {% endif %}
+                <input type="file" name="photo" id="id_photo" accept="image/*" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#f7d9c4] focus:border-transparent transition duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
+            </div>
+
+            <button type="submit" class="px-6 py-3 text-white rounded-lg font-semibold transition-colors shadow-md" style="background-color: #4B352A; hover:background-color: #6d4b3b;">
+                <i class="fas fa-save mr-2"></i> Enregistrer les modifications
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const photoInput = document.getElementById('id_photo');
+        const photoPreview = document.getElementById('photoPreview');
+
+        photoInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    photoPreview.src = e.target.result;
+                    photoPreview.style.display = 'block'; // Show the image if hidden
+                };
+                reader.readAsDataURL(file);
+            } else if (!photoPreview.getAttribute('src') || photoPreview.getAttribute('src') === '{% static 'images/default_profile.png' %}') {
+                // If no file selected and no existing photo, hide the preview
+                photoPreview.style.display = 'none';
+            }
+        });
+
+        // Hide default preview if no photo initially and no file selected
+        if (!photoInput.value && photoPreview.getAttribute('src') === '{% static 'images/default_profile.png' %}') {
+            photoPreview.style.display = 'none';
+        }
+    });
+</script>
+{% endblock content %} 

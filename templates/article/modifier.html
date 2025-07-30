@@ -1,0 +1,209 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Modifier Article - YZ-CMD{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #023535, #034a4a);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-edit mr-3" style="color: #66cccc;"></i>
+                Modifier l'Article: {{ article.nom }}
+            </h1>
+            <p style="color: #99dddd;">Mettez à jour les informations de l'article</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'article:detail' article.id %}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-eye mr-2"></i>Voir Détails
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: #66cccc;">
+        <h2 class="text-2xl font-bold mb-6" style="color: #023535;">Formulaire de Modification</h2>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label for="id_nom" class="block text-sm font-semibold mb-2" style="color: #023535;">Nom de l'article:</label>
+                    <input type="text" name="nom" id="id_nom" value="{% if form_data.nom %}{{ form_data.nom }}{% else %}{{ article.nom|default_if_none:'' }}{% endif %}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: Nike Air Max, Adidas Stan Smith..." required>
+                </div>
+                <div>
+                    <label for="id_reference" class="block text-sm font-semibold mb-2" style="color: #023535;">Référence:</label>
+                    <input type="text" name="reference" id="id_reference" value="{% if form_data.reference %}{{ form_data.reference }}{% else %}{{ article.reference|default_if_none:'' }}{% endif %}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: REF-2024-001, NK-AM-001...">
+                </div>
+                <div>
+                    <label for="id_prix_unitaire" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix Unitaire (DH):</label>
+                    <input type="number" name="prix_unitaire" id="id_prix_unitaire" value="{% if form_data.prix_unitaire %}{{ form_data.prix_unitaire }}{% else %}{{ article.prix_unitaire|stringformat:".2f" }}{% endif %}" step="0.01" min="0.01" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: 299.99, 450.00, 125.50..." required>
+                    <small class="text-gray-600">Le prix doit être supérieur à 0 DH</small>
+                    {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
+                    <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                        <p class="text-sm font-medium mb-1">Prix actuel:</p>
+                        <div class="flex items-center gap-2">
+                            <span class="{% if article.has_promo_active %}text-red-500{% else %}text-orange-500{% endif %} font-bold text-lg">{{ article.prix_actuel|floatformat:2 }} DH</span>
+                            <span class="text-gray-500 text-sm line-through">{{ article.prix_unitaire|floatformat:2 }} DH</span>
+                            {% if article.has_promo_active %}
+                            <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">En promotion</span>
+                            {% else %}
+                            <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">En liquidation</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="id_prix_achat" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix d'Achat (DH):</label>
+                    <input type="number" name="prix_achat" id="id_prix_achat" value="{% if form_data.prix_achat %}{{ form_data.prix_achat }}{% else %}{{ article.prix_achat|stringformat:".2f"|default:0 }}{% endif %}" step="0.01" min="0.01" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: 150.00, 200.00, 75.00..." required>
+                    <small class="text-gray-600">Le prix d'achat doit être supérieur à 0 DH</small>
+                </div>
+                <div>
+                    <label for="id_categorie" class="block text-sm font-semibold mb-2" style="color: #023535;">Catégorie:</label>
+                    <input type="text" name="categorie" id="id_categorie" value="{% if form_data.categorie %}{{ form_data.categorie }}{% else %}{{ article.categorie|default_if_none:'' }}{% endif %}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: femme, homme, enfant, sport..." required>
+                </div>
+                <div>
+                    <label for="id_couleur" class="block text-sm font-semibold mb-2" style="color: #023535;">Couleur:</label>
+                    <input type="text" name="couleur" id="id_couleur" value="{% if form_data.couleur %}{{ form_data.couleur }}{% else %}{{ article.couleur|default_if_none:'' }}{% endif %}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: noir, blanc, rouge, bleu marine..." required>
+                </div>
+                <div>
+                    <label for="id_pointure" class="block text-sm font-semibold mb-2" style="color: #023535;">Pointure:</label>
+                    <input type="number" name="pointure" id="id_pointure" value="{% if form_data.pointure %}{{ form_data.pointure }}{% else %}{{ article.pointure|default_if_none:'' }}{% endif %}" min="30" max="50" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: 36, 39, 42, 45..." required>
+                    <small class="text-gray-600">Pointure comprise entre 30 et 50</small>
+                </div>
+                <div>
+                    <label for="id_qte_disponible" class="block text-sm font-semibold mb-2" style="color: #023535;">Quantité Disponible:</label>
+                    <input type="number" name="qte_disponible" id="id_qte_disponible" value="{% if form_data.qte_disponible %}{{ form_data.qte_disponible }}{% else %}{{ article.qte_disponible|default_if_none:'' }}{% endif %}" min="0" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: 25, 100, 15 paires..." required>
+                    <small class="text-gray-600">Nombre de paires en stock (minimum 0)</small>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2" style="color: #023535;">Image actuelle:</label>
+                    {% if article.image %}
+                        <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-32 h-32 object-cover rounded-lg shadow-sm mb-2" onerror="this.onerror=null;this.src='/static/img/default.png';"/>
+                    {% elif article.image_url %}
+                        <img src="{{ article.image_url }}" alt="{{ article.nom }}" class="w-32 h-32 object-cover rounded-lg shadow-sm mb-2" onerror="this.onerror=null;this.src='/static/img/default.png';"/>
+                    {% else %}
+                        <div class="w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-3xl shadow-sm mb-2">
+                            <i class="fas fa-image"></i>
+                        </div>
+                    {% endif %}
+                    <label for="id_image" class="block text-sm font-semibold mb-2" style="color: #023535;">Changer l'image:</label>
+                    <input type="file" name="image" id="id_image" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
+                </div>
+                <div>
+                    <div class="flex items-center mb-4">
+                        {% if article.phase == 'LIQUIDATION' or article.phase == 'EN_TEST' %}
+                        <input type="checkbox" name="isUpsell" id="id_isUpsell" class="w-5 h-5 mr-2 text-gray-400 border-gray-300 rounded opacity-50 cursor-not-allowed" disabled>
+                        <label for="id_isUpsell" class="font-medium text-sm text-gray-500">Est un produit Upsell (désactivé pour les articles en {{ article.get_phase_display|lower }})</label>
+                        {% else %}
+                        <input type="checkbox" name="isUpsell" id="id_isUpsell" class="w-5 h-5 mr-2 text-[#023535] border-gray-300 rounded focus:ring-[#66cccc]" {% if article.isUpsell %}checked{% endif %}>
+                        <label for="id_isUpsell" class="font-medium text-sm" style="color: #023535;">Est un produit Upsell</label>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2" style="color: #023535;">Phase de l'article:</label>
+                    <div class="p-3 border border-gray-300 rounded-lg bg-gray-50">
+                        {% if article.phase == 'EN_COURS' %}
+                            <span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium">En Cours</span>
+                        {% elif article.phase == 'LIQUIDATION' %}
+                            <span class="inline-block px-3 py-1 bg-orange-100 text-orange-800 rounded-full font-medium">Liquidation</span>
+                        {% elif article.phase == 'EN_TEST' %}
+                            <span class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">En Test</span>
+                        {% else %}
+                            <span class="inline-block px-3 py-1 bg-gray-100 text-gray-800 rounded-full font-medium">{{ article.get_phase_display|default:"Non définie" }}</span>
+                        {% endif %}
+                    </div>
+                    <small class="text-gray-600">Utilisez le bouton "Mettre en liquidation" pour changer la phase</small>
+                </div>
+            </div>
+            <div class="mb-6">
+                <label for="id_description" class="block text-sm font-semibold mb-2" style="color: #023535;">Description:</label>
+                <textarea name="description" id="id_description" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: Chaussure de sport confortable avec semelle en caoutchouc, idéale pour la course à pied et les activités quotidiennes...">{% if form_data.description %}{{ form_data.description }}{% else %}{{ article.description|default_if_none:'' }}{% endif %}</textarea>
+            </div>
+            
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
+                <h3 class="text-lg font-semibold mb-3" style="color: #023535;">Prix de substitution (Upsell)</h3>
+                <p class="text-sm text-gray-600 mb-4">Vous pouvez définir jusqu'à 4 prix alternatifs pour cet article</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="id_prix_upsell_1" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix upsell 1 (DH):</label>
+                        <input type="number" name="prix_upsell_1" id="id_prix_upsell_1" 
+                               value="{{ article.prix_upsell_1|floatformat:"-2"|default:0 }}" 
+                               step="0.01" min="0" 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" 
+                               placeholder="Ex: 349.99">
+                    </div>
+                    <div>
+                        <label for="id_prix_upsell_2" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix upsell 2 (DH):</label>
+                        <input type="number" name="prix_upsell_2" id="id_prix_upsell_2" 
+                               value="{{ article.prix_upsell_2|floatformat:"-2"|default:0 }}" 
+                               step="0.01" min="0" 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" 
+                               placeholder="Ex: 399.99">
+                    </div>
+                    <div>
+                        <label for="id_prix_upsell_3" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix upsell 3 (DH):</label>
+                        <input type="number" name="prix_upsell_3" id="id_prix_upsell_3" 
+                               value="{{ article.prix_upsell_3|floatformat:"-2"|default:0 }}" 
+                               step="0.01" min="0" 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" 
+                               placeholder="Ex: 449.99">
+                    </div>
+                    <div>
+                        <label for="id_prix_upsell_4" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix upsell 4 (DH):</label>
+                        <input type="number" name="prix_upsell_4" id="id_prix_upsell_4" 
+                               value="{{ article.prix_upsell_4|floatformat:"-2"|default:0 }}" 
+                               step="0.01" min="0" 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" 
+                               placeholder="Ex: 499.99">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ajouter un champ caché pour la phase qui sera mise à jour par le bouton -->
+            <input type="hidden" name="phase" id="id_phase" value="{% if form_data.phase %}{{ form_data.phase }}{% else %}{{ article.phase|default:'EN_COURS' }}{% endif %}">
+
+            <div class="flex flex-wrap justify-end gap-3 mt-8">
+                <button type="submit" class="inline-flex items-center text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: #023535; hover:background-color: #034a4a;">
+                    <i class="fas fa-save mr-2"></i>Sauvegarder
+                </button>
+                <div class="flex flex-wrap gap-2">
+                    {% if article.has_promo_active %}
+                    <div class="w-full bg-yellow-100 text-yellow-700 p-2 rounded-lg mb-2 text-sm">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        Les changements de phase sont désactivés car cet article est actuellement en promotion.
+                    </div>
+                    <button type="button" disabled class="inline-flex items-center bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-md font-medium cursor-not-allowed opacity-60">
+                        <i class="fas fa-check-circle mr-2"></i>Mettre par défaut
+                    </button>
+                    <button type="button" disabled class="inline-flex items-center bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-md font-medium cursor-not-allowed opacity-60">
+                        <i class="fas fa-tag mr-2"></i>Mettre en liquidation
+                    </button>
+                    <button type="button" disabled class="inline-flex items-center bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-md font-medium cursor-not-allowed opacity-60">
+                        <i class="fas fa-flask mr-2"></i>Mettre en test
+                    </button>
+                    {% else %}
+                    <a href="#" onclick="document.getElementById('id_phase').value='EN_COURS'; this.closest('form').submit(); return false;" 
+                       class="inline-flex items-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-md font-medium transition-all shadow-md hover:shadow-lg">
+                        <i class="fas fa-check-circle mr-2"></i>Mettre par défaut
+                    </a>
+                    <a href="#" onclick="document.getElementById('id_phase').value='LIQUIDATION'; this.closest('form').submit(); return false;" 
+                       class="inline-flex items-center bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-md font-medium transition-all shadow-md hover:shadow-lg">
+                        <i class="fas fa-tag mr-2"></i>Mettre en liquidation
+                    </a>
+                    <a href="#" onclick="document.getElementById('id_phase').value='EN_TEST'; this.closest('form').submit(); return false;" 
+                       class="inline-flex items-center bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-md font-medium transition-all shadow-md hover:shadow-lg">
+                        <i class="fas fa-flask mr-2"></i>Mettre en test
+                    </a>
+                    {% endif %}
+                </div>
+                <a href="{% url 'article:liste' %}" class="inline-flex items-center bg-gray-400 hover:bg-gray-500 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fas fa-times mr-2"></i>Annuler
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

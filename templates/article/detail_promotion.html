@@ -1,0 +1,333 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}{{ promotion.nom }} - Détails de la promotion - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-tag mr-3" style="color: var(--admin-accent-color);"></i>
+                {{ promotion.nom }}
+            </h1>
+            <p style="color: var(--admin-accent-color);">{{ promotion.description|default:"Aucune description" }}</p>
+            <div class="mt-3">
+                {% if promotion.est_active %}
+                    <span class="status-badge bg-green-500 text-white">
+                        <i class="fas fa-circle mr-1"></i>Active
+                    </span>
+                {% elif promotion.est_future %}
+                    <span class="status-badge bg-blue-500 text-white">
+                        <i class="fas fa-clock mr-1"></i>Future
+                    </span>
+                {% else %}
+                    <span class="status-badge bg-red-500 text-white">
+                        <i class="fas fa-times-circle mr-1"></i>Expirée
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'article:liste_promotions' %}" class="px-4 py-2 rounded-lg text-white border border-white/30 hover:border-white/60 transition-all duration-200">
+                <i class="fas fa-arrow-left mr-2"></i>Retour
+            </a>
+
+            <a href="{% url 'article:activer_desactiver_promotion' promotion.id %}" class="px-4 py-2 rounded-lg text-white border border-white/30 hover:border-white/60 transition-all duration-200">
+                <i class="fas fa-{% if promotion.active %}pause{% else %}play{% endif %} mr-2"></i>{% if promotion.active %}Désactiver{% else %}Activer{% endif %}
+            </a>
+            <a href="{% url 'article:modifier_promotion' promotion.id %}" class="px-4 py-2 rounded-lg text-white border border-white/30 hover:border-white/60 transition-all duration-200">
+                <i class="fas fa-edit mr-2"></i>Modifier
+            </a>
+            <button onclick="confirmDeletePromotion('{% url 'article:supprimer_promotion' promotion.id %}')" class="px-4 py-2 rounded-lg text-white border border-red-400/40 hover:border-red-400/80 transition-all duration-200">
+                <i class="fas fa-trash-alt mr-2"></i>Supprimer
+            </button>
+        </div>
+    </div>
+
+    <!-- Informations détaillées -->
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
+        <!-- Réduction -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-purple-100 to-purple-200 text-purple-600 group-hover:from-purple-500 group-hover:to-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-percentage text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Réduction</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ promotion.pourcentage_reduction }}%</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Date de début -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-calendar-plus text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Début</p>
+                    <p class="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ promotion.date_debut|date:"d/m/Y" }}</p>
+                    <p class="text-xs text-gray-500">{{ promotion.date_debut|date:"H:i" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Date de fin -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-calendar-times text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Fin</p>
+                    <p class="text-lg font-bold text-gray-900 group-hover:text-red-600 transition-colors">{{ promotion.date_fin|date:"d/m/Y" }}</p>
+                    <p class="text-xs text-gray-500">{{ promotion.date_fin|date:"H:i" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Créée par -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-user text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Créée par</p>
+                    <p class="text-lg font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ promotion.cree_par|default:"Système"|truncatechars:12 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Date de création -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.5s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-600 group-hover:from-yellow-500 group-hover:to-yellow-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-clock text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Créée le</p>
+                    <p class="text-lg font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{{ promotion.date_creation|date:"d/m/Y" }}</p>
+                    <p class="text-xs text-gray-500">{{ promotion.date_creation|date:"H:i" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Articles concernés -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.6s;">
+            <div class="flex items-center">
+                <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-shopping-bag text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Articles</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{{ articles|length }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des articles en promotion -->
+    {% if articles %}
+    <div class="bg-white rounded-xl shadow-lg border mb-8" style="border-color: #e6fffe;">
+        <div class="p-6 border-b" style="border-color: #e6fffe;">
+            <h2 class="text-xl font-bold flex items-center" style="color: var(--admin-color);">
+                <i class="fas fa-shopping-bag mr-3"></i>
+                Articles en promotion ({{ articles|length }})
+            </h2>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Article</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Prix Unitaire</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Prix Réduit</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Économie</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Stock</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for article in articles %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                {% if article.image %}
+                                    <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-12 h-12 rounded-lg object-cover mr-3">
+                                {% else %}
+                                    <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center mr-3">
+                                        <i class="fas fa-box text-gray-400"></i>
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">{{ article.nom }}</div>
+                                    <div class="text-sm text-gray-500">{{ article.couleur }} - Pointure {{ article.pointure }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <div class="text-sm font-bold text-gray-900">{{ article.prix_unitaire }} DH</div>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <div class="text-sm font-bold text-red-600">{{ article.prix_actuel }} DH</div>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="status-badge bg-green-100 text-green-800">
+                                {{ article.economie|floatformat:0 }} DH
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ article.qte_disponible }} unités</div>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-center">
+                            <a href="{% url 'article:detail' article.id %}" class="text-indigo-600 hover:text-indigo-900 transition-colors" title="Voir les détails">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    Aucun article associé à cette promotion. Ajoutez des articles pour que cette promotion soit effective.
+                </p>
+                <div class="mt-3">
+                    <a href="{% url 'article:modifier_promotion' promotion.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-800 bg-yellow-200 hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                        <i class="fas fa-plus mr-2"></i>Ajouter des articles
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal de confirmation de suppression -->
+<div id="deleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-8 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down" style="border: 2px solid var(--admin-color);">
+        <!-- En-tête du modal -->
+        <div class="flex justify-between items-center pb-4 border-b" style="border-color: var(--admin-color);">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4 bg-red-100">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-red-600">Confirmer la suppression</h3>
+            </div>
+            <button onclick="closeDeleteModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <p class="text-sm text-gray-700 mb-4">
+                Êtes-vous sûr de vouloir supprimer cette promotion ? Cette action est irréversible et les prix des articles seront remis à leur état normal.
+            </p>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end space-x-3 pt-4 border-t" style="border-color: var(--admin-color);">
+            <button onclick="closeDeleteModal()" 
+                    class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-all duration-200">
+                <i class="fas fa-times mr-2"></i>
+                Annuler
+            </button>
+            <form id="deleteForm" method="POST" class="inline">
+                {% csrf_token %}
+                <button type="submit" 
+                        class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    <i class="fas fa-trash-alt mr-2"></i>
+                    Supprimer
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Animation d'entrée pour les cartes
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.animate-slideInUp');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '1';
+            }, index * 100);
+        });
+    });
+
+    function confirmDeletePromotion(deleteUrl) {
+        const modal = document.getElementById('deleteModal');
+        const deleteForm = document.getElementById('deleteForm');
+        deleteForm.action = deleteUrl;
+        modal.classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+        const modal = document.getElementById('deleteModal');
+        modal.classList.add('hidden');
+    }
+
+    // Fermer la modal si on clique en dehors
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeDeleteModal();
+        }
+    });
+
+    // Fermer la modal avec la touche Echap
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeDeleteModal();
+        }
+    });
+</script>
+{% endblock %} 
