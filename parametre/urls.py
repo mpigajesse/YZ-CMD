@@ -60,8 +60,6 @@ urlpatterns = [
     path('vue360/api/etats-tracking/', views_360.vue_360_etats_tracking, name='vue_360_etats_tracking'),
     path('vue360/api/panier-tracking/', views_360.vue_360_panier_tracking, name='vue_360_panier_tracking'),
     
-
-    
     # URLs Barre de Recherche Globale
     path('recherche-globale/', views.global_search_view, name='global_search'),
     path('recherche-globale/api/', views.global_search_api, name='global_search_api'),
