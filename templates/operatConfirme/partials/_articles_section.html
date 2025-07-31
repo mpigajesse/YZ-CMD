@@ -3,7 +3,7 @@
 {% for panier in commande.paniers.all %}
 <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" 
     data-article-id="{{ panier.id }}"
-    data-article='{"id": {{ panier.article.id }}, "nom": "{{ panier.article.nom }}", "reference": "{{ panier.article.reference }}", "prix_actuel": {{ panier.article.prix_actuel|default:0 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0 }}, "prix_upsell_4": {{ panier.article.prix_upsell_4|default:0 }}, "isUpsell": {{ panier.article.isUpsell|yesno:"true,false" }}, "pointure": "{{ panier.article.pointure|default:'' }}", "couleur": "{{ panier.article.couleur|default:'' }}", "categorie": "{{ panier.article.categorie|default:'' }}", "qte_disponible": {{ panier.article.qte_disponible|default:0 }}, "phase": "{{ panier.article.phase|default:'' }}", "has_promo_active": {{ panier.article.has_promo_active|yesno:"true,false" }}}'>
+    data-article='{"id": {{ panier.article.id }}, "nom": "{{ panier.article.nom|escapejs }}", "reference": "{{ panier.article.reference|escapejs }}", "prix_actuel": {{ panier.article.prix_actuel|default:0|floatformat:2 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0|floatformat:2 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0|floatformat:2 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0|floatformat:2 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0|floatformat:2 }}, "prix_upsell_4": {{ panier.article.prix_upsell_4|default:0|floatformat:2 }}, "isUpsell": {{ panier.article.isUpsell|yesno:"true,false" }}, "pointure": "{{ panier.article.pointure|default:''|escapejs }}", "couleur": "{{ panier.article.couleur|default:''|escapejs }}", "categorie": "{{ panier.article.categorie|default:''|escapejs }}", "qte_disponible": {{ panier.article.qte_disponible|default:0 }}, "phase": "{{ panier.article.phase|default:''|escapejs }}", "has_promo_active": {{ panier.article.has_promo_active|yesno:"true,false" }}}'>
     <div class="flex items-center justify-between">
         <!-- Informations de l'article -->
         <div class="flex-1">
@@ -71,10 +71,10 @@
                 <div class="text-center min-w-0">
                     <div class="text-sm text-gray-500">Prix actuel</div>
                     {% with panier.article|get_prix_avec_phase_info:commande.compteur as prix_info %}
-                    <div class="font-medium {{ prix_info.couleur_classe }}">
+                    <div class="font-medium {{ prix_info.couleur_classe }}" id="prix-unitaire-{{ panier.id }}">
                         {{ prix_info.prix|floatformat:2 }} DH
                     </div>
-                    <div class="text-xs {{ prix_info.couleur_classe }} mt-1">
+                    <div class="text-xs {{ prix_info.couleur_classe }} mt-1" id="prix-libelle-{{ panier.id }}">
                         {{ prix_info.libelle }}
                     </div>
                     {% endwith %}
@@ -83,7 +83,7 @@
                 <!-- Sous-total -->
                 <div class="text-center min-w-0">
                     <div class="text-sm text-gray-500">Sous-total</div>
-                    <div class="text-lg font-bold" style="color: #6d4b3b;">
+                    <div class="text-lg font-bold" style="color: #6d4b3b;" id="sous-total-{{ panier.id }}">
                         {{ panier|calculer_sous_total_avec_compteur:commande.compteur|floatformat:2 }} DH
                     </div>
                 </div>

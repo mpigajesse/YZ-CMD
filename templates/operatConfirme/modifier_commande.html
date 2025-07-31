@@ -209,8 +209,9 @@
                 <div class="text-sm opacity-80">Total commande</div>
             </div>
             <div class="text-right">
-                <div class="text-xl font-bold" style="color: #f7d9c4;">Niveau {{ commande.compteur }}</div>
+                <div class="text-xl font-bold" style="color: #f7d9c4;" id="compteur-upsell-header">Niveau {{ commande.compteur }}</div>
                 <div class="text-sm opacity-80">Upsell actuel</div>
+          
             </div>
         </div>
     </div>
@@ -3505,6 +3506,15 @@ function mettreAJourTousLesTotaux(data) {
             el.textContent = data.compteur;
         });
         
+        // Mettre à jour le compteur dans l'en-tête de la page
+        const compteurHeader = document.getElementById('compteur-upsell-header');
+        if (compteurHeader) {
+            compteurHeader.textContent = `Niveau ${data.compteur}`;
+        }
+        
+        // Mettre à jour les prix unitaires si le compteur a changé
+        mettreAJourPrixUnitaires(data.compteur);
+        
         // Mettre à jour le badge upsell s'il existe
         const upsellBadge = document.getElementById('upsell-badge-container');
         if (upsellBadge && data.compteur > 0) {
@@ -3522,6 +3532,290 @@ function mettreAJourTousLesTotaux(data) {
         articles_count: data.articles_count,
         compteur: data.compteur
     });
+}
+
+// Fonction utilitaire pour mettre à jour le compteur upsell dans tous les endroits
+function mettreAJourCompteurUpsell(nouveauCompteur) {
+    console.log(`🔄 Mise à jour du compteur upsell: ${nouveauCompteur}`);
+    
+    // Mettre à jour la variable globale
+    if (typeof compteurCommande !== 'undefined') {
+        compteurCommande = nouveauCompteur;
+    }
+    
+    // Mettre à jour tous les éléments d'affichage
+    const data = { compteur: nouveauCompteur };
+    mettreAJourTousLesTotaux(data);
+    
+    // Mettre à jour les prix unitaires
+    mettreAJourPrixUnitaires(nouveauCompteur);
+    
+    console.log(`✅ Compteur upsell mis à jour vers: ${nouveauCompteur}`);
+}
+
+// Fonction de test pour vérifier la mise à jour dynamique du compteur
+function testerMiseAJourCompteur() {
+    const compteurActuel = parseInt(document.getElementById('compteur-upsell-header').textContent.replace('Niveau ', '')) || 0;
+    const nouveauCompteur = (compteurActuel + 1) % 5; // Cycle entre 0 et 4
+    
+    console.log(`🧪 Test de mise à jour: ${compteurActuel} → ${nouveauCompteur}`);
+    mettreAJourCompteurUpsell(nouveauCompteur);
+    
+    showToast(`🧪 Test: Compteur mis à jour de ${compteurActuel} à ${nouveauCompteur}`, 'info', 2000);
+}
+
+// Fonction pour mettre à jour dynamiquement les prix unitaires
+function mettreAJourPrixUnitaires(nouveauCompteur) {
+    console.log(`🔄 Mise à jour des prix unitaires pour le compteur: ${nouveauCompteur}`);
+    
+    // Récupérer tous les articles
+    const articleCards = document.querySelectorAll('.article-card');
+    
+    articleCards.forEach(articleCard => {
+        const panierId = articleCard.getAttribute('data-article-id');
+        const dataArticleAttr = articleCard.getAttribute('data-article');
+        
+        const articleData = parseArticleData(dataArticleAttr, panierId);
+        
+        if (articleData) {
+            // Calculer le nouveau prix selon le compteur
+            const prixInfo = calculerPrixAvecPhaseInfo(articleData, nouveauCompteur);
+            
+            // Mettre à jour l'affichage du prix
+            const prixElement = document.getElementById(`prix-unitaire-${panierId}`);
+            const libelleElement = document.getElementById(`prix-libelle-${panierId}`);
+            
+            if (prixElement && libelleElement) {
+                // Mettre à jour le prix
+                prixElement.textContent = `${prixInfo.prix.toFixed(2)} DH`;
+                
+                // Mettre à jour la classe de couleur
+                prixElement.className = `font-medium ${prixInfo.couleur_classe}`;
+                
+                // Mettre à jour le libellé
+                libelleElement.textContent = prixInfo.libelle;
+                libelleElement.className = `text-xs ${prixInfo.couleur_classe} mt-1`;
+                
+                console.log(`✅ Prix mis à jour pour article ${panierId}: ${prixInfo.prix.toFixed(2)} DH (${prixInfo.libelle})`);
+            }
+            
+            // Mettre à jour le sous-total
+            mettreAJourSousTotalArticle(panierId, prixInfo.prix);
+        } else {
+            // En cas d'erreur de parsing, on peut essayer de rafraîchir la section des articles
+            console.log('🔄 Tentative de rafraîchissement de la section des articles...');
+            setTimeout(() => {
+                rafraichirSectionArticles();
+            }, 1000);
+        }
+    });
+}
+
+// Fonction utilitaire pour mettre à jour le sous-total d'un article
+function mettreAJourSousTotalArticle(panierId, prixUnitaire) {
+    const sousTotalElement = document.getElementById(`sous-total-${panierId}`);
+    if (sousTotalElement) {
+        // Récupérer la quantité depuis l'input
+        const quantiteInput = document.getElementById(`quantite-${panierId}`);
+        const quantite = quantiteInput ? parseInt(quantiteInput.value) || 1 : 1;
+        
+        // Calculer le nouveau sous-total
+        const nouveauSousTotal = prixUnitaire * quantite;
+        
+        // Mettre à jour l'affichage
+        sousTotalElement.textContent = `${nouveauSousTotal.toFixed(2)} DH`;
+        
+        console.log(`✅ Sous-total mis à jour pour article ${panierId}: ${quantite} × ${prixUnitaire.toFixed(2)} = ${nouveauSousTotal.toFixed(2)} DH`);
+        
+        return nouveauSousTotal;
+    }
+    return 0;
+}
+
+// Fonction pour recalculer tous les sous-totaux selon le compteur actuel
+function recalculerTousLesSousTotaux() {
+    console.log('🔄 Recalcul de tous les sous-totaux...');
+    
+    const articleCards = document.querySelectorAll('.article-card');
+    let totalSousTotaux = 0;
+    
+    articleCards.forEach(articleCard => {
+        const panierId = articleCard.getAttribute('data-article-id');
+        const dataArticleAttr = articleCard.getAttribute('data-article');
+        
+        const articleData = parseArticleData(dataArticleAttr, panierId);
+        
+        if (articleData) {
+            // Récupérer le compteur actuel
+            const compteurActuel = parseInt(document.getElementById('compteur-upsell-header').textContent.replace('Niveau ', '')) || 0;
+            
+            // Calculer le prix selon le compteur
+            const prixInfo = calculerPrixAvecPhaseInfo(articleData, compteurActuel);
+            
+            // Mettre à jour le sous-total
+            const sousTotal = mettreAJourSousTotalArticle(panierId, prixInfo.prix);
+            totalSousTotaux += sousTotal;
+        }
+    });
+    
+    console.log(`💰 Total de tous les sous-totaux: ${totalSousTotaux.toFixed(2)} DH`);
+    return totalSousTotaux;
+}
+
+// Fonction pour calculer le prix avec les informations de phase (version JavaScript)
+function calculerPrixAvecPhaseInfo(article, compteur) {
+    // Déterminer le prix de base
+    let prix;
+    if (compteur !== null && compteur !== undefined && article.isUpsell) {
+        prix = getPrixUpsellAvecCompteur(article, compteur);
+    } else {
+        prix = article.prix_actuel || article.prix_unitaire || 0;
+    }
+    
+    // Déterminer le libellé selon la phase et les promotions
+    let libelle, couleur_classe;
+    
+    if (article.has_promo_active) {
+        libelle = "Prix promotion";
+        couleur_classe = "text-red-600";
+    } else if (article.phase === 'LIQUIDATION') {
+        libelle = "Prix liquidation";
+        couleur_classe = "text-orange-600";
+    } else if (article.phase === 'EN_TEST') {
+        libelle = "Prix test";
+        couleur_classe = "text-blue-600";
+    } else if (compteur !== null && compteur !== undefined && compteur > 0 && article.isUpsell) {
+        libelle = `Prix upsell niveau ${compteur}`;
+        couleur_classe = "text-green-600";
+    } else {
+        libelle = "Prix normal";
+        couleur_classe = "text-gray-600";
+    }
+    
+    return {
+        prix: prix,
+        libelle: libelle,
+        couleur_classe: couleur_classe
+    };
+}
+
+// Fonction pour calculer le prix upsell avec compteur (version JavaScript)
+function getPrixUpsellAvecCompteur(article, compteur) {
+    if (!article.isUpsell) {
+        return article.prix_actuel || article.prix_unitaire || 0;
+    }
+    
+    // Utiliser le compteur pour déterminer le prix upsell
+    if (compteur === 0) {
+        return article.prix_actuel || article.prix_unitaire || 0;
+    } else if (compteur === 1 && article.prix_upsell_1) {
+        return parseFloat(article.prix_upsell_1);
+    } else if (compteur === 2 && article.prix_upsell_2) {
+        return parseFloat(article.prix_upsell_2);
+    } else if (compteur === 3 && article.prix_upsell_3) {
+        return parseFloat(article.prix_upsell_3);
+    } else if (compteur >= 4 && article.prix_upsell_4) {
+        return parseFloat(article.prix_upsell_4);
+    }
+    
+    // Si pas de prix upsell défini pour ce niveau, utiliser le prix unitaire
+    return article.prix_actuel || article.prix_unitaire || 0;
+}
+
+// Fonction de test pour vérifier la mise à jour des prix unitaires
+function testerMiseAJourPrix() {
+    const compteurActuel = parseInt(document.getElementById('compteur-upsell-header').textContent.replace('Niveau ', '')) || 0;
+    const nouveauCompteur = (compteurActuel + 1) % 5; // Cycle entre 0 et 4
+    
+    console.log(`🧪 Test de mise à jour des prix: ${compteurActuel} → ${nouveauCompteur}`);
+    mettreAJourPrixUnitaires(nouveauCompteur);
+    
+    showToast(`🧪 Test: Prix mis à jour pour le compteur ${nouveauCompteur}`, 'info', 2000);
+}
+
+// Fonction de test pour valider le JSON des articles
+function testerJSONArticles() {
+    console.log('🧪 Test de validation JSON des articles...');
+    
+    const articleCards = document.querySelectorAll('.article-card');
+    let validCount = 0;
+    let errorCount = 0;
+    
+    articleCards.forEach((articleCard, index) => {
+        const panierId = articleCard.getAttribute('data-article-id');
+        const dataArticleAttr = articleCard.getAttribute('data-article');
+        
+        console.log(`\n📦 Article ${index + 1} (ID: ${panierId}):`);
+        console.log('JSON brut:', dataArticleAttr);
+        
+        const articleData = parseArticleData(dataArticleAttr, panierId);
+        
+        if (articleData) {
+            validCount++;
+            console.log('✅ JSON valide:', articleData);
+        } else {
+            errorCount++;
+            console.log('❌ JSON invalide');
+        }
+    });
+    
+    console.log(`\n📊 Résultats: ${validCount} valides, ${errorCount} erreurs`);
+    showToast(`🧪 Test JSON: ${validCount} valides, ${errorCount} erreurs`, errorCount > 0 ? 'error' : 'success', 3000);
+}
+
+// Fonction de test pour tester la mise à jour des sous-totaux
+function testerSousTotaux() {
+    console.log('🧪 Test de mise à jour des sous-totaux...');
+    
+    const compteurActuel = parseInt(document.getElementById('compteur-upsell-header').textContent.replace('Niveau ', '')) || 0;
+    const nouveauCompteur = (compteurActuel + 1) % 5; // Cycle entre 0 et 4
+    
+    console.log(`🧪 Test de mise à jour des sous-totaux: ${compteurActuel} → ${nouveauCompteur}`);
+    
+    // Mettre à jour le compteur
+    mettreAJourCompteurUpsell(nouveauCompteur);
+    
+    // Recalculer tous les sous-totaux
+    const totalSousTotaux = recalculerTousLesSousTotaux();
+    
+    showToast(`🧪 Test: Sous-totaux mis à jour pour le compteur ${nouveauCompteur} (Total: ${totalSousTotaux.toFixed(2)} DH)`, 'info', 3000);
+}
+
+// Fonction utilitaire pour valider et parser le JSON des articles
+function parseArticleData(dataArticleAttr, panierId) {
+    try {
+        // Nettoyer les données JSON si nécessaire
+        let cleanedData = dataArticleAttr;
+        
+        // Remplacer les caractères problématiques
+        cleanedData = cleanedData.replace(/\n/g, '\\n')
+                                .replace(/\r/g, '\\r')
+                                .replace(/\t/g, '\\t');
+        
+        // Corriger les nombres avec virgules (format français) vers points (format JSON)
+        cleanedData = cleanedData.replace(/(\d+),(\d+)/g, '$1.$2');
+        
+        const articleData = JSON.parse(cleanedData);
+        
+        // Valider que les données essentielles sont présentes
+        if (!articleData.id || !articleData.nom) {
+            throw new Error('Données d\'article incomplètes');
+        }
+        
+        // Convertir les prix en nombres si nécessaire
+        const prixFields = ['prix_actuel', 'prix_unitaire', 'prix_upsell_1', 'prix_upsell_2', 'prix_upsell_3', 'prix_upsell_4'];
+        prixFields.forEach(field => {
+            if (articleData[field] !== undefined && articleData[field] !== null) {
+                articleData[field] = parseFloat(articleData[field]) || 0;
+            }
+        });
+        
+        return articleData;
+    } catch (error) {
+        console.error(`❌ Erreur de parsing JSON pour l'article ${panierId}:`, error);
+        console.error('Données JSON problématiques:', dataArticleAttr);
+        return null;
+    }
 }
 
 // Fonction pour supprimer un article
@@ -3775,16 +4069,14 @@ function sauvegarderNouvelArticle(article, quantite) {
                 }
             }
             
-            // Mettre à jour le total si fourni
-            if (data.total_commande) {
-                document.getElementById('total-commande').textContent = `${data.total_commande.toFixed(2)} DH`;
-            }
-                
-                // Mettre à jour le compteur d'articles
-                if (data.nb_articles) {
-                    document.getElementById('articles-count').textContent = data.nb_articles;
-                    document.getElementById('articles-plural').textContent = data.nb_articles > 1 ? 's' : '';
-                }
+            // Utiliser la fonction centralisée pour mettre à jour tous les totaux et compteurs
+            const updateData = {
+                total_commande: data.total_commande,
+                articles_count: data.nb_articles,
+                compteur: data.compteur,
+                sous_total_articles: data.sous_total_articles
+            };
+            mettreAJourTousLesTotaux(updateData);
                 
         } else {
             console.error('❌ Erreur lors de la sauvegarde:', data.error);
@@ -3838,16 +4130,14 @@ function sauvegarderRemplacementArticle(ancienArticleId, nouvelArticle, nouvelle
                 }
             }
             
-            // Mettre à jour le total si fourni
-                if (data.total_commande) {
-                    document.getElementById('total-commande').textContent = `${data.total_commande.toFixed(2)} DH`;
-                }
-                
-            // Mettre à jour le compteur d'articles
-            if (data.nb_articles) {
-                document.getElementById('articles-count').textContent = data.nb_articles;
-                document.getElementById('articles-plural').textContent = data.nb_articles > 1 ? 's' : '';
-            }
+            // Utiliser la fonction centralisée pour mettre à jour tous les totaux et compteurs
+            const updateData = {
+                total_commande: data.total_commande,
+                articles_count: data.nb_articles,
+                compteur: data.compteur,
+                sous_total_articles: data.sous_total_articles
+            };
+            mettreAJourTousLesTotaux(updateData);
             
             console.log('🔄 Remplacement terminé:', {
                 ancien: ancienArticleId,
@@ -4740,12 +5030,10 @@ function modifierQuantiteDirecte(panierId, nouvelleQuantite) {
 function mettreAJourTotauxConfirmation(panierId, data) {
     // Mettre à jour le sous-total de la ligne spécifique (seulement pour les changements de quantité)
     if (data.sous_total !== undefined && panierId) {
-        const articleCard = document.querySelector(`[data-article-id="${panierId}"]`);
-        if (articleCard) {
-            const sousTotalElement = articleCard.querySelector('.text-lg.font-bold');
-            if (sousTotalElement) {
-                sousTotalElement.textContent = `${parseFloat(data.sous_total).toFixed(2)} DH`;
-            }
+        const sousTotalElement = document.getElementById(`sous-total-${panierId}`);
+        if (sousTotalElement) {
+            sousTotalElement.textContent = `${parseFloat(data.sous_total).toFixed(2)} DH`;
+            console.log(`✅ Sous-total mis à jour pour article ${panierId}: ${parseFloat(data.sous_total).toFixed(2)} DH`);
         }
     }
     
