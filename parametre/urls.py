@@ -45,4 +45,10 @@ urlpatterns = [
     path('vue360/', views_360.page_360, name='page_360'),
     path('export-csv/', views_360.export_all_data_csv, name='export_all_data_csv'),
     path('export-excel/', views_360.export_all_data_excel, name='export_all_data_excel'),
+    
+    # URLs API Temps Réel Vue 360
+    path('vue360/api/realtime-data/', views_360.vue_360_realtime_data, name='vue_360_realtime_data'),
+    path('vue360/api/statistics-update/', views_360.vue_360_statistics_update, name='vue_360_statistics_update'),
+    path('vue360/api/etats-tracking/', views_360.vue_360_etats_tracking, name='vue_360_etats_tracking'),
+    path('vue360/api/panier-tracking/', views_360.vue_360_panier_tracking, name='vue_360_panier_tracking'),
 ] 

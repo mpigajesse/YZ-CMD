@@ -11,6 +11,79 @@ import json
 
 from parametre.models import Operateur
 from commande.models  import Commande, Envoi, EnumEtatCmd, EtatCommande, Operation
+from article.models   import Article
+
+
+def reintegrer_stock_article(article_id, quantite, etat='bon', commentaire=''):
+    """
+    Fonction utilitaire pour réintégrer le stock d'un article retourné.
+    
+    Args:
+        article_id: ID de l'article
+        quantite: Quantité à réintégrer
+        etat: État de l'article ('bon', 'defectueux', etc.)
+        commentaire: Commentaire pour le log
+        
+    Returns:
+        dict: {'success': bool, 'stock_avant': int, 'stock_apres': int, 'message': str}
+    """
+    try:
+        print(f"🔍 [DEBUG] Tentative de réintégration - Article ID: {article_id}, Quantité: {quantite}, État: {etat}")
+        
+        article = Article.objects.get(id=article_id)
+        print(f"📦 [DEBUG] Article trouvé: {article.nom} (ID: {article.id})")
+        stock_avant = article.qte_disponible
+        
+        if etat.lower() == 'bon':
+            # Réintégrer uniquement si l'article est en bon état
+            article.qte_disponible += quantite
+            article.save()
+            stock_apres = article.qte_disponible
+            
+            message = f"✅ Stock réintégré: {article.nom} - Avant: {stock_avant}, Après: {stock_apres} (+{quantite})"
+            if commentaire:
+                message += f" - Commentaire: {commentaire}"
+            print(message)
+            
+            return {
+                'success': True,
+                'stock_avant': stock_avant,
+                'stock_apres': stock_apres,
+                'message': message,
+                'article_nom': article.nom
+            }
+        else:
+            message = f"⚠️ Stock non réintégré ({etat}): {article.nom} - Quantité: {quantite}"
+            print(message)
+            
+            return {
+                'success': True,
+                'stock_avant': stock_avant,
+                'stock_apres': stock_avant,  # Inchangé
+                'message': message,
+                'article_nom': article.nom
+            }
+            
+    except Article.DoesNotExist:
+        message = f"❌ Article non trouvé pour réintégration: ID {article_id}"
+        print(message)
+        return {
+            'success': False,
+            'stock_avant': None,
+            'stock_apres': None,
+            'message': message,
+            'article_nom': f"Article ID {article_id}"
+        }
+    except Exception as e:
+        message = f"❌ Erreur lors de la réintégration: {str(e)}"
+        print(message)
+        return {
+            'success': False,
+            'stock_avant': None,
+            'stock_apres': None,
+            'message': message,
+            'article_nom': f"Article ID {article_id}"
+        }
 
 
 def corriger_affectation_commandes_renvoyees():
@@ -1381,39 +1454,58 @@ def livraison_partielle(request, commande_id):
         if not articles_renvoyes:
             return JsonResponse({'success': False, 'error': 'Aucun article à renvoyer spécifié.'})
 
-        # === AJOUT : Réintégration dans le stock pour les articles renvoyés en bon état + calcul du stock avant/après ===
-        from article.models import Article
-        recap_articles_renvoyes = []
-        for article_data in articles_renvoyes:
-            etat = article_data.get('etat', 'bon')
-            article_id = article_data.get('id') or article_data.get('article_id')
-            quantite = int(article_data.get('quantite', 0))
-            nom_article = article_data.get('nom', '')
-            stock_avant = None
-            stock_apres = None
-            if article_id and quantite > 0:
-                try:
-                    article = Article.objects.get(id=article_id)
-                    stock_avant = article.qte_disponible
-                    if etat == 'bon':
-                        article.qte_disponible += quantite
-                        article.save()
-                        stock_apres = article.qte_disponible
-                    else:
-                        stock_apres = article.qte_disponible  # inchangé
-                    nom_article = article.nom
-                except Article.DoesNotExist:
-                    stock_avant = stock_apres = None
-            recap_articles_renvoyes.append({
-                'nom': nom_article,
-                'quantite': quantite,
-                'etat': etat,
-                'stock_avant': stock_avant,
-                'stock_apres': stock_apres
-            })
-        # === FIN AJOUT ===
-        
         with transaction.atomic():
+            # === AJOUT : Réintégration dans le stock pour les articles renvoyés en bon état ===
+            print(f"🔄 [DEBUG] Début de la réintégration du stock - {len(articles_renvoyes)} articles à traiter")
+            recap_articles_renvoyes = []
+            for i, article_data in enumerate(articles_renvoyes):
+                print(f"🔍 [DEBUG] Article renvoyé {i+1}: Données complètes = {article_data}")
+                
+                etat = article_data.get('etat', 'bon')
+                article_id = article_data.get('id') or article_data.get('article_id')
+                quantite_raw = article_data.get('quantite', 0)
+                
+                print(f"📊 [DEBUG] Article {i+1} - État: {etat}, ID: {article_id}, Quantité brute: {quantite_raw}")
+                
+                try:
+                    quantite = int(quantite_raw) if quantite_raw else 0
+                    print(f"🔢 [DEBUG] Article {i+1} - Quantité convertie: {quantite}")
+                except (ValueError, TypeError) as e:
+                    print(f"❌ [DEBUG] Erreur conversion quantité pour article {i+1}: {e}")
+                    quantite = 0
+                
+                if article_id and quantite > 0:
+                    print(f"✅ [DEBUG] Article {i+1} - Conditions validées, appel de reintegrer_stock_article")
+                    # Utiliser la fonction utilitaire pour la réintégration du stock
+                    resultat_stock = reintegrer_stock_article(
+                        article_id=article_id,
+                        quantite=quantite,
+                        etat=etat,
+                        commentaire=f"Livraison partielle - Commande {commande.id_yz}"
+                    )
+                    print(f"📋 [DEBUG] Article {i+1} - Résultat réintégration: {resultat_stock}")
+                    
+                    recap_articles_renvoyes.append({
+                        'nom': resultat_stock['article_nom'],
+                        'quantite': quantite,
+                        'etat': etat,
+                        'stock_avant': resultat_stock['stock_avant'],
+                        'stock_apres': resultat_stock['stock_apres'],
+                        'reintegration_success': resultat_stock['success'],
+                        'message': resultat_stock['message']
+                    })
+                else:
+                    print(f"⚠️ [DEBUG] Article {i+1} - Conditions NON validées: article_id={article_id}, quantite={quantite}")
+                    recap_articles_renvoyes.append({
+                        'nom': article_data.get('nom', f'Article ID {article_id}'),
+                        'quantite': quantite,
+                        'etat': etat,
+                        'stock_avant': None,
+                        'stock_apres': None,
+                        'reintegration_success': False,
+                        'message': 'Article ou quantité invalide'
+                    })
+            # === FIN AJOUT ===
             # 1. Terminer l'état "En cours de livraison" actuel
             etat_actuel = commande.etat_actuel
             etat_actuel.terminer_etat(operateur)
@@ -1798,6 +1890,100 @@ def api_panier_commande(request, commande_id):
         })
         
     except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@login_required
+def api_verifier_stock_article(request, article_id):
+    """API pour vérifier l'état du stock d'un article."""
+    try:
+        print(f"🔍 [STOCK_CHECK] Vérification stock article ID: {article_id}")
+        
+        article = get_object_or_404(Article, id=article_id)
+        print(f"📦 [STOCK_CHECK] Article trouvé: {article.nom}, Stock: {article.qte_disponible}")
+        
+        return JsonResponse({
+            'success': True,
+            'article': {
+                'id': article.id,
+                'nom': article.nom,
+                'reference': article.reference,
+                'qte_disponible': article.qte_disponible,
+                'prix_unitaire': float(article.prix_unitaire),
+                'actif': article.actif,
+                'categorie': article.categorie,
+                'couleur': article.couleur,
+                'pointure': article.pointure,
+                'phase': article.phase,
+                'isUpsell': article.isUpsell,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'article_id': article_id
+        })
+
+
+@login_required 
+@require_POST
+def api_test_reintegration_stock(request):
+    """API de test pour la réintégration du stock (à des fins de débogage)."""
+    try:
+        # Vérifier que l'utilisateur est un opérateur logistique
+        operateur = Operateur.objects.get(user=request.user, type_operateur='LOGISTIQUE')
+    except Operateur.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Accès non autorisé'})
+    
+    try:
+        article_id = request.POST.get('article_id')
+        quantite = int(request.POST.get('quantite', 0))
+        etat = request.POST.get('etat', 'bon')
+        commentaire = request.POST.get('commentaire', 'Test de réintégration')
+        
+        print(f"🧪 [TEST] Réception demande test réintégration: article_id={article_id}, quantite={quantite}, etat={etat}")
+        
+        if not article_id or quantite <= 0:
+            return JsonResponse({
+                'success': False, 
+                'error': 'ID article et quantité > 0 requis'
+            })
+        
+        # Vérifier d'abord que l'article existe
+        try:
+            article = Article.objects.get(id=article_id)
+            stock_avant_test = article.qte_disponible
+            print(f"📦 [TEST] Article trouvé: {article.nom}, Stock actuel: {stock_avant_test}")
+        except Article.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': f'Article avec ID {article_id} non trouvé'
+            })
+        
+        # Utiliser la fonction utilitaire
+        resultat = reintegrer_stock_article(article_id, quantite, etat, commentaire)
+        
+        # Vérifier le stock après
+        article.refresh_from_db()
+        stock_apres_test = article.qte_disponible
+        print(f"📊 [TEST] Stock après test: {stock_apres_test}")
+        
+        return JsonResponse({
+            'success': True,
+            'resultat_reintegration': resultat,
+            'stock_avant_test': stock_avant_test,
+            'stock_apres_test': stock_apres_test,
+            'verification_ok': stock_apres_test == (stock_avant_test + quantite) if etat.lower() == 'bon' else stock_apres_test == stock_avant_test,
+            'message': f'Test de réintégration effectué pour l\'article {article_id}'
+        })
+        
+    except Exception as e:
+        print(f"❌ [TEST] Erreur lors du test: {str(e)}")
         return JsonResponse({
             'success': False,
             'error': str(e)

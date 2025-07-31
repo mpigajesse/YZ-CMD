@@ -6,18 +6,12 @@
 {% block content %}
 <div class="main-content transition-all duration-300" id="mainContent">
     <!-- DEBUG: Affichage brut des articles livrés et renvoyés pour chaque commande -->
-    {% for commande in commandes %}
-        <pre style="color:red; background:#fffbe6; border:1px solid #fbbf24; padding:8px; margin-bottom:8px;">
-        LIVRES: {{ commande.articles_livres_partiellement|safe }}
-        RENVOYES: {{ commande.articles_renvoyes|safe }}
-        </pre>
-    {% endfor %}
+
     <!-- En-tête de la page -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" 
          style="background: linear-gradient(to right, 
                 {% if 'Reportées' in page_title %}#DD6B20, #C05621
                 {% elif 'Partiellement' in page_title %}#3182CE, #2B6CB0
-                {% elif 'Changement' in page_title %}#805AD5, #6B46C1
                 {% elif 'Retournées' in page_title %}#E53E3E, #C53030
                 {% elif 'Livrées' in page_title %}#38A169, #2F855A
                 {% else %}#4A5568, #2D3748{% endif %});">
@@ -148,10 +142,6 @@
                             {% elif commande.etat_actuel_sav.enum_etat.libelle == 'Livrée' %}
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                         <i class="fas fa-check-circle mr-1"></i>Livrée
-                                </span>
-                            {% elif commande.etat_actuel_sav.enum_etat.libelle == 'Livrée avec changement' %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                    <i class="fas fa-exchange-alt mr-1"></i>Avec changement
                                 </span>
                             {% elif commande.etat_actuel_sav.enum_etat.libelle == 'Retournée' %}
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -304,19 +294,13 @@
                     </div>
                 </button>
                 
-                <button onclick="selectSavAction('Livrée avec changement')" class="sav-action-card bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 hover:border-purple-300 rounded-lg p-4 transition-all duration-200">
-                    <div class="flex flex-col items-center">
-                        <i class="fas fa-exchange-alt text-3xl text-purple-500 mb-2"></i>
-                        <span class="font-semibold text-purple-800">Avec Changement</span>
-                        <span class="text-xs text-purple-600 mt-1">Article modifié</span>
-                    </div>
-                </button>
+              
                 
-                <button onclick="selectSavAction('Annulée (SAV)')" class="sav-action-card bg-red-50 hover:bg-red-100 border-2 border-red-200 hover:border-red-300 rounded-lg p-4 transition-all duration-200">
+                <button onclick="selectSavAction('Retournée (SAV)')" class="sav-action-card bg-red-50 hover:bg-red-100 border-2 border-red-200 hover:border-red-300 rounded-lg p-4 transition-all duration-200">
                     <div class="flex flex-col items-center">
                         <i class="fas fa-times-circle text-3xl text-red-500 mb-2"></i>
-                        <span class="font-semibold text-red-800">Annuler (SAV)</span>
-                        <span class="text-xs text-red-600 mt-1">Annulation livraison</span>
+                        <span class="font-semibold text-red-800">Retournée (SAV)</span>
+                        <span class="text-xs text-red-600 mt-1">Retourner la commande</span>
                     </div>
                 </button>
             </div>
