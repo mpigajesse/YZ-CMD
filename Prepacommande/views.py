@@ -713,13 +713,12 @@ def liste_prepa(request):
         'stats_par_type': stats_par_type,
         'operateur_profile': operateur_profile,
         'api_produits_url_base': reverse('Prepacommande:api_commande_produits', args=[99999999]),
-        'api_changer_etat_url_base': reverse('Prepacommande:api_changer_etat_preparation', args=[99999999]),
     }
     return render(request, 'Prepacommande/liste_prepa.html', context)
 
 @login_required
 def commandes_a_imprimer(request):
-    """Affiche les commandes avec l'état 'À imprimer' pour l'opérateur connecté."""
+    """Affiche les commandes 'En préparation' disponibles pour impression d'étiquettes."""
     try:
         operateur_profile = request.user.profil_operateur
         if not operateur_profile.is_preparation:
@@ -729,14 +728,17 @@ def commandes_a_imprimer(request):
         messages.error(request, "Profil opérateur non trouvé.")
         return redirect('login')
 
+    # Afficher les commandes en préparation qui peuvent être imprimées
     commandes = Commande.objects.filter(
-        etats__enum_etat__libelle='À imprimer',
+        etats__enum_etat__libelle='En préparation',
         etats__operateur=operateur_profile,
         etats__date_fin__isnull=True
     ).select_related('client', 'ville').order_by('-etats__date_debut').distinct()
 
     context = {
         'commandes': commandes,
+        'page_title': 'Commandes à Imprimer',
+        'page_subtitle': f'{commandes.count()} commande(s) en préparation disponible(s) pour impression'
     }
     return render(request, 'Prepacommande/commandes_a_imprimer.html', context)
 
@@ -1121,35 +1123,10 @@ def detail_prepa(request, pk):
     if request.method == 'POST':
         action = request.POST.get('action')
         
-        if action == 'commencer_preparation':
-            # Passer de "À imprimer" vers "En préparation"
-            if etat_preparation and etat_preparation.enum_etat.libelle == 'À imprimer' and not etat_preparation.date_fin:
-                with transaction.atomic():
-                    # Terminer l'état "À imprimer"
-                    etat_preparation.date_fin = timezone.now()
-                    etat_preparation.commentaire = "Impression terminée, début de la préparation."
-                    etat_preparation.save()
-
-                    # Créer ou récupérer l'état "En préparation"
-                    etat_en_preparation_enum, created = EnumEtatCmd.objects.get_or_create(
-                        libelle='En préparation',
-                        defaults={'ordre': 40, 'couleur': '#3B82F6'}
-                    )
-                    
-                    # Créer le nouvel état "En préparation"
-                    EtatCommande.objects.create(
-                        commande=commande,
-                        enum_etat=etat_en_preparation_enum,
-                        operateur=operateur_profile,
-                        date_debut=timezone.now(),
-                        commentaire="Commande passée en préparation."
-                    )
-                    
-                    messages.success(request, f"La commande {commande.id_yz} est maintenant en cours de préparation.")
-                
-                return redirect('Prepacommande:detail_prepa', pk=commande.id)
+        # Action 'commencer_preparation' supprimée car les commandes passent maintenant 
+        # directement en "En préparation" lors de l'affectation
         
-        elif action == 'marquer_preparee':
+        if action == 'marquer_preparee':
             with transaction.atomic():
                 # Marquer l'état 'En préparation' comme terminé
                 etat_en_preparation, created = EnumEtatCmd.objects.get_or_create(libelle='En préparation')
@@ -1271,7 +1248,7 @@ def detail_prepa(request, pk):
 def etiquette_view(request):
     """
     Page de gestion des étiquettes pour les commandes.
-    - Si des IDs sont passés en GET, affiche les étiquettes pour ces commandes et les passe à l'état 'En préparation'.
+    - Si des IDs sont passés en GET, affiche les étiquettes pour ces commandes (En préparation).
     - Sinon, affiche les commandes déjà préparées par l'opérateur.
     """
     try:
@@ -1288,22 +1265,13 @@ def etiquette_view(request):
 
     if commande_ids_str:
         commande_ids = [int(id) for id in commande_ids_str.split(',') if id.isdigit()]
-        commandes_a_imprimer = Commande.objects.filter(id__in=commande_ids, etats__operateur=operateur_profile).distinct()
-
-        # Passer les commandes à l'état "En préparation"
-        etat_en_preparation_enum, _ = EnumEtatCmd.objects.get_or_create(libelle='En préparation')
-        with transaction.atomic():
-            for commande in commandes_a_imprimer:
-                etat_a_imprimer = commande.etats.filter(enum_etat__libelle='À imprimer', date_fin__isnull=True).first()
-                if etat_a_imprimer:
-                    etat_a_imprimer.date_fin = timezone.now()
-                    etat_a_imprimer.save()
-
-                    EtatCommande.objects.create(
-                        commande=commande,
-                        enum_etat=etat_en_preparation_enum,
-                        operateur=operateur_profile
-                    )
+        # Les commandes sont maintenant déjà en "En préparation" - pas besoin de changement d'état
+        commandes_a_imprimer = Commande.objects.filter(
+            id__in=commande_ids, 
+            etats__operateur=operateur_profile,
+            etats__enum_etat__libelle='En préparation',
+            etats__date_fin__isnull=True
+        ).distinct()
         
         page_title = "Impression des Étiquettes"
         page_subtitle = f"{len(commandes_a_imprimer)} étiquette(s) à imprimer"
@@ -1360,31 +1328,28 @@ def impression_etiquettes_view(request):
     commande_ids = [int(id) for id in commande_ids_str.split(',') if id.isdigit()]
     commandes = Commande.objects.filter(id__in=commande_ids, etats__operateur=operateur_profile).distinct()
 
-    # Logique de transition d'état et de génération de code-barres
-    etat_en_preparation_enum, _ = EnumEtatCmd.objects.get_or_create(libelle='En préparation')
+    # Génération de code-barres pour les commandes déjà en préparation
     code128 = barcode.get_barcode_class('code128')
 
-    with transaction.atomic():
-        for commande in commandes:
-            # Transition d'état
-            etat_a_imprimer = commande.etats.filter(enum_etat__libelle='À imprimer', date_fin__isnull=True).first()
-            if etat_a_imprimer:
-                etat_a_imprimer.date_fin = timezone.now()
-                etat_a_imprimer.save()
-                EtatCommande.objects.create(
-                    commande=commande,
-                    enum_etat=etat_en_preparation_enum,
-                    operateur=operateur_profile
-                )
-            
-            # Génération du code-barres
-            barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
-            buffer = BytesIO()
-            barcode_instance.write(buffer, options={'write_text': False, 'module_height': 15.0, 'module_width': 0.3})
-            barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            commande.barcode_base64 = barcode_base64
-            print(f"DEBUG: Barcode for commande {commande.id_yz}: {commande.barcode_base64[:50]}...") # Afficher les 50 premiers caractères
-            commande.date_preparation = timezone.now() # Pour affichage sur l'étiquette
+    for commande in commandes:
+        # Génération du code-barres (plus besoin de transition d'état)
+        barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
+        buffer = BytesIO()
+        barcode_instance.write(buffer, options={'write_text': False, 'module_height': 15.0, 'module_width': 0.3})
+        barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        commande.barcode_base64 = barcode_base64
+        print(f"DEBUG: Barcode for commande {commande.id_yz}: {commande.barcode_base64[:50]}...") # Afficher les 50 premiers caractères
+        
+        # Récupérer la date de début de préparation pour l'étiquette
+        etat_preparation = commande.etats.filter(
+            enum_etat__libelle='En préparation', 
+            operateur=operateur_profile,
+            date_fin__isnull=True
+        ).first()
+        if etat_preparation:
+            commande.date_preparation = etat_preparation.date_debut
+        else:
+            commande.date_preparation = timezone.now()
 
     context = {
         'commandes': commandes,
@@ -1430,65 +1395,8 @@ def api_commande_produits(request, commande_id):
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
 
-@login_required
-def api_changer_etat_preparation(request, commande_id):
-    """API pour changer l'état d'une commande de 'À imprimer' vers 'En préparation'"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'Méthode non autorisée'})
-    
-    try:
-        # Vérifier que l'utilisateur est un opérateur de préparation
-        operateur_profile = request.user.profil_operateur
-        if not operateur_profile.is_preparation:
-            return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
-        
-        # Récupérer la commande
-        commande = Commande.objects.get(id=commande_id)
-        
-        # Vérifier que la commande est bien affectée à cet opérateur avec l'état "À imprimer"
-        etat_a_imprimer = commande.etats.filter(
-            enum_etat__libelle='À imprimer',
-            operateur=operateur_profile,
-            date_fin__isnull=True
-        ).first()
-        
-        if not etat_a_imprimer:
-            return JsonResponse({'success': False, 'message': 'Cette commande n\'est pas dans l\'état "À imprimer" ou ne vous est pas affectée'})
-        
-        # Effectuer la transition d'état
-        with transaction.atomic():
-            # Terminer l'état "À imprimer"
-            etat_a_imprimer.date_fin = timezone.now()
-            etat_a_imprimer.commentaire = "Impression terminée, passage automatique en préparation."
-            etat_a_imprimer.save()
-
-            # Créer ou récupérer l'état "En préparation"
-            etat_en_preparation_enum, created = EnumEtatCmd.objects.get_or_create(
-                libelle='En préparation',
-                defaults={'ordre': 40, 'couleur': '#3B82F6'}
-            )
-            
-            # Créer le nouvel état "En préparation"
-            EtatCommande.objects.create(
-                commande=commande,
-                enum_etat=etat_en_preparation_enum,
-                operateur=operateur_profile,
-                date_debut=timezone.now(),
-                commentaire="Commande passée automatiquement en préparation après impression."
-            )
-        
-        return JsonResponse({
-            'success': True, 
-            'message': f'Commande {commande.id_yz} passée en préparation',
-            'nouvel_etat': 'En préparation'
-        })
-        
-    except Operateur.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Profil opérateur non trouvé'})
-    except Commande.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Commande non trouvée'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+# API api_changer_etat_preparation supprimée car les commandes passent maintenant 
+# directement de "Confirmée" à "En préparation" lors de l'affectation
 
 @login_required
 def modifier_commande_prepa(request, commande_id):
@@ -1551,7 +1459,7 @@ def modifier_commande_prepa(request, commande_id):
                         total=Sum('sous_total')
                     )['total'] or 0
                     frais_livraison = commande.ville.frais_livraison if commande.ville else 0
-                    commande.total_cmd = float(total_articles) + float(frais_livraison)
+                    commande.total_cmd = float(total_articles) #+ float(frais_livraison)
                     commande.save()
                     
                     return JsonResponse({
@@ -1603,7 +1511,7 @@ def modifier_commande_prepa(request, commande_id):
                         total=Sum('sous_total')
                     )['total'] or 0
                     frais_livraison = commande.ville.frais_livraison if commande.ville else 0
-                    commande.total_cmd = float(total_commande) + float(frais_livraison)
+                    commande.total_cmd = float(total_commande) #+ float(frais_livraison)
                     commande.save()
                     
                     return JsonResponse({
@@ -1645,7 +1553,7 @@ def modifier_commande_prepa(request, commande_id):
                         total=Sum('sous_total')
                     )['total'] or 0
                     frais_livraison = commande.ville.frais_livraison if commande.ville else 0
-                    commande.total_cmd = float(total_commande) + float(frais_livraison)
+                    commande.total_cmd = float(total_commande) #+ float(frais_livraison)
                     commande.save()
                     
                     return JsonResponse({
@@ -1853,7 +1761,7 @@ def modifier_commande_prepa(request, commande_id):
                         total=Sum('sous_total')
                     )['total'] or 0
                     frais_livraison = commande.ville.frais_livraison if commande.ville else 0
-                    commande.total_cmd = float(total_articles) + float(frais_livraison)
+                    commande.total_cmd = float(total_articles) #+ float(frais_livraison)
                     commande.save()
                     
                     # Créer une opération pour consigner la modification

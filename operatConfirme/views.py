@@ -97,12 +97,18 @@ def dashboard(request):
     )['total'] or 0
     stats['valeur_totale_confirmees'] = valeur_totale
     
-    # Commandes marquées erronées par cet opérateur
+        # Commandes marquées erronées par cet opérateur
     stats['commandes_erronnees'] = Commande.objects.filter(
         etats__operateur=operateur,
         etats__enum_etat__libelle='Erronée'
     ).distinct().count()
-    
+
+    # Commandes annulées par cet opérateur
+    stats['commandes_annulees'] = Commande.objects.filter(
+        etats__operateur=operateur,
+        etats__enum_etat__libelle='Annulée'
+    ).distinct().count()
+
     stats['total_commandes'] = commandes_affectees.count()
     
     # Taux de performance
@@ -1846,7 +1852,7 @@ def modifier_commande(request, commande_id):
                     sous_total_articles = commande.sous_total_articles
                     frais_livraison = commande.ville.frais_livraison if commande.ville else 0
                     # Convertir explicitement en float pour éviter l'erreur Decimal + float
-                    nouveau_total = float(sous_total_articles) + float(frais_livraison)
+                    nouveau_total = float(sous_total_articles) 
                     commande.total_cmd = float(nouveau_total)
                     
                     # Sauvegarder les modifications

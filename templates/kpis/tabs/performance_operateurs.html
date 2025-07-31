@@ -75,6 +75,21 @@
     </div>
 
     <div class="px-6 pb-6">
+      <!-- Barre de recherche -->
+      <div class="mb-4">
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class="fas fa-search text-gray-400"></i>
+          </div>
+          <input 
+            type="text" 
+            id="operateur-search" 
+            placeholder="Rechercher un opérateur..." 
+            class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          >
+        </div>
+      </div>
+
       <!-- Indicateur de chargement -->
       <div id="perf-operateurs-loading" class="flex items-center justify-center py-12">
         <div class="flex items-center gap-3 text-gray-500">
@@ -113,6 +128,24 @@
             </tbody>
           </table>
         </div>
+        
+        <!-- Pagination -->
+        <div id="perf-operateurs-pagination" class="mt-4 flex items-center justify-between">
+          <div class="flex items-center text-sm text-gray-700">
+            <span id="perf-operateurs-pagination-info">Affichage de 1 à 10 sur 0 résultats</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="perf-operateurs-prev-page" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              <i class="fas fa-chevron-left"></i> Précédent
+            </button>
+            <div id="perf-operateurs-page-numbers" class="flex items-center space-x-1">
+              <!-- Les numéros de page seront générés ici -->
+            </div>
+            <button id="perf-operateurs-next-page" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              Suivant <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Message si aucune donnée -->
@@ -126,16 +159,17 @@
   </div>
 </div>
 
-<!-- Modal de détails opérateur -->
+<!-- Modal de détails opérateur - Design amélioré -->
 <div id="operator-details-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-  <!-- Overlay -->
+  <!-- Overlay avec animation -->
   <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-    <div class="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+    <div class="absolute inset-0 bg-gray-900 bg-opacity-50 transition-opacity duration-300 ease-in-out" aria-hidden="true"></div>
 
-    <!-- Modal -->
-    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-      <!-- En-tête de la modal -->
-      <div class="bg-white px-6 py-4 border-b border-gray-200">
+    <!-- Modal avec animation et design moderne -->
+    <div class="inline-block align-bottom bg-gray-100 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all duration-300 ease-in-out sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
+      
+      <!-- En-tête de la modal - Style admin uniforme -->
+      <div class="bg-gray-200 px-6 py-4 border-b border-gray-300">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -146,25 +180,28 @@
               <p class="text-sm text-gray-500">Opérateur de confirmation</p>
             </div>
           </div>
-          <button type="button" class="text-gray-400 hover:text-gray-600 focus:outline-none" onclick="closeOperatorModal()"><i class="fas fa-times text-xl"></i></button>
+          <button type="button" class="text-gray-400 hover:text-gray-600 focus:outline-none" onclick="closeOperatorModal()">
+            <i class="fas fa-times text-xl"></i>
+          </button>
         </div>
       </div>
 
-      <!-- Contenu de la modal -->
-      <div class="bg-white px-6 py-6">
-        <!-- Métriques principales - Style comme dans l'image -->
+      <!-- Contenu de la modal - Style admin uniforme -->
+      <div class="bg-gray-100 px-6 py-6">
+        
+        <!-- Métriques principales - Style admin -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div class="bg-blue-50 rounded-lg p-6 text-center">
+          <div class="bg-blue-100 rounded-lg p-6 text-center">
             <div class="text-3xl font-bold text-blue-600" id="modal-total-actions">0</div>
             <div class="text-sm text-gray-600 font-medium">Opérations Réalisées</div>
             <div class="text-xs text-blue-500 mt-1">30 derniers jours</div>
           </div>
-          <div class="bg-green-50 rounded-lg p-6 text-center">
+          <div class="bg-green-100 rounded-lg p-6 text-center">
             <div class="text-3xl font-bold text-green-600" id="modal-confirmation-rate">0%</div>
             <div class="text-sm text-gray-600 font-medium">Taux de Confirmation</div>
             <div class="text-xs text-green-500 mt-1">30 derniers jours</div>
           </div>
-          <div class="bg-purple-50 rounded-lg p-6 text-center">
+          <div class="bg-purple-100 rounded-lg p-6 text-center">
             <div class="text-3xl font-bold text-purple-600" id="modal-average-basket">0 MAD</div>
             <div class="text-sm text-gray-600 font-medium">Panier Moyen</div>
             <div class="text-xs text-purple-500 mt-1">30 derniers jours</div>
@@ -242,8 +279,8 @@
         </div>
       </div>
 
-      <!-- Pied de modal -->
-      <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+      <!-- Pied de modal - Style admin uniforme -->
+      <div class="bg-gray-200 px-6 py-4 flex justify-end gap-3">
         <button type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors" onclick="closeOperatorModal()">Fermer</button>
         <button type="button" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors" onclick="exportOperatorDetails()">
           <i class="fas fa-download mr-2"></i>
@@ -447,6 +484,156 @@
           showNoDataMessage();
         });
     }
+
+    // Fonction de recherche d'opérateurs
+    function filterOperateurs(searchTerm) {
+      console.log('Filtrage avec le terme:', searchTerm);
+      
+      // Filtrer les opérateurs basés sur la recherche
+      if (searchTerm.trim() === '') {
+        filteredOperators = [...window.currentOperatorsData]
+      } else {
+        const searchLower = searchTerm.toLowerCase()
+        filteredOperators = window.currentOperatorsData.filter(operator => {
+          const operatorName = (operator.nom || '').toLowerCase()
+          const operatorUsername = (operator.username || '').toLowerCase()
+          return operatorName.includes(searchLower) || operatorUsername.includes(searchLower)
+        })
+      }
+      
+      console.log('Opérateurs filtrés:', filteredOperators.length);
+      
+      // Retourner à la première page
+      currentPage = 1
+      
+      // Afficher la page actuelle et mettre à jour la pagination
+      displayCurrentPage()
+      updatePagination()
+      
+      // Afficher un message si aucun résultat
+      const noResultsMessage = document.getElementById('perf-operateurs-no-results');
+      if (filteredOperators.length === 0 && searchTerm.trim() !== '') {
+        if (!noResultsMessage) {
+          const message = document.createElement('div');
+          message.id = 'perf-operateurs-no-results';
+          message.className = 'text-center py-8 text-gray-500';
+          message.innerHTML = '<i class="fas fa-search text-2xl mb-2"></i><p>Aucun opérateur trouvé pour "' + searchTerm + '"</p>';
+          tableBody.parentNode.parentNode.appendChild(message);
+        }
+      } else if (noResultsMessage) {
+        noResultsMessage.remove();
+      }
+    }
+
+    // Écouteur d'événement pour la barre de recherche
+    function initializeSearch() {
+      const searchInput = document.getElementById('operateur-search');
+      if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+          filterOperateurs(e.target.value);
+        });
+      }
+    }
+
+    // Initialiser la recherche après le chargement des données
+    document.addEventListener('DOMContentLoaded', initializeSearch);
+    
+    // Fonctions de pagination
+    function updatePagination() {
+      const totalItems = filteredOperators.length
+      const totalPages = Math.ceil(totalItems / itemsPerPage)
+      const startItem = (currentPage - 1) * itemsPerPage + 1
+      const endItem = Math.min(currentPage * itemsPerPage, totalItems)
+      
+      // Mettre à jour les informations de pagination
+      const paginationInfo = document.getElementById('perf-operateurs-pagination-info')
+      paginationInfo.textContent = `Affichage de ${startItem} à ${endItem} sur ${totalItems} résultats`
+      
+      // Mettre à jour les boutons précédent/suivant
+      const prevButton = document.getElementById('perf-operateurs-prev-page')
+      const nextButton = document.getElementById('perf-operateurs-next-page')
+      
+      prevButton.disabled = currentPage <= 1
+      nextButton.disabled = currentPage >= totalPages
+      
+      // Générer les numéros de page
+      const pageNumbersContainer = document.getElementById('perf-operateurs-page-numbers')
+      pageNumbersContainer.innerHTML = ''
+      
+      const maxVisiblePages = 5
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+      
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1)
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        const pageButton = document.createElement('button')
+        pageButton.className = `px-3 py-1 text-sm rounded ${i === currentPage ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`
+        pageButton.textContent = i
+        pageButton.onclick = () => goToPage(i)
+        pageNumbersContainer.appendChild(pageButton)
+      }
+    }
+    
+    function goToPage(page) {
+      currentPage = page
+      displayCurrentPage()
+      updatePagination()
+    }
+    
+    function displayCurrentPage() {
+      const startIndex = (currentPage - 1) * itemsPerPage
+      const endIndex = startIndex + itemsPerPage
+      const pageOperators = filteredOperators.slice(startIndex, endIndex)
+      
+      // Générer les lignes du tableau pour la page actuelle
+      tableBody.innerHTML = pageOperators.map((operator) => 
+        '<tr class="hover:bg-gray-50 border-b border-gray-300">' +
+        '<td class="px-4 py-4 border-r border-gray-300 text-center">' +
+        '<div class="font-medium text-gray-900">' + (operator.nom || 'N/A') + '</div>' +
+        '<div class="text-sm text-gray-500">' + (operator.username || 'N/A') + '</div>' +
+        '</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_affected || 0) + '</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_in_progress || 0) + '</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_confirmed || 0) + '</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center font-medium">' + (operator.confirmation_rate || 0).toFixed(1) + '%</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.upsell_count || 0) + '</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.average_basket || 0) + '</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.min_basket || 0) + '</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.max_basket || 0) + '</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.avg_confirmation_time_minutes || 0).toFixed(1) + ' min</td>' +
+        '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.avg_arrival_to_confirmation_minutes || 0).toFixed(1) + ' min</td>' +
+        '<td class="px-4 py-4 text-center">' +
+        '<button class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded transition-colors text-sm" onclick="viewOperatorDetails(' + operator.id + ')">Détails</button>' +
+        '</td>' +
+        '</tr>'
+      ).join('')
+    }
+    
+    // Écouteurs d'événements pour la pagination
+    document.addEventListener('DOMContentLoaded', function() {
+      const prevButton = document.getElementById('perf-operateurs-prev-page')
+      const nextButton = document.getElementById('perf-operateurs-next-page')
+      
+      if (prevButton) {
+        prevButton.addEventListener('click', function() {
+          if (currentPage > 1) {
+            goToPage(currentPage - 1)
+          }
+        })
+      }
+      
+      if (nextButton) {
+        nextButton.addEventListener('click', function() {
+          const totalPages = Math.ceil(filteredOperators.length / itemsPerPage)
+          if (currentPage < totalPages) {
+            goToPage(currentPage + 1)
+          }
+        })
+      }
+    })
   
     // Fonction pour afficher les métriques globales - Style coloré avec icône à droite
     function displayGlobalMetrics(globalData) {
@@ -492,21 +679,30 @@
       globalMetricsContainer.innerHTML = metrics.map((metric) => '<div class="bg-white rounded-lg p-6 shadow-sm border border-gray-100">' + '<div class="flex items-center justify-between">' + '<div>' + '<div class="text-sm text-gray-600 font-medium">' + metric.title + '</div>' + '<div class="text-2xl font-bold ' + metric.valueColor + '">' + metric.value + '</div>' + '<div class="text-xs text-gray-500">' + metric.subtitle + '</div>' + '</div>' + '<div class="w-12 h-12 ' + metric.bgColor + ' rounded-lg flex items-center justify-center">' + '<i class="' + metric.iconClass + ' ' + metric.iconColor + ' text-xl"></i>' + '</div>' + '</div>' + '</div>').join('')
     }
   
-    // Fonction pour afficher les données des opérateurs - Style simple comme l'image
+        // Fonction pour afficher les données des opérateurs - Style simple comme l'image
     function displayPerfOperateursData(data) {
       console.log("Perf Opérateurs: Affichage des données de performance.", data);
       if (!data.operators || data.operators.length === 0) {
         showNoDataMessage();
         return;
       }
-  
+
       // Stocker les données globalement pour la modal
       window.currentOperatorsData = data.operators
-  
+
       // Afficher les métriques globales
       displayGlobalMetrics(data.global_metrics)
-      // Générer les lignes du tableau - Style simple avec bordures et couleurs neutres
-      tableBody.innerHTML = data.operators.map((operator) => '<tr class="hover:bg-gray-50 border-b border-gray-300">' + '<td class="px-4 py-4 border-r border-gray-300 text-center">' + '<div class="font-medium text-gray-900">' + (operator.nom || 'N/A') + '</div>' + '<div class="text-sm text-gray-500">' + (operator.username || 'N/A') + '</div>' + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_affected || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_in_progress || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.commands_confirmed || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center font-medium">' + (operator.confirmation_rate || 0).toFixed(1) + '%</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.upsell_count || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.average_basket || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.min_basket || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + formatCurrencySimple(operator.max_basket || 0) + '</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.avg_confirmation_time_minutes || 0).toFixed(1) + ' min</td>' + '<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700 border-r border-gray-300 text-center">' + (operator.avg_arrival_to_confirmation_minutes || 0).toFixed(1) + ' min</td>' + '<td class="px-4 py-4 text-center">' + '<button class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded transition-colors text-sm" onclick="viewOperatorDetails(' + operator.id + ')">Détails</button>' + '</td>' + '</tr>').join('')
+      
+      // Initialiser les données filtrées et la pagination
+      filteredOperators = [...data.operators]
+      currentPage = 1
+      
+      // Afficher la première page
+      displayCurrentPage()
+      updatePagination()
+      
+      // Réinitialiser la recherche après avoir chargé les données
+      initializeSearch();
     }
   
     // Fonctions utilitaires
@@ -561,6 +757,11 @@
     // Variables globales pour la modal
     let currentModalOperatorId = null
     let currentModalOperatorData = null
+    
+    // Variables pour la pagination
+    let currentPage = 1
+    const itemsPerPage = 10
+    let filteredOperators = []
   
     // Fonction pour afficher la modal avec les détails de l'opérateur
     function showOperatorModal(operatorId) {
@@ -704,7 +905,9 @@
         return
       }
   
-      window.location.href = '/kpis/performance-operateurs-data/?export=excel'
+      // Construire l'URL avec l'ID de l'opérateur
+      const operatorId = currentModalOperatorData.id
+      window.location.href = `/kpis/export/performance-operateurs/excel/?operator_id=${operatorId}`
     }
   
     // Formater une date/heure pour l'affichage

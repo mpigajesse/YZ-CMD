@@ -95,16 +95,7 @@
                     <i class="fas fa-play mr-2"></i>
                     Lancer Confirmation
                 </button>
-                {% elif commande.etat_actuel.enum_etat.libelle == 'En cours de confirmation' %}
-                    <form method="post" style="display: inline;">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="confirmer">
-                        <button type="submit" 
-                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg">
-                            <i class="fas fa-check mr-2"></i>
-                            Confirmer
-                        </button>
-                    </form>
+                
                 {% endif %}
             {% endif %}
 
@@ -203,14 +194,14 @@
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Frais de livraison:</span>
                                         <span class="font-medium text-blue-600">
-                                            {% if commande.ville %}{{ commande.ville.nom }} - {% endif %}{{ commande.frais_livraison|floatformat:2 }} DH
+                                            Appliquer directement sur le prix de la commande DH
                                         </span>
                                     </div>
                                     <hr class="border-gray-300">
                                     <div class="flex justify-between">
                                         <span class="font-bold text-gray-900">Total commande:</span>
                                         <span class="font-bold text-lg" style="color: #4B352A;">
-                                            {% with total_final=commande.sous_total_articles|add:commande.frais_livraison %}{{ total_final|floatformat:2 }}{% endwith %} DH
+                                            {% with total_final=commande.sous_total_articles%}{{ total_final|floatformat:2 }}{% endwith %} DH
                                         </span>
                                     </div>
                                 </div>
@@ -504,10 +495,10 @@
                             </tr>
                             <tr style="background-color: #e0f2fe;">
                                 <td colspan="3" class="px-4 py-3 text-right font-medium text-blue-800">
-                                    Frais de livraison ({{ commande.ville.nom|default:"Ville" }}):
+                                    Frais de livraison 
                                 </td>
                                 <td class="px-4 py-3 font-bold text-blue-800">
-                                    {{ commande.frais_livraison|floatformat:2 }} DH
+                                    Appliquer directement sur le prix de la commande DH
                                 </td>
                             </tr>
                             <tr style="background-color: #4B352A;">
@@ -515,7 +506,7 @@
                                     Total commande:
                                 </td>
                                 <td class="px-4 py-3 font-bold text-lg text-white">
-                                    {% with total_final=total_articles|add:commande.frais_livraison %}{{ total_final|floatformat:2 }}{% endwith %} DH
+                                    {% with total_final=total_articles %}{{ total_final|floatformat:2 }}{% endwith %} DH
                                 </td>
                             </tr>
                         </tfoot>

@@ -38,7 +38,15 @@ class Operateur(models.Model):
         ('LOGISTIQUE', 'Opérateur Logistique'),
         ('PREPARATION', 'Opérateur de Préparation'),
         ('ADMIN', 'Administrateur'),
+        ('LIVREUR', 'Livreur'),
     ]
+    
+    @property
+    def is_livraison(self):
+        """
+        Propriété qui indique si l'opérateur est un opérateur logistique (de livraison)
+        """
+        return self.type_operateur == 'LIVREUR'
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profil_operateur')
     nom = models.CharField(max_length=100)
@@ -83,6 +91,7 @@ class Operateur(models.Model):
     @property
     def is_admin(self):
         return self.type_operateur == 'ADMIN'
+    
 
 
 class HistoriqueMotDePasse(models.Model):

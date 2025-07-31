@@ -1924,11 +1924,11 @@ def affecter_preparation(request, commande_id):
             if not etat_actuel or etat_actuel.enum_etat.libelle != 'Confirmée':
                 return JsonResponse({'success': False, 'message': 'Cette commande n\'est pas confirmée.'})
             
-            # Vérifier si un état "À imprimer" existe
+            # Vérifier si un état "En préparation" existe
             try:
                 etat_preparation, created = EnumEtatCmd.objects.get_or_create(
-                    libelle='À imprimer',
-                    defaults={'ordre': 35, 'couleur': '#F59E0B'}
+                    libelle='En préparation',
+                    defaults={'ordre': 40, 'couleur': '#3B82F6'}
                 )
             except Exception as e:
                 return JsonResponse({'success': False, 'message': f'Erreur lors de la récupération de l\'état: {str(e)}'})
@@ -1938,7 +1938,7 @@ def affecter_preparation(request, commande_id):
                 # Terminer l'état actuel (Confirmée)
                 etat_actuel.terminer_etat(operateur=operateur_admin)
                 
-                # Créer le nouvel état "À imprimer"
+                # Créer le nouvel état "En préparation"
                 from .models import EtatCommande
                 nouvel_etat = EtatCommande.objects.create(
                     commande=commande,
@@ -1950,7 +1950,7 @@ def affecter_preparation(request, commande_id):
                 
                 return JsonResponse({
                     'success': True, 
-                    'message': f'Commande {commande.id_yz} affectée avec succès à {operateur_preparation.nom_complet} pour impression puis préparation.'
+                    'message': f'Commande {commande.id_yz} affectée avec succès à {operateur_preparation.nom_complet} pour préparation.'
                 })
                 
         except Exception as e:
@@ -2087,11 +2087,11 @@ def affecter_preparation_multiple(request):
         commandes_affectees_yz = []
         commandes_erreurs_yz = []
 
-        # Vérifier si un état "À imprimer" existe
+        # Vérifier si un état "En préparation" existe
         try:
             etat_preparation, created = EnumEtatCmd.objects.get_or_create(
-                libelle='À imprimer',
-                defaults={'ordre': 35, 'couleur': '#F59E0B'}
+                libelle='En préparation',
+                defaults={'ordre': 40, 'couleur': '#3B82F6'}
             )
         except Exception as e:
             return JsonResponse({'success': False, 'message': f'Erreur lors de la récupération de l\'état: {str(e)}'})
@@ -2109,7 +2109,7 @@ def affecter_preparation_multiple(request):
                     # Terminer l'état actuel (Confirmée)
                     etat_actuel.terminer_etat(operateur=operateur_admin)
                     
-                    # Créer le nouvel état "À imprimer"
+                    # Créer le nouvel état "En préparation"
                     from .models import EtatCommande
                     EtatCommande.objects.create(
                         commande=commande,
@@ -2123,7 +2123,7 @@ def affecter_preparation_multiple(request):
                 except Exception as e:
                     commandes_erreurs_yz.append(f"{commande.id_yz} ({str(e)})")
 
-        message = f"{len(commandes_affectees_yz)} commande(s) affectée(s) avec succès à {operateur_preparation.nom_complet} pour impression puis préparation."
+        message = f"{len(commandes_affectees_yz)} commande(s) affectée(s) avec succès à {operateur_preparation.nom_complet} pour préparation."
         if commandes_erreurs_yz:
             message += f" Erreurs sur les commandes : {', '.join(commandes_erreurs_yz)}."
         
