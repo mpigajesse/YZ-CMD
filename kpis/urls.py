@@ -19,4 +19,6 @@ urlpatterns = [
     path('api/operator-realtime-times/', views.operator_realtime_times_data, name='operator_realtime_times_data'),
     path('export/performance-operateurs/csv/', views.export_performance_operateurs_csv, name='export_performance_operateurs_csv'),
     path('export/performance-operateurs/excel/', views.export_performance_operateurs_excel, name='export_performance_operateurs_excel'),
+    path('export/etat-commandes/csv/', views.export_etat_commandes_csv, name='export_etat_commandes_csv'),
+    path('export/etat-commandes/excel/', views.export_etat_commandes_excel, name='export_etat_commandes_excel'),
 ]
