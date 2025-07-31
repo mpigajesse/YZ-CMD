@@ -31,6 +31,11 @@ urlpatterns = [
     path('profile/modifier/', views.modifier_admin_profile, name='modifier_profile'),
     path('profile/changer-mot-de-passe/', views.changer_mot_de_passe_admin, name='changer_mot_de_passe'),
     
+    # URLs Répartition des Commandes (déplacées depuis Prepacommande)
+    path('repartition/automatique/', views.repartition_automatique, name='repartition_automatique'),
+    path('repartition/details-region/', views.details_region_view, name='details_region'),
+    path('repartition/modal-data/', views.get_modal_data_ajax, name='get_modal_data_ajax'),
+    
     # URLs Service Après-Vente pour Admin
     path('sav/commandes-retournees/', views.sav_commandes_retournees, name='sav_commandes_retournees'),
     path('sav/commandes-reportees/', views.sav_commandes_reportees, name='sav_commandes_reportees'),
@@ -41,8 +46,24 @@ urlpatterns = [
     path('sav/creer-nouvelle-commande/<int:commande_id>/', views.sav_creer_nouvelle_commande, name='sav_creer_nouvelle_commande'),
     path('sav/renvoyer-preparation/<int:commande_id>/', views.sav_renvoyer_preparation, name='sav_renvoyer_preparation'),
     
+    # URLs API Recherche SAV
+    path('sav/search/api/', views.sav_search_api, name='sav_search_api'),
+    
     # URLs Dashboard 360
     path('vue360/', views_360.page_360, name='page_360'),
     path('export-csv/', views_360.export_all_data_csv, name='export_all_data_csv'),
     path('export-excel/', views_360.export_all_data_excel, name='export_all_data_excel'),
+    
+    # URLs API Temps Réel Vue 360
+    path('vue360/api/realtime-data/', views_360.vue_360_realtime_data, name='vue_360_realtime_data'),
+    path('vue360/api/statistics-update/', views_360.vue_360_statistics_update, name='vue_360_statistics_update'),
+    path('vue360/api/etats-tracking/', views_360.vue_360_etats_tracking, name='vue_360_etats_tracking'),
+    path('vue360/api/panier-tracking/', views_360.vue_360_panier_tracking, name='vue_360_panier_tracking'),
+    
+
+    
+    # URLs Barre de Recherche Globale
+    path('recherche-globale/', views.global_search_view, name='global_search'),
+    path('recherche-globale/api/', views.global_search_api, name='global_search_api'),
+    path('recherche-globale/suggestions/', views.search_suggestions_api, name='search_suggestions_api'),
 ] 

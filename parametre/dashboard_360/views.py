@@ -464,3 +464,173 @@ def export_all_data_excel(request):
 
     wb.save(response)
     return response 
+
+# ============================================================================
+# API VUES TEMPS RÉEL VUE 360
+# ============================================================================
+
+@staff_member_required
+@login_required
+def vue_360_realtime_data(request):
+    """API pour les données temps réel de la vue 360"""
+    from django.http import JsonResponse
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    # Statistiques en temps réel
+    total_commandes = Commande.objects.count()
+    commandes_aujourd_hui = Commande.objects.filter(
+        date_cmd__date=timezone.now().date()
+    ).count()
+    commandes_semaine = Commande.objects.filter(
+        date_cmd__gte=timezone.now() - timedelta(days=7)
+    ).count()
+    
+    # Commandes par état
+    commandes_confirmees = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_fin__isnull=True
+    ).count()
+    
+    commandes_preparees = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True
+    ).count()
+    
+    commandes_livrees = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée',
+        etats__date_fin__isnull=True
+    ).count()
+    
+    data = {
+        'total_commandes': total_commandes,
+        'commandes_aujourd_hui': commandes_aujourd_hui,
+        'commandes_semaine': commandes_semaine,
+        'commandes_confirmees': commandes_confirmees,
+        'commandes_preparees': commandes_preparees,
+        'commandes_livrees': commandes_livrees,
+        'timestamp': timezone.now().isoformat()
+    }
+    
+    return JsonResponse(data)
+
+@staff_member_required
+@login_required
+def vue_360_statistics_update(request):
+    """API pour la mise à jour des statistiques de la vue 360"""
+    from django.http import JsonResponse
+    from django.db.models import Count, Sum
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    # Statistiques par région
+    stats_par_region = Commande.objects.filter(
+        ville__region__isnull=False
+    ).values(
+        'ville__region__nom_region'
+    ).annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')
+    
+    # Statistiques par jour (7 derniers jours)
+    stats_par_jour = []
+    for i in range(7):
+        date = timezone.now().date() - timedelta(days=i)
+        nb_commandes = Commande.objects.filter(
+            date_cmd__date=date
+        ).count()
+        stats_par_jour.append({
+            'date': date.strftime('%d/%m'),
+            'nb_commandes': nb_commandes
+        })
+    
+    data = {
+        'stats_par_region': list(stats_par_region),
+        'stats_par_jour': stats_par_jour
+    }
+    
+    return JsonResponse(data)
+
+@staff_member_required
+@login_required
+def vue_360_etats_tracking(request):
+    """API pour le suivi des états des commandes"""
+    from django.http import JsonResponse
+    from commande.models import EnumEtatCmd
+    
+    # Récupérer tous les états disponibles
+    etats = EnumEtatCmd.objects.all()
+    
+    # Compter les commandes par état
+    stats_par_etat = []
+    for etat in etats:
+        nb_commandes = Commande.objects.filter(
+            etats__enum_etat=etat,
+            etats__date_fin__isnull=True
+        ).count()
+        
+        if nb_commandes > 0:  # Ne retourner que les états avec des commandes
+            stats_par_etat.append({
+                'etat': etat.libelle,
+                'nb_commandes': nb_commandes,
+                'couleur': get_etat_color(etat.libelle)
+            })
+    
+    data = {
+        'stats_par_etat': stats_par_etat
+    }
+    
+    return JsonResponse(data)
+
+@staff_member_required
+@login_required
+def vue_360_panier_tracking(request):
+    """API pour le suivi des paniers"""
+    from django.http import JsonResponse
+    from article.models import Article
+    
+    # Statistiques des articles les plus commandés
+    articles_populaires = Article.objects.filter(
+        paniers__isnull=False
+    ).annotate(
+        nb_commandes=Count('paniers__commande', distinct=True)
+    ).order_by('-nb_commandes')[:10]
+    
+    # Statistiques des paniers
+    total_paniers = sum(article.paniers.count() for article in Article.objects.all())
+    paniers_aujourd_hui = sum(
+        article.paniers.filter(
+            commande__date_cmd__date=timezone.now().date()
+        ).count() 
+        for article in Article.objects.all()
+    )
+    
+    data = {
+        'articles_populaires': [
+            {
+                'nom': article.nom,
+                'reference': article.reference,
+                'nb_commandes': article.nb_commandes
+            }
+            for article in articles_populaires
+        ],
+        'total_paniers': total_paniers,
+        'paniers_aujourd_hui': paniers_aujourd_hui
+    }
+    
+    return JsonResponse(data)
+
+def get_etat_color(etat_libelle):
+    """Fonction utilitaire pour obtenir la couleur d'un état"""
+    couleurs = {
+        'Confirmée': '#10b981',  # Vert
+        'Préparée': '#3b82f6',   # Bleu
+        'Livrée': '#059669',      # Vert foncé
+        'Annulée': '#ef4444',     # Rouge
+        'Retournée': '#f59e0b',   # Orange
+        'En cours de livraison': '#8b5cf6',  # Violet
+        'À imprimer': '#06b6d4',  # Cyan
+        'En préparation': '#f97316',  # Orange foncé
+    }
+    return couleurs.get(etat_libelle, '#6b7280')  # Gris par défaut 
