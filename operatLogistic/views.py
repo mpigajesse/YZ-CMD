@@ -407,7 +407,23 @@ def liste_commandes(request):
 def detail_commande(request, commande_id):
     """Détails d'une commande pour l'opérateur logistique."""
     commande = get_object_or_404(Commande, id=commande_id)
-    # Idéalement, ajouter une vérification pour s'assurer que l'opérateur a le droit de voir cette commande
+    
+    # S'assurer que les totaux et les prix des articles sont à jour pour l'affichage
+    # Calculer le prix de chaque article en fonction du compteur de la commande
+    for panier in commande.paniers.all():
+        prix_actuel = panier.article.prix_unitaire # Prix de base par défaut
+        if commande.compteur > 0:
+            if commande.compteur == 1 and panier.article.prix_upsell_1:
+                prix_actuel = panier.article.prix_upsell_1
+            elif commande.compteur == 2 and panier.article.prix_upsell_2:
+                prix_actuel = panier.article.prix_upsell_2
+            elif commande.compteur == 3 and panier.article.prix_upsell_3:
+                prix_actuel = panier.article.prix_upsell_3
+            elif commande.compteur >= 4 and panier.article.prix_upsell_4:
+                prix_actuel = panier.article.prix_upsell_4
+        panier.prix_actuel_pour_affichage = prix_actuel # Ajouter un attribut pour le template
+        print(f"DEBUG: Article {panier.article.nom}, Prix affiché: {panier.prix_actuel_pour_affichage}")
+
     context = {
         'commande'   : commande,
         'page_title' : f'Détail Commande {commande.id_yz}',
@@ -1346,12 +1362,15 @@ def livraison_partielle(request, commande_id):
         articles_renvoyes = json.loads(request.POST.get('articles_renvoyes', '[]'))
         commentaire = request.POST.get('commentaire', '').strip()
         
-        # DEBUG: Afficher les valeurs reçues
-        print("=== DEBUG BACKEND LIVRAISON PARTIELLE ===")
-        print(f"Articles renvoyés reçus: {articles_renvoyes}")
+        # DEBUG: Afficher les valeurs reçues du frontend
+        print("=== DEBUG RECEPTION LIVRAISON PARTIELLE ===")
+        print(f"Articles livrés reçus (RAW): {articles_livres}")
+        print(f"Articles renvoyés reçus (RAW): {articles_renvoyes}")
+        for i, article in enumerate(articles_livres):
+            print(f"Article livré {i+1}: ID: {article.get('article_id', 'N/A')}, Nom: {article.get('article_nom', 'N/A')}, Prix: {article.get('data-article-prix', 'N/A')}, Prix Unitaire: {article.get('prix_unitaire', 'N/A')}") # Utilise data-article-prix ici
         for i, article in enumerate(articles_renvoyes):
-            print(f"Article {i+1}: {article.get('nom', 'N/A')} - État: {article.get('etat', 'N/A')}")
-        print("=== FIN DEBUG BACKEND ===")
+            print(f"Article renvoyé {i+1}: ID: {article.get('article_id', 'N/A')}, Nom: {article.get('article_nom', 'N/A')}, Prix: {article.get('data-article-prix', 'N/A')}, Prix Unitaire: {article.get('prix_unitaire', 'N/A')}, État: {article.get('etat', 'N/A')}") # Utilise data-article-prix ici
+        print("=== FIN DEBUG RECEPTION ===")
         
         if not commentaire:
             return JsonResponse({'success': False, 'error': 'Un commentaire est obligatoire pour expliquer la livraison partielle.'})
@@ -1508,7 +1527,7 @@ def livraison_partielle(request, commande_id):
                         if (etat_imprimer_precedent.operateur.type_operateur == 'PREPARATION' and 
                             etat_imprimer_precedent.operateur.actif):
                             operateur_preparation_original = etat_imprimer_precedent.operateur
-                            print(f"✅ Opérateur original trouvé (via 'À imprimer') pour livraison partielle: {operateur_preparation_original.nom_complet}")
+                            print(f"✅ Opérateur original trouvé (via 'À imprimer'): {operateur_preparation_original.nom_complet}")
                         else:
                             print(f"⚠️  Opérateur 'À imprimer' trouvé mais non disponible: {etat_imprimer_precedent.operateur.nom_complet}")
                     else:
@@ -1606,20 +1625,53 @@ def livraison_partielle(request, commande_id):
                 # On enrichit recap_articles_renvoyes avec l'id de l'article
                 recap_articles_renvoyes_json = []
                 for article_data in articles_renvoyes:
+                    article_id = article_data.get('article_id') or article_data.get('id')
+                    # Toujours récupérer le prix depuis la base
+                    try:
+                        from article.models import Article
+                        article = Article.objects.get(id=article_id)
+                        prix_unitaire = article.prix_unitaire
+                        if commande.compteur > 0:
+                            if commande.compteur == 1 and article.prix_upsell_1:
+                                prix_unitaire = article.prix_upsell_1
+                            elif commande.compteur == 2 and article.prix_upsell_2:
+                                prix_unitaire = article.prix_upsell_2
+                            elif commande.compteur == 3 and article.prix_upsell_3:
+                                prix_unitaire = article.prix_upsell_3
+                            elif commande.compteur >= 4 and article.prix_upsell_4:
+                                prix_unitaire = article.prix_upsell_4
+                    except Exception:
+                        prix_unitaire = 0.0
                     recap = {
-                        'article_id': article_data.get('article_id') or article_data.get('id'),
+                        'article_id': article_id,
                         'etat': article_data.get('etat', 'inconnu'),
                         'quantite': article_data.get('quantite', 0),
-                        'prix_unitaire': article_data.get('prix_unitaire', 0)
+                        'prix_unitaire': float(prix_unitaire)
                     }
                     recap_articles_renvoyes_json.append(recap)
 
                 articles_livres_json = []
                 for article_data in articles_livres:
+                    article_id = article_data.get('article_id') or article_data.get('id')
+                    try:
+                        from article.models import Article
+                        article = Article.objects.get(id=article_id)
+                        prix_unitaire = article.prix_unitaire
+                        if commande.compteur > 0:
+                            if commande.compteur == 1 and article.prix_upsell_1:
+                                prix_unitaire = article.prix_upsell_1
+                            elif commande.compteur == 2 and article.prix_upsell_2:
+                                prix_unitaire = article.prix_upsell_2
+                            elif commande.compteur == 3 and article.prix_upsell_3:
+                                prix_unitaire = article.prix_upsell_3
+                            elif commande.compteur >= 4 and article.prix_upsell_4:
+                                prix_unitaire = article.prix_upsell_4
+                    except Exception:
+                        prix_unitaire = 0.0
                     art = {
-                        'article_id': article_data.get('article_id') or article_data.get('id'),
+                        'article_id': article_id,
                         'quantite': article_data.get('quantite', 0),
-                        'prix_unitaire': article_data.get('prix_unitaire', 0)
+                        'prix_unitaire': float(prix_unitaire)
                     }
                     articles_livres_json.append(art)
 
