@@ -91,20 +91,21 @@
                     </div>
                     <div class="flex items-center justify-center space-x-2">
                         <button type="button" 
-                                class="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 flex items-center justify-center transition-colors"
-                                onclick="modifierQuantite({{ panier.id }}, -1)">
+                                class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center cursor-not-allowed"
+                                disabled
+                                title="Modification désactivée - Lecture seule">
                             <i class="fas fa-minus text-xs"></i>
                         </button>
                         <input type="number" 
                                value="{{ panier.quantite }}" 
-                               min="1" 
-                               max="{{ panier.article.qte_disponible|add:panier.quantite }}"
-                               class="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm font-medium {% if commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' %}bg-green-50 border-green-300{% endif %}"
-                               onchange="modifierQuantite({{ panier.id }}, 0, this.value)"
-                               data-panier-id="{{ panier.id }}">
+                               readonly
+                               class="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm font-medium bg-gray-50 cursor-not-allowed {% if commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' %}bg-green-50 border-green-300{% endif %}"
+                               data-panier-id="{{ panier.id }}"
+                               title="Mode lecture seule">
                         <button type="button" 
-                                class="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 flex items-center justify-center transition-colors"
-                                onclick="modifierQuantite({{ panier.id }}, 1)">
+                                class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center cursor-not-allowed"
+                                disabled
+                                title="Modification désactivée - Lecture seule">
                             <i class="fas fa-plus text-xs"></i>
                         </button>
                     </div>
@@ -112,7 +113,7 @@
                         {% if commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' %}
                             <i class="fas fa-check-circle mr-1 text-green-600"></i>Livrée au client
                         {% else %}
-                        <i class="fas fa-edit mr-1"></i>Modifiable
+                            <i class="fas fa-lock mr-1"></i>Lecture seule
                         {% endif %}
                     </div>
                 </div>
@@ -169,11 +170,7 @@
             <div class="text-xs text-gray-500">
                 {{ commande.ville.region.nom_region|default:"Région inconnue" }}
             </div>
-            {% if commande.ville.frais_livraison %}
-            <div class="text-xs text-green-600">
-                <i class="fas fa-euro-sign mr-1"></i>{{ commande.ville.frais_livraison }} DH
-            </div>
-            {% endif %}
+          
         </div>
     </div>
 </div>

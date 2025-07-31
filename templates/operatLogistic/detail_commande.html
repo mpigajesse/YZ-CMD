@@ -169,7 +169,7 @@
                     {{ commande.total_cmd|floatformat:2 }} DH
                 </p>
                 <p class="text-xs text-orange-500 mt-1 flex items-center">
-                    + {{ commande.ville.frais_livraison|default:0|floatformat:2 }} DH livraison
+                    - {{ commande.ville.frais_livraison|default:0|floatformat:2 }} DH livraison
                     <button type="button" 
                             onclick="afficherModalFraisLivraison()" 
                             class="ml-1 text-orange-500 hover:text-orange-700 transition-colors"
@@ -452,13 +452,16 @@
          </div>
     </div>
 
-    <!-- Section 3: Articles du Panier (Modifiable) -->
+    <!-- Section 3: Articles du Panier (Lecture seule) -->
     <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6  " style="border-color: var(--logistic-border);">
         <div class="flex justify-between items-center mb-6 ">
             <h2 class="text-2xl font-bold flex items-center" style="color: var(--logistic-primary);">
-            <i class="fas fa-shopping-basket mr-2"></i>Articles du Panier ({{ commande.paniers.count }}articles)
+            <i class="fas fa-shopping-basket mr-2"></i>Articles du Panier ({{ commande.paniers.count }} articles)
+            <span class="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-semibold rounded-full flex items-center ml-3">
+                <i class="fas fa-lock mr-1"></i>Lecture seule
+            </span>
             {% if commande.compteur > 0 %}
-            <span class="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-semibold rounded-full flex items-center">
+            <span class="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-semibold rounded-full flex items-center ml-2">
                 <i class="fas fa-arrow-alt-circle-up mr-1"></i>Upsell Niveau {{ commande.compteur }}
             </span>
             {% endif %}
@@ -547,9 +550,9 @@
                         </button>
                 </div>
                 <div class="text-2xl font-bold" style="color: var(--logistic-primary);" id="total-commande">
-                        {% with total_avec_livraison=commande.total_cmd|add:commande.ville.frais_livraison|default:0 %}
-                            {{ total_avec_livraison|floatformat:2 }} DH
-                        {% endwith %}
+                        
+                    {{ commande.total_cmd|floatformat:2 }} DH
+                       
                     </div>
                 </div>
                 
@@ -569,7 +572,7 @@
     </div>
 
     <!-- Section SAV - Création de Commande pour Articles Défectueux -->
-    {% if commande.etat_actuel.enum_etat.libelle == 'Retournée' or commande.etat_actuel.enum_etat.libelle == 'Livrée' or commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' or commande.etat_actuel.enum_etat.libelle == 'Livrée avec changement' %}
+    {% if commande.etat_actuel.enum_etat.libelle == 'Retournée' or commande.etat_actuel.enum_etat.libelle == 'Livrée' or commande.etat_actuel.enum_etat.libelle == 'Livrée Partiellement' %}
     <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--logistic-border);">
         <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--logistic-primary);">
             <i class="fas fa-tools mr-2"></i>Service Après-Vente - Articles Défectueux
@@ -732,7 +735,7 @@
         <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--logistic-primary);">
             <i class="fas fa-shipping-fast mr-2"></i>Actions de Livraison (SAV)
         </h2>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button onclick="openSavModal('Reportée')" class="sav-action-btn" style="background-color: #F59E0B;">
                 <i class="fas fa-clock mr-2"></i>Reporter
             </button>
@@ -741,9 +744,6 @@
             </button>
             <button onclick="ouvrirModalLivraisonPartielle()" class="sav-action-btn" style="background-color: #3B82F6;">
                 <i class="fas fa-box-open mr-2"></i>Livraison Partielle
-            </button>
-            <button onclick="openSavModal('Livrée avec changement')" class="sav-action-btn" style="background-color: #8B5CF6;">
-                <i class="fas fa-exchange-alt mr-2"></i>Avec Changement
             </button>
             <button onclick="openSavModal('Retournée')" class="sav-action-btn" style="background-color: #EF4444;">
                 <i class="fas fa-times-circle mr-2"></i>Retournée
@@ -1005,8 +1005,8 @@
         </div>
     </div>
 
-    <!-- Modal d'ajout/modification d'articles -->
-    <div id="addArticleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <!-- Modal d'ajout/modification d'articles (DÉSACTIVÉE - Mode lecture seule) -->
+    <div id="addArticleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50" style="display: none !important;">
         <div class="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
                 <h3 class="text-lg leading-6 font-medium text-gray-900" id="articleModalTitle">Ajouter un article</h3>
@@ -1453,11 +1453,6 @@ function openSavModal(etat) {
             couleur = 'text-green-600';
             icone = 'fa-check-circle';
             break;
-        case 'Livrée avec changement':
-            titre = 'Livrée avec Changement';
-            couleur = 'text-purple-600';
-            icone = 'fa-exchange-alt';
-            break;
         case 'Retournée':
             titre = 'Retourner la Commande';
             couleur = 'text-red-600';
@@ -1524,170 +1519,24 @@ function ajouterNouvelArticle() {
 }
 
 function modifierArticle(panierId) {
-    isEditingArticle = true;
-    currentArticleId = panierId;
-    
-    // Trouver l'article correspondant dans le DOM
-    const articleCard = document.querySelector(`[data-article-id="${panierId}"]`);
-    if (!articleCard) {
-        showNotification('Article non trouvé', 'error');
-        return;
-    }
-    
-    const articleData = JSON.parse(articleCard.dataset.article);
-    const quantiteActuelle = articleCard.querySelector('.text-blue-600').textContent.match(/\d+/)[0];
-    
-    // Remplir le formulaire avec les données actuelles
-    document.getElementById('articleModalTitle').textContent = 'Modifier l\'article';
-    document.getElementById('confirmerArticleBtn').textContent = 'Modifier';
-    document.getElementById('quantiteInput').value = quantiteActuelle;
-    
-    // Afficher le champ de nom d'article (lecture seule)
-    document.getElementById('article-selection-field').classList.add('hidden');
-    document.getElementById('article-display-field').classList.remove('hidden');
-    document.getElementById('articleDisplay').value = articleData.nom;
-    
-    // Afficher les informations de l'article
-    afficherInfosArticle(articleData);
-    
-    // Afficher la modale
-    document.getElementById('addArticleModal').classList.remove('hidden');
+    // FONCTION DÉSACTIVÉE - Mode lecture seule
+    console.log('Modification d\'articles désactivée - Mode lecture seule');
+    showNotification('⚠️ Modification désactivée : La section Articles du Panier est en mode lecture seule', 'warning');
+    return false;
 }
 
 function supprimerArticle(panierId) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) {
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        
-        // Récupérer les informations de l'article avant suppression de manière sécurisée
-        const articleCard = document.querySelector(`[data-article-id="${panierId}"]`);
-        if (!articleCard) {
-            showNotification('❌ Article non trouvé dans l\'interface', 'error');
-            return;
-        }
-        
-        let articleData = null;
-        let quantiteActuelle = 0;
-        
-        try {
-            const articleDataString = articleCard.dataset.article;
-            articleData = JSON.parse(articleDataString);
-            
-            const quantiteElement = articleCard.querySelector('.text-blue-600');
-            if (quantiteElement) {
-                const match = quantiteElement.textContent.match(/\d+/);
-                quantiteActuelle = match ? parseInt(match[0]) : 0;
-            }
-        } catch (jsonError) {
-            console.error('Erreur de parsing JSON:', jsonError);
-            console.log('Données brutes:', articleCard.dataset.article);
-            showNotification('❌ Erreur de données article', 'error');
-            return;
-        }
-        
-        fetch(`/operateur-logistique/commande/{{ commande.id }}/supprimer-article/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': csrfToken
-            },
-            body: new URLSearchParams({
-                'panier_id': panierId
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                // Afficher une notification adaptée selon le statut de la commande
-                if (isCommandeConfirmee()) {
-                    showStockNotification('suppression', articleData.nom, quantiteActuelle, true);
-                } else {
-                    showNotification('✅ Article supprimé avec succès', 'success');
-                }
-                
-                rafraichirSectionArticles();
-            } else {
-                showNotification('❌ Erreur: ' + data.error, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            showNotification('❌ Erreur de réseau: ' + error.message, 'error');
-        });
-    }
+    // FONCTION DÉSACTIVÉE - Mode lecture seule
+    console.log('Suppression d\'articles désactivée - Mode lecture seule');
+    showNotification('⚠️ Suppression désactivée : La section Articles du Panier est en mode lecture seule', 'warning');
+    return false;
 }
 
-function modifierQuantite(panierId, quantiteActuelle) {
-    const nouvelleQuantite = prompt('Nouvelle quantité:', quantiteActuelle);
-    
-    if (nouvelleQuantite !== null && nouvelleQuantite !== '' && parseInt(nouvelleQuantite) > 0) {
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        
-        // Récupérer les informations de l'article de manière sécurisée
-        const articleCard = document.querySelector(`[data-article-id="${panierId}"]`);
-        if (!articleCard) {
-            showNotification('❌ Article non trouvé dans l\'interface', 'error');
-            return;
-        }
-        
-        let articleData = null;
-        try {
-            const articleDataString = articleCard.dataset.article;
-            articleData = JSON.parse(articleDataString);
-        } catch (jsonError) {
-            console.error('Erreur de parsing JSON:', jsonError);
-            console.log('Données brutes:', articleCard.dataset.article);
-            showNotification('❌ Erreur de données article', 'error');
-            return;
-        }
-        
-        fetch(`/operateur-logistique/commande/{{ commande.id }}/modifier-quantite/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': csrfToken
-            },
-            body: new URLSearchParams({
-                'panier_id': panierId,
-                'quantite': nouvelleQuantite
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                // Afficher une notification adaptée selon le statut de la commande
-                if (isCommandeConfirmee()) {
-                    const difference = parseInt(nouvelleQuantite) - parseInt(quantiteActuelle);
-                    showStockNotification('modification', articleData.nom, nouvelleQuantite, difference);
-                } else {
-                    showNotification('✅ Quantité modifiée avec succès', 'success');
-                }
-                
-                rafraichirSectionArticles();
-            } else {
-                // Vérifier si c'est une erreur de stock
-                if (data.error && data.error.includes('Stock insuffisant')) {
-                    const difference = parseInt(nouvelleQuantite) - parseInt(quantiteActuelle);
-                    showStockNotification('stock_insuffisant', articleData.nom, Math.abs(difference));
-                } else {
-                    showNotification('❌ Erreur: ' + data.error, 'error');
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            showNotification('❌ Erreur de réseau: ' + error.message, 'error');
-        });
-    }
+function modifierQuantite(panierId, deltaOrMode, newValue) {
+    // FONCTION DÉSACTIVÉE - Mode lecture seule
+    console.log('Modification de quantité désactivée - Mode lecture seule');
+    showNotification('⚠️ Modification désactivée : La section Articles du Panier est en mode lecture seule', 'warning');
+    return false;
 }
 
 function chargerArticles() {
@@ -1943,6 +1792,14 @@ function rafraichirSectionArticles() {
 }
 
 function showNotification(message, type = 'info') {
+    // === CONSOLE LOG POUR ATTESTER LA NOTIFICATION ===
+    console.log('🔔 [NOTIFICATION] Affichage d\'une notification:', {
+        message: message,
+        type: type,
+        timestamp: new Date().toISOString(),
+        function: 'showNotification (v1)'
+    });
+    
     // Créer et afficher une notification toast
     const toast = document.createElement('div');
     toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ${
@@ -1958,9 +1815,19 @@ function showNotification(message, type = 'info') {
     
     document.body.appendChild(toast);
     
+    // === CONSOLE LOG POUR SUIVI DE L'AFFICHAGE ===
+    console.log('📱 [NOTIFICATION] Toast ajouté au DOM:', {
+        duration: type === 'warning' ? 7000 : 3000,
+        timestamp: new Date().toISOString()
+    });
+    
     // Supprimer automatiquement après 3 secondes (plus long pour les avertissements)
     const duration = type === 'warning' ? 7000 : 3000;
     setTimeout(() => {
+        console.log('🗑️ [NOTIFICATION] Suppression automatique du toast:', {
+            message: message.substring(0, 50) + '...',
+            timestamp: new Date().toISOString()
+        });
         toast.remove();
     }, duration);
 }
@@ -2024,7 +1891,6 @@ document.addEventListener('DOMContentLoaded', function() {
         switch(actionParam) {
             case 'Reportée':
             case 'Livrée':
-            case 'Livrée avec changement':
             case 'Retournée':
                 openSavModal(actionParam);
                 break;
@@ -2540,6 +2406,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Fonction pour afficher les notifications
 function showNotification(message, type = 'info') {
+    // === CONSOLE LOG POUR ATTESTER LA NOTIFICATION ===
+    console.log('🔔 [NOTIFICATION] Affichage d\'une notification:', {
+        message: message,
+        type: type,
+        timestamp: new Date().toISOString(),
+        function: 'showNotification (v2)',
+        location: 'operatLogistic/detail_commande.html'
+    });
+    
     // Créer l'élément de notification
     const notification = document.createElement('div');
     notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 translate-x-full`;
@@ -2575,16 +2450,33 @@ function showNotification(message, type = 'info') {
     // Ajouter au DOM
     document.body.appendChild(notification);
     
+    // === CONSOLE LOG POUR SUIVI DE L'AFFICHAGE ===
+    console.log('📱 [NOTIFICATION] Notification ajoutée au DOM:', {
+        message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+        type: type,
+        timestamp: new Date().toISOString()
+    });
+    
     // Animation d'entrée
     setTimeout(() => {
         notification.classList.remove('translate-x-full');
+        console.log('✨ [NOTIFICATION] Animation d\'entrée déclenchée:', {
+            timestamp: new Date().toISOString()
+        });
     }, 100);
     
     // Auto-suppression après 5 secondes
     setTimeout(() => {
+        console.log('⏰ [NOTIFICATION] Début de l\'animation de sortie:', {
+            message: message.substring(0, 30) + '...',
+            timestamp: new Date().toISOString()
+        });
         notification.classList.add('translate-x-full');
         setTimeout(() => {
             if (notification.parentElement) {
+                console.log('🗑️ [NOTIFICATION] Suppression définitive:', {
+                    timestamp: new Date().toISOString()
+                });
                 notification.remove();
             }
         }, 300);
@@ -2729,18 +2621,7 @@ function modifierQuantite(panierId, delta, nouvelleQuantite = null) {
     });
 }
 
-// Fonction pour calculer le total avec frais de livraison
-function calculerTotalAvecLivraison() {
-    const fraisLivraison = parseFloat('{{ commande.ville.frais_livraison|default:0 }}') || 0;
-    const totalArticles = parseFloat('{{ commande.total_cmd|floatformat:2 }}') || 0;
-    const totalAvecLivraison = totalArticles + fraisLivraison;
-    
-    // Mettre à jour l'affichage du total
-    const totalElement = document.getElementById('total-commande');
-    if (totalElement) {
-        totalElement.textContent = totalAvecLivraison.toFixed(2) + ' DH';
-    }
-}
+
 
 // Fonction pour basculer l'affichage de la timeline
 function toggleTimeline() {
