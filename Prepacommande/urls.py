@@ -42,10 +42,10 @@ urlpatterns = [
     path('stock/alertes/', views.alertes_stock, name='alertes_stock'),
     path('stock/statistiques/', views.statistiques_stock, name='statistiques_stock'),
     
-    # === NOUVELLES URLs : RÉPARTITION AUTOMATIQUE ===
-    path('repartition-automatique/', views.repartition_automatique, name='repartition_automatique'),
-    path('repartition-commandes/', views.repartition_commandes, name='repartition_commandes'),
-    path('details-region/', views.details_region_view, name='details_region'),
+    # === URLs SUPPRIMÉES : RÉPARTITION AUTOMATIQUE (DÉPLACÉES VERS ADMIN) ===
+    # path('repartition-automatique/', views.repartition_automatique, name='repartition_automatique'),
+    # path('repartition-commandes/', views.repartition_commandes, name='repartition_commandes'),
+    # path('details-region/', views.details_region_view, name='details_region'),
     
     # === NOUVELLES URLs : EXPORTS CONSOLIDÉS ===
     path('export/commandes-consolidees/csv/', views.export_commandes_consolidees_csv, name='export_commandes_consolidees_csv'),

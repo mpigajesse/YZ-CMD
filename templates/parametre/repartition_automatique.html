@@ -1,0 +1,936 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+{% load humanize %}
+{% load prepa_filters %}
+
+{% block title %}Répartition Automatique - YZ-CMD Admin{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Cartes KPI avec fond blanc et accents admin */
+    .kpi-card {
+        background-color: #fff;
+        color: #1f2937;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid #e5e7eb;
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        border-color: #3b82f6;
+    }
+    .kpi-card .text-2xl {
+        color: #1f2937 !important;
+    }
+    .kpi-card .text-sm {
+        color: #6b7280 !important;
+    }
+    
+    /* Cartes de contenu avec fond blanc */
+    .content-card {
+        background-color: #fff;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* En-têtes de cartes avec thème admin */
+    .card-header {
+        background-color: #1f2937;
+        color: #ffffff;
+        border-bottom-color: #3b82f6;
+    }
+    
+    /* Tableaux avec fond blanc */
+    .content-card tbody {
+        background-color: #fff;
+    }
+    .content-card tbody tr {
+        border-color: #e5e7eb;
+    }
+    .content-card tbody tr:hover {
+        background-color: #f9fafb !important;
+    }
+    .content-card tbody td {
+        color: #374151;
+    }
+    .content-card tbody .text-gray-500 {
+        color: #6b7280 !important;
+    }
+    
+    /* Cartes de région avec fond blanc */
+    .region-card {
+        background-color: #fff;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+    .region-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        border-color: #3b82f6;
+    }
+    
+    /* Statuts avec couleurs appropriées */
+    .status-termine {
+        background-color: #f0fdf4;
+        border-color: #bbf7d0;
+        color: #166534;
+    }
+    .status-encours {
+        background-color: #eff6ff;
+        border-color: #dbeafe;
+        color: #1e40af;
+    }
+    .status-attente {
+        background-color: #fffbeb;
+        border-color: #fed7aa;
+        color: #92400e;
+    }
+    
+    /* Boutons avec thème admin */
+    .btn-primary {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+        color: #ffffff;
+    }
+    .btn-primary:hover {
+        background-color: #2563eb;
+        border-color: #2563eb;
+    }
+    
+    .btn-success {
+        background-color: #10b981;
+        border-color: #10b981;
+        color: #ffffff;
+    }
+    .btn-success:hover {
+        background-color: #059669;
+        border-color: #059669;
+    }
+    
+    .btn-warning {
+        background-color: #f59e0b;
+        border-color: #f59e0b;
+        color: #ffffff;
+    }
+    .btn-warning:hover {
+        background-color: #d97706;
+        border-color: #d97706;
+    }
+    
+    /* Formulaires avec thème admin */
+    .form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+    }
+    
+    /* Badges avec thème admin */
+    .badge-primary {
+        background-color: #3b82f6;
+        color: #ffffff;
+    }
+    .badge-success {
+        background-color: #10b981;
+        color: #ffffff;
+    }
+    .badge-warning {
+        background-color: #f59e0b;
+        color: #ffffff;
+    }
+    .badge-danger {
+        background-color: #ef4444;
+        color: #ffffff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-random mr-3" style="color: var(--admin-accent-color);"></i>
+                Répartition Automatique des Commandes
+            </h1>
+            <p style="color: var(--admin-accent-color);">Gestion intelligente de la répartition des commandes vers les opérateurs</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'app_admin:details_region' %}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-map-marked-alt mr-2"></i>Par Région
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiques KPI -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Commandes Confirmées -->
+        <div class="kpi-card p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                        <i class="fas fa-clipboard-check text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Commandes Confirmées</p>
+                        <p class="text-3xl font-bold text-gray-900">{{ total_commandes|intcomma }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Commandes en Livraison -->
+        <div class="kpi-card p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600">
+                        <i class="fas fa-truck text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">En Livraison</p>
+                        <p class="text-3xl font-bold text-gray-900">{{ total_commandes_en_livraison|intcomma }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Montant -->
+        <div class="kpi-card p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Montant Total</p>
+                        <p class="text-3xl font-bold text-gray-900">{{ total_montant_confirmees|intcomma }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Opérateurs Disponibles -->
+        <div class="kpi-card p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                        <i class="fas fa-users text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Opérateurs</p>
+                        <p class="text-3xl font-bold text-gray-900">{{ operateurs_disponibles|intcomma }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Répartition par Région et Opération -->
+    {% if preview_data %}
+    <div class="content-card rounded-xl shadow-lg border p-6 mb-8">
+        <div class="card-header rounded-t-xl p-4 mb-6" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+            <h2 class="text-xl font-bold flex items-center text-white">
+                <i class="fas fa-map-marked-alt mr-2" style="color: var(--admin-accent-color);"></i>
+                Répartition par Région et Opération Spécifique
+            </h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for operateur_id, data in preview_data.items %}
+            <div class="region-card rounded-lg p-4 border">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-gray-900">{{ data.nom_operateur }}</h3>
+                    <div class="flex flex-col items-end">
+                        <span class="badge-primary px-2 py-1 rounded-full text-xs font-medium mb-1">
+                            {{ data.nb_commandes }} commandes
+                        </span>
+                        {% if data.regions %}
+                        <span class="badge-success px-2 py-1 rounded-full text-xs font-medium">
+                            {{ data.regions|length }} région{{ data.regions|length|pluralize }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if data.regions %}
+                <div class="mb-3">
+                    <p class="text-xs text-gray-600 mb-1">Régions assignées :</p>
+                    <div class="flex flex-wrap gap-1">
+                        {% for region in data.regions %}
+                        <span class="badge-warning px-2 py-1 rounded text-xs">{{ region }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="space-y-2">
+                    {% for commande in data.commandes %}
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ commande.id_yz }}</p>
+                            <p class="text-xs text-gray-500">{{ commande.client.prenom }} {{ commande.client.nom }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-900">{{ commande.total_cmd|floatformat:2 }} DH</p>
+                            <p class="text-xs text-gray-500">{{ commande.ville.nom }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Statistiques de Répartition par Région -->
+    <div class="content-card rounded-xl shadow-lg border p-6 mb-8">
+        <div class="card-header rounded-t-xl p-4 mb-6" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+            <h2 class="text-xl font-bold flex items-center text-white">
+                <i class="fas fa-chart-bar mr-2" style="color: var(--admin-accent-color);"></i>
+                Statistiques de Répartition par Région
+            </h2>
+        </div>
+
+        <!-- Barre de recherche flexible et intelligente pour les statistiques de répartition -->
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Recherche par nom de région -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-search mr-1"></i>Rechercher par région
+                    </label>
+                    <input type="text" id="searchRegionRepartition" placeholder="Tapez le nom d'une région..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                </div>
+                
+                <!-- Filtre par nombre de commandes -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-filter mr-1"></i>Filtrer par commandes
+                    </label>
+                    <select id="filterCommandesRepartition" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Toutes les régions</option>
+                        <option value="1">1 commande</option>
+                        <option value="2">2+ commandes</option>
+                        <option value="5">5+ commandes</option>
+                        <option value="10">10+ commandes</option>
+                    </select>
+                </div>
+                
+                <!-- Filtre par montant -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-coins mr-1"></i>Filtrer par montant
+                    </label>
+                    <select id="filterMontantRepartition" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Tous les montants</option>
+                        <option value="1000">1000+ DH</option>
+                        <option value="2000">2000+ DH</option>
+                        <option value="5000">5000+ DH</option>
+                        <option value="10000">10000+ DH</option>
+                    </select>
+                </div>
+                
+                <!-- Bouton de réinitialisation -->
+                <div class="flex items-end">
+                    <button id="resetFiltersRepartition" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors">
+                        <i class="fas fa-undo mr-1"></i>Réinitialiser
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Indicateurs de recherche active -->
+            <div id="searchIndicatorsRepartition" class="mt-3 flex flex-wrap gap-2 hidden">
+                <span class="text-xs text-gray-600">Filtres actifs :</span>
+                <span id="regionRepartitionFilter" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs hidden">
+                    Région: <span id="regionRepartitionValue"></span>
+                    <button onclick="removeFilterRepartition('region')" class="ml-1 text-blue-600 hover:text-blue-800">×</button>
+                </span>
+                <span id="commandesRepartitionFilter" class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs hidden">
+                    Commandes: <span id="commandesRepartitionValue"></span>
+                    <button onclick="removeFilterRepartition('commandes')" class="ml-1 text-green-600 hover:text-green-800">×</button>
+                </span>
+                <span id="montantRepartitionFilter" class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs hidden">
+                    Montant: <span id="montantRepartitionValue"></span>
+                    <button onclick="removeFilterRepartition('montant')" class="ml-1 text-yellow-600 hover:text-yellow-800">×</button>
+                </span>
+            </div>
+        </div>
+
+        {% if stats_par_region %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for stat in stats_par_region %}
+            <div class="region-card rounded-lg p-4 border searchable-card-repartition" 
+                 data-region="{{ stat.ville__region__nom_region|lower }}"
+                 data-commandes="{{ stat.nb_commandes }}"
+                 data-montant="{{ stat.total_montant }}">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-gray-900">{{ stat.ville__region__nom_region }}</h3>
+                    <span class="badge-primary px-2 py-1 rounded-full text-xs font-medium">
+                        {{ stat.nb_commandes }} commandes
+                    </span>
+                </div>
+                
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Montant total :</span>
+                        <span class="font-medium">{{ stat.total_montant|floatformat:2 }} DH</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Moyenne par commande :</span>
+                        <span class="font-medium">
+                            {% if stat.nb_commandes > 0 %}
+                                {{ stat.total_montant|div:stat.nb_commandes|floatformat:2 }} DH
+                            {% else %}
+                                0 DH
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <a href="{% url 'app_admin:details_region' %}?region={{ stat.ville__region__nom_region }}" 
+                       class="btn-primary px-3 py-1 rounded text-xs font-medium transition-colors">
+                        <i class="fas fa-eye mr-1"></i>Voir détails
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <i class="fas fa-chart-bar text-4xl text-gray-400 mb-4"></i>
+            <p class="text-gray-500">Aucune statistique de répartition par région disponible</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Historique des Répartitions -->
+    <div class="content-card rounded-xl shadow-lg border p-6 mb-8">
+        <div class="card-header rounded-t-xl p-4 mb-6" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+            <h2 class="text-xl font-bold flex items-center text-white">
+                <i class="fas fa-history mr-2" style="color: var(--admin-accent-color);"></i>
+                Historique des Répartitions
+            </h2>
+        </div>
+
+        <!-- Barre de recherche flexible et intelligente pour l'historique des répartitions -->
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Recherche par opérateur -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-user mr-1"></i>Rechercher par opérateur
+                    </label>
+                    <input type="text" id="searchOperateur" placeholder="Tapez le nom d'un opérateur..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                </div>
+                
+                <!-- Filtre par région -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-globe mr-1"></i>Filtrer par région
+                    </label>
+                    <select id="filterRegionHistorique" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Toutes les régions</option>
+                        {% for stat in stats_par_region %}
+                        <option value="{{ stat.ville__region__nom_region }}">{{ stat.ville__region__nom_region }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtre par statut -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-tasks mr-1"></i>Filtrer par statut
+                    </label>
+                    <select id="filterStatut" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Tous les statuts</option>
+                        <option value="TERMINE">Terminé</option>
+                        <option value="EN_COURS">En cours</option>
+                        <option value="EN_ATTENTE">En attente</option>
+                    </select>
+                </div>
+                
+                <!-- Filtre par nombre de commandes -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-filter mr-1"></i>Filtrer par commandes
+                    </label>
+                    <select id="filterCommandesHistorique" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Toutes les commandes</option>
+                        <option value="1">1 commande</option>
+                        <option value="2">2+ commandes</option>
+                        <option value="5">5+ commandes</option>
+                        <option value="10">10+ commandes</option>
+                    </select>
+                </div>
+                
+                <!-- Bouton de réinitialisation -->
+                <div class="flex items-end">
+                    <button id="resetFiltersHistorique" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors">
+                        <i class="fas fa-undo mr-1"></i>Réinitialiser
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Indicateurs de recherche active -->
+            <div id="searchIndicatorsHistorique" class="mt-3 flex flex-wrap gap-2 hidden">
+                <span class="text-xs text-gray-600">Filtres actifs :</span>
+                <span id="operateurFilter" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs hidden">
+                    Opérateur: <span id="operateurValue"></span>
+                    <button onclick="removeFilterHistorique('operateur')" class="ml-1 text-blue-600 hover:text-blue-800">×</button>
+                </span>
+                <span id="regionHistoriqueFilter" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs hidden">
+                    Région: <span id="regionHistoriqueValue"></span>
+                    <button onclick="removeFilterHistorique('region')" class="ml-1 text-purple-600 hover:text-purple-800">×</button>
+                </span>
+                <span id="statutFilter" class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs hidden">
+                    Statut: <span id="statutValue"></span>
+                    <button onclick="removeFilterHistorique('statut')" class="ml-1 text-orange-600 hover:text-orange-800">×</button>
+                </span>
+                <span id="commandesHistoriqueFilter" class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs hidden">
+                    Commandes: <span id="commandesHistoriqueValue"></span>
+                    <button onclick="removeFilterHistorique('commandes')" class="ml-1 text-green-600 hover:text-green-800">×</button>
+                </span>
+            </div>
+        </div>
+
+        {% if historique_repartitions %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opérateur</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commandes</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for repartition in historique_repartitions %}
+                    <tr class="hover:bg-gray-50 searchable-row-historique" 
+                        data-operateur="{{ repartition.nom_operateur|lower }}"
+                        data-region="{{ repartition.region.nom_region|default:'toutes les régions'|lower }}"
+                        data-statut="{{ repartition.statut|lower }}"
+                        data-commandes="{{ repartition.nb_commandes }}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ repartition.date_creation|date:"d/m/Y" }}</div>
+                            <div class="text-sm text-gray-500">{{ repartition.date_creation|time:"H:i" }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                        <span class="text-sm font-medium text-blue-600">
+                                            {{ repartition.nom_operateur|slice:":2"|upper }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">{{ repartition.nom_operateur }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ repartition.region.nom_region|default:"Toutes les régions" }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ repartition.nb_commandes|intcomma }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if repartition.statut == 'TERMINE' %}
+                            <span class="status-termine px-2 py-1 text-xs font-medium rounded-full">Terminé</span>
+                            {% elif repartition.statut == 'EN_COURS' %}
+                            <span class="status-encours px-2 py-1 text-xs font-medium rounded-full">En cours</span>
+                            {% else %}
+                            <span class="status-attente px-2 py-1 text-xs font-medium rounded-full">En attente</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button class="text-blue-600 hover:text-blue-900" 
+                                    onclick="voirDetailsRepartition({{ repartition.id }})">
+                                <i class="fas fa-eye mr-1"></i>Détails
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <i class="fas fa-history text-4xl text-gray-400 mb-4"></i>
+            <p class="text-gray-500">Aucun historique de répartition disponible</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal pour les détails de répartition -->
+<div id="detailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Détails de la Répartition</h3>
+            <div id="detailsContent">
+                <!-- Le contenu sera injecté via JavaScript -->
+            </div>
+            <div class="flex justify-end mt-6">
+                <button onclick="fermerModal()" class="btn-primary px-4 py-2 rounded-lg">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function voirDetailsRepartition(repartitionId) {
+    // Simuler l'affichage des détails
+    document.getElementById('detailsContent').innerHTML = `
+        <p><strong>ID :</strong> ${repartitionId}</p>
+        <p><strong>Date :</strong> ${new Date().toLocaleDateString()}</p>
+        <p><strong>Statut :</strong> Terminé</p>
+        <p><strong>Commandes réparties :</strong> 15</p>
+    `;
+    document.getElementById('detailsModal').classList.remove('hidden');
+}
+
+function fermerModal() {
+    document.getElementById('detailsModal').classList.add('hidden');
+}
+
+// Fermer le modal en cliquant à l'extérieur
+document.getElementById('detailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        fermerModal();
+    }
+});
+
+// Fonctionnalité de recherche flexible et intelligente pour les statistiques de répartition
+document.addEventListener('DOMContentLoaded', function() {
+    const searchRegionRepartition = document.getElementById('searchRegionRepartition');
+    const filterCommandesRepartition = document.getElementById('filterCommandesRepartition');
+    const filterMontantRepartition = document.getElementById('filterMontantRepartition');
+    const resetFiltersRepartition = document.getElementById('resetFiltersRepartition');
+    const searchIndicatorsRepartition = document.getElementById('searchIndicatorsRepartition');
+    const cards = document.querySelectorAll('.searchable-card-repartition');
+    
+    let activeFiltersRepartition = {
+        region: '',
+        commandes: '',
+        montant: ''
+    };
+    
+    // Fonction de filtrage pour les statistiques de répartition
+    function filterCardsRepartition() {
+        let visibleCount = 0;
+        
+        cards.forEach(card => {
+            const region = card.dataset.region;
+            const commandes = parseInt(card.dataset.commandes);
+            const montant = parseFloat(card.dataset.montant);
+            
+            let show = true;
+            
+            // Filtre par région
+            if (activeFiltersRepartition.region && !region.includes(activeFiltersRepartition.region.toLowerCase())) {
+                show = false;
+            }
+            
+            // Filtre par nombre de commandes
+            if (activeFiltersRepartition.commandes && commandes < parseInt(activeFiltersRepartition.commandes)) {
+                show = false;
+            }
+            
+            // Filtre par montant
+            if (activeFiltersRepartition.montant && montant < parseFloat(activeFiltersRepartition.montant)) {
+                show = false;
+            }
+            
+            if (show) {
+                card.style.display = 'block';
+                card.style.opacity = '1';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+                card.style.opacity = '0';
+            }
+        });
+        
+        // Afficher/masquer les indicateurs de recherche
+        updateSearchIndicatorsRepartition();
+        
+        // Animation de transition
+        cards.forEach(card => {
+            card.style.transition = 'opacity 0.3s ease-in-out';
+        });
+    }
+    
+    // Mise à jour des indicateurs de recherche pour les statistiques de répartition
+    function updateSearchIndicatorsRepartition() {
+        const hasActiveFilters = Object.values(activeFiltersRepartition).some(filter => filter !== '');
+        searchIndicatorsRepartition.classList.toggle('hidden', !hasActiveFilters);
+        
+        // Mettre à jour les valeurs des indicateurs
+        if (activeFiltersRepartition.region) {
+            document.getElementById('regionRepartitionValue').textContent = activeFiltersRepartition.region;
+            document.getElementById('regionRepartitionFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('regionRepartitionFilter').classList.add('hidden');
+        }
+        
+        if (activeFiltersRepartition.commandes) {
+            const commandesText = filterCommandesRepartition.options[filterCommandesRepartition.selectedIndex].text;
+            document.getElementById('commandesRepartitionValue').textContent = commandesText;
+            document.getElementById('commandesRepartitionFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('commandesRepartitionFilter').classList.add('hidden');
+        }
+        
+        if (activeFiltersRepartition.montant) {
+            const montantText = filterMontantRepartition.options[filterMontantRepartition.selectedIndex].text;
+            document.getElementById('montantRepartitionValue').textContent = montantText;
+            document.getElementById('montantRepartitionFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('montantRepartitionFilter').classList.add('hidden');
+        }
+    }
+    
+    // Événements de recherche pour les statistiques de répartition
+    searchRegionRepartition.addEventListener('input', function() {
+        activeFiltersRepartition.region = this.value;
+        filterCardsRepartition();
+    });
+    
+    filterCommandesRepartition.addEventListener('change', function() {
+        activeFiltersRepartition.commandes = this.value;
+        filterCardsRepartition();
+    });
+    
+    filterMontantRepartition.addEventListener('change', function() {
+        activeFiltersRepartition.montant = this.value;
+        filterCardsRepartition();
+    });
+    
+    // Réinitialisation des filtres pour les statistiques de répartition
+    resetFiltersRepartition.addEventListener('click', function() {
+        searchRegionRepartition.value = '';
+        filterCommandesRepartition.value = '';
+        filterMontantRepartition.value = '';
+        activeFiltersRepartition = { region: '', commandes: '', montant: '' };
+        filterCardsRepartition();
+    });
+    
+    // Fonction pour supprimer un filtre spécifique pour les statistiques de répartition
+    window.removeFilterRepartition = function(type) {
+        switch(type) {
+            case 'region':
+                searchRegionRepartition.value = '';
+                activeFiltersRepartition.region = '';
+                break;
+            case 'commandes':
+                filterCommandesRepartition.value = '';
+                activeFiltersRepartition.commandes = '';
+                break;
+            case 'montant':
+                filterMontantRepartition.value = '';
+                activeFiltersRepartition.montant = '';
+                break;
+        }
+        filterCardsRepartition();
+    };
+    
+    // Recherche intelligente avec suggestions pour les statistiques de répartition
+    searchRegionRepartition.addEventListener('focus', function() {
+        this.placeholder = 'Ex: MEKNÈS, OUJDA, SAFI...';
+    });
+    
+    searchRegionRepartition.addEventListener('blur', function() {
+        this.placeholder = 'Tapez le nom d\'une région...';
+    });
+    
+    // Initialisation pour les statistiques de répartition
+    filterCardsRepartition();
+});
+
+// Fonctionnalité de recherche flexible et intelligente pour l'historique des répartitions
+document.addEventListener('DOMContentLoaded', function() {
+    const searchOperateur = document.getElementById('searchOperateur');
+    const filterRegionHistorique = document.getElementById('filterRegionHistorique');
+    const filterStatut = document.getElementById('filterStatut');
+    const filterCommandesHistorique = document.getElementById('filterCommandesHistorique');
+    const resetFiltersHistorique = document.getElementById('resetFiltersHistorique');
+    const searchIndicatorsHistorique = document.getElementById('searchIndicatorsHistorique');
+    const rows = document.querySelectorAll('.searchable-row-historique');
+    
+    let activeFiltersHistorique = {
+        operateur: '',
+        region: '',
+        statut: '',
+        commandes: ''
+    };
+    
+    // Fonction de filtrage pour l'historique des répartitions
+    function filterRowsHistorique() {
+        let visibleCount = 0;
+        
+        rows.forEach(row => {
+            const operateur = row.dataset.operateur;
+            const region = row.dataset.region;
+            const statut = row.dataset.statut;
+            const commandes = parseInt(row.dataset.commandes);
+            
+            let show = true;
+            
+            // Filtre par opérateur
+            if (activeFiltersHistorique.operateur && !operateur.includes(activeFiltersHistorique.operateur.toLowerCase())) {
+                show = false;
+            }
+            
+            // Filtre par région
+            if (activeFiltersHistorique.region && !region.includes(activeFiltersHistorique.region.toLowerCase())) {
+                show = false;
+            }
+            
+            // Filtre par statut
+            if (activeFiltersHistorique.statut && statut !== activeFiltersHistorique.statut.toLowerCase()) {
+                show = false;
+            }
+            
+            // Filtre par nombre de commandes
+            if (activeFiltersHistorique.commandes && commandes < parseInt(activeFiltersHistorique.commandes)) {
+                show = false;
+            }
+            
+            if (show) {
+                row.style.display = 'table-row';
+                row.style.opacity = '1';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+                row.style.opacity = '0';
+            }
+        });
+        
+        // Afficher/masquer les indicateurs de recherche
+        updateSearchIndicatorsHistorique();
+        
+        // Animation de transition
+        rows.forEach(row => {
+            row.style.transition = 'opacity 0.3s ease-in-out';
+        });
+    }
+    
+    // Mise à jour des indicateurs de recherche pour l'historique
+    function updateSearchIndicatorsHistorique() {
+        const hasActiveFilters = Object.values(activeFiltersHistorique).some(filter => filter !== '');
+        searchIndicatorsHistorique.classList.toggle('hidden', !hasActiveFilters);
+        
+        // Mettre à jour les valeurs des indicateurs
+        if (activeFiltersHistorique.operateur) {
+            document.getElementById('operateurValue').textContent = activeFiltersHistorique.operateur;
+            document.getElementById('operateurFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('operateurFilter').classList.add('hidden');
+        }
+        
+        if (activeFiltersHistorique.region) {
+            document.getElementById('regionHistoriqueValue').textContent = activeFiltersHistorique.region;
+            document.getElementById('regionHistoriqueFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('regionHistoriqueFilter').classList.add('hidden');
+        }
+        
+        if (activeFiltersHistorique.statut) {
+            const statutText = filterStatut.options[filterStatut.selectedIndex].text;
+            document.getElementById('statutValue').textContent = statutText;
+            document.getElementById('statutFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('statutFilter').classList.add('hidden');
+        }
+        
+        if (activeFiltersHistorique.commandes) {
+            const commandesText = filterCommandesHistorique.options[filterCommandesHistorique.selectedIndex].text;
+            document.getElementById('commandesHistoriqueValue').textContent = commandesText;
+            document.getElementById('commandesHistoriqueFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('commandesHistoriqueFilter').classList.add('hidden');
+        }
+    }
+    
+    // Événements de recherche pour l'historique
+    searchOperateur.addEventListener('input', function() {
+        activeFiltersHistorique.operateur = this.value;
+        filterRowsHistorique();
+    });
+    
+    filterRegionHistorique.addEventListener('change', function() {
+        activeFiltersHistorique.region = this.value;
+        filterRowsHistorique();
+    });
+    
+    filterStatut.addEventListener('change', function() {
+        activeFiltersHistorique.statut = this.value;
+        filterRowsHistorique();
+    });
+    
+    filterCommandesHistorique.addEventListener('change', function() {
+        activeFiltersHistorique.commandes = this.value;
+        filterRowsHistorique();
+    });
+    
+    // Réinitialisation des filtres pour l'historique
+    resetFiltersHistorique.addEventListener('click', function() {
+        searchOperateur.value = '';
+        filterRegionHistorique.value = '';
+        filterStatut.value = '';
+        filterCommandesHistorique.value = '';
+        activeFiltersHistorique = { operateur: '', region: '', statut: '', commandes: '' };
+        filterRowsHistorique();
+    });
+    
+    // Fonction pour supprimer un filtre spécifique pour l'historique
+    window.removeFilterHistorique = function(type) {
+        switch(type) {
+            case 'operateur':
+                searchOperateur.value = '';
+                activeFiltersHistorique.operateur = '';
+                break;
+            case 'region':
+                filterRegionHistorique.value = '';
+                activeFiltersHistorique.region = '';
+                break;
+            case 'statut':
+                filterStatut.value = '';
+                activeFiltersHistorique.statut = '';
+                break;
+            case 'commandes':
+                filterCommandesHistorique.value = '';
+                activeFiltersHistorique.commandes = '';
+                break;
+        }
+        filterRowsHistorique();
+    };
+    
+    // Recherche intelligente avec suggestions pour l'historique
+    searchOperateur.addEventListener('focus', function() {
+        this.placeholder = 'Ex: PR PrenomLO1, Admin...';
+    });
+    
+    searchOperateur.addEventListener('blur', function() {
+        this.placeholder = 'Tapez le nom d\'un opérateur...';
+    });
+    
+    // Initialisation pour l'historique
+    filterRowsHistorique();
+});
+</script>
+{% endblock %} 

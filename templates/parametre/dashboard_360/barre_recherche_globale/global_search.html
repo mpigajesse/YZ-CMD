@@ -1,0 +1,834 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Recherche Globale - Administration{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .search-input-container {
+        position: relative;
+        margin-bottom: 2rem;
+    }
+    
+    .search-input {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        font-size: 1.125rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .search-input-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+        font-size: 1.25rem;
+    }
+    
+    .search-input:focus + .search-input-icon {
+        color: #3b82f6;
+    }
+    
+    .filter-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .filter-button {
+        padding: 0.5rem 1rem;
+        border: 1px solid #d1d5db;
+        border-radius: 20px;
+        background: white;
+        color: #374151;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .filter-button:hover {
+        background: #f9fafb;
+        border-color: #9ca3af;
+    }
+    
+    .filter-button.active {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+    }
+    
+    .search-results {
+        display: grid;
+        gap: 1.5rem;
+    }
+    
+    .results-category {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .category-header {
+        padding: 1rem 1.5rem;
+        background: #f8fafc;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: between;
+    }
+    
+    .category-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #374151;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .category-count {
+        background: #3b82f6;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .results-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .result-item {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #f3f4f6;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .result-item:hover {
+        background: #f9fafb;
+        transform: translateX(4px);
+    }
+    
+    .result-item:last-child {
+        border-bottom: none;
+    }
+    
+    .result-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+    
+    .result-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .result-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 0.25rem;
+        line-height: 1.4;
+    }
+    
+    .result-subtitle {
+        font-size: 0.75rem;
+        color: #6b7280;
+        line-height: 1.4;
+    }
+    
+    .result-status {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .search-stats {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 1rem;
+        background: #f8fafc;
+        border-radius: 8px;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #3b82f6;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        font-weight: 500;
+    }
+    
+    .suggestions-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .suggestions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .suggestion-item {
+        padding: 0.75rem 1rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+    }
+    
+    .suggestion-item:hover {
+        background: #e0f2fe;
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+    }
+    
+    .suggestion-text {
+        font-size: 0.875rem;
+        color: #374151;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    
+    .suggestion-category {
+        font-size: 0.75rem;
+        color: #6b7280;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .search-highlight {
+        background: #fef3c7;
+        padding: 0.125rem 0.25rem;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #f3f4f6;
+        border-radius: 50%;
+        border-top-color: #3b82f6;
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6b7280;
+    }
+    
+    .no-results-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #d1d5db;
+    }
+    
+    .search-tips {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .search-tips-title {
+        font-weight: 600;
+        color: #0369a1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .search-tips-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        font-size: 0.875rem;
+        color: #0c4a6e;
+    }
+    
+    .search-tips-list li {
+        margin-bottom: 0.25rem;
+        padding-left: 1rem;
+        position: relative;
+    }
+    
+    .search-tips-list li:before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        color: #3b82f6;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .search-input {
+            font-size: 1rem;
+            padding: 0.875rem 1.25rem;
+        }
+        
+        .filter-buttons {
+            justify-content: center;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .suggestions-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Animations */
+    .fade-in {
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Status colors */
+    .status-active { background: #dcfce7; color: #166534; }
+    .status-inactive { background: #fee2e2; color: #991b1b; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-completed { background: #dbeafe; color: #1e40af; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+    .status-warning { background: #fef3c7; color: #92400e; }
+    .status-info { background: #dbeafe; color: #1e40af; }
+    .status-success { background: #dcfce7; color: #166534; }
+    .status-default { background: #f3f4f6; color: #374151; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="search-container">
+        <!-- En-tête -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Recherche Globale Intelligente</h1>
+            <p class="text-gray-600">Recherchez dans l'intégralité de l'interface d'administration</p>
+        </div>
+
+        <!-- Conseils de recherche -->
+        <div class="search-tips">
+            <div class="search-tips-title">
+                <i class="fas fa-lightbulb mr-2"></i>Conseils de recherche
+            </div>
+            <ul class="search-tips-list">
+                <li>Utilisez des mots-clés spécifiques : "commande 123", "ahmed", "casablanca"</li>
+                <li>Recherchez par statut : "confirmée", "préparée", "livrée"</li>
+                <li>Filtrez par montant : "plus de 1000 dh", "prix 500"</li>
+                <li>Accédez aux fonctionnalités : "kpi", "export", "sav", "configuration"</li>
+                <li>Utilisez les raccourcis : Ctrl+K pour focus, ↑↓ pour naviguer</li>
+            </ul>
+        </div>
+
+        <!-- Barre de recherche principale -->
+        <div class="search-input-container">
+            <input type="text" 
+                   id="mainSearchInput" 
+                   class="search-input"
+                   placeholder="Recherche intelligente... (ex: commande 123, ahmed, casablanca, kpi, export...)"
+                   autocomplete="off">
+            <i class="fas fa-search search-input-icon"></i>
+        </div>
+
+        <!-- Filtres -->
+        <div class="filter-buttons">
+            <button class="filter-button active" data-category="all">
+                <i class="fas fa-globe mr-2"></i>Tout
+            </button>
+            <button class="filter-button" data-category="commandes">
+                <i class="fas fa-shopping-cart mr-2"></i>Commandes
+            </button>
+            <button class="filter-button" data-category="operateurs">
+                <i class="fas fa-user mr-2"></i>Opérateurs
+            </button>
+            <button class="filter-button" data-category="regions">
+                <i class="fas fa-map mr-2"></i>Régions
+            </button>
+            <button class="filter-button" data-category="villes">
+                <i class="fas fa-map-marker-alt mr-2"></i>Villes
+            </button>
+            <button class="filter-button" data-category="articles">
+                <i class="fas fa-box mr-2"></i>Articles
+            </button>
+            <button class="filter-button" data-category="statistiques">
+                <i class="fas fa-chart-bar mr-2"></i>Fonctionnalités
+            </button>
+        </div>
+
+        <!-- Statistiques de recherche -->
+        <div class="search-stats" id="searchStats">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-chart-pie mr-2"></i>Statistiques de recherche
+            </h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number" id="totalResults">0</div>
+                    <div class="stat-label">Résultats totaux</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="commandesCount">0</div>
+                    <div class="stat-label">Commandes</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="operateursCount">0</div>
+                    <div class="stat-label">Opérateurs</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="regionsCount">0</div>
+                    <div class="stat-label">Régions</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="villesCount">0</div>
+                    <div class="stat-label">Villes</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="articlesCount">0</div>
+                    <div class="stat-label">Articles</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="statistiquesCount">0</div>
+                    <div class="stat-label">Fonctionnalités</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Suggestions -->
+        <div class="suggestions-section" id="suggestionsSection">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-lightbulb mr-2"></i>Suggestions de recherche
+            </h3>
+            <div class="suggestions-grid" id="suggestionsGrid">
+                <!-- Les suggestions seront injectées ici -->
+            </div>
+        </div>
+
+        <!-- Résultats de recherche -->
+        <div id="searchResults" class="search-results hidden">
+            <!-- Les résultats seront injectés ici -->
+        </div>
+
+        <!-- État de chargement -->
+        <div id="loadingState" class="hidden text-center py-8">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-gray-600">Recherche en cours...</p>
+        </div>
+
+        <!-- Aucun résultat -->
+        <div id="noResults" class="hidden no-results">
+            <div class="no-results-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">Aucun résultat trouvé</h3>
+            <p class="text-gray-600 mb-4">Essayez d'autres mots-clés ou vérifiez l'orthographe</p>
+            <div class="flex justify-center gap-4">
+                <button onclick="clearSearch()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                    <i class="fas fa-times mr-2"></i>Effacer la recherche
+                </button>
+                <button onclick="showSuggestions()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-lightbulb mr-2"></i>Voir les suggestions
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentCategory = 'all';
+let searchTimeout = null;
+let currentQuery = '';
+let searchResults = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSearch();
+    loadSuggestions();
+    updateStats();
+});
+
+function initializeSearch() {
+    const searchInput = document.getElementById('mainSearchInput');
+    const filterButtons = document.querySelectorAll('.filter-button');
+    
+    // Focus sur la barre de recherche
+    searchInput.focus();
+    
+    // Gestion de la saisie
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        currentQuery = query;
+        
+        clearTimeout(searchTimeout);
+        
+        if (query.length >= 2) {
+            showLoading();
+            searchTimeout = setTimeout(() => {
+                performSearch(query, currentCategory);
+            }, 300);
+        } else {
+            hideResults();
+            showSuggestions();
+        }
+    });
+    
+    // Navigation au clavier
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            clearSearch();
+        }
+    });
+    
+    // Filtres par catégorie
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Retirer la classe active de tous les boutons
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            // Ajouter la classe active au bouton cliqué
+            this.classList.add('active');
+            
+            currentCategory = this.dataset.category;
+            
+            if (currentQuery.length >= 2) {
+                performSearch(currentQuery, currentCategory);
+            }
+        });
+    });
+    
+    // Raccourci clavier global
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+}
+
+function performSearch(query, category) {
+    fetch(`{% url 'app_admin:global_search_api' %}?q=${encodeURIComponent(query)}&category=${category}`)
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                displayResults(data.results, query);
+                updateStats(data.results);
+            } else {
+                showError(data.message || 'Erreur lors de la recherche');
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            showError('Erreur de connexion');
+        });
+}
+
+function displayResults(results, query) {
+    const container = document.getElementById('searchResults');
+    let html = '';
+    
+    const categories = [
+        { key: 'commandes', title: 'Commandes', icon: 'fas fa-shopping-cart', color: 'bg-blue-100 text-blue-600' },
+        { key: 'operateurs', title: 'Opérateurs', icon: 'fas fa-user', color: 'bg-green-100 text-green-600' },
+        { key: 'regions', title: 'Régions', icon: 'fas fa-map', color: 'bg-purple-100 text-purple-600' },
+        { key: 'villes', title: 'Villes', icon: 'fas fa-map-marker-alt', color: 'bg-orange-100 text-orange-600' },
+        { key: 'articles', title: 'Articles', icon: 'fas fa-box', color: 'bg-red-100 text-red-600' },
+        { key: 'statistiques', title: 'Fonctionnalités', icon: 'fas fa-chart-bar', color: 'bg-indigo-100 text-indigo-600' }
+    ];
+    
+    let hasResults = false;
+    
+    categories.forEach(category => {
+        const items = results[category.key] || [];
+        if (items.length > 0) {
+            hasResults = true;
+            html += `
+                <div class="results-category fade-in">
+                    <div class="category-header">
+                        <div class="category-title">
+                            <i class="${category.icon} ${category.color} p-2 rounded"></i>
+                            ${category.title}
+                        </div>
+                        <div class="category-count">${items.length}</div>
+                    </div>
+                    <div class="results-list">
+            `;
+            
+            items.forEach(item => {
+                html += createResultItem(item, query);
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    if (!hasResults) {
+        showNoResults();
+        return;
+    }
+    
+    container.innerHTML = html;
+    showResults();
+}
+
+function createResultItem(item, query) {
+    const statusClass = getStatusClass(item.status);
+    const iconColor = getIconColor(item.type);
+    const highlight = item.highlight ? `<span class="search-highlight">${item.highlight}</span>` : '';
+    
+    return `
+        <div class="result-item" onclick="navigateTo('${item.url}')">
+            <div class="result-icon ${iconColor}">
+                <i class="${item.icon}"></i>
+            </div>
+            <div class="result-content">
+                <div class="result-title">
+                    ${highlightQuery(item.title, query)}
+                </div>
+                <div class="result-subtitle">
+                    ${highlightQuery(item.subtitle, query)}
+                    ${highlight ? ` • ${highlight}` : ''}
+                </div>
+            </div>
+            <div class="result-status ${statusClass}">${item.status}</div>
+        </div>
+    `;
+}
+
+function highlightQuery(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(regex, '<mark class="search-highlight">$1</mark>');
+}
+
+function getStatusClass(status) {
+    const statusMap = {
+        'Actif': 'status-active',
+        'Inactif': 'status-inactive',
+        'En cours': 'status-pending',
+        'Terminé': 'status-completed',
+        'Erreur': 'status-error',
+        'Avertissement': 'status-warning',
+        'Info': 'status-info',
+        'Succès': 'status-success',
+        'Nouvelle': 'status-default',
+        'Confirmée': 'status-active',
+        'Préparée': 'status-completed',
+        'Livrée': 'status-success',
+        'Annulée': 'status-error',
+        'En préparation': 'status-pending',
+        'En stock': 'status-success',
+        'Rupture': 'status-error',
+        'Stock faible': 'status-warning',
+        'Disponible': 'status-active'
+    };
+    return statusMap[status] || 'status-default';
+}
+
+function getIconColor(type) {
+    const colorMap = {
+        'commande': 'bg-blue-100 text-blue-600',
+        'operateur': 'bg-green-100 text-green-600',
+        'region': 'bg-purple-100 text-purple-600',
+        'ville': 'bg-orange-100 text-orange-600',
+        'article': 'bg-red-100 text-red-600',
+        'statistique': 'bg-indigo-100 text-indigo-600'
+    };
+    return colorMap[type] || 'bg-gray-100 text-gray-600';
+}
+
+function navigateTo(url) {
+    window.location.href = url;
+}
+
+function loadSuggestions() {
+    fetch(`{% url 'app_admin:search_suggestions_api' %}?q=`)
+        .then(response => response.json())
+        .then(data => {
+            displaySuggestions(data.suggestions);
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des suggestions:', error);
+        });
+}
+
+function displaySuggestions(suggestions) {
+    const grid = document.getElementById('suggestionsGrid');
+    let html = '';
+    
+    suggestions.forEach(suggestion => {
+        html += `
+            <div class="suggestion-item" onclick="useSuggestion('${suggestion.text}', '${suggestion.url || '#'}')">
+                <div class="suggestion-text">${suggestion.text}</div>
+                <div class="suggestion-category">
+                    <i class="${suggestion.icon}"></i>
+                    ${suggestion.category}
+                </div>
+            </div>
+        `;
+    });
+    
+    grid.innerHTML = html;
+}
+
+function useSuggestion(text, url) {
+    const searchInput = document.getElementById('mainSearchInput');
+    searchInput.value = text;
+    searchInput.focus();
+    if (url && url !== '#') {
+        navigateTo(url);
+    } else {
+        performSearch(text, currentCategory);
+    }
+}
+
+function updateStats(results = null) {
+    if (!results) {
+        // Statistiques par défaut
+        document.getElementById('totalResults').textContent = '0';
+        document.getElementById('commandesCount').textContent = '0';
+        document.getElementById('operateursCount').textContent = '0';
+        document.getElementById('regionsCount').textContent = '0';
+        document.getElementById('villesCount').textContent = '0';
+        document.getElementById('articlesCount').textContent = '0';
+        document.getElementById('statistiquesCount').textContent = '0';
+        return;
+    }
+    
+    const total = Object.values(results).reduce((sum, items) => sum + items.length, 0);
+    document.getElementById('totalResults').textContent = total;
+    document.getElementById('commandesCount').textContent = results.commandes?.length || 0;
+    document.getElementById('operateursCount').textContent = results.operateurs?.length || 0;
+    document.getElementById('regionsCount').textContent = results.regions?.length || 0;
+    document.getElementById('villesCount').textContent = results.villes?.length || 0;
+    document.getElementById('articlesCount').textContent = results.articles?.length || 0;
+    document.getElementById('statistiquesCount').textContent = results.statistiques?.length || 0;
+}
+
+function showLoading() {
+    document.getElementById('loadingState').classList.remove('hidden');
+    document.getElementById('searchResults').classList.add('hidden');
+    document.getElementById('noResults').classList.add('hidden');
+    document.getElementById('suggestionsSection').classList.add('hidden');
+}
+
+function hideLoading() {
+    document.getElementById('loadingState').classList.add('hidden');
+}
+
+function showResults() {
+    document.getElementById('searchResults').classList.remove('hidden');
+    document.getElementById('noResults').classList.add('hidden');
+    document.getElementById('suggestionsSection').classList.add('hidden');
+}
+
+function hideResults() {
+    document.getElementById('searchResults').classList.add('hidden');
+    document.getElementById('noResults').classList.add('hidden');
+    document.getElementById('suggestionsSection').classList.remove('hidden');
+}
+
+function showNoResults() {
+    document.getElementById('noResults').classList.remove('hidden');
+    document.getElementById('searchResults').classList.add('hidden');
+    document.getElementById('suggestionsSection').classList.add('hidden');
+}
+
+function showSuggestions() {
+    document.getElementById('suggestionsSection').classList.remove('hidden');
+    document.getElementById('searchResults').classList.add('hidden');
+    document.getElementById('noResults').classList.add('hidden');
+}
+
+function showError(message) {
+    // Afficher l'erreur dans une alerte ou un toast
+    alert(message);
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById('mainSearchInput');
+    searchInput.value = '';
+    currentQuery = '';
+    hideResults();
+    showSuggestions();
+    updateStats();
+    searchInput.focus();
+}
+</script>
+{% endblock %} 

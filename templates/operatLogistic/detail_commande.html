@@ -873,6 +873,7 @@
                     <!-- Ces champs seront remplis dynamiquement par JavaScript juste avant la soumission -->
                     <input type="hidden" name="articles_livres_json" id="articlesLivresJsonInput">
                     <input type="hidden" name="articles_renvoyes_json" id="articlesRenvoyesJsonInput">
+                    <input type="hidden" name="type_retour" id="typeRetourInput" value="preparation">
                     
                     <!-- Section Articles à Livrer -->
                     <div class="mb-8">
@@ -937,7 +938,7 @@
                     <div class="mb-8">
                         <h4 class="text-lg font-semibold text-orange-700 mb-4 flex items-center">
                             <i class="fas fa-undo mr-2"></i>
-                            Articles à Renvoyer en Préparation
+                            Articles à Renvoyer
                         </h4>
                         <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="articlesARenvoyerContainer">
@@ -947,6 +948,38 @@
                             <div id="aucunArticleRenvoyer" class="text-center py-8 text-gray-500">
                                 <i class="fas fa-info-circle text-2xl mb-2"></i>
                                 <p>Aucun article à renvoyer. Tous les articles seront livrés.</p>
+                            </div>
+                            
+                            <!-- Nouvelle section pour le type de retour -->
+                            <div id="typeRetourSection" class="mt-6 p-4 bg-white border border-orange-300 rounded-lg hidden">
+                                <h5 class="text-md font-semibold text-orange-800 mb-3 flex items-center">
+                                    <i class="fas fa-cog mr-2"></i>
+                                    Type de retour pour les articles non livrés
+                                </h5>
+                                <div class="space-y-3">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="retourPreparation" name="type_retour" value="preparation" 
+                                               class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300" checked
+                                               onchange="gererChangementTypeRetour()">
+                                        <label for="retourPreparation" class="ml-3 block text-sm text-gray-700">
+                                            <span class="font-medium text-orange-700">Renvoyer en préparation</span>
+                                            <span class="block text-xs text-gray-500 mt-1">
+                                                Les articles seront renvoyés aux opérateurs de préparation pour traitement (remplacement, correction, etc.)
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="retourDefinitif" name="type_retour" value="definitif" 
+                                               class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
+                                               onchange="gererChangementTypeRetour()">
+                                        <label for="retourDefinitif" class="ml-3 block text-sm text-gray-700">
+                                            <span class="font-medium text-red-700">Retour définitif client</span>
+                                            <span class="block text-xs text-gray-500 mt-1">
+                                                Le client refuse définitivement ces articles. Ils seront retournés au stock et la commande sera fermée.
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -3109,8 +3142,15 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================== GESTION DE LA LIVRAISON PARTIELLE ==================
 
 function ouvrirModalLivraisonPartielle() {
-    document.getElementById('livraisonPartielleModal').classList.remove('hidden');
-    initialiserModalLivraisonPartielle();
+    console.log('DEBUG: Tentative d\'ouverture du modal de livraison partielle');
+    const modal = document.getElementById('livraisonPartielleModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        initialiserModalLivraisonPartielle();
+        console.log('DEBUG: Modal ouvert avec succès');
+    } else {
+        console.error('DEBUG: Modal non trouvé');
+    }
 }
 
 function fermerModalLivraisonPartielle() {
@@ -3138,14 +3178,20 @@ function fermerModalLivraisonPartielle() {
 }
 
 function initialiserModalLivraisonPartielle() {
+    console.log('DEBUG: Initialisation du modal de livraison partielle');
+    
     // Initialiser les événements pour les checkboxes
-    document.querySelectorAll('.article-livrer-checkbox').forEach(checkbox => {
+    const checkboxes = document.querySelectorAll('.article-livrer-checkbox');
+    console.log('DEBUG: Nombre de checkboxes trouvées:', checkboxes.length);
+    checkboxes.forEach(checkbox => {
         checkbox.removeEventListener('change', handleCheckboxChange); // Éviter les doubles écouteurs
         checkbox.addEventListener('change', handleCheckboxChange);
     });
     
     // Initialiser les événements pour les inputs de quantité
-    document.querySelectorAll('.quantite-livrer-input').forEach(input => {
+    const inputs = document.querySelectorAll('.quantite-livrer-input');
+    console.log('DEBUG: Nombre d\'inputs de quantité trouvés:', inputs.length);
+    inputs.forEach(input => {
         input.removeEventListener('change', mettreAJourResumeLivraisonPartielle); // Éviter les doubles écouteurs
         input.removeEventListener('input', mettreAJourResumeLivraisonPartielle); // Éviter les doubles écouteurs
         input.addEventListener('change', mettreAJourResumeLivraisonPartielle);
@@ -3153,13 +3199,27 @@ function initialiserModalLivraisonPartielle() {
     });
 
     // Initialiser les événements pour les selects d'état
-    document.querySelectorAll('.etat-article-renvoye').forEach(select => {
+    const selects = document.querySelectorAll('.etat-article-renvoye');
+    console.log('DEBUG: Nombre de selects d\'état trouvés:', selects.length);
+    selects.forEach(select => {
         select.removeEventListener('change', mettreAJourResumeLivraisonPartielle); // Éviter les doubles écouteurs
         select.addEventListener('change', mettreAJourResumeLivraisonPartielle);
     });
     
     // Mettre à jour le résumé initial
     mettreAJourResumeLivraisonPartielle();
+    console.log('DEBUG: Modal initialisé avec succès');
+    
+    // Ajouter un écouteur d'événements pour le champ commentaire
+    const commentaireInput = document.getElementById('commentaireLivraisonPartielle');
+    if (commentaireInput) {
+        commentaireInput.addEventListener('input', function() {
+            console.log('DEBUG: Commentaire modifié:', this.value);
+            mettreAJourResumeLivraisonPartielle();
+        });
+    } else {
+        console.error('DEBUG: Champ commentaire non trouvé');
+    }
 }
 
 // Handler pour le changement de checkbox
@@ -3183,6 +3243,7 @@ function handleCheckboxChange() {
 }
 
 function mettreAJourResumeLivraisonPartielle() {
+    console.log('DEBUG: Début de miseAJourResumeLivraisonPartielle');
     const articlesLivres = [];
     const articlesRenvoyes = [];
     let totalArticlesLivres = 0;
@@ -3267,6 +3328,18 @@ function mettreAJourResumeLivraisonPartielle() {
     document.getElementById('articlesLivresJsonInput').value = JSON.stringify(articlesLivres);
     document.getElementById('articlesRenvoyesJsonInput').value = JSON.stringify(articlesRenvoyes);
     
+    // Gérer l'affichage de la section de type de retour
+    const typeRetourSection = document.getElementById('typeRetourSection');
+    const aucunArticleRenvoyer = document.getElementById('aucunArticleRenvoyer');
+    
+    if (totalArticlesRenvoyes > 0) {
+        typeRetourSection.classList.remove('hidden');
+        aucunArticleRenvoyer.classList.add('hidden');
+    } else {
+        typeRetourSection.classList.add('hidden');
+        aucunArticleRenvoyer.classList.remove('hidden');
+    }
+    
     // Mettre à jour l'affichage du résumé
     document.getElementById('totalArticlesLivres').textContent = totalArticlesLivres;
     document.getElementById('totalArticlesRenvoyes').textContent = totalArticlesRenvoyes;
@@ -3275,11 +3348,43 @@ function mettreAJourResumeLivraisonPartielle() {
     // Mettre à jour la section des articles à renvoyer
     mettreAJourSectionArticlesRenvoyes(articlesRenvoyes);
     
-    // Activer/désactiver le bouton de confirmation
+    // Le bouton reste toujours activé
     const confirmerBtn = document.getElementById('confirmerLivraisonPartielleBtn');
     const commentaireInput = document.getElementById('commentaireLivraisonPartielle');
     
-    confirmerBtn.disabled = !(commentaireInput.value.trim().length > 0 && (totalArticlesLivres > 0 || totalArticlesRenvoyes > 0));
+    // Suppression de la désactivation conditionnelle - le bouton reste toujours actif
+    confirmerBtn.disabled = false;
+    console.log('DEBUG: Fin de miseAJourResumeLivraisonPartielle - Bouton toujours activé');
+}
+
+// Fonction pour gérer le changement de type de retour
+function gererChangementTypeRetour() {
+    const typeRetourInput = document.getElementById('typeRetourInput');
+    const selectedType = document.querySelector('input[name="type_retour"]:checked').value;
+    
+    typeRetourInput.value = selectedType;
+    
+    // Mettre à jour l'interface selon le type de retour
+    const articlesRenvoyesContainer = document.getElementById('articlesARenvoyerContainer');
+    const articles = articlesRenvoyesContainer.querySelectorAll('.article-renvoye-card');
+    
+    articles.forEach(article => {
+        const etatSelect = article.querySelector('.etat-article-renvoye');
+        if (selectedType === 'definitif') {
+            // Pour un retour définitif, forcer l'état à "bon" et désactiver le select
+            if (etatSelect) {
+                etatSelect.value = 'bon';
+                etatSelect.disabled = true;
+                etatSelect.classList.add('opacity-50');
+            }
+        } else {
+            // Pour un retour en préparation, réactiver le select
+            if (etatSelect) {
+                etatSelect.disabled = false;
+                etatSelect.classList.remove('opacity-50');
+            }
+        }
+    });
 }
 
 // Fonction qui gère l'affichage des articles à renvoyer dans la section dédiée
@@ -3374,11 +3479,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const totalArticlesRenvoyes = articlesRenvoyes.reduce((acc, a) => acc + (a.quantite || 0), 0);
             const totalValeurLivree = articlesLivres.reduce((acc, a) => acc + (a.quantite * a.prix || 0), 0);
             
-            // Validation de base
-            if (articlesLivres.length === 0 && articlesRenvoyes.length === 0) {
-                showNotification('⚠️ Veuillez sélectionner au moins un article à livrer ou à renvoyer', 'warning');
-                return;
-            }
+            // Suppression de la validation - le bouton peut être cliqué même sans articles sélectionnés
+            // La validation sera gérée côté serveur si nécessaire
             
             // Désactiver le bouton pour éviter les doubles soumissions
             const submitBtn = document.getElementById('confirmerLivraisonPartielleBtn');
@@ -3391,6 +3493,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('articles_livres', JSON.stringify(articlesLivres));
             formData.append('articles_renvoyes', JSON.stringify(articlesRenvoyes));
             formData.append('commentaire', commentaire);
+            formData.append('type_retour', document.getElementById('typeRetourInput').value);
 
             fetch(livraisonPartielleForm.action, {
                 method: 'POST',
@@ -3400,10 +3503,13 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     // Affichage du toast
+                    const typeRetour = data.type_retour || 'preparation';
+                    const messageRetour = typeRetour === 'definitif' ? 'retournés définitivement au stock' : 'renvoyés en préparation';
+                    
                     showNotification(
                         `✅ Livraison partielle effectuée avec succès !\n` +
                         `Articles livrés : ${totalArticlesLivres}\n` +
-                        `Articles renvoyés : ${totalArticlesRenvoyes}\n` +
+                        `Articles ${messageRetour} : ${totalArticlesRenvoyes}\n` +
                         `Valeur totale livrée : ${totalValeurLivree.toFixed(2)} DH`,
                         'success'
                     );
@@ -3438,18 +3544,25 @@ document.addEventListener('DOMContentLoaded', function() {
                             });
                             stockTable += `</tbody></table>`;
                         }
+                        const typeRetour = data.type_retour || 'preparation';
+                        const messageRetour = typeRetour === 'definitif' ? 'retournés définitivement au stock' : 'renvoyés en préparation';
+                        const titreDetail = typeRetour === 'definitif' ? 'Détail des articles retournés au stock' : 'Détail des articles renvoyés';
+                        
                         detailsDiv.innerHTML = `
                             <div><strong>Articles livrés :</strong> ${totalArticlesLivres}</div>
-                            <div><strong>Articles renvoyés :</strong> ${totalArticlesRenvoyes}</div>
+                            <div><strong>Articles ${messageRetour} :</strong> ${totalArticlesRenvoyes}</div>
                             <div><strong>Valeur totale livrée :</strong> ${totalValeurLivree.toFixed(2)} DH</div>
-                            <div class='mt-4 mb-2 font-semibold text-gray-700'>Détail des articles renvoyés :</div>
+                            <div class='mt-4 mb-2 font-semibold text-gray-700'>${titreDetail} :</div>
                             ${table}
                             ${stockTable}
                         `;
                     } else {
+                        const typeRetour = data.type_retour || 'preparation';
+                        const messageRetour = typeRetour === 'definitif' ? 'retournés définitivement au stock' : 'renvoyés en préparation';
+                        
                         detailsDiv.innerHTML = `
                             <div><strong>Articles livrés :</strong> ${totalArticlesLivres}</div>
-                            <div><strong>Articles renvoyés :</strong> ${totalArticlesRenvoyes}</div>
+                            <div><strong>Articles ${messageRetour} :</strong> ${totalArticlesRenvoyes}</div>
                             <div><strong>Valeur totale livrée :</strong> ${totalValeurLivree.toFixed(2)} DH</div>
                         `;
                     }

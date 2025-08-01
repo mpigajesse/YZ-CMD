@@ -1,0 +1,1647 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+{% load humanize %}
+{% load prepa_filters %}
+
+{% block title %}Détails par Région - YZ-CMD Admin{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Cartes KPI avec fond blanc et accents admin */
+    .kpi-card {
+        background-color: #fff;
+        color: #1f2937;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid #e5e7eb;
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        border-color: #3b82f6;
+    }
+    
+    /* Cartes de contenu avec fond blanc */
+    .content-card {
+        background-color: #fff;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* En-têtes de cartes avec thème admin */
+    .card-header {
+        background-color: #1f2937;
+        color: #ffffff;
+        border-bottom-color: #3b82f6;
+    }
+    
+    /* Boutons avec thème admin */
+    .btn-primary {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+        color: #ffffff;
+    }
+    .btn-primary:hover {
+        background-color: #2563eb;
+        border-color: #2563eb;
+    }
+    
+    .btn-success {
+        background-color: #10b981;
+        border-color: #10b981;
+        color: #ffffff;
+    }
+    .btn-success:hover {
+        background-color: #059669;
+        border-color: #059669;
+    }
+    
+    .btn-warning {
+        background-color: #f59e0b;
+        border-color: #f59e0b;
+        color: #ffffff;
+    }
+    .btn-warning:hover {
+        background-color: #d97706;
+        border-color: #d97706;
+    }
+    
+    /* Formulaires avec thème admin */
+    .form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+    }
+    
+    /* Badges avec thème admin */
+    .badge-primary {
+        background-color: #3b82f6;
+        color: #ffffff;
+    }
+    .badge-success {
+        background-color: #10b981;
+        color: #ffffff;
+    }
+    .badge-warning {
+        background-color: #f59e0b;
+        color: #ffffff;
+    }
+    .badge-danger {
+        background-color: #ef4444;
+        color: #ffffff;
+    }
+    
+    /* Cartes de région avec fond blanc */
+    .region-card {
+        background-color: #fff;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+    .region-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        border-color: #3b82f6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-map-marked-alt mr-3" style="color: var(--admin-accent-color);"></i>
+                Détails par Région
+            </h1>
+            <p style="color: var(--admin-accent-color);">Vue détaillée de la répartition des commandes par région</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'app_admin:repartition_automatique' %}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-random mr-2"></i>Répartition Auto
+            </a>
+        </div>
+    </div>
+
+    <!-- Message d'information pour les exportations -->
+    {% if not commandes_preparees_exist %}
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div class="flex items-center">
+            <i class="fas fa-info-circle text-yellow-600 mr-3"></i>
+            <div>
+                <h3 class="text-sm font-medium text-yellow-800">Exportation non disponible</h3>
+                <p class="text-sm text-yellow-700 mt-1">
+                    Les exportations (Excel et CSV) ne sont disponibles que lorsque des commandes ont été préparées.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Statistiques KPI -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Commandes -->
+        <div class="kpi-card p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                        <i class="fas fa-clipboard-list text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Total Commandes</p>
+                        <p class="text-3xl font-bold text-gray-900">{{ total_commandes|intcomma }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Montant -->
+        <div class="kpi-card p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Montant Total</p>
+                        <p class="text-3xl font-bold text-gray-900">{{ total_montant|intcomma }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nombre de Régions -->
+        <div class="kpi-card p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600">
+                        <i class="fas fa-globe text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Régions</p>
+                        <p class="text-3xl font-bold text-gray-900">{{ regions.count|intcomma }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nombre de Villes -->
+        <div class="kpi-card p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                        <i class="fas fa-map-marker-alt text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Villes</p>
+                        <p class="text-3xl font-bold text-gray-900">{{ stats_par_ville.count|intcomma }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques par Région -->
+    <div class="content-card rounded-xl shadow-lg border p-6 mb-8">
+        <div class="card-header rounded-t-xl p-4 mb-6" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <h2 class="text-xl font-bold flex items-center text-white">
+                        <i class="fas fa-chart-bar mr-2" style="color: var(--admin-accent-color);"></i>
+                        Exportation par Région (Cards) et Exportation Statistiques
+                    </h2>
+                    <button onclick="showRegionExportModal()" class="ml-3" style="color: var(--admin-accent-color);">
+                        <i class="fas fa-info-circle text-lg"></i>
+                    </button>
+                </div>
+                {% if commandes_preparees_exist %}
+                <div class="flex items-center gap-2">
+                    <a href="?export=csv_region" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">
+                        <i class="fas fa-file-csv mr-1"></i>CSV
+                    </a>
+                    {% if openpyxl_available %}
+                    <a href="?export=excel_region" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">
+                        <i class="fas fa-file-excel mr-1"></i>Excel
+                    </a>
+                    {% else %}
+                    <span class="text-gray-500 text-xs">Excel non disponible</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Barre de recherche flexible et intelligente -->
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Recherche par nom de région -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-search mr-1"></i>Rechercher par région
+                    </label>
+                    <input type="text" id="searchRegion" placeholder="Tapez le nom d'une région..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                </div>
+                
+                <!-- Filtre par nombre de commandes -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-filter mr-1"></i>Filtrer par commandes
+                    </label>
+                    <select id="filterCommandes" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Toutes les régions</option>
+                        <option value="1">1 commande</option>
+                        <option value="2">2+ commandes</option>
+                        <option value="5">5+ commandes</option>
+                        <option value="10">10+ commandes</option>
+                    </select>
+                </div>
+                
+                <!-- Filtre par montant -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-coins mr-1"></i>Filtrer par montant
+                    </label>
+                    <select id="filterMontant" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Tous les montants</option>
+                        <option value="1000">1000+ DH</option>
+                        <option value="2000">2000+ DH</option>
+                        <option value="5000">5000+ DH</option>
+                        <option value="10000">10000+ DH</option>
+                    </select>
+                </div>
+                
+                <!-- Bouton de réinitialisation -->
+                <div class="flex items-end">
+                    <button id="resetFilters" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors">
+                        <i class="fas fa-undo mr-1"></i>Réinitialiser
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Indicateurs de recherche active -->
+            <div id="searchIndicators" class="mt-3 flex flex-wrap gap-2 hidden">
+                <span class="text-xs text-gray-600">Filtres actifs :</span>
+                <span id="regionFilter" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs hidden">
+                    Région: <span id="regionValue"></span>
+                    <button onclick="removeFilter('region')" class="ml-1 text-blue-600 hover:text-blue-800">×</button>
+                </span>
+                <span id="commandesFilter" class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs hidden">
+                    Commandes: <span id="commandesValue"></span>
+                    <button onclick="removeFilter('commandes')" class="ml-1 text-green-600 hover:text-green-800">×</button>
+                </span>
+                <span id="montantFilter" class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs hidden">
+                    Montant: <span id="montantValue"></span>
+                    <button onclick="removeFilter('montant')" class="ml-1 text-yellow-600 hover:text-yellow-800">×</button>
+                </span>
+            </div>
+        </div>
+
+        {% if stats_par_region %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for stat in stats_par_region %}
+            <div class="region-card rounded-lg p-4 border searchable-card" 
+                 data-region="{{ stat.ville__region__nom_region|lower }}"
+                 data-commandes="{{ stat.nb_commandes }}"
+                 data-montant="{{ stat.total_montant }}">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-gray-900">{{ stat.ville__region__nom_region }}</h3>
+                    <span class="badge-primary px-2 py-1 rounded-full text-xs font-medium">
+                        {{ stat.nb_commandes }} commandes
+                    </span>
+                </div>
+                
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Commandes :</span>
+                        <span class="text-sm font-medium text-gray-900">{{ stat.nb_commandes|intcomma }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Montant :</span>
+                        <span class="text-sm font-medium text-gray-900">{{ stat.total_montant|floatformat:2 }} DH</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Moyenne :</span>
+                        <span class="text-sm font-medium text-gray-900">
+                            {% if stat.nb_commandes > 0 %}
+                                {{ stat.total_montant|div:stat.nb_commandes|floatformat:0 }} DH
+                            {% else %}
+                                0 DH
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <a href="{% url 'app_admin:repartition_automatique' %}?region={{ stat.ville__region__nom_region }}" 
+                           class="btn-primary px-3 py-1 rounded text-xs font-medium transition-colors">
+                            <i class="fas fa-random mr-1"></i>Répartir
+                        </a>
+                        {% if commandes_preparees_exist %}
+                        <div class="flex items-center gap-1">
+                            <a href="?export=csv_region_detail&region={{ stat.ville__region__nom_region }}" 
+                               class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors">
+                                <i class="fas fa-file-csv"></i>
+                            </a>
+                            {% if openpyxl_available %}
+                            <a href="?export=excel_region_detail&region={{ stat.ville__region__nom_region }}" 
+                               class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors">
+                                <i class="fas fa-file-excel"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <i class="fas fa-chart-bar text-4xl text-gray-400 mb-4"></i>
+            <p class="text-gray-500">Aucune statistique par région disponible</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Statistiques par Ville -->
+    <div class="content-card rounded-xl shadow-lg border p-6 mb-8">
+        <div class="card-header rounded-t-xl p-4 mb-6" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <h2 class="text-xl font-bold flex items-center text-white">
+                        <i class="fas fa-map-marker-alt mr-2" style="color: var(--admin-accent-color);"></i>
+                        Statistiques par Ville
+                    </h2>
+                    <button onclick="showVilleStatsModal()" class="ml-3" style="color: var(--admin-accent-color);">
+                        <i class="fas fa-info-circle text-lg"></i>
+                    </button>
+                </div>
+                {% if commandes_preparees_exist %}
+                <div class="flex items-center gap-2">
+                    <a href="?export=csv_ville" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">
+                        <i class="fas fa-file-csv mr-1"></i>CSV
+                    </a>
+                    {% if openpyxl_available %}
+                    <a href="?export=excel_ville" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">
+                        <i class="fas fa-file-excel mr-1"></i>Excel
+                    </a>
+                    {% else %}
+                    <span class="text-gray-500 text-xs">Excel non disponible</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Barre de recherche flexible et intelligente pour les villes -->
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Recherche par nom de ville -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-search mr-1"></i>Rechercher par ville
+                    </label>
+                    <input type="text" id="searchVille" placeholder="Tapez le nom d'une ville..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                </div>
+                
+                <!-- Filtre par région -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-globe mr-1"></i>Filtrer par région
+                    </label>
+                    <select id="filterRegionVille" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Toutes les régions</option>
+                        {% for stat in stats_par_region %}
+                        <option value="{{ stat.ville__region__nom_region }}">{{ stat.ville__region__nom_region }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtre par nombre de commandes -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-filter mr-1"></i>Filtrer par commandes
+                    </label>
+                    <select id="filterCommandesVille" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Toutes les villes</option>
+                        <option value="1">1 commande</option>
+                        <option value="2">2+ commandes</option>
+                        <option value="5">5+ commandes</option>
+                        <option value="10">10+ commandes</option>
+                    </select>
+                </div>
+                
+                <!-- Filtre par montant -->
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-coins mr-1"></i>Filtrer par montant
+                    </label>
+                    <select id="filterMontantVille" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Tous les montants</option>
+                        <option value="500">500+ DH</option>
+                        <option value="1000">1000+ DH</option>
+                        <option value="2000">2000+ DH</option>
+                        <option value="5000">5000+ DH</option>
+                    </select>
+                </div>
+                
+                <!-- Bouton de réinitialisation -->
+                <div class="flex items-end">
+                    <button id="resetFiltersVille" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors">
+                        <i class="fas fa-undo mr-1"></i>Réinitialiser
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Indicateurs de recherche active pour les villes -->
+            <div id="searchIndicatorsVille" class="mt-3 flex flex-wrap gap-2 hidden">
+                <span class="text-xs text-gray-600">Filtres actifs :</span>
+                <span id="villeFilter" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs hidden">
+                    Ville: <span id="villeValue"></span>
+                    <button onclick="removeFilterVille('ville')" class="ml-1 text-blue-600 hover:text-blue-800">×</button>
+                </span>
+                <span id="regionVilleFilter" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs hidden">
+                    Région: <span id="regionVilleValue"></span>
+                    <button onclick="removeFilterVille('region')" class="ml-1 text-purple-600 hover:text-purple-800">×</button>
+                </span>
+                <span id="commandesVilleFilter" class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs hidden">
+                    Commandes: <span id="commandesVilleValue"></span>
+                    <button onclick="removeFilterVille('commandes')" class="ml-1 text-green-600 hover:text-green-800">×</button>
+                </span>
+                <span id="montantVilleFilter" class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs hidden">
+                    Montant: <span id="montantVilleValue"></span>
+                    <button onclick="removeFilterVille('montant')" class="ml-1 text-yellow-600 hover:text-yellow-800">×</button>
+                </span>
+            </div>
+        </div>
+
+        {% if stats_par_ville %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead style="background-color: var(--admin-color);">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Ville</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Région</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Commandes</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Montant Total</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Moyenne</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for stat in stats_par_ville %}
+                    <tr class="hover:bg-gray-50 searchable-row" 
+                        data-ville="{{ stat.ville__nom|lower }}"
+                        data-region="{{ stat.ville__region__nom_region|lower }}"
+                        data-commandes="{{ stat.nb_commandes }}"
+                        data-montant="{{ stat.total_montant }}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ stat.ville__nom }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ stat.ville__region__nom_region }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ stat.nb_commandes|intcomma }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ stat.total_montant|floatformat:2 }} DH</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">
+                                {% if stat.nb_commandes > 0 %}
+                                    {{ stat.total_montant|div:stat.nb_commandes|floatformat:0 }} DH
+                                {% else %}
+                                    0 DH
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="{% url 'app_admin:repartition_automatique' %}?ville={{ stat.ville__id }}" 
+                               class="text-blue-600 hover:text-blue-900">
+                                <i class="fas fa-random mr-1"></i>Répartir
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <i class="fas fa-map-marker-alt text-4xl text-gray-400 mb-4"></i>
+            <p class="text-gray-500">Aucune statistique par ville disponible</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Graphiques et Visualisations -->
+    <div class="content-card rounded-xl shadow-lg border p-6">
+        <div class="card-header rounded-t-xl p-4 mb-6" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold flex items-center text-white">
+                    <i class="fas fa-chart-pie mr-2" style="color: var(--admin-accent-color);"></i>
+                    Visualisations
+                </h2>
+                {% if commandes_preparees_exist %}
+                <div class="flex items-center gap-2">
+                    <a href="?export=csv_combine" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">
+                        <i class="fas fa-file-csv mr-1"></i>Export Combiné CSV
+                    </a>
+                    {% if openpyxl_available %}
+                    <a href="?export=excel_combine" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">
+                        <i class="fas fa-file-excel mr-1"></i>Export Combiné Excel
+                    </a>
+                    {% else %}
+                    <span class="text-gray-500 text-xs">Excel non disponible</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Graphique en secteurs pour les régions -->
+            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Répartition par Région</h3>
+                    <button onclick="showInfoModal('region')" class="text-blue-600 hover:text-blue-800 transition-colors">
+                        <i class="fas fa-info-circle text-lg"></i>
+                    </button>
+                </div>
+                <div class="h-64 flex items-center justify-center">
+                    <canvas id="regionChart" width="300" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Graphique en barres pour les villes -->
+            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Top 10 des Villes</h3>
+                    <button onclick="showInfoModal('ville')" class="text-blue-600 hover:text-blue-800 transition-colors">
+                        <i class="fas fa-info-circle text-lg"></i>
+                    </button>
+                </div>
+                <div class="h-64 flex items-center justify-center">
+                    <canvas id="villeChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modales d'information pour les visualisations -->
+<div id="infoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Informations</h3>
+                <button onclick="closeInfoModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="modalContent" class="text-sm text-gray-700">
+                <!-- Le contenu sera injecté via JavaScript -->
+            </div>
+            <div class="flex justify-end mt-6">
+                <button onclick="closeInfoModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Fonctions pour les modales d'information des visualisations avec données temps réel
+function showInfoModal(type) {
+    const modal = document.getElementById('infoModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalContent = document.getElementById('modalContent');
+    
+    // Afficher un indicateur de chargement
+    modalTitle.textContent = 'Chargement des données...';
+    modalContent.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-3 text-gray-600">Récupération des données en temps réel...</span>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+    
+    // Récupérer les données en temps réel via AJAX
+    fetch('{% url "app_admin:get_modal_data_ajax" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (type === 'region') {
+                    modalTitle.textContent = 'Répartition par Région - Données Temps Réel';
+                    modalContent.innerHTML = generateRegionModalContent(data);
+                } else if (type === 'ville') {
+                    modalTitle.textContent = 'Top 10 des Villes - Données Temps Réel';
+                    modalContent.innerHTML = generateVilleModalContent(data);
+                }
+            } else {
+                modalContent.innerHTML = `
+                    <div class="text-red-600 text-center py-4">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                        <p>Erreur lors de la récupération des données</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur AJAX:', error);
+            modalContent.innerHTML = `
+                <div class="text-red-600 text-center py-4">
+                    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <p>Erreur de connexion. Veuillez réessayer.</p>
+                </div>
+            `;
+        });
+}
+
+function generateRegionModalContent(data) {
+    const stats = data.stats_region_avec_pourcentage;
+    const globales = data.stats_globales;
+    
+    let regionsHtml = '';
+    if (stats.length > 0) {
+        regionsHtml = `
+            <div class="bg-gray-50 p-3 rounded-lg mb-4">
+                <h5 class="font-semibold text-gray-900 mb-2">📊 Données actuelles par région :</h5>
+                <div class="space-y-2 max-h-40 overflow-y-auto">
+                    ${stats.map(stat => `
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-medium">${stat.region}</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-blue-600">${stat.nb_commandes} commandes</span>
+                                <span class="text-green-600">(${stat.pourcentage}%)</span>
+                                <span class="text-gray-500">${stat.total_montant.toLocaleString()} DH</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="space-y-4">
+            <div class="bg-blue-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-blue-900 mb-2">🕒 Données temps réel</h4>
+                <p class="text-blue-800 text-sm mb-2">
+                    <strong>Dernière mise à jour :</strong> ${globales.derniere_mise_a_jour}
+                </p>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium">Total commandes :</span>
+                        <span class="text-blue-600 ml-1">${globales.total_commandes}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Régions actives :</span>
+                        <span class="text-blue-600 ml-1">${globales.nb_regions_actives}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Moyenne/région :</span>
+                        <span class="text-blue-600 ml-1">${globales.moyenne_commandes_par_region}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Total montant :</span>
+                        <span class="text-blue-600 ml-1">${globales.total_montant.toLocaleString()} DH</span>
+                    </div>
+                </div>
+            </div>
+            
+            ${regionsHtml}
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">📊 Description du graphique</h4>
+                <p class="text-gray-700 mb-3">
+                    Ce graphique en secteurs (camembert) affiche la répartition des commandes par région.
+                    Chaque secteur représente une région avec sa proportion de commandes.
+                </p>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">🧮 Méthode de calcul</h4>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li><strong>Données source :</strong> Commandes confirmées, à imprimer et préparées</li>
+                    <li><strong>Calcul :</strong> Nombre de commandes par région</li>
+                    <li><strong>Pourcentage :</strong> (Commandes de la région / Total commandes) × 100</li>
+                    <li><strong>Tri :</strong> Par nombre de commandes décroissant</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">🎨 Interprétation</h4>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li>Plus le secteur est grand, plus la région a de commandes</li>
+                    <li>Les couleurs sont automatiquement assignées</li>
+                    <li>Cliquez sur un secteur pour plus de détails</li>
+                </ul>
+            </div>
+            
+            <div class="bg-green-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-green-900 mb-1">💡 Astuce</h4>
+                <p class="text-green-800 text-sm">
+                    Utilisez ce graphique pour identifier rapidement les régions les plus actives 
+                    et planifier la répartition des ressources.
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+function generateVilleModalContent(data) {
+    const topVilles = data.top_10_villes;
+    const globales = data.stats_globales;
+    
+    let villesHtml = '';
+    if (topVilles.length > 0) {
+        villesHtml = `
+            <div class="bg-gray-50 p-3 rounded-lg mb-4">
+                <h5 class="font-semibold text-gray-900 mb-2">🏆 Top 10 des villes actuelles :</h5>
+                <div class="space-y-2 max-h-40 overflow-y-auto">
+                    ${topVilles.map((ville, index) => `
+                        <div class="flex justify-between items-center text-sm">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-blue-600">#${index + 1}</span>
+                                <span class="font-medium">${ville.ville__nom}</span>
+                                <span class="text-gray-500">(${ville.ville__region__nom_region})</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-blue-600">${ville.nb_commandes} commandes</span>
+                                <span class="text-gray-500">${ville.total_montant ? ville.total_montant.toLocaleString() : 0} DH</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="space-y-4">
+            <div class="bg-blue-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-blue-900 mb-2">🕒 Données temps réel</h4>
+                <p class="text-blue-800 text-sm mb-2">
+                    <strong>Dernière mise à jour :</strong> ${globales.derniere_mise_a_jour}
+                </p>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium">Total commandes :</span>
+                        <span class="text-blue-600 ml-1">${globales.total_commandes}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Villes actives :</span>
+                        <span class="text-blue-600 ml-1">${globales.nb_villes_actives}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Moyenne/ville :</span>
+                        <span class="text-blue-600 ml-1">${globales.moyenne_commandes_par_ville}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Total montant :</span>
+                        <span class="text-blue-600 ml-1">${globales.total_montant.toLocaleString()} DH</span>
+                    </div>
+                </div>
+            </div>
+            
+            ${villesHtml}
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">📊 Description du graphique</h4>
+                <p class="text-gray-700 mb-3">
+                    Ce graphique en barres affiche les 10 villes avec le plus grand nombre de commandes.
+                    Les barres sont triées par nombre de commandes décroissant.
+                </p>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">🧮 Méthode de calcul</h4>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li><strong>Données source :</strong> Commandes confirmées, à imprimer et préparées</li>
+                    <li><strong>Calcul :</strong> Nombre de commandes par ville</li>
+                    <li><strong>Sélection :</strong> Top 10 des villes par nombre de commandes</li>
+                    <li><strong>Tri :</strong> Par nombre de commandes décroissant</li>
+                    <li><strong>Filtre :</strong> Villes avec au moins 1 commande</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">📈 Interprétation</h4>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li>Plus la barre est haute, plus la ville a de commandes</li>
+                    <li>L'axe Y montre le nombre de commandes</li>
+                    <li>L'axe X affiche les noms des villes</li>
+                    <li>Seules les 10 villes les plus actives sont affichées</li>
+                </ul>
+            </div>
+            
+            <div class="bg-green-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-green-900 mb-1">🎯 Utilisation</h4>
+                <p class="text-green-800 text-sm">
+                    Ce graphique aide à identifier les villes prioritaires pour la logistique 
+                    et la planification des livraisons.
+                </p>
+            </div>
+            
+            <div class="bg-yellow-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-yellow-900 mb-1">⚠️ Note importante</h4>
+                <p class="text-yellow-800 text-sm">
+                    Si moins de 10 villes ont des commandes, seules les villes actives seront affichées.
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+function showVilleStatsModal() {
+    const modal = document.getElementById('infoModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalContent = document.getElementById('modalContent');
+    
+    // Afficher un indicateur de chargement
+    modalTitle.textContent = 'Chargement des données...';
+    modalContent.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-3 text-gray-600">Récupération des données en temps réel...</span>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+    
+    // Récupérer les données en temps réel via AJAX
+    fetch('{% url "app_admin:get_modal_data_ajax" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                modalTitle.textContent = 'Statistiques par Ville - Données Temps Réel';
+                modalContent.innerHTML = generateVilleStatsModalContent(data);
+            } else {
+                modalContent.innerHTML = `
+                    <div class="text-red-600 text-center py-4">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                        <p>Erreur lors de la récupération des données</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur AJAX:', error);
+            modalContent.innerHTML = `
+                <div class="text-red-600 text-center py-4">
+                    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <p>Erreur de connexion. Veuillez réessayer.</p>
+                </div>
+            `;
+        });
+}
+
+function showRegionExportModal() {
+    const modal = document.getElementById('infoModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalContent = document.getElementById('modalContent');
+    
+    // Afficher un indicateur de chargement
+    modalTitle.textContent = 'Chargement des données...';
+    modalContent.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-3 text-gray-600">Récupération des données en temps réel...</span>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+    
+    // Récupérer les données en temps réel via AJAX
+    fetch('{% url "app_admin:get_modal_data_ajax" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                modalTitle.textContent = 'Répartition par Région - Données Temps Réel';
+                modalContent.innerHTML = generateRegionExportModalContent(data);
+            } else {
+                modalContent.innerHTML = `
+                    <div class="text-red-600 text-center py-4">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                        <p>Erreur lors de la récupération des données</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur AJAX:', error);
+            modalContent.innerHTML = `
+                <div class="text-red-600 text-center py-4">
+                    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <p>Erreur de connexion. Veuillez réessayer.</p>
+                </div>
+            `;
+        });
+}
+
+function generateRegionExportModalContent(data) {
+    const statsRegions = data.stats_region_avec_pourcentage;
+    const globales = data.stats_globales;
+    
+    // Calculer les statistiques détaillées
+    const totalMontant = statsRegions.reduce((sum, region) => sum + (region.total_montant || 0), 0);
+    const moyenneMontant = statsRegions.length > 0 ? totalMontant / statsRegions.length : 0;
+    const totalCommandes = statsRegions.reduce((sum, region) => sum + region.nb_commandes, 0);
+    const moyenneCommandes = statsRegions.length > 0 ? totalCommandes / statsRegions.length : 0;
+    
+    let regionsDetailHtml = '';
+    if (statsRegions.length > 0) {
+        regionsDetailHtml = `
+            <div class="bg-gray-50 p-3 rounded-lg mb-4">
+                <h5 class="font-semibold text-gray-900 mb-2">📊 Détails de la répartition par région :</h5>
+                <div class="space-y-2 max-h-40 overflow-y-auto">
+                    ${statsRegions.map((region, index) => {
+                        const moyenneRegion = region.nb_commandes > 0 ? (region.total_montant || 0) / region.nb_commandes : 0;
+                        return `
+                            <div class="border-b border-gray-200 pb-2 last:border-b-0">
+                                <div class="flex justify-between items-center text-sm mb-1">
+                                    <span class="font-bold text-blue-600">#${index + 1} ${region.region}</span>
+                                    <span class="text-green-600">(${region.pourcentage}%)</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-xs text-gray-600">
+                                    <div>
+                                        <span class="font-medium">Commandes :</span>
+                                        <span class="text-blue-600">${region.nb_commandes}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium">Montant total :</span>
+                                        <span class="text-green-600">${(region.total_montant || 0).toLocaleString()} DH</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium">Moyenne/commande :</span>
+                                        <span class="text-purple-600">${moyenneRegion.toFixed(0)} DH</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="space-y-4">
+            <div class="bg-blue-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-blue-900 mb-2">🕒 Données temps réel</h4>
+                <p class="text-blue-800 text-sm mb-2">
+                    <strong>Dernière mise à jour :</strong> ${globales.derniere_mise_a_jour}
+                </p>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium">Total commandes :</span>
+                        <span class="text-blue-600 ml-1">${globales.total_commandes}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Régions actives :</span>
+                        <span class="text-blue-600 ml-1">${globales.nb_regions_actives}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Moyenne/région :</span>
+                        <span class="text-blue-600 ml-1">${globales.moyenne_commandes_par_region}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Total montant :</span>
+                        <span class="text-blue-600 ml-1">${globales.total_montant.toLocaleString()} DH</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-green-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-green-900 mb-2">🧮 Calculs de répartition</h4>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium">Montant Total :</span>
+                        <span class="text-green-600 ml-1">${totalMontant.toLocaleString()} DH</span>
+                        <p class="text-xs text-gray-600 mt-1">Somme de tous les montants des commandes</p>
+                    </div>
+                    <div>
+                        <span class="font-medium">Moyenne Montant :</span>
+                        <span class="text-green-600 ml-1">${moyenneMontant.toFixed(0)} DH</span>
+                        <p class="text-xs text-gray-600 mt-1">Montant total ÷ Nombre de régions</p>
+                    </div>
+                    <div>
+                        <span class="font-medium">Total Commandes :</span>
+                        <span class="text-green-600 ml-1">${totalCommandes}</span>
+                        <p class="text-xs text-gray-600 mt-1">Somme de toutes les commandes</p>
+                    </div>
+                    <div>
+                        <span class="font-medium">Moyenne Commandes :</span>
+                        <span class="text-green-600 ml-1">${moyenneCommandes.toFixed(1)}</span>
+                        <p class="text-xs text-gray-600 mt-1">Total commandes ÷ Nombre de régions</p>
+                    </div>
+                </div>
+            </div>
+            
+            ${regionsDetailHtml}
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">📊 Description de la répartition</h4>
+                <p class="text-gray-700 mb-3">
+                    Cette section affiche la répartition détaillée des commandes par région, incluant le nombre de commandes,
+                    les montants totaux, les pourcentages et les moyennes calculées en temps réel.
+                </p>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">🧮 Méthode de calcul</h4>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li><strong>Répartition par région :</strong> Nombre de commandes par région</li>
+                    <li><strong>Pourcentage :</strong> (Commandes de la région / Total commandes) × 100</li>
+                    <li><strong>Montant Total :</strong> Somme de tous les montants des commandes par région</li>
+                    <li><strong>Moyenne :</strong> Montant total ÷ Nombre de commandes de la région</li>
+                    <li><strong>Données source :</strong> Commandes confirmées, à imprimer et préparées</li>
+                    <li><strong>Tri :</strong> Par nombre de commandes décroissant</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">📈 Interprétation</h4>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li><strong>Pourcentage :</strong> Indique la part de chaque région dans le total</li>
+                    <li><strong>Montant Total :</strong> Valeur totale des commandes par région</li>
+                    <li><strong>Moyenne :</strong> Montant moyen par commande dans la région</li>
+                    <li>Plus le pourcentage est élevé, plus la région est active</li>
+                    <li>La moyenne aide à identifier les régions avec des commandes de forte valeur</li>
+                </ul>
+            </div>
+            
+            <div class="bg-purple-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-purple-900 mb-2">🎯 Utilisation pour l'exportation</h4>
+                <ul class="list-disc list-inside text-purple-800 space-y-1 text-sm">
+                    <li><strong>Export CSV :</strong> Données tabulées pour analyse externe</li>
+                    <li><strong>Export Excel :</strong> Format structuré avec calculs automatiques</li>
+                    <li><strong>Export détaillé :</strong> Inclut les détails des paniers par région</li>
+                    <li><strong>Filtrage :</strong> Possibilité de filtrer par région avant export</li>
+                </ul>
+            </div>
+            
+            <div class="bg-yellow-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-yellow-900 mb-1">💡 Astuce</h4>
+                <p class="text-yellow-800 text-sm">
+                    Utilisez ces statistiques pour identifier les régions prioritaires et optimiser 
+                    la répartition des ressources logistiques.
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+function generateVilleStatsModalContent(data) {
+    const statsVilles = data.top_10_villes;
+    const globales = data.stats_globales;
+    
+    // Calculer les statistiques détaillées
+    const totalMontant = statsVilles.reduce((sum, ville) => sum + (ville.total_montant || 0), 0);
+    const moyenneMontant = statsVilles.length > 0 ? totalMontant / statsVilles.length : 0;
+    const totalCommandes = statsVilles.reduce((sum, ville) => sum + ville.nb_commandes, 0);
+    const moyenneCommandes = statsVilles.length > 0 ? totalCommandes / statsVilles.length : 0;
+    
+    let villesDetailHtml = '';
+    if (statsVilles.length > 0) {
+        villesDetailHtml = `
+            <div class="bg-gray-50 p-3 rounded-lg mb-4">
+                <h5 class="font-semibold text-gray-900 mb-2">📊 Détails des calculs par ville :</h5>
+                <div class="space-y-2 max-h-40 overflow-y-auto">
+                    ${statsVilles.map((ville, index) => {
+                        const moyenneVille = ville.nb_commandes > 0 ? (ville.total_montant || 0) / ville.nb_commandes : 0;
+                        return `
+                            <div class="border-b border-gray-200 pb-2 last:border-b-0">
+                                <div class="flex justify-between items-center text-sm mb-1">
+                                    <span class="font-bold text-blue-600">#${index + 1} ${ville.ville__nom}</span>
+                                    <span class="text-gray-500">(${ville.ville__region__nom_region})</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-xs text-gray-600">
+                                    <div>
+                                        <span class="font-medium">Commandes :</span>
+                                        <span class="text-blue-600">${ville.nb_commandes}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium">Montant total :</span>
+                                        <span class="text-green-600">${(ville.total_montant || 0).toLocaleString()} DH</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium">Moyenne/commande :</span>
+                                        <span class="text-purple-600">${moyenneVille.toFixed(0)} DH</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="space-y-4">
+            <div class="bg-blue-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-blue-900 mb-2">🕒 Données temps réel</h4>
+                <p class="text-blue-800 text-sm mb-2">
+                    <strong>Dernière mise à jour :</strong> ${globales.derniere_mise_a_jour}
+                </p>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium">Total commandes :</span>
+                        <span class="text-blue-600 ml-1">${globales.total_commandes}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Villes actives :</span>
+                        <span class="text-blue-600 ml-1">${globales.nb_villes_actives}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Moyenne/ville :</span>
+                        <span class="text-blue-600 ml-1">${globales.moyenne_commandes_par_ville}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Total montant :</span>
+                        <span class="text-blue-600 ml-1">${globales.total_montant.toLocaleString()} DH</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-green-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-green-900 mb-2">🧮 Calculs détaillés</h4>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium">Montant Total :</span>
+                        <span class="text-green-600 ml-1">${totalMontant.toLocaleString()} DH</span>
+                        <p class="text-xs text-gray-600 mt-1">Somme de tous les montants des commandes</p>
+                    </div>
+                    <div>
+                        <span class="font-medium">Moyenne Montant :</span>
+                        <span class="text-green-600 ml-1">${moyenneMontant.toFixed(0)} DH</span>
+                        <p class="text-xs text-gray-600 mt-1">Montant total ÷ Nombre de villes</p>
+                    </div>
+                    <div>
+                        <span class="font-medium">Total Commandes :</span>
+                        <span class="text-green-600 ml-1">${totalCommandes}</span>
+                        <p class="text-xs text-gray-600 mt-1">Somme de toutes les commandes</p>
+                    </div>
+                    <div>
+                        <span class="font-medium">Moyenne Commandes :</span>
+                        <span class="text-green-600 ml-1">${moyenneCommandes.toFixed(1)}</span>
+                        <p class="text-xs text-gray-600 mt-1">Total commandes ÷ Nombre de villes</p>
+                    </div>
+                </div>
+            </div>
+            
+            ${villesDetailHtml}
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">📊 Description des statistiques</h4>
+                <p class="text-gray-700 mb-3">
+                    Cette section affiche les statistiques détaillées par ville, incluant le nombre de commandes,
+                    les montants totaux et les moyennes calculées en temps réel.
+                </p>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">🧮 Méthode de calcul</h4>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li><strong>Montant Total :</strong> Somme de tous les montants des commandes par ville</li>
+                    <li><strong>Moyenne :</strong> Montant total ÷ Nombre de commandes de la ville</li>
+                    <li><strong>Données source :</strong> Commandes confirmées, à imprimer et préparées</li>
+                    <li><strong>Tri :</strong> Par nombre de commandes décroissant</li>
+                    <li><strong>Filtre :</strong> Villes avec au moins 1 commande</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-2">📈 Interprétation</h4>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li><strong>Montant Total :</strong> Indique la valeur totale des commandes par ville</li>
+                    <li><strong>Moyenne :</strong> Montant moyen par commande dans la ville</li>
+                    <li>Plus le montant total est élevé, plus la ville est active</li>
+                    <li>La moyenne aide à identifier les villes avec des commandes de forte valeur</li>
+                </ul>
+            </div>
+            
+            <div class="bg-yellow-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-yellow-900 mb-1">💡 Astuce</h4>
+                <p class="text-yellow-800 text-sm">
+                    Utilisez ces statistiques pour identifier les villes les plus rentables 
+                    et optimiser la logistique en conséquence.
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+function closeInfoModal() {
+    const modal = document.getElementById('infoModal');
+    modal.classList.add('hidden');
+}
+
+// Fermer le modal en cliquant à l'extérieur
+document.getElementById('infoModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeInfoModal();
+    }
+});
+
+// Fermer le modal avec la touche Échap
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeInfoModal();
+    }
+});
+</script>
+<script>
+// Fonctionnalité de recherche flexible et intelligente
+document.addEventListener('DOMContentLoaded', function() {
+    const searchRegion = document.getElementById('searchRegion');
+    const filterCommandes = document.getElementById('filterCommandes');
+    const filterMontant = document.getElementById('filterMontant');
+    const resetFilters = document.getElementById('resetFilters');
+    const searchIndicators = document.getElementById('searchIndicators');
+    const cards = document.querySelectorAll('.searchable-card');
+    
+    let activeFilters = {
+        region: '',
+        commandes: '',
+        montant: ''
+    };
+    
+    // Fonction de filtrage
+    function filterCards() {
+        let visibleCount = 0;
+        
+        cards.forEach(card => {
+            const region = card.dataset.region;
+            const commandes = parseInt(card.dataset.commandes);
+            const montant = parseFloat(card.dataset.montant);
+            
+            let show = true;
+            
+            // Filtre par région
+            if (activeFilters.region && !region.includes(activeFilters.region.toLowerCase())) {
+                show = false;
+            }
+            
+            // Filtre par nombre de commandes
+            if (activeFilters.commandes && commandes < parseInt(activeFilters.commandes)) {
+                show = false;
+            }
+            
+            // Filtre par montant
+            if (activeFilters.montant && montant < parseFloat(activeFilters.montant)) {
+                show = false;
+            }
+            
+            if (show) {
+                card.style.display = 'block';
+                card.style.opacity = '1';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+                card.style.opacity = '0';
+            }
+        });
+        
+        // Afficher/masquer les indicateurs de recherche
+        updateSearchIndicators();
+        
+        // Animation de transition
+        cards.forEach(card => {
+            card.style.transition = 'opacity 0.3s ease-in-out';
+        });
+    }
+    
+    // Mise à jour des indicateurs de recherche
+    function updateSearchIndicators() {
+        const hasActiveFilters = Object.values(activeFilters).some(filter => filter !== '');
+        searchIndicators.classList.toggle('hidden', !hasActiveFilters);
+        
+        // Mettre à jour les valeurs des indicateurs
+        if (activeFilters.region) {
+            document.getElementById('regionValue').textContent = activeFilters.region;
+            document.getElementById('regionFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('regionFilter').classList.add('hidden');
+        }
+        
+        if (activeFilters.commandes) {
+            const commandesText = filterCommandes.options[filterCommandes.selectedIndex].text;
+            document.getElementById('commandesValue').textContent = commandesText;
+            document.getElementById('commandesFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('commandesFilter').classList.add('hidden');
+        }
+        
+        if (activeFilters.montant) {
+            const montantText = filterMontant.options[filterMontant.selectedIndex].text;
+            document.getElementById('montantValue').textContent = montantText;
+            document.getElementById('montantFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('montantFilter').classList.add('hidden');
+        }
+    }
+    
+    // Événements de recherche
+    searchRegion.addEventListener('input', function() {
+        activeFilters.region = this.value;
+        filterCards();
+    });
+    
+    filterCommandes.addEventListener('change', function() {
+        activeFilters.commandes = this.value;
+        filterCards();
+    });
+    
+    filterMontant.addEventListener('change', function() {
+        activeFilters.montant = this.value;
+        filterCards();
+    });
+    
+    // Réinitialisation des filtres
+    resetFilters.addEventListener('click', function() {
+        searchRegion.value = '';
+        filterCommandes.value = '';
+        filterMontant.value = '';
+        activeFilters = { region: '', commandes: '', montant: '' };
+        filterCards();
+    });
+    
+    // Fonction pour supprimer un filtre spécifique (appelée depuis HTML)
+    window.removeFilter = function(type) {
+        switch(type) {
+            case 'region':
+                searchRegion.value = '';
+                activeFilters.region = '';
+                break;
+            case 'commandes':
+                filterCommandes.value = '';
+                activeFilters.commandes = '';
+                break;
+            case 'montant':
+                filterMontant.value = '';
+                activeFilters.montant = '';
+                break;
+        }
+        filterCards();
+    };
+    
+    // Recherche intelligente avec suggestions
+    searchRegion.addEventListener('focus', function() {
+        this.placeholder = 'Ex: MEKNÈS, OUJDA, SAFI...';
+    });
+    
+    searchRegion.addEventListener('blur', function() {
+        this.placeholder = 'Tapez le nom d\'une région...';
+    });
+    
+    // Initialisation
+    filterCards();
+});
+
+// Fonctionnalité de recherche flexible et intelligente pour les villes
+document.addEventListener('DOMContentLoaded', function() {
+    const searchVille = document.getElementById('searchVille');
+    const filterRegionVille = document.getElementById('filterRegionVille');
+    const filterCommandesVille = document.getElementById('filterCommandesVille');
+    const filterMontantVille = document.getElementById('filterMontantVille');
+    const resetFiltersVille = document.getElementById('resetFiltersVille');
+    const searchIndicatorsVille = document.getElementById('searchIndicatorsVille');
+    const rows = document.querySelectorAll('.searchable-row');
+    
+    let activeFiltersVille = {
+        ville: '',
+        region: '',
+        commandes: '',
+        montant: ''
+    };
+    
+    // Fonction de filtrage pour les villes
+    function filterRows() {
+        let visibleCount = 0;
+        
+        rows.forEach(row => {
+            const ville = row.dataset.ville;
+            const region = row.dataset.region;
+            const commandes = parseInt(row.dataset.commandes);
+            const montant = parseFloat(row.dataset.montant);
+            
+            let show = true;
+            
+            // Filtre par ville
+            if (activeFiltersVille.ville && !ville.includes(activeFiltersVille.ville.toLowerCase())) {
+                show = false;
+            }
+            
+            // Filtre par région
+            if (activeFiltersVille.region && !region.includes(activeFiltersVille.region.toLowerCase())) {
+                show = false;
+            }
+            
+            // Filtre par nombre de commandes
+            if (activeFiltersVille.commandes && commandes < parseInt(activeFiltersVille.commandes)) {
+                show = false;
+            }
+            
+            // Filtre par montant
+            if (activeFiltersVille.montant && montant < parseFloat(activeFiltersVille.montant)) {
+                show = false;
+            }
+            
+            if (show) {
+                row.style.display = 'table-row';
+                row.style.opacity = '1';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+                row.style.opacity = '0';
+            }
+        });
+        
+        // Afficher/masquer les indicateurs de recherche
+        updateSearchIndicatorsVille();
+        
+        // Animation de transition
+        rows.forEach(row => {
+            row.style.transition = 'opacity 0.3s ease-in-out';
+        });
+    }
+    
+    // Mise à jour des indicateurs de recherche pour les villes
+    function updateSearchIndicatorsVille() {
+        const hasActiveFilters = Object.values(activeFiltersVille).some(filter => filter !== '');
+        searchIndicatorsVille.classList.toggle('hidden', !hasActiveFilters);
+        
+        // Mettre à jour les valeurs des indicateurs
+        if (activeFiltersVille.ville) {
+            document.getElementById('villeValue').textContent = activeFiltersVille.ville;
+            document.getElementById('villeFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('villeFilter').classList.add('hidden');
+        }
+        
+        if (activeFiltersVille.region) {
+            document.getElementById('regionVilleValue').textContent = activeFiltersVille.region;
+            document.getElementById('regionVilleFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('regionVilleFilter').classList.add('hidden');
+        }
+        
+        if (activeFiltersVille.commandes) {
+            const commandesText = filterCommandesVille.options[filterCommandesVille.selectedIndex].text;
+            document.getElementById('commandesVilleValue').textContent = commandesText;
+            document.getElementById('commandesVilleFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('commandesVilleFilter').classList.add('hidden');
+        }
+        
+        if (activeFiltersVille.montant) {
+            const montantText = filterMontantVille.options[filterMontantVille.selectedIndex].text;
+            document.getElementById('montantVilleValue').textContent = montantText;
+            document.getElementById('montantVilleFilter').classList.remove('hidden');
+        } else {
+            document.getElementById('montantVilleFilter').classList.add('hidden');
+        }
+    }
+    
+    // Événements de recherche pour les villes
+    searchVille.addEventListener('input', function() {
+        activeFiltersVille.ville = this.value;
+        filterRows();
+    });
+    
+    filterRegionVille.addEventListener('change', function() {
+        activeFiltersVille.region = this.value;
+        filterRows();
+    });
+    
+    filterCommandesVille.addEventListener('change', function() {
+        activeFiltersVille.commandes = this.value;
+        filterRows();
+    });
+    
+    filterMontantVille.addEventListener('change', function() {
+        activeFiltersVille.montant = this.value;
+        filterRows();
+    });
+    
+    // Réinitialisation des filtres pour les villes
+    resetFiltersVille.addEventListener('click', function() {
+        searchVille.value = '';
+        filterRegionVille.value = '';
+        filterCommandesVille.value = '';
+        filterMontantVille.value = '';
+        activeFiltersVille = { ville: '', region: '', commandes: '', montant: '' };
+        filterRows();
+    });
+    
+    // Fonction pour supprimer un filtre spécifique pour les villes
+    window.removeFilterVille = function(type) {
+        switch(type) {
+            case 'ville':
+                searchVille.value = '';
+                activeFiltersVille.ville = '';
+                break;
+            case 'region':
+                filterRegionVille.value = '';
+                activeFiltersVille.region = '';
+                break;
+            case 'commandes':
+                filterCommandesVille.value = '';
+                activeFiltersVille.commandes = '';
+                break;
+            case 'montant':
+                filterMontantVille.value = '';
+                activeFiltersVille.montant = '';
+                break;
+        }
+        filterRows();
+    };
+    
+    // Recherche intelligente avec suggestions pour les villes
+    searchVille.addEventListener('focus', function() {
+        this.placeholder = 'Ex: BOUDERBALA, OUJDA, SAFI...';
+    });
+    
+    searchVille.addEventListener('blur', function() {
+        this.placeholder = 'Tapez le nom d\'une ville...';
+    });
+    
+    // Initialisation pour les villes
+    filterRows();
+});
+
+</script>
+<script>
+// Données pour les graphiques
+const regionData = {
+    labels: [{% for stat in stats_par_region %}'{{ stat.ville__region__nom_region }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+    datasets: [{
+        data: [{% for stat in stats_par_region %}{{ stat.nb_commandes }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+        backgroundColor: [
+            '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+            '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'
+        ]
+    }]
+};
+
+const villeData = {
+    labels: [{% for stat in stats_par_ville|slice:":10" %}'{{ stat.ville__nom }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+    datasets: [{
+        label: 'Commandes',
+        data: [{% for stat in stats_par_ville|slice:":10" %}{{ stat.nb_commandes }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+        backgroundColor: '#3b82f6',
+        borderColor: '#2563eb',
+        borderWidth: 1
+    }]
+};
+
+// Créer les graphiques
+document.addEventListener('DOMContentLoaded', function() {
+    // Graphique en secteurs pour les régions
+    const regionCtx = document.getElementById('regionChart').getContext('2d');
+    new Chart(regionCtx, {
+        type: 'pie',
+        data: regionData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Graphique en barres pour les villes
+    const villeCtx = document.getElementById('villeChart').getContext('2d');
+    new Chart(villeCtx, {
+        type: 'bar',
+        data: villeData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %} 
