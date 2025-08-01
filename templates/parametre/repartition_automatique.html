@@ -309,6 +309,31 @@
                     </div>
                     {% endfor %}
                 </div>
+                
+                <!-- Boutons d'export pour cet opérateur -->
+                {% if data.nb_commandes > 0 %}
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-600">Exporter les commandes :</span>
+                        <div class="flex gap-2">
+                            <a href="?export=csv_operateur&operateur_id={{ operateur_id }}" 
+                               class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors">
+                                <i class="fas fa-file-csv mr-1"></i>CSV
+                            </a>
+                            {% if openpyxl_available %}
+                            <a href="?export=excel_operateur&operateur_id={{ operateur_id }}" 
+                               class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors">
+                                <i class="fas fa-file-excel mr-1"></i>Excel
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 text-center">Aucune commande assignée</p>
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>

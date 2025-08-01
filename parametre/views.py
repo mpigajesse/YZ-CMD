@@ -1092,6 +1092,15 @@ def repartition_automatique(request):
     """Page de répartition automatique des commandes"""
     from django.db.models import Count, Sum
     
+    # Gérer les exports
+    export_type = request.GET.get('export')
+    operateur_id = request.GET.get('operateur_id')
+    
+    if export_type == 'csv_operateur' and operateur_id:
+        return export_operateur_csv(request, operateur_id)
+    elif export_type == 'excel_operateur' and operateur_id:
+        return export_operateur_excel(request, operateur_id)
+    
     # Statistiques pour les KPI
     total_commandes = Commande.objects.filter(
         etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
@@ -1115,16 +1124,43 @@ def repartition_automatique(request):
         total_montant=Sum('total_cmd')
     ).order_by('-nb_commandes')
     
-    # Données de prévisualisation (simulation)
+    # Données de prévisualisation dynamique et intelligente
     preview_data = {}
     operateurs_actifs = Operateur.objects.filter(actif=True).exclude(type_operateur='ADMIN')[:5]
     
+    # Récupérer toutes les commandes préparées avec leurs états
+    commandes_preparees = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée'
+    ).select_related(
+        'client', 'ville', 'ville__region'
+    ).prefetch_related(
+        'etats__operateur', 'etats__enum_etat'
+    ).distinct()
+    
     for operateur in operateurs_actifs:
+        # Compter les commandes assignées à cet opérateur
+        commandes_operateur = commandes_preparees.filter(
+            etats__operateur=operateur,
+            etats__enum_etat__libelle='Préparée'
+        ).distinct()
+        
+        nb_commandes = commandes_operateur.count()
+        
+        # Récupérer les régions uniques pour cet opérateur
+        regions_operateur = commandes_operateur.values_list(
+            'ville__region__nom_region', flat=True
+        ).distinct()
+        
+        # Récupérer les détails des commandes (limité à 5 pour l'affichage)
+        commandes_details = commandes_operateur.select_related(
+            'client', 'ville', 'ville__region'
+        )[:5]
+        
         preview_data[operateur.id] = {
             'nom_operateur': f"{operateur.prenom} {operateur.nom}",
-            'nb_commandes': 0,
-            'regions': [],
-            'commandes': []
+            'nb_commandes': nb_commandes,
+            'regions': list(regions_operateur),
+            'commandes': list(commandes_details)
         }
     
     # Historique des répartitions (simulation)
@@ -2140,6 +2176,213 @@ def export_regions_excel(request):
     # Créer la réponse
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     filename = f"regions_consolidees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
+
+@staff_member_required
+@login_required
+def export_operateur_csv(request, operateur_id):
+    """Export CSV pour les commandes d'un opérateur spécifique"""
+    from commande.models import Commande
+    
+    # Récupérer l'opérateur
+    try:
+        operateur = Operateur.objects.get(id=operateur_id)
+    except Operateur.DoesNotExist:
+        return HttpResponse("Opérateur non trouvé", status=404)
+    
+    # Récupérer les commandes PRÉPARÉES assignées à cet opérateur
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__operateur=operateur
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"operateur_{operateur.prenom}_{operateur.nom}_commandes_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation', 'Opérateur Assigné'
+    ]
+    writer.writerow(headers)
+    
+    # Traiter chaque commande
+    for commande in commandes:
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation,
+            f"{operateur.prenom} {operateur.nom}"
+        ]
+        writer.writerow(row)
+    
+    return response
+
+
+@staff_member_required
+@login_required
+def export_operateur_excel(request, operateur_id):
+    """Export Excel pour les commandes d'un opérateur spécifique"""
+    from commande.models import Commande
+    
+    # Récupérer l'opérateur
+    try:
+        operateur = Operateur.objects.get(id=operateur_id)
+    except Operateur.DoesNotExist:
+        return HttpResponse("Opérateur non trouvé", status=404)
+    
+    # Récupérer les commandes PRÉPARÉES assignées à cet opérateur
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__operateur=operateur
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer le fichier Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Opérateur {operateur.prenom} {operateur.nom}"
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation', 'Opérateur Assigné'
+    ]
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Traiter chaque commande
+    for row, commande in enumerate(commandes, 2):
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row_data = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            commande.total_cmd or 0,
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation,
+            f"{operateur.prenom} {operateur.nom}"
+        ]
+        
+        for col, value in enumerate(row_data, 1):
+            ws.cell(row=row, column=col, value=value)
+    
+    # Ajuster la largeur des colonnes
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Créer la réponse
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    filename = f"operateur_{operateur.prenom}_{operateur.nom}_commandes_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     wb.save(response)
