@@ -1480,61 +1480,67 @@ def livraison_partielle(request, commande_id):
         if not articles_livres:
             return JsonResponse({'success': False, 'error': 'Aucun article à livrer spécifié.'})
         
-        if not articles_renvoyes:
-            return JsonResponse({'success': False, 'error': 'Aucun article à renvoyer spécifié.'})
+        # Permettre une livraison partielle même sans articles à renvoyer (quand tous les articles sont livrés)
+        # if not articles_renvoyes:
+        #     return JsonResponse({'success': False, 'error': 'Aucun article à renvoyer spécifié.'})
 
         with transaction.atomic():
             # === AJOUT : Réintégration dans le stock pour les articles renvoyés en bon état ===
             print(f"🔄 [DEBUG] Début de la réintégration du stock - {len(articles_renvoyes)} articles à traiter")
             recap_articles_renvoyes = []
-            for i, article_data in enumerate(articles_renvoyes):
-                print(f"🔍 [DEBUG] Article renvoyé {i+1}: Données complètes = {article_data}")
-                
-                etat = article_data.get('etat', 'bon')
-                article_id = article_data.get('id') or article_data.get('article_id')
-                quantite_raw = article_data.get('quantite', 0)
-                
-                print(f"📊 [DEBUG] Article {i+1} - État: {etat}, ID: {article_id}, Quantité brute: {quantite_raw}")
-                
-                try:
-                    quantite = int(quantite_raw) if quantite_raw else 0
-                    print(f"🔢 [DEBUG] Article {i+1} - Quantité convertie: {quantite}")
-                except (ValueError, TypeError) as e:
-                    print(f"❌ [DEBUG] Erreur conversion quantité pour article {i+1}: {e}")
-                    quantite = 0
-                
-                if article_id and quantite > 0:
-                    print(f"✅ [DEBUG] Article {i+1} - Conditions validées, appel de reintegrer_stock_article")
-                    # Utiliser la fonction utilitaire pour la réintégration du stock
-                    resultat_stock = reintegrer_stock_article(
-                        article_id=article_id,
-                        quantite=quantite,
-                        etat=etat,
-                        commentaire=f"Livraison partielle - Commande {commande.id_yz}"
-                    )
-                    print(f"📋 [DEBUG] Article {i+1} - Résultat réintégration: {resultat_stock}")
+            
+            if articles_renvoyes:  # Seulement si il y a des articles à renvoyer
+                for i, article_data in enumerate(articles_renvoyes):
+                    print(f"🔍 [DEBUG] Article renvoyé {i+1}: Données complètes = {article_data}")
                     
-                    recap_articles_renvoyes.append({
-                        'nom': resultat_stock['article_nom'],
-                        'quantite': quantite,
-                        'etat': etat,
-                        'stock_avant': resultat_stock['stock_avant'],
-                        'stock_apres': resultat_stock['stock_apres'],
-                        'reintegration_success': resultat_stock['success'],
-                        'message': resultat_stock['message']
-                    })
-                else:
-                    print(f"⚠️ [DEBUG] Article {i+1} - Conditions NON validées: article_id={article_id}, quantite={quantite}")
-                    recap_articles_renvoyes.append({
-                        'nom': article_data.get('nom', f'Article ID {article_id}'),
-                        'quantite': quantite,
-                        'etat': etat,
-                        'stock_avant': None,
-                        'stock_apres': None,
-                        'reintegration_success': False,
-                        'message': 'Article ou quantité invalide'
-                    })
+                    etat = article_data.get('etat', 'bon')
+                    article_id = article_data.get('id') or article_data.get('article_id')
+                    quantite_raw = article_data.get('quantite', 0)
+                    
+                    print(f"📊 [DEBUG] Article {i+1} - État: {etat}, ID: {article_id}, Quantité brute: {quantite_raw}")
+                    
+                    try:
+                        quantite = int(quantite_raw) if quantite_raw else 0
+                        print(f"🔢 [DEBUG] Article {i+1} - Quantité convertie: {quantite}")
+                    except (ValueError, TypeError) as e:
+                        print(f"❌ [DEBUG] Erreur conversion quantité pour article {i+1}: {e}")
+                        quantite = 0
+                    
+                    if article_id and quantite > 0:
+                        print(f"✅ [DEBUG] Article {i+1} - Conditions validées, appel de reintegrer_stock_article")
+                        # Utiliser la fonction utilitaire pour la réintégration du stock
+                        resultat_stock = reintegrer_stock_article(
+                            article_id=article_id,
+                            quantite=quantite,
+                            etat=etat,
+                            commentaire=f"Livraison partielle - Commande {commande.id_yz}"
+                        )
+                        print(f"📋 [DEBUG] Article {i+1} - Résultat réintégration: {resultat_stock}")
+                        
+                        recap_articles_renvoyes.append({
+                            'nom': resultat_stock['article_nom'],
+                            'quantite': quantite,
+                            'etat': etat,
+                            'stock_avant': resultat_stock['stock_avant'],
+                            'stock_apres': resultat_stock['stock_apres'],
+                            'reintegration_success': resultat_stock['success'],
+                            'message': resultat_stock['message']
+                        })
+                    else:
+                        print(f"⚠️ [DEBUG] Article {i+1} - Conditions NON validées: article_id={article_id}, quantite={quantite}")
+                        recap_articles_renvoyes.append({
+                            'nom': article_data.get('nom', f'Article ID {article_id}'),
+                            'quantite': quantite,
+                            'etat': etat,
+                            'stock_avant': None,
+                            'stock_apres': None,
+                            'reintegration_success': False,
+                            'message': 'Article ou quantité invalide'
+                        })
+            else:
+                print(f"✅ Aucun article à renvoyer - Pas de réintégration de stock nécessaire")
             # === FIN AJOUT ===
+            
             # 1. Terminer l'état "En cours de livraison" actuel
             etat_actuel = commande.etat_actuel
             etat_actuel.terminer_etat(operateur)
@@ -1580,6 +1586,9 @@ def livraison_partielle(request, commande_id):
                                 **article_renvoye,
                                 'quantite': quantite_restante
                             })
+            
+            nouvelle_commande = None
+            operateur_preparation_original = None
             
             if articles_renvoyes_filtres:
                 # Gérer selon le type de retour
@@ -1640,8 +1649,6 @@ def livraison_partielle(request, commande_id):
                     })
                 
                 # 4.1. Identifier et affecter à l'opérateur de préparation original (seulement pour retour en préparation)
-                operateur_preparation_original = None
-                
                 if type_retour == 'preparation':
                     # Chercher l'opérateur qui avait préparé cette commande initialement
                     
@@ -1735,40 +1742,46 @@ def livraison_partielle(request, commande_id):
                         date_debut=timezone.now(),
                         commentaire=f"Commande de renvoi créée suite à livraison partielle de {commande.id_yz}. Articles non livrés: {len(articles_renvoyes)}. Affectée à l'opérateur original: {operateur_preparation_original.nom_complet}"
                     )
+            else:
+                # Cas où tous les articles sont livrés (pas d'articles à renvoyer)
+                print(f"✅ Tous les articles sont livrés - Pas de commande de renvoi nécessaire")
+                articles_renvoyes = []
+            
+            # 5. Mettre à jour les quantités des articles livrés dans la commande originale
+            # et supprimer les articles complètement renvoyés
+            for article_data in articles_livres:
+                panier = commande.paniers.filter(
+                    article_id=article_data['article_id']
+                ).first()
                 
-                # 5. Mettre à jour les quantités des articles livrés dans la commande originale
-                # et supprimer les articles complètement renvoyés
-                for article_data in articles_livres:
-                    panier = commande.paniers.filter(
-                        article_id=article_data['article_id']
-                    ).first()
-                    
-                    if panier:
-                        if article_data['quantite'] > 0:
-                            # Mettre à jour la quantité et le sous-total
-                            panier.quantite = article_data['quantite']
-                            panier.sous_total = panier.article.prix_unitaire * article_data['quantite']
-                            panier.save()
-                        else:
-                            # Si quantité = 0, supprimer l'article de la commande originale
-                            panier.delete()
-                
-                # Supprimer les articles complètement renvoyés de la commande originale
-                # Utiliser les articles filtrés pour éviter les conflits
+                if panier:
+                    if article_data['quantite'] > 0:
+                        # Mettre à jour la quantité et le sous-total
+                        panier.quantite = article_data['quantite']
+                        panier.sous_total = panier.article.prix_unitaire * article_data['quantite']
+                        panier.save()
+                    else:
+                        # Si quantité = 0, supprimer l'article de la commande originale
+                        panier.delete()
+            
+            # Supprimer les articles complètement renvoyés de la commande originale
+            # Utiliser les articles filtrés pour éviter les conflits
+            if articles_renvoyes:  # Seulement si il y a des articles à renvoyer
                 articles_renvoyes_ids = [article_data['article_id'] for article_data in articles_renvoyes]
                 commande.paniers.filter(article_id__in=articles_renvoyes_ids).delete()
-                
-                # 6. Recalculer le total de la commande originale
-                total_commande = commande.paniers.aggregate(
-                    total=Sum('sous_total')
-                )['total'] or 0
-                commande.total_cmd = float(total_commande)
-                commande.save()
-                
-                # 7. Créer une opération pour tracer l'action
-                # On prépare un JSON structuré pour la conclusion
-                # On enrichit recap_articles_renvoyes avec l'id de l'article
-                recap_articles_renvoyes_json = []
+            
+            # 6. Recalculer le total de la commande originale
+            total_commande = commande.paniers.aggregate(
+                total=Sum('sous_total')
+            )['total'] or 0
+            commande.total_cmd = float(total_commande)
+            commande.save()
+            
+            # 7. Créer une opération pour tracer l'action
+            # On prépare un JSON structuré pour la conclusion
+            # On enrichit recap_articles_renvoyes avec l'id de l'article
+            recap_articles_renvoyes_json = []
+            if articles_renvoyes:  # Seulement si il y a des articles à renvoyer
                 for article_data in articles_renvoyes:
                     article_id = article_data.get('article_id') or article_data.get('id')
                     # Toujours récupérer le prix depuis la base
@@ -1795,58 +1808,59 @@ def livraison_partielle(request, commande_id):
                     }
                     recap_articles_renvoyes_json.append(recap)
 
-                articles_livres_json = []
-                for article_data in articles_livres:
-                    article_id = article_data.get('article_id') or article_data.get('id')
-                    try:
-                        from article.models import Article
-                        article = Article.objects.get(id=article_id)
-                        prix_unitaire = article.prix_unitaire
-                        if commande.compteur > 0:
-                            if commande.compteur == 1 and article.prix_upsell_1:
-                                prix_unitaire = article.prix_upsell_1
-                            elif commande.compteur == 2 and article.prix_upsell_2:
-                                prix_unitaire = article.prix_upsell_2
-                            elif commande.compteur == 3 and article.prix_upsell_3:
-                                prix_unitaire = article.prix_upsell_3
-                            elif commande.compteur >= 4 and article.prix_upsell_4:
-                                prix_unitaire = article.prix_upsell_4
-                    except Exception:
-                        prix_unitaire = 0.0
-                    art = {
-                        'article_id': article_id,
-                        'quantite': article_data.get('quantite', 0),
-                        'prix_unitaire': float(prix_unitaire)
-                    }
-                    articles_livres_json.append(art)
-
-                operation_conclusion_data = {
-                    'commentaire': commentaire,
-                    'articles_livres_count': len(articles_livres_json),
-                    'articles_renvoyes_count': len(recap_articles_renvoyes_json),
-                    'articles_livres': articles_livres_json,
-                    'recap_articles_renvoyes': recap_articles_renvoyes_json
+            articles_livres_json = []
+            for article_data in articles_livres:
+                article_id = article_data.get('article_id') or article_data.get('id')
+                try:
+                    from article.models import Article
+                    article = Article.objects.get(id=article_id)
+                    prix_unitaire = article.prix_unitaire
+                    if commande.compteur > 0:
+                        if commande.compteur == 1 and article.prix_upsell_1:
+                            prix_unitaire = article.prix_upsell_1
+                        elif commande.compteur == 2 and article.prix_upsell_2:
+                            prix_unitaire = article.prix_upsell_2
+                        elif commande.compteur == 3 and article.prix_upsell_3:
+                            prix_unitaire = article.prix_upsell_3
+                        elif commande.compteur >= 4 and article.prix_upsell_4:
+                            prix_unitaire = article.prix_upsell_4
+                except Exception:
+                    prix_unitaire = 0.0
+                art = {
+                    'article_id': article_id,
+                    'quantite': article_data.get('quantite', 0),
+                    'prix_unitaire': float(prix_unitaire)
                 }
+                articles_livres_json.append(art)
+
+            operation_conclusion_data = {
+                'commentaire': commentaire,
+                'articles_livres_count': len(articles_livres_json),
+                'articles_renvoyes_count': len(recap_articles_renvoyes_json),
+                'articles_livres': articles_livres_json,
+                'recap_articles_renvoyes': recap_articles_renvoyes_json
+            }
+            Operation.objects.create(
+                commande=commande,
+                type_operation='LIVRAISON_PARTIELLE',
+                conclusion=json.dumps(operation_conclusion_data),
+                operateur=operateur
+            )
+            
+            # 8. Créer une opération pour tracer l'affectation de la commande de renvoi
+            if articles_renvoyes and operateur_preparation_original:
                 Operation.objects.create(
-                    commande=commande,
-                    type_operation='LIVRAISON_PARTIELLE',
-                    conclusion=json.dumps(operation_conclusion_data),
+                    commande=nouvelle_commande,
+                    type_operation='AFFECTATION_AUTO_PREPARATION',
+                    conclusion=f"Commande de renvoi automatiquement affectée à l'opérateur original: {operateur_preparation_original.nom_complet} suite à livraison partielle de {commande.id_yz}",
                     operateur=operateur
                 )
-                
-                # 8. Créer une opération pour tracer l'affectation de la commande de renvoi
-                if articles_renvoyes and operateur_preparation_original:
-                    Operation.objects.create(
-                        commande=nouvelle_commande,
-                        type_operation='AFFECTATION_AUTO_PREPARATION',
-                        conclusion=f"Commande de renvoi automatiquement affectée à l'opérateur original: {operateur_preparation_original.nom_complet} suite à livraison partielle de {commande.id_yz}",
-                        operateur=operateur
-                    )
-                
-                # === AJOUT : Récapitulatif du stock de tous les articles de la commande ===
-                recap_stock_commande = []
-                # On va construire un mapping article_id -> (stock_avant, stock_apres, statut)
-                # On utilise recap_articles_renvoyes pour les articles renvoyés
+            
+            # === AJOUT : Récapitulatif du stock de tous les articles de la commande ===
+            recap_stock_commande = []
+            # On va construire un mapping article_id -> (stock_avant, stock_apres, statut)
+            # On utilise recap_articles_renvoyes pour les articles renvoyés
+            if recap_articles_renvoyes:  # Seulement si il y a des articles renvoyés
                 recap_renvoi_map = { (a.get('nom',''), a['etat']): a for a in recap_articles_renvoyes }
                 for panier in commande.paniers.all():
                     try:
@@ -1883,26 +1897,48 @@ def livraison_partielle(request, commande_id):
                             'stock_apres': None,
                             'statut': 'Inconnu'
                         })
-                # === FIN AJOUT ===
-                
+            else:
+                # Cas où tous les articles sont livrés - pas de réintégration de stock
+                for panier in commande.paniers.all():
+                    try:
+                        article = Article.objects.get(id=panier.article.id)
+                        recap_stock_commande.append({
+                            'nom': article.nom,
+                            'stock_avant': article.qte_disponible,
+                            'stock_apres': article.qte_disponible,
+                            'statut': 'Livré (tous les articles)'
+                        })
+                    except Article.DoesNotExist:
+                        recap_stock_commande.append({
+                            'nom': panier.article.nom,
+                            'stock_avant': None,
+                            'stock_apres': None,
+                            'statut': 'Inconnu'
+                        })
+            # === FIN AJOUT ===
+            
+            if articles_renvoyes:
                 if type_retour == 'preparation':
                     messages.success(request, 
                         f"Livraison partielle effectuée avec succès. {len(articles_livres)} article(s) livré(s), {len(articles_renvoyes)} article(s) renvoyé(s) en préparation.")
                 else:
                     messages.success(request, 
                         f"Livraison partielle effectuée avec succès. {len(articles_livres)} article(s) livré(s), {len(articles_renvoyes)} article(s) retourné(s) définitivement au stock.")
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': f'Livraison partielle effectuée avec succès',
-                    'articles_livres': len(articles_livres),
-                    'articles_renvoyes': len(articles_renvoyes),
-                    'type_retour': type_retour,
-                    'commande_renvoi_id': nouvelle_commande.id if type_retour == 'preparation' and articles_renvoyes else None,
-                    'commande_renvoi_num': nouvelle_commande.id_yz if type_retour == 'preparation' and articles_renvoyes else None,
-                    'recap_articles_renvoyes': recap_articles_renvoyes,
-                    'recap_stock_commande': recap_stock_commande
-                })
+            else:
+                messages.success(request, 
+                    f"Livraison complète effectuée avec succès. Tous les {len(articles_livres)} article(s) ont été livrés au client.")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Livraison partielle effectuée avec succès',
+                'articles_livres': len(articles_livres),
+                'articles_renvoyes': len(articles_renvoyes),
+                'type_retour': type_retour,
+                'commande_renvoi_id': nouvelle_commande.id if type_retour == 'preparation' and articles_renvoyes else None,
+                'commande_renvoi_num': nouvelle_commande.id_yz if type_retour == 'preparation' and articles_renvoyes else None,
+                'recap_articles_renvoyes': recap_articles_renvoyes,
+                'recap_stock_commande': recap_stock_commande
+            })
                 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
