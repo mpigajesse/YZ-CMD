@@ -1,0 +1,1 @@
+# Module pour la barre de recherche globale du dashboard admin 
