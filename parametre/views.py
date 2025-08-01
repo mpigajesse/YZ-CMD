@@ -1241,7 +1241,6 @@ def export_region_detail_csv(request, region_name):
     # Récupérer les commandes PRÉPARÉES de la région
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Préparée',
-        etats__date_fin__isnull=True,
         ville__region__nom_region=region_name
     ).select_related(
         'client', 
@@ -1264,7 +1263,8 @@ def export_region_detail_csv(request, region_name):
     # En-têtes
     headers = [
         'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
-        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande'
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
     ]
     writer.writerow(headers)
     
@@ -1288,6 +1288,16 @@ def export_region_detail_csv(request, region_name):
         # État actuel de la commande
         etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
         
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
         # Écrire la ligne
         row = [
             commande.id_yz or commande.num_cmd,
@@ -1299,7 +1309,9 @@ def export_region_detail_csv(request, region_name):
             f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A"
+            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
         ]
         writer.writerow(row)
     
@@ -1315,7 +1327,6 @@ def export_region_detail_excel(request, region_name):
     # Récupérer les commandes PRÉPARÉES de la région
     commandes = Commande.objects.filter(
         etats__enum_etat__libelle='Préparée',
-        etats__date_fin__isnull=True,
         ville__region__nom_region=region_name
     ).select_related(
         'client', 
@@ -1333,7 +1344,8 @@ def export_region_detail_excel(request, region_name):
     # En-têtes
     headers = [
         'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
-        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande'
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
     ]
     
     # Ajouter les en-têtes
@@ -1363,6 +1375,16 @@ def export_region_detail_excel(request, region_name):
         # État actuel de la commande
         etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
         
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
         # Écrire la ligne
         row_data = [
             commande.id_yz or commande.num_cmd,
@@ -1374,7 +1396,9 @@ def export_region_detail_excel(request, region_name):
             commande.total_cmd or 0,
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A"
+            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
         ]
         
         for col, value in enumerate(row_data, 1):
@@ -1410,8 +1434,7 @@ def export_villes_csv(request):
     
     # Récupérer les commandes PRÉPARÉES
     commandes = Commande.objects.filter(
-        etats__enum_etat__libelle='Préparée',
-        etats__date_fin__isnull=True
+        etats__enum_etat__libelle='Préparée'
     ).select_related(
         'client', 
         'ville', 
@@ -1433,7 +1456,8 @@ def export_villes_csv(request):
     # En-têtes
     headers = [
         'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
-        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande'
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
     ]
     writer.writerow(headers)
     
@@ -1457,6 +1481,16 @@ def export_villes_csv(request):
         # État actuel de la commande
         etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
         
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
         # Écrire la ligne
         row = [
             commande.id_yz or commande.num_cmd,
@@ -1468,7 +1502,9 @@ def export_villes_csv(request):
             f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A"
+            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
         ]
         writer.writerow(row)
     
@@ -1483,8 +1519,7 @@ def export_villes_excel(request):
     
     # Récupérer les commandes PRÉPARÉES
     commandes = Commande.objects.filter(
-        etats__enum_etat__libelle='Préparée',
-        etats__date_fin__isnull=True
+        etats__enum_etat__libelle='Préparée'
     ).select_related(
         'client', 
         'ville', 
@@ -1501,7 +1536,8 @@ def export_villes_excel(request):
     # En-têtes
     headers = [
         'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
-        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande'
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
     ]
     
     # Ajouter les en-têtes
@@ -1531,6 +1567,16 @@ def export_villes_excel(request):
         # État actuel de la commande
         etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
         
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
         # Écrire la ligne
         row_data = [
             commande.id_yz or commande.num_cmd,
@@ -1542,7 +1588,9 @@ def export_villes_excel(request):
             commande.total_cmd or 0,
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A"
+            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
         ]
         
         for col, value in enumerate(row_data, 1):
