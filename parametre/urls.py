@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .dashboard_360 import views as views_360
+from .dashboard_360.barre_recherche_globale import views as global_search_views
 
 app_name = 'app_admin'
 
@@ -51,4 +52,9 @@ urlpatterns = [
     path('vue360/api/statistics-update/', views_360.vue_360_statistics_update, name='vue_360_statistics_update'),
     path('vue360/api/etats-tracking/', views_360.vue_360_etats_tracking, name='vue_360_etats_tracking'),
     path('vue360/api/panier-tracking/', views_360.vue_360_panier_tracking, name='vue_360_panier_tracking'),
+    
+    # URLs Barre de Recherche Globale
+    path('global-search/', global_search_views.global_search_view, name='global_search'),
+    path('global-search/api/', global_search_views.global_search_api, name='global_search_api'),
+    path('global-search/suggestions/', global_search_views.search_suggestions_api, name='global_search_suggestions'),
 ] 
