@@ -309,6 +309,10 @@ LOGGING = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Configuration pour éviter l'erreur TooManyFieldsSent
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 50000  # Augmenter la limite par défaut (1000) à 50000
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10 MB en octets
+
 
 
 NPM_BIN_PATH = "C:/Program Files/nodejs/npm.cmd"  # Chemin vers l'exécutable npm
