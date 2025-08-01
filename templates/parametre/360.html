@@ -14,10 +14,18 @@
             </h1>
             <p style="color: var(--admin-accent-color);">Aperçu global et exportation des données</p>
         </div>
+        <!-- Indicateur de temps réel -->
+        <div class="flex items-center gap-2 text-white">
+            <div id="realtime-status" class="flex items-center gap-2">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span class="text-sm">Temps réel actif</span>
+            </div>
+            <div id="last-update-time" class="text-xs opacity-75"></div>
+        </div>
     </div>
 
     <!-- Statistiques -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="statistics-container">
         <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.1s;">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
@@ -26,7 +34,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Articles</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ total_articles }}</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600" id="total-articles">{{ total_articles }}</p>
                     </div>
                 </div>
             </div>
@@ -39,7 +47,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Clients</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ total_clients }}</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600" id="total-clients">{{ total_clients }}</p>
                     </div>
                 </div>
             </div>
@@ -52,7 +60,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Commandes</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-yellow-600">{{ total_commandes }}</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-yellow-600" id="total-commandes">{{ total_commandes }}</p>
                     </div>
                 </div>
             </div>
@@ -65,7 +73,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Opérateurs</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600">{{ total_operateurs }}</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600" id="total-operateurs">{{ total_operateurs }}</p>
                     </div>
                 </div>
             </div>
@@ -75,7 +83,7 @@
     <!-- Filtres de recherche -->
     <div class="bg-white rounded-xl shadow-md border p-6 mb-8">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Filtres de Recherche</h3>
-        <form method="GET" class="space-y-4">
+        <form method="GET" class="space-y-4" id="search-form">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label for="search" class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
@@ -135,11 +143,87 @@
         </div>
     </div>
 
+    <!-- Suivi en temps réel des états -->
+    <div class="bg-white rounded-xl shadow-md border p-6 mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-gray-800 flex items-center">
+                <i class="fas fa-chart-line mr-2 text-blue-600"></i>
+                Suivi en Temps Réel des États de Commande
+            </h3>
+            <div class="flex items-center gap-2">
+                <div id="etats-realtime-status" class="flex items-center gap-2">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-sm text-green-600">Suivi actif</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notifications des changements récents -->
+        <div id="recent-changes-container" class="mb-4">
+            <!-- Les notifications de changements récents seront ajoutées ici -->
+        </div>
+        
+        <!-- Indicateurs de processus -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-clock text-blue-600 mr-2"></i>
+                    <div>
+                        <p class="text-sm font-medium text-blue-800">Commandes en cours</p>
+                        <p class="text-2xl font-bold text-blue-900" id="commandes-en-cours">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                    <div>
+                        <p class="text-sm font-medium text-green-800">Commandes terminées</p>
+                        <p class="text-2xl font-bold text-green-900" id="commandes-terminees">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
+                    <div>
+                        <p class="text-sm font-medium text-yellow-800">Commandes en attente</p>
+                        <p class="text-2xl font-bold text-yellow-900" id="commandes-en-attente">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-times-circle text-red-600 mr-2"></i>
+                    <div>
+                        <p class="text-sm font-medium text-red-800">Commandes annulées</p>
+                        <p class="text-2xl font-bold text-red-900" id="commandes-annulees">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statistiques du panier -->
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-shopping-cart text-gray-600 mr-2"></i>
+                    <h4 class="text-sm font-medium text-gray-800">Statistiques du Panier</h4>
+                </div>
+                <div id="panier-stats" class="text-sm text-gray-600">
+                    <span class="font-medium">0</span> paniers actifs, 
+                    <span class="font-medium">0</span> articles, 
+                    <span class="font-medium">0.00</span> MAD
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tableau de toutes les commandes -->
     <div class="bg-white rounded-xl shadow-md border overflow-x-auto">
         <div class="p-6 border-b flex justify-between items-center">
             <h3 class="text-xl font-semibold text-gray-800">Détails des Commandes</h3>
-            <div class="text-sm text-gray-600">
+            <div class="text-sm text-gray-600" id="pagination-info">
                 Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} 
                 ({{ page_obj.paginator.count }} commandes au total)
             </div>
@@ -158,6 +242,11 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Panier</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Prix Total (DH)</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Date Commande</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">État Actuel</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Étape</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Durée Totale</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Dernière Modif.</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Opérateur</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Statut Confirmation</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Date Confirmation</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-gray-200">Obs. Confirmation</th>
@@ -175,9 +264,9 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Obs. Livraison</th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for cmd in commandes_data %}
-                    <tr class="hover:bg-gray-50 transition-colors">
+            <tbody class="bg-white divide-y divide-gray-200" id="commandes-table-body">
+                                {% for cmd in commandes_data %}
+                    <tr class="hover:bg-gray-50 transition-colors" data-commande-id="{{ cmd.id }}">
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.num_cmd }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.id_yz }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.client_nom_prenom }}</td>
@@ -188,6 +277,28 @@
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.panier }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.prix_total_dh }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.date_commande }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full 
+                                {% if 'annulée' in cmd.etat_actuel|lower or 'annulé' in cmd.etat_actuel|lower %}bg-red-100 text-red-800
+                                {% elif 'payée' in cmd.etat_actuel|lower or 'livrée' in cmd.etat_actuel|lower %}bg-green-100 text-green-800
+                                {% elif 'nouvelle' in cmd.etat_actuel|lower or 'affectée' in cmd.etat_actuel|lower %}bg-yellow-100 text-yellow-800
+                                {% elif 'préparation' in cmd.etat_actuel|lower %}bg-blue-100 text-blue-800
+                                {% elif 'confirmée' in cmd.etat_actuel|lower %}bg-purple-100 text-purple-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ cmd.etat_actuel }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                            <div class="flex items-center">
+                                <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: {% widthratio cmd.etape_actuelle|default:0 9 100 %}%"></div>
+                                </div>
+                                <span class="text-xs">{{ cmd.etape_actuelle|default:0 }}/9</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.duree_totale }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.derniere_modification }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.operateur_derniere_modification }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.confirmation_status }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.date_confirmation }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.observations_confirmation }}</td>
@@ -203,10 +314,10 @@
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.date_paiement }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">{{ cmd.piece_retournee }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{{ cmd.observation_livraison }}</td>
-                </tr>
+                    </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="26" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    <td colspan="31" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                         Aucune commande trouvée.
                     </td>
                 </tr>
@@ -217,7 +328,7 @@
         
         <!-- Pagination -->
         {% if page_obj.has_other_pages %}
-        <div class="px-6 py-4 border-t border-gray-200">
+        <div class="px-6 py-4 border-t border-gray-200" id="pagination-container">
             <div class="flex items-center justify-between">
                 <div class="flex-1 flex justify-between sm:hidden">
                     {% if page_obj.has_previous %}
@@ -332,6 +443,450 @@
             `;
             exportSection.insertBefore(warning, exportSection.firstChild.nextSibling);
         }
+        
+        // Système de temps réel pour la vue 360
+        let realtimeUpdateInterval;
+        let statisticsUpdateInterval;
+        let lastUpdateTime = new Date();
+        
+        // Fonction pour mettre à jour les statistiques
+        function updateStatistics() {
+            fetch('{% url "app_admin:vue_360_statistics_update" %}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('total-articles').textContent = data.statistics.total_articles;
+                        document.getElementById('total-clients').textContent = data.statistics.total_clients;
+                        document.getElementById('total-commandes').textContent = data.statistics.total_commandes;
+                        document.getElementById('total-operateurs').textContent = data.statistics.total_operateurs;
+                        
+                        // Mettre à jour l'heure de dernière mise à jour
+                        const updateTime = new Date(data.timestamp);
+                        document.getElementById('last-update-time').textContent = 
+                            `Dernière mise à jour: ${updateTime.toLocaleTimeString('fr-FR')}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la mise à jour des statistiques:', error);
+                });
+        }
+        
+        // Fonction pour mettre à jour les données du tableau
+        function updateTableData() {
+            const searchParams = new URLSearchParams(window.location.search);
+            const url = `{% url "app_admin:vue_360_realtime_data" %}?${searchParams.toString()}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Mettre à jour le tableau
+                        updateTableRows(data.commandes_data);
+                        
+                        // Mettre à jour les statistiques
+                        document.getElementById('total-articles').textContent = data.statistics.total_articles;
+                        document.getElementById('total-clients').textContent = data.statistics.total_clients;
+                        document.getElementById('total-commandes').textContent = data.statistics.total_commandes;
+                        document.getElementById('total-operateurs').textContent = data.statistics.total_operateurs;
+                        
+                        // Mettre à jour la pagination
+                        updatePaginationInfo(data.pagination);
+                        
+                        // Mettre à jour l'heure de dernière mise à jour
+                        const updateTime = new Date(data.timestamp);
+                        document.getElementById('last-update-time').textContent = 
+                            `Dernière mise à jour: ${updateTime.toLocaleTimeString('fr-FR')}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la mise à jour des données:', error);
+                });
+        }
+        
+        // Fonction pour mettre à jour les lignes du tableau
+        function updateTableRows(commandesData) {
+            const tbody = document.getElementById('commandes-table-body');
+            
+            if (commandesData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="26" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                            Aucune commande trouvée.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = commandesData.map(cmd => `
+                <tr class="hover:bg-gray-50 transition-colors" data-commande-id="${cmd.id}">
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.num_cmd}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.id_yz}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.client_nom_prenom}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.client_telephone}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.client_adresse}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.ville}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.region}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.panier}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.prix_total_dh}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.date_commande}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(cmd.etat_actuel)}">
+                            ${cmd.etat_actuel}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                        <div class="flex items-center">
+                            <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: ${(cmd.etape_actuelle / 9) * 100}%"></div>
+                            </div>
+                            <span class="text-xs">${cmd.etape_actuelle}/9</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.duree_totale}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.derniere_modification}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.operateur_derniere_modification}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.confirmation_status}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.date_confirmation}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.observations_confirmation}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.operateur_assigne}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.agent_confirmation}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.client_fidele}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.upsell_display}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.preparation_status}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.etat_livraison}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.etat_paiement}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.tarif_livraison}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.reste_a_payer}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.date_paiement}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${cmd.piece_retournee}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">${cmd.observation_livraison}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // Fonction pour mettre à jour les informations de pagination
+        function updatePaginationInfo(pagination) {
+            const paginationInfo = document.getElementById('pagination-info');
+            if (paginationInfo) {
+                paginationInfo.textContent = `Page ${pagination.current_page} sur ${pagination.total_pages} (${pagination.total_count} commandes au total)`;
+            }
+        }
+        
+        // Démarrer les mises à jour en temps réel
+        function startRealtimeUpdates() {
+            // Mise à jour des statistiques toutes les 30 secondes
+            statisticsUpdateInterval = setInterval(updateStatistics, 30000);
+            
+            // Mise à jour complète des données toutes les 60 secondes
+            realtimeUpdateInterval = setInterval(updateTableData, 60000);
+            
+            // Première mise à jour immédiate
+            updateStatistics();
+            updateTableData();
+        }
+        
+        // Arrêter les mises à jour en temps réel
+        function stopRealtimeUpdates() {
+            if (statisticsUpdateInterval) {
+                clearInterval(statisticsUpdateInterval);
+            }
+            if (realtimeUpdateInterval) {
+                clearInterval(realtimeUpdateInterval);
+            }
+        }
+        
+        // Gestion de la visibilité de la page
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // Page cachée, arrêter les mises à jour
+                stopRealtimeUpdates();
+                document.getElementById('realtime-status').innerHTML = 
+                    '<div class="w-2 h-2 bg-gray-500 rounded-full"></div><span class="text-sm">Pause</span>';
+            } else {
+                // Page visible, redémarrer les mises à jour
+                startRealtimeUpdates();
+                document.getElementById('realtime-status').innerHTML = 
+                    '<div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span class="text-sm">Temps réel actif</span>';
+            }
+        });
+        
+        // Démarrer les mises à jour en temps réel
+        startRealtimeUpdates();
+        
+        // Système de suivi en temps réel des états de commande
+        let etatsTrackingInterval;
+        let lastEtatsUpdate = new Date();
+        
+        // Fonction pour mettre à jour le suivi des états
+        function updateEtatsTracking() {
+            fetch('{% url "app_admin:vue_360_etats_tracking" %}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.recent_changes) {
+                            // Afficher les changements récents
+                            displayRecentChanges(data.recent_changes);
+                        }
+                        
+                        // Mettre à jour les indicateurs de processus
+                        updateProcessIndicators();
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors du suivi des états:', error);
+                });
+        }
+        
+        // Fonction pour afficher les changements récents
+        function displayRecentChanges(changes) {
+            const container = document.getElementById('recent-changes-container');
+            
+            if (changes.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            const changesHtml = changes.map(change => `
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2 animate-pulse">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <i class="fas fa-sync-alt text-blue-600 mr-2"></i>
+                            <span class="text-sm font-medium text-blue-800">
+                                Commande ${change.num_cmd} - ${change.nouvel_etat}
+                            </span>
+                        </div>
+                        <div class="text-xs text-blue-600">
+                            ${change.date_modification} par ${change.operateur}
+                        </div>
+                    </div>
+                    ${change.commentaire ? `<div class="text-xs text-blue-700 mt-1">${change.commentaire}</div>` : ''}
+                </div>
+            `).join('');
+            
+            container.innerHTML = changesHtml;
+            
+            // Supprimer les notifications après 10 secondes
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 10000);
+        }
+        
+        // Fonction pour mettre à jour les indicateurs de processus
+        function updateProcessIndicators() {
+            // Compter les commandes par statut dans le tableau actuel
+            const rows = document.querySelectorAll('#commandes-table-body tr');
+            let enCours = 0, terminees = 0, enAttente = 0, annulees = 0;
+            
+            rows.forEach(row => {
+                const etatCell = row.querySelector('td:nth-child(11)'); // État actuel
+                if (etatCell) {
+                    const etat = etatCell.textContent.toLowerCase();
+                    if (etat.includes('annulée') || etat.includes('annulé')) {
+                        annulees++;
+                    } else if (etat.includes('payée') || etat.includes('livrée')) {
+                        terminees++;
+                    } else if (etat.includes('nouvelle') || etat.includes('affectée')) {
+                        enAttente++;
+                    } else {
+                        enCours++;
+                    }
+                }
+            });
+            
+            document.getElementById('commandes-en-cours').textContent = enCours;
+            document.getElementById('commandes-terminees').textContent = terminees;
+            document.getElementById('commandes-en-attente').textContent = enAttente;
+            document.getElementById('commandes-annulees').textContent = annulees;
+        }
+        
+        // Fonction pour démarrer le suivi des états
+        function startEtatsTracking() {
+            // Mise à jour toutes les 15 secondes
+            etatsTrackingInterval = setInterval(updateEtatsTracking, 15000);
+            
+            // Première mise à jour immédiate
+            updateEtatsTracking();
+        }
+        
+        // Fonction pour arrêter le suivi des états
+        function stopEtatsTracking() {
+            if (etatsTrackingInterval) {
+                clearInterval(etatsTrackingInterval);
+            }
+        }
+        
+        // Gestion de la visibilité pour le suivi des états
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopEtatsTracking();
+                document.getElementById('etats-realtime-status').innerHTML = 
+                    '<div class="w-2 h-2 bg-gray-500 rounded-full"></div><span class="text-sm text-gray-600">Pause</span>';
+            } else {
+                startEtatsTracking();
+                document.getElementById('etats-realtime-status').innerHTML = 
+                    '<div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span class="text-sm text-green-600">Suivi actif</span>';
+            }
+        });
+        
+        // Fonction pour obtenir la couleur du statut
+        function getStatusColor(etat) {
+            const etatLower = etat.toLowerCase();
+            if (etatLower.includes('annulée') || etatLower.includes('annulé')) {
+                return 'bg-red-100 text-red-800';
+            } else if (etatLower.includes('payée') || etatLower.includes('livrée')) {
+                return 'bg-green-100 text-green-800';
+            } else if (etatLower.includes('nouvelle') || etatLower.includes('affectée')) {
+                return 'bg-yellow-100 text-yellow-800';
+            } else if (etatLower.includes('préparation')) {
+                return 'bg-blue-100 text-blue-800';
+            } else if (etatLower.includes('confirmée')) {
+                return 'bg-purple-100 text-purple-800';
+            } else {
+                return 'bg-gray-100 text-gray-800';
+            }
+        }
+        
+        // Système de suivi en temps réel du panier
+        let panierTrackingInterval;
+        let lastPanierUpdate = new Date();
+        
+        // Fonction pour mettre à jour le suivi du panier
+        function updatePanierTracking() {
+            fetch('{% url "app_admin:vue_360_panier_tracking" %}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.recent_panier_changes) {
+                            // Afficher les changements récents du panier
+                            displayRecentPanierChanges(data.recent_panier_changes);
+                        }
+                        
+                        // Mettre à jour les indicateurs du panier
+                        updatePanierIndicators();
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors du suivi du panier:', error);
+                });
+        }
+        
+        // Fonction pour afficher les changements récents du panier
+        function displayRecentPanierChanges(changes) {
+            const container = document.getElementById('recent-changes-container');
+            
+            if (changes.length === 0) {
+                return;
+            }
+            
+            const panierChangesHtml = changes.map(change => `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-2 animate-pulse">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <i class="fas fa-shopping-cart text-green-600 mr-2"></i>
+                            <span class="text-sm font-medium text-green-800">
+                                Panier ${change.num_cmd} - ${change.article_nom} (${change.quantite}x)
+                            </span>
+                        </div>
+                        <div class="text-xs text-green-600">
+                            ${change.date_modification} - ${change.sous_total} MAD
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Ajouter les changements de panier aux notifications existantes
+            const existingContent = container.innerHTML;
+            container.innerHTML = panierChangesHtml + existingContent;
+            
+            // Supprimer les notifications après 10 secondes
+            setTimeout(() => {
+                const currentContent = container.innerHTML;
+                container.innerHTML = currentContent.replace(panierChangesHtml, '');
+            }, 10000);
+        }
+        
+        // Fonction pour mettre à jour les indicateurs du panier
+        function updatePanierIndicators() {
+            // Compter les articles et totaux dans le tableau actuel
+            const rows = document.querySelectorAll('#commandes-table-body tr');
+            let totalArticles = 0;
+            let totalPaniers = 0;
+            let totalValeur = 0;
+            
+            rows.forEach(row => {
+                const panierCell = row.querySelector('td:nth-child(8)'); // Panier
+                const prixCell = row.querySelector('td:nth-child(9)'); // Prix Total
+                
+                if (panierCell && prixCell) {
+                    const panierText = panierCell.textContent;
+                    const prixText = prixCell.textContent;
+                    
+                    if (panierText && panierText !== 'N/A') {
+                        totalPaniers++;
+                        // Compter les articles (séparés par des virgules)
+                        const articles = panierText.split(',').length;
+                        totalArticles += articles;
+                    }
+                    
+                    if (prixText && prixText !== 'N/A') {
+                        const prix = parseFloat(prixText.replace(/[^\d.]/g, ''));
+                        if (!isNaN(prix)) {
+                            totalValeur += prix;
+                        }
+                    }
+                }
+            });
+            
+            // Mettre à jour les indicateurs si les éléments existent
+            const totalArticlesElement = document.getElementById('total-articles');
+            if (totalArticlesElement) {
+                totalArticlesElement.textContent = totalArticles;
+            }
+            
+            // Ajouter des indicateurs spécifiques au panier si nécessaire
+            const panierStatsElement = document.getElementById('panier-stats');
+            if (panierStatsElement) {
+                panierStatsElement.innerHTML = `
+                    <div class="text-sm text-gray-600">
+                        <span class="font-medium">${totalPaniers}</span> paniers actifs, 
+                        <span class="font-medium">${totalArticles}</span> articles, 
+                        <span class="font-medium">${totalValeur.toFixed(2)}</span> MAD
+                    </div>
+                `;
+            }
+        }
+        
+        // Fonction pour démarrer le suivi du panier
+        function startPanierTracking() {
+            // Mise à jour toutes les 20 secondes
+            panierTrackingInterval = setInterval(updatePanierTracking, 20000);
+            
+            // Première mise à jour immédiate
+            updatePanierTracking();
+        }
+        
+        // Fonction pour arrêter le suivi du panier
+        function stopPanierTracking() {
+            if (panierTrackingInterval) {
+                clearInterval(panierTrackingInterval);
+            }
+        }
+        
+        // Gestion de la visibilité pour le suivi du panier
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopPanierTracking();
+            } else {
+                startPanierTracking();
+            }
+        });
+        
+        // Démarrer le suivi des états
+        startEtatsTracking();
+        
+        // Démarrer le suivi du panier
+        startPanierTracking();
     });
 </script>
 {% endblock %} 

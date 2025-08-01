@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .dashboard_360 import views as views_360
+from .dashboard_360.barre_recherche_globale import views as global_search_views
 
 app_name = 'app_admin'
 
@@ -31,11 +32,6 @@ urlpatterns = [
     path('profile/modifier/', views.modifier_admin_profile, name='modifier_profile'),
     path('profile/changer-mot-de-passe/', views.changer_mot_de_passe_admin, name='changer_mot_de_passe'),
     
-    # URLs Répartition des Commandes (déplacées depuis Prepacommande)
-    path('repartition/automatique/', views.repartition_automatique, name='repartition_automatique'),
-    path('repartition/details-region/', views.details_region_view, name='details_region'),
-    path('repartition/modal-data/', views.get_modal_data_ajax, name='get_modal_data_ajax'),
-    
     # URLs Service Après-Vente pour Admin
     path('sav/commandes-retournees/', views.sav_commandes_retournees, name='sav_commandes_retournees'),
     path('sav/commandes-reportees/', views.sav_commandes_reportees, name='sav_commandes_reportees'),
@@ -45,9 +41,6 @@ urlpatterns = [
     path('sav/livrees/', views.sav_livrees, name='sav_livrees'),
     path('sav/creer-nouvelle-commande/<int:commande_id>/', views.sav_creer_nouvelle_commande, name='sav_creer_nouvelle_commande'),
     path('sav/renvoyer-preparation/<int:commande_id>/', views.sav_renvoyer_preparation, name='sav_renvoyer_preparation'),
-    
-    # URLs API Recherche SAV
-    path('sav/search/api/', views.sav_search_api, name='sav_search_api'),
     
     # URLs Dashboard 360
     path('vue360/', views_360.page_360, name='page_360'),
@@ -61,7 +54,7 @@ urlpatterns = [
     path('vue360/api/panier-tracking/', views_360.vue_360_panier_tracking, name='vue_360_panier_tracking'),
     
     # URLs Barre de Recherche Globale
-    path('recherche-globale/', views.global_search_view, name='global_search'),
-    path('recherche-globale/api/', views.global_search_api, name='global_search_api'),
-    path('recherche-globale/suggestions/', views.search_suggestions_api, name='search_suggestions_api'),
+    path('global-search/', global_search_views.global_search_view, name='global_search'),
+    path('global-search/api/', global_search_views.global_search_api, name='global_search_api'),
+    path('global-search/suggestions/', global_search_views.search_suggestions_api, name='global_search_suggestions'),
 ] 
