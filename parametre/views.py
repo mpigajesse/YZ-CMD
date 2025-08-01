@@ -1175,6 +1175,10 @@ def details_region_view(request):
         return export_villes_csv(request)
     elif export_type == 'excel_ville':
         return export_villes_excel(request)
+    elif export_type == 'csv_combine':
+        return export_combine_csv(request)
+    elif export_type == 'excel_combine':
+        return export_combine_excel(request)
     
     # Statistiques globales
     total_commandes = Commande.objects.filter(
@@ -1639,3 +1643,261 @@ def get_modal_data_ajax(request):
             'success': False,
             'error': str(e)
         })
+
+
+@staff_member_required
+@login_required
+def export_combine_csv(request):
+    """Export CSV combiné des visualisations : régions et villes"""
+    from django.db.models import Count, Sum
+    from django.http import HttpResponse
+    import csv
+    from django.utils import timezone
+    
+    # Récupérer les statistiques par région
+    stats_par_region = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')
+    
+    # Récupérer les statistiques par ville (Top 10)
+    stats_par_ville = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__nom', 'ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')[:10]
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"visualisations_combinees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # Section 1 : Répartition par Région
+    writer.writerow(['RÉPARTITION PAR RÉGION'])
+    writer.writerow(['Région', 'Nombre de Commandes', 'Total Montant (MAD)', 'Pourcentage'])
+    
+    total_commandes = sum(stat['nb_commandes'] for stat in stats_par_region)
+    
+    for stat in stats_par_region:
+        pourcentage = (stat['nb_commandes'] / total_commandes * 100) if total_commandes > 0 else 0
+        writer.writerow([
+            stat['ville__region__nom_region'] or 'Non définie',
+            stat['nb_commandes'],
+            f"{stat['total_montant'] or 0:.2f}",
+            f"{pourcentage:.1f}%"
+        ])
+    
+    writer.writerow([])  # Ligne vide
+    
+    # Section 2 : Top 10 des Villes
+    writer.writerow(['TOP 10 DES VILLES'])
+    writer.writerow(['Ville', 'Région', 'Nombre de Commandes', 'Total Montant (MAD)'])
+    
+    for stat in stats_par_ville:
+        writer.writerow([
+            stat['ville__nom'] or 'Non définie',
+            stat['ville__region__nom_region'] or 'Non définie',
+            stat['nb_commandes'],
+            f"{stat['total_montant'] or 0:.2f}"
+        ])
+    
+    writer.writerow([])  # Ligne vide
+    
+    # Section 3 : Statistiques Globales
+    writer.writerow(['STATISTIQUES GLOBALES'])
+    writer.writerow(['Métrique', 'Valeur'])
+    writer.writerow(['Total Commandes', total_commandes])
+    writer.writerow(['Nombre de Régions', len(stats_par_region)])
+    writer.writerow(['Nombre de Villes', len(stats_par_ville)])
+    writer.writerow(['Date d\'Export', timezone.now().strftime('%d/%m/%Y à %H:%M:%S')])
+    
+    return response
+
+
+@staff_member_required
+@login_required
+def export_combine_excel(request):
+    """Export Excel combiné des visualisations : régions et villes"""
+    from django.db.models import Count, Sum
+    from django.http import HttpResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from django.utils import timezone
+    
+    # Récupérer les statistiques par région
+    stats_par_region = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')
+    
+    # Récupérer les statistiques par ville (Top 10)
+    stats_par_ville = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__nom', 'ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')[:10]
+    
+    # Créer le fichier Excel
+    wb = Workbook()
+    
+    # Styles
+    header_font = Font(bold=True, color='FFFFFF', size=12)
+    header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+    title_font = Font(bold=True, color='FFFFFF', size=14)
+    title_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Feuille 1 : Répartition par Région
+    ws1 = wb.active
+    ws1.title = "Répartition par Région"
+    
+    # Titre
+    ws1.merge_cells('A1:D1')
+    title_cell = ws1['A1']
+    title_cell.value = "RÉPARTITION PAR RÉGION"
+    title_cell.font = title_font
+    title_cell.fill = title_fill
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # En-têtes
+    headers = ['Région', 'Nombre de Commandes', 'Total Montant (MAD)', 'Pourcentage']
+    for col, header in enumerate(headers, 1):
+        cell = ws1.cell(row=3, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Données
+    total_commandes = sum(stat['nb_commandes'] for stat in stats_par_region)
+    
+    for row, stat in enumerate(stats_par_region, 4):
+        pourcentage = (stat['nb_commandes'] / total_commandes * 100) if total_commandes > 0 else 0
+        
+        ws1.cell(row=row, column=1, value=stat['ville__region__nom_region'] or 'Non définie').border = border
+        ws1.cell(row=row, column=2, value=stat['nb_commandes']).border = border
+        ws1.cell(row=row, column=3, value=f"{stat['total_montant'] or 0:.2f}").border = border
+        ws1.cell(row=row, column=4, value=f"{pourcentage:.1f}%").border = border
+    
+    # Ajuster la largeur des colonnes
+    for column in ws1.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 30)
+        ws1.column_dimensions[column_letter].width = adjusted_width
+    
+    # Feuille 2 : Top 10 des Villes
+    ws2 = wb.create_sheet("Top 10 des Villes")
+    
+    # Titre
+    ws2.merge_cells('A1:D1')
+    title_cell = ws2['A1']
+    title_cell.value = "TOP 10 DES VILLES"
+    title_cell.font = title_font
+    title_cell.fill = title_fill
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # En-têtes
+    headers = ['Ville', 'Région', 'Nombre de Commandes', 'Total Montant (MAD)']
+    for col, header in enumerate(headers, 1):
+        cell = ws2.cell(row=3, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Données
+    for row, stat in enumerate(stats_par_ville, 4):
+        ws2.cell(row=row, column=1, value=stat['ville__nom'] or 'Non définie').border = border
+        ws2.cell(row=row, column=2, value=stat['ville__region__nom_region'] or 'Non définie').border = border
+        ws2.cell(row=row, column=3, value=stat['nb_commandes']).border = border
+        ws2.cell(row=row, column=4, value=f"{stat['total_montant'] or 0:.2f}").border = border
+    
+    # Ajuster la largeur des colonnes
+    for column in ws2.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 30)
+        ws2.column_dimensions[column_letter].width = adjusted_width
+    
+    # Feuille 3 : Statistiques Globales
+    ws3 = wb.create_sheet("Statistiques Globales")
+    
+    # Titre
+    ws3.merge_cells('A1:B1')
+    title_cell = ws3['A1']
+    title_cell.value = "STATISTIQUES GLOBALES"
+    title_cell.font = title_font
+    title_cell.fill = title_fill
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # En-têtes
+    headers = ['Métrique', 'Valeur']
+    for col, header in enumerate(headers, 1):
+        cell = ws3.cell(row=3, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Données
+    stats_data = [
+        ['Total Commandes', total_commandes],
+        ['Nombre de Régions', len(stats_par_region)],
+        ['Nombre de Villes', len(stats_par_ville)],
+        ['Date d\'Export', timezone.now().strftime('%d/%m/%Y à %H:%M:%S')]
+    ]
+    
+    for row, (metric, value) in enumerate(stats_data, 4):
+        ws3.cell(row=row, column=1, value=metric).border = border
+        ws3.cell(row=row, column=2, value=value).border = border
+    
+    # Ajuster la largeur des colonnes
+    for column in ws3.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 30)
+        ws3.column_dimensions[column_letter].width = adjusted_width
+    
+    # Créer la réponse
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    filename = f"visualisations_combinees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
