@@ -47,6 +47,11 @@ urlpatterns = [
     path('export-csv/', views_360.export_all_data_csv, name='export_all_data_csv'),
     path('export-excel/', views_360.export_all_data_excel, name='export_all_data_excel'),
     
+    # URLs Répartition
+    path('repartition/automatique/', views.repartition_automatique, name='repartition_automatique'),
+    path('repartition/details-region/', views.details_region_view, name='details_region'),
+    path('repartition/get-modal-data-ajax/', views.get_modal_data_ajax, name='get_modal_data_ajax'),
+    
     # URLs API Temps Réel Vue 360
     path('vue360/api/realtime-data/', views_360.vue_360_realtime_data, name='vue_360_realtime_data'),
     path('vue360/api/statistics-update/', views_360.vue_360_statistics_update, name='vue_360_statistics_update'),
