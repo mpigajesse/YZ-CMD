@@ -164,6 +164,34 @@
         </div>
     </div>
 
+    <!-- Message informatif sur les exportations -->
+    {% if not commandes_preparees_exist %}
+    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-info-circle text-blue-600 mr-3 text-lg"></i>
+            <div>
+                <h3 class="text-blue-800 font-semibold">Exportation par Région (Cards) et Exportation Statistiques</h3>
+                <p class="text-blue-700 text-sm mt-1">
+                    <strong>Note importante :</strong> Toutes ces exportations (Excel et CSV) ne seront possibles que si, et seulement si, les commandes ont été préparées.
+                    Actuellement, aucune commande n'est en état "Préparée", donc les boutons d'export ne sont pas disponibles.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-check-circle text-green-600 mr-3 text-lg"></i>
+            <div>
+                <h3 class="text-green-800 font-semibold">Exportation par Région (Cards) et Exportation Statistiques</h3>
+                <p class="text-green-700 text-sm mt-1">
+                    <strong>Exportations disponibles :</strong> Des commandes sont en état "Préparée", vous pouvez donc utiliser les boutons d'export CSV et Excel sur chaque carte de région.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Statistiques KPI -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Total Commandes Confirmées -->
@@ -394,10 +422,32 @@
                 </div>
                 
                 <div class="mt-4 pt-4 border-t border-gray-200">
-                    <a href="{% url 'app_admin:details_region' %}?region={{ stat.ville__region__nom_region }}" 
-                       class="btn-primary px-3 py-1 rounded text-xs font-medium transition-colors">
-                        <i class="fas fa-eye mr-1"></i>Voir détails
-                    </a>
+                    <div class="flex items-center justify-between">
+                        <a href="{% url 'app_admin:repartition_automatique' %}?region={{ stat.ville__region__nom_region }}" 
+                           class="btn-primary px-3 py-1 rounded text-xs font-medium transition-colors">
+                            <i class="fas fa-random mr-1"></i>Répartir
+                        </a>
+                        {% if commandes_preparees_exist %}
+                        <div class="flex items-center gap-1">
+                            <a href="{% url 'app_admin:details_region' %}?export=csv_region_detail&region={{ stat.ville__region__nom_region }}" 
+                               class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors" 
+                               title="Exporter en CSV">
+                                <i class="fas fa-file-csv"></i>
+                            </a>
+                            {% if openpyxl_available %}
+                            <a href="{% url 'app_admin:details_region' %}?export=excel_region_detail&region={{ stat.ville__region__nom_region }}" 
+                               class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors" 
+                               title="Exporter en Excel">
+                                <i class="fas fa-file-excel"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="text-xs text-gray-500 italic">
+                            <i class="fas fa-info-circle mr-1"></i>Export disponible après préparation
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% endfor %}

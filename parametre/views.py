@@ -1130,6 +1130,18 @@ def repartition_automatique(request):
     # Historique des répartitions (simulation)
     historique_repartitions = []
     
+    # Vérifier si des commandes préparées existent pour les exportations
+    commandes_preparees_exist = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée'
+    ).exists()
+    
+    # Vérifier si openpyxl est disponible
+    try:
+        import openpyxl
+        openpyxl_available = True
+    except ImportError:
+        openpyxl_available = False
+    
     context = {
         'total_commandes': total_commandes,
         'total_commandes_en_livraison': total_commandes_en_livraison,
@@ -1138,6 +1150,8 @@ def repartition_automatique(request):
         'stats_par_region': stats_par_region,
         'preview_data': preview_data,
         'historique_repartitions': historique_repartitions,
+        'commandes_preparees_exist': commandes_preparees_exist,
+        'openpyxl_available': openpyxl_available,
     }
     
     return render(request, 'parametre/repartition_automatique.html', context)
