@@ -1313,7 +1313,7 @@ def export_region_detail_csv(request, region_name):
             f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
             heure_preparation or "N/A",
             heure_exportation
         ]
@@ -1400,7 +1400,7 @@ def export_region_detail_excel(request, region_name):
             commande.total_cmd or 0,
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
             heure_preparation or "N/A",
             heure_exportation
         ]
@@ -1506,7 +1506,7 @@ def export_villes_csv(request):
             f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
             heure_preparation or "N/A",
             heure_exportation
         ]
@@ -1592,7 +1592,7 @@ def export_villes_excel(request):
             commande.total_cmd or 0,
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
             heure_preparation or "N/A",
             heure_exportation
         ]
@@ -2030,7 +2030,7 @@ def export_regions_csv(request):
             f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
             heure_preparation or "N/A",
             heure_exportation
         ]
@@ -2116,7 +2116,7 @@ def export_regions_excel(request):
             commande.total_cmd or 0,
             commande.adresse or "N/A",
             etat_actuel,
-            commande.date_cmd.strftime('%d/%m/%Y %H:%M') if commande.date_cmd else "N/A",
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
             heure_preparation or "N/A",
             heure_exportation
         ]
