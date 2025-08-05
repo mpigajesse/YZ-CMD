@@ -64,6 +64,7 @@ def sync_now(request, config_id):
             'existing_orders_updated': syncer.existing_orders_updated,
             'existing_orders_skipped': syncer.existing_orders_skipped,
             'duplicate_orders_found': syncer.duplicate_orders_found,
+            'protected_orders_count': syncer.protected_orders_count,
             'sync_summary': sync_summary,
             'notification_type': notification_type,
             'notification_message': notification_message,
@@ -101,6 +102,7 @@ def sync_all(request):
     total_updated_orders = 0
     total_skipped_orders = 0
     total_duplicate_orders = 0
+    total_protected_orders = 0
     total_errors = 0
     all_errors = []
     
@@ -112,6 +114,7 @@ def sync_all(request):
         total_updated_orders += syncer.existing_orders_updated
         total_skipped_orders += syncer.existing_orders_skipped
         total_duplicate_orders += syncer.duplicate_orders_found
+        total_protected_orders += syncer.protected_orders_count
         if syncer.errors:
             total_errors += len(syncer.errors)
             all_errors.extend(syncer.errors)
@@ -121,6 +124,7 @@ def sync_all(request):
         f"Nouvelles commandes: {total_new_orders}, "
         f"Mises à jour: {total_updated_orders}, "
         f"Doublons: {total_duplicate_orders}, "
+        f"Protégées: {total_protected_orders}, "
         f"Erreurs: {total_errors}."
     )
     
@@ -132,6 +136,7 @@ def sync_all(request):
         'existing_orders_updated': total_updated_orders,
         'existing_orders_skipped': total_skipped_orders,
         'duplicate_orders_found': total_duplicate_orders,
+        'protected_orders_count': total_protected_orders,
         'errors': all_errors,
         'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S')
     })
