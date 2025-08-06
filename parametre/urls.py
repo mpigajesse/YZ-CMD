@@ -26,6 +26,7 @@ urlpatterns = [
     path('villes/supprimer/<int:pk>/', views.supprimer_ville, name='supprimer_ville'),
     path('villes/supprimer-masse/', views.supprimer_villes_masse, name='supprimer_villes_masse'),
     path('operateurs/modifier/<int:pk>/', views.modifier_operateur, name='modifier_operateur'),
+    
     path('operateurs/supprimer/<int:pk>/', views.supprimer_operateur, name='supprimer_operateur'),
     path('operateurs/supprimer-masse/', views.supprimer_operateurs_masse, name='supprimer_operateurs_masse'),
     path('profile/', views.admin_profile, name='profile'),

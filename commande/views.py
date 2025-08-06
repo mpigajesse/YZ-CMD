@@ -18,7 +18,6 @@ from django.utils import timezone
 from datetime import timedelta, datetime
 from django.template.loader import render_to_string # Import render_to_string
 
-# Create your views here.
 
 @login_required
 def liste_commandes(request):

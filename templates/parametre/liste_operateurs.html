@@ -206,7 +206,7 @@
                         <a href="{% url 'app_admin:modifier_operateur' operateur.pk %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
                             <i class="fas fa-edit"></i>
                         </a>
-                        <a href="#" onclick="confirmDelete('{% url 'app_admin:supprimer_operateur' operateur.pk %}', '{{ operateur.prenom }} {{ operateur.nom }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
+                        <a href="javascript:void(0)" onclick=" return confirmDelete('{% url 'app_admin:supprimer_operateur' operateur.pk %}', '{{ operateur.nom }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
                             <i class="fas fa-trash-alt"></i>
                         </a>
                     </td>
@@ -271,18 +271,111 @@
 
 {% block extra_js %}
 <script>
-function confirmDelete(deleteUrl, operateurNom) {
-    // Test du token CSRF avant la suppression
-    const csrfToken = getCSRFToken();
-    console.log('Token CSRF pour suppression:', csrfToken);
+
+
+
+
+
+
+
+/**
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Attacher les événements de suppression aux boutons
+        attachDeleteEventListeners();
+    });
     
-    if (!csrfToken) {
-        alert('Erreur: Token CSRF non trouvé. Veuillez actualiser la page.');
-        return;
+    /**
+     * Attache les événements de suppression à tous les boutons/liens de suppression
+     */
+    function attachDeleteEventListeners() {
+        document.querySelectorAll('[data-delete-url]').forEach(element => {
+            element.addEventListener('click', function(e) {
+                e.preventDefault();
+                const deleteUrl = this.getAttribute('data-delete-url');
+                const itemName = this.getAttribute('data-item-name') || 'cet élément';
+                confirmDelete(deleteUrl, itemName);
+            });
+        });
     }
     
-    showCustomConfirmModal(deleteUrl, `l\'opérateur ${operateurNom}`);
-}
+    /**
+     * Fonction de confirmation et suppression
+     * @param {string} deleteUrl - URL pour la suppression
+     * @param {string} itemName - Nom de l'élément à supprimer (pour le message)
+     * @returns {boolean} - Retourne false pour empêcher le comportement par défaut
+     */
+    function confirmDelete(deleteUrl, itemName) {
+        if (!confirm(`Êtes-vous sûr de vouloir supprimer "${itemName}" ?\nCette action est irréversible.`)) {
+            return false;
+        }
+    
+        const csrfToken = getCSRFToken();
+        
+        if (!csrfToken) {
+            alert('Erreur : Token CSRF non trouvé. Veuillez actualiser la page.');
+            return false;
+        }
+    
+        // Ajout d'un indicateur de chargement
+        const originalHtml = event.target.innerHTML;
+        event.target.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        event.target.classList.add('cursor-wait');
+    
+        fetch(deleteUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => {
+            if (response.ok) {
+                // Petit délai pour voir l'animation
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert(`Échec de la suppression: ${error.message}`);
+            event.target.innerHTML = originalHtml;
+            event.target.classList.remove('cursor-wait');
+        });
+    
+        return false;
+    }
+    
+    /**
+     * Récupère le token CSRF depuis différents emplacements possibles
+     * @returns {string|null} - Le token CSRF ou null si non trouvé
+     */
+    function getCSRFToken() {
+        // 1. Depuis les meta tags
+        const metaToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (metaToken) return metaToken;
+    
+        // 2. Depuis les inputs hidden
+        const inputToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+        if (inputToken) return inputToken;
+    
+        // 3. Depuis les cookies
+        const cookieToken = document.cookie
+            .split(';')
+            .map(c => c.trim())
+            .find(c => c.startsWith('csrftoken='))
+            ?.split('=')[1];
+    
+        return cookieToken || null;
+    }
+    
+
+
+
+
 
     document.addEventListener('DOMContentLoaded', function() {
         const selectAllCheckbox = document.getElementById('selectAllOperateurs');
