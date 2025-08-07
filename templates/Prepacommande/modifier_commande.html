@@ -20,6 +20,52 @@
     .filter-btn { transition: all 0.3s ease; }
     .filter-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .filter-btn.active { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    
+    /* Styles pour la logique upsell */
+    .upsell-badge {
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        color: white;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+    
+    .compteur-upsell {
+        transition: all 0.3s ease;
+    }
+    
+    .compteur-upsell.updated {
+        animation: highlight 1s ease-out;
+    }
+    
+    @keyframes highlight {
+        0% { background-color: #fef3c7; }
+        100% { background-color: transparent; }
+    }
+    
+    .prix-upsell {
+        color: #f59e0b;
+        font-weight: bold;
+    }
+    
+    .prix-normal {
+        color: #059669;
+    }
+    
+    .prix-promo {
+        color: #dc2626;
+    }
+    
+    .prix-liquidation {
+        color: #ea580c;
+    }
+    
+    .prix-test {
+        color: #7c3aed;
+    }
 </style>
 {% endblock %}
 
@@ -29,7 +75,7 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, #361f27, #4b2e3a);">
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
-                <i class="fas fa-edit mr-3"></i> Modifier Commande {{ commande.id_yz }} (Niveau {{commande.compteur}})
+                <i class="fas fa-edit mr-3"></i> Modifier Commande {{ commande.id_yz }}
                 <button type="button" onclick="ouvrirModalInfoTotal()" class="ml-3 text-white/80 hover:text-white">
                     <i class="fas fa-info-circle text-lg"></i>
                 </button>
@@ -48,6 +94,16 @@
             <div class="text-right">
                 <div class="text-2xl font-bold total-final-commande">{{ total_articles|add:commande.ville.frais_livraison|default:0|floatformat:2 }} DH</div>
                 <div class="text-sm opacity-80">Total commande</div>
+            </div>
+            <div class="text-right">
+                <div class="text-xl font-bold compteur-upsell" id="compteur-upsell-header">
+                    {% if commande.compteur > 0 %}
+                        <i class="fas fa-arrow-up mr-1"></i>Upsell Niveau {{ commande.compteur }}
+                    {% else %}
+                        <i class="fas fa-info-circle mr-1"></i>Aucun upsell
+                    {% endif %}
+                </div>
+                <div class="text-sm opacity-80">Niveau upsell actuel</div>
             </div>
         </div>
     </div>
@@ -323,17 +379,52 @@
                 </div>
             </div>
 
-            <!-- Panier avec fonctionnalités améliorées -->
+            <!-- Panier avec fonctionnalités améliorées et logique upsell -->
             <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold section-title">
-                    <i class="fas fa-box mr-3"></i>Articles du Panier
-                </h3>
+                        <i class="fas fa-box mr-3"></i>Articles du Panier
+                        <span class="text-sm font-normal text-gray-600 ml-2">
+                            (<span id="articles-count">{{ paniers.count }}</span> article<span id="articles-plural">{{ paniers.count|pluralize }}</span>)
+                        </span>
+                        {% if commande.compteur > 0 %}
+                        <span class="inline-flex items-center px-2 py-1 upsell-badge rounded-full text-sm font-medium ml-2">
+                            <i class="fas fa-arrow-up mr-1"></i>Upsell Niveau {{ commande.compteur }}
+                        </span>
+                        {% endif %}
+                        
+                        <!-- Bouton de diagnostic du compteur upsell -->
+                        <button type="button" onclick="diagnostiquerCompteur()" 
+                                class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium ml-2 hover:bg-blue-200"
+                                title="Diagnostiquer et corriger le compteur upsell">
+                            <i class="fas fa-tools mr-1"></i>Diagnostic Upsell
+                        </button>
+                        
+                        <!-- Bouton d'information sur la logique upsell -->
+                        <button type="button" onclick="ouvrirModalInfoUpsell()" 
+                                class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium ml-2 hover:bg-purple-200"
+                                title="En savoir plus sur la logique upsell">
+                            <i class="fas fa-info-circle mr-1"></i>Info Upsell
+                        </button>
+                        
+                        <!-- Bouton de debug pour vérifier la base de données -->
+                        <button type="button" onclick="verifierEtatBaseDeDonnees()" 
+                                class="inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium ml-2 hover:bg-yellow-200"
+                                title="Vérifier l'état de la base de données">
+                            <i class="fas fa-database mr-1"></i>Debug DB
+                        </button>
+                        
+                        <!-- Bouton pour forcer la synchronisation -->
+                        <button type="button" onclick="forcerSynchronisation()" 
+                                class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium ml-2 hover:bg-green-200"
+                                title="Forcer la synchronisation des données">
+                            <i class="fas fa-sync-alt mr-1"></i>Sync
+                        </button>
+                    </h3>
                     <div class="flex gap-2">
                         <button type="button" class="btn-prepa px-3 py-2 rounded text-sm" onclick="ouvrirModalAjoutArticle()">
                             <i class="fas fa-plus mr-1"></i>Ajouter
                         </button>
-
                     </div>
                 </div>
                 <div class="overflow-x-auto">
@@ -346,7 +437,7 @@
                                 <th class="px-4 py-3 text-left">Pointure</th>
                                 <th class="px-4 py-3 text-center">Quantité</th>
                                 <th class="px-4 py-3 text-right">
-                                    Prix unitaire
+                                    Prix 
                                     <button type="button" onclick="ouvrirModalInfoPrix()" class="ml-1 text-blue-500 hover:text-blue-700">
                                         <i class="fas fa-info-circle"></i>
                                     </button>
@@ -363,12 +454,15 @@
                     </thead>
                     <tbody>
                         {% for panier in paniers %}
-                            <tr class="border-b border-gray-100 hover:bg-gray-50" data-panier-id="{{ panier.id }}">
+                            <tr class="border-b border-gray-100 hover:bg-gray-50" data-panier-id="{{ panier.id }}" data-article-id="{{ panier.article.id }}">
                                 <td class="px-4 py-3">
                                     <div class="font-medium flex items-center">
                                         {{ panier.article.nom }}
-                                        <!-- DEBUG: Afficher l'ID de l'article du panier -->
-                                        <pre style="background:#e0f2fe;color:#0369a1;padding:2px 5px;border-radius:3px;font-size:9px;">ID: {{ panier.article.id }}</pre>
+                                        {% if panier.article.isUpsell %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 ml-2">
+                                                <i class="fas fa-arrow-up mr-1"></i>Upsell
+                                            </span>
+                                        {% endif %}
                                         {% for article_data in articles_renvoyes %}
                                             {% if article_data.article.id == panier.article.id %}
                                                 {% if article_data.etat == 'defectueux' %}
@@ -409,9 +503,11 @@
                                     {% load commande_filters %}
                                     {% with prix_info=panier.article|get_prix_avec_phase_info:commande.compteur %}
                                         <div class="text-right">
-                                            <div class="font-medium {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</div>
+                                            <div class="font-medium prix-{{ prix_info.type }}" id="prix-unitaire-{{ panier.id }}">
+                                                {{ prix_info.prix|floatformat:2 }} DH
+                                            </div>
                                             {% if prix_info.libelle != "Prix normal" %}
-                                                <div class="text-xs {{ prix_info.couleur_classe }} flex items-center justify-end gap-1">
+                                                <div class="text-xs prix-{{ prix_info.type }} flex items-center justify-end gap-1" id="prix-libelle-{{ panier.id }}">
                                                     {% if panier.article.isUpsell and commande.compteur > 0 %}
                                                         <i class="fas fa-arrow-up"></i>
                                                     {% elif panier.article.has_promo_active %}
@@ -421,7 +517,7 @@
                                                     {% elif panier.article.phase == 'EN_TEST' %}
                                                         <i class="fas fa-flask"></i>
                                                     {% endif %}
-                                                    {{ prix_info.libelle }}
+                                                    {{ prix_info.libelle}}
                                                 </div>
                                             {% endif %}
                                             {% if panier.article.prix_unitaire != prix_info.prix %}
@@ -430,7 +526,7 @@
                                         </div>
                                     {% endwith %}
                                 </td>
-                                <td class="px-4 py-3 text-right font-bold">{{ panier.sous_total|floatformat:2 }} DH</td>
+                                <td class="px-4 py-3 text-right font-bold" id="sous-total-{{ panier.id }}">{{ panier.sous_total|floatformat:2 }} DH</td>
                                 <td class="px-4 py-3 text-center">
                                     {% with found=False %}
                                     {% for article_data in articles_renvoyes %}
@@ -576,7 +672,7 @@
                         </div>
                         <div class="flex items-center">
                             <i class="fas fa-arrow-up text-purple-600 mr-1"></i>
-                            <span class="text-purple-700">Upsell</span>
+                            <span class="text-green-500">Upsell</span>
                         </div>
                         <div class="flex items-center">
                             <i class="fas fa-fire text-orange-600 mr-1"></i>
@@ -606,10 +702,10 @@
                         PROMO
                         <span class="ml-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full" id="count-promo">0</span>
                     </button>
-                    <button type="button" onclick="filtrerArticles('upsell')" class="filter-btn px-3 py-2 bg-purple-200 text-purple-700 rounded-lg text-sm font-medium flex items-center">
+                    <button type="button" onclick="filtrerArticles('upsell')" class="filter-btn px-3 py-2 bg-green-500 text-green-800 rounded-lg text-sm font-medium flex items-center">
                         <i class="fas fa-arrow-up mr-1"></i>
                         UPSELL
-                        <span class="ml-1 bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full" id="count-upsell">0</span>
+                        <span class="ml-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full" id="count-upsell">0</span>
                     </button>
                     <button type="button" onclick="filtrerArticles('liquidation')" class="filter-btn px-3 py-2 bg-red-200 text-red-700 rounded-lg text-sm font-medium flex items-center">
                         <i class="fas fa-money-bill-wave mr-1"></i>
@@ -658,8 +754,10 @@
                         <p class="text-sm text-purple-700">
                             {% if commande.compteur > 0 %}
                                 Les articles upsell bénéficient d'un prix réduit selon le niveau atteint dans la commande.
+                                <br><strong>Logique simplifiée :</strong> prix_actuel par défaut, prix upsell seulement pour les articles marqués "Upsell".
                             {% else %}
                                 Aucun niveau upsell actif pour cette commande.
+                                <br><strong>Logique simplifiée :</strong> tous les articles utilisent leur prix_actuel.
                             {% endif %}
                         </p>
                     </div>
@@ -821,6 +919,157 @@
         </div>
     </div>
 </div>
+
+<!-- Modal d'information sur la logique upsell -->
+<div id="modalInfoUpsell" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-semibold text-gray-800">
+                        <i class="fas fa-arrow-up text-orange-500 mr-2"></i>Système de Compteur Upsell
+                    </h3>
+                    <button type="button" onclick="fermerModalInfoUpsell()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="space-y-6">
+                    <!-- Explication générale -->
+                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <h4 class="font-semibold text-blue-800 mb-2 flex items-center">
+                            <i class="fas fa-info-circle mr-2"></i>Qu'est-ce que le compteur upsell ?
+                        </h4>
+                        <p class="text-blue-700 text-sm">
+                            Le compteur upsell détermine automatiquement le niveau de réduction appliqué aux articles upsell 
+                            selon le nombre total d'unités d'articles upsell dans la commande.
+                            <br><br><strong>Logique simplifiée :</strong>
+                            <br>• Articles normaux → Utilisent leur <strong>prix_actuel</strong>
+                            <br>• Articles upsell → Utilisent les <strong>prix upsell</strong> selon le compteur
+                        </p>
+                    </div>
+
+                    <!-- Logique de calcul -->
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <h4 class="font-semibold text-green-800 mb-3 flex items-center">
+                            <i class="fas fa-calculator mr-2"></i>Logique de calcul du compteur (basée sur l'opérateur de confirmation)
+                        </h4>
+                        <div class="space-y-2 text-sm text-green-700">
+                            <div class="flex items-center">
+                                <span class="font-medium w-32">0-1 unité :</span>
+                                <span>Compteur = 0 (pas de réduction)</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="font-medium w-32">2+ unités :</span>
+                                <span>Compteur = Nombre total d'unités - 1</span>
+                            </div>
+                        </div>
+                        <div class="mt-3 p-3 bg-white rounded border border-green-300">
+                            <div class="text-xs font-mono text-green-800">
+                                <strong>Exemple :</strong> 5 unités d'articles upsell → Compteur = 4 → Niveau 4
+                            </div>
+                        </div>
+                        <div class="mt-3 p-3 bg-blue-100 rounded border border-blue-300">
+                            <div class="text-xs text-blue-800">
+                                <strong>Logique identique à l'opérateur de confirmation :</strong>
+                                <br>• Compteur basé sur le total des unités d'articles upsell
+                                <br>• Recalcul automatique de tous les prix après chaque modification
+                                <br>• Prix upsell appliqués selon le niveau du compteur
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Niveaux de prix -->
+                    <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                        <h4 class="font-semibold text-orange-800 mb-3 flex items-center">
+                            <i class="fas fa-tags mr-2"></i>Niveaux de prix upsell
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div class="bg-white p-3 rounded border">
+                                <div class="font-medium text-orange-700">Niveau 1</div>
+                                <div class="text-gray-600">Prix upsell 1 appliqué</div>
+                            </div>
+                            <div class="bg-white p-3 rounded border">
+                                <div class="font-medium text-orange-700">Niveau 2</div>
+                                <div class="text-gray-600">Prix upsell 2 appliqué</div>
+                            </div>
+                            <div class="bg-white p-3 rounded border">
+                                <div class="font-medium text-orange-700">Niveau 3</div>
+                                <div class="text-gray-600">Prix upsell 3 appliqué</div>
+                            </div>
+                            <div class="bg-white p-3 rounded border">
+                                <div class="font-medium text-orange-700">Niveau 4+</div>
+                                <div class="text-gray-600">Prix upsell 4 appliqué</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- État actuel -->
+                    <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                        <h4 class="font-semibold text-purple-800 mb-2 flex items-center">
+                            <i class="fas fa-chart-line mr-2"></i>État actuel de la commande
+                        </h4>
+                        <div class="space-y-2 text-sm text-purple-700">
+                            <div class="flex justify-between">
+                                <span>Compteur actuel :</span>
+                                <span class="font-bold">{{ commande.compteur }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Articles upsell :</span>
+                                <span class="font-bold">{{ paniers|length }} article(s)</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Total unités upsell :</span>
+                                <span class="font-bold">
+                                    {% with total_upsell=0 %}
+                                        {% for panier in paniers %}
+                                            {% if panier.article.isUpsell %}
+                                                {% with total_upsell=total_upsell|add:panier.quantite %}{% endwith %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {{ total_upsell }}
+                                    {% endwith %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions disponibles -->
+                    <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <h4 class="font-semibold text-yellow-800 mb-2 flex items-center">
+                            <i class="fas fa-tools mr-2"></i>Actions disponibles
+                        </h4>
+                        <div class="space-y-2 text-sm text-yellow-700">
+                            <div class="flex items-center">
+                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                <span>Diagnostic automatique du compteur</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                <span>Correction automatique si nécessaire</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                <span>Mise à jour dynamique des prix</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                <span>Recalcul automatique des totaux</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200 text-right">
+                <button type="button" onclick="fermerModalInfoUpsell()" 
+                        class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -830,6 +1079,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let commandeId = {{ commande.id }};
     let articlesDisponibles = [];
     let modificationsQuantites = {};
+    let compteurCommande = {{ commande.compteur|default:0 }};
 
     // Fonctions globales pour les `onclick`
     window.ouvrirModalAjoutArticle = function() {
@@ -845,7 +1095,553 @@ document.addEventListener('DOMContentLoaded', function() {
         if (modal) modal.classList.add('hidden');
     };
 
+    // Fonction pour diagnostiquer le compteur upsell
+    window.diagnostiquerCompteur = function() {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Afficher un indicateur de chargement
+        const diagnosticBtn = document.querySelector('[onclick="diagnostiquerCompteur()"]');
+        const originalText = diagnosticBtn.innerHTML;
+        diagnosticBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Diagnostic...';
+        diagnosticBtn.disabled = true;
+        
+        fetch(`{% url "Prepacommande:diagnostiquer_compteur" commande.id %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Diagnostic upsell:', data.message);
+                
+                // Afficher le résultat avec mise à jour dynamique
+                if (data.ancien_compteur !== undefined) {
+                    // Utiliser l'animation pour la mise à jour du compteur
+                    mettreAJourCompteurAvecAnimation(data.ancien_compteur, data.nouveau_compteur);
+                    
+                    // Afficher un résumé détaillé
+                    afficherResumeDiagnostic(data);
+                    
+                    // Mise à jour dynamique au lieu de recharger la page
+                    const updatedData = {
+                        compteur: data.nouveau_compteur,
+                        total_commande: data.total_commande || document.querySelector('.total-final-commande')?.textContent?.replace(' DH', ''),
+                        articles_count: data.articles_count,
+                        sous_total_articles: data.sous_total_articles
+                    };
+                    
+                    // Appeler la fonction de mise à jour centralisée
+                    mettreAJourTousLesTotaux(updatedData);
+                    
+                    // Rafraîchir la section des articles pour voir les prix upsell mis à jour
+                    setTimeout(() => {
+                        rafraichirSectionArticles();
+                    }, 2000);
+                    
+                } else {
+                    // Afficher un résumé même si pas de correction
+                    afficherResumeDiagnostic(data);
+                    
+                    // Même si pas de correction, s'assurer que l'affichage est correct
+                    const currentData = {
+                        compteur: data.compteur,
+                        total_commande: data.total_commande,
+                        articles_count: data.articles_count,
+                        sous_total_articles: data.sous_total_articles
+                    };
+                    mettreAJourTousLesTotaux(currentData);
+                }
+            } else {
+                console.error('❌ Erreur:', data.error);
+                showNotificationToast('❌ Erreur lors du diagnostic: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erreur réseau:', error);
+            showNotificationToast('❌ Erreur de réseau lors du diagnostic', 'error');
+        })
+        .finally(() => {
+            // Restaurer le bouton
+            diagnosticBtn.innerHTML = originalText;
+            diagnosticBtn.disabled = false;
+        });
+    };
 
+    // Fonction pour mettre à jour tous les totaux et le compteur
+    function mettreAJourTousLesTotaux(data) {
+        console.log('🔄 Mise à jour des totaux:', data);
+        
+        // Mettre à jour le compteur upsell
+        if (data.compteur !== undefined) {
+            compteurCommande = data.compteur;
+            mettreAJourCompteurUpsell(data.compteur);
+        }
+        
+        // Mettre à jour le total des articles
+        if (data.sous_total_articles !== undefined) {
+            const totalElements = document.querySelectorAll('.total-commande');
+            totalElements.forEach(element => {
+                element.textContent = `${parseFloat(data.sous_total_articles).toFixed(2)} DH`;
+            });
+        }
+        
+        // Mettre à jour le total final
+        if (data.total_commande !== undefined) {
+            const totalFinals = document.querySelectorAll('.total-final-commande');
+            totalFinals.forEach(element => {
+                element.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+            });
+        }
+        
+        // Mettre à jour le nombre d'articles
+        if (data.articles_count !== undefined) {
+            const articlesCount = document.getElementById('articles-count');
+            const articlesPlural = document.getElementById('articles-plural');
+            if (articlesCount) {
+                articlesCount.textContent = data.articles_count;
+            }
+            if (articlesPlural) {
+                articlesPlural.textContent = data.articles_count > 1 ? 's' : '';
+            }
+        }
+        
+        console.log('✅ Tous les totaux mis à jour:', {
+            sous_total_articles: data.sous_total_articles,
+            total_commande: data.total_commande,
+            articles_count: data.articles_count,
+            compteur: data.compteur
+        });
+    }
+
+    // Fonction pour mettre à jour le compteur upsell dans tous les endroits
+    function mettreAJourCompteurUpsell(nouveauCompteur) {
+        console.log(`🔄 Mise à jour du compteur upsell: ${nouveauCompteur}`);
+        
+        // Mettre à jour la variable globale
+        compteurCommande = nouveauCompteur;
+        
+        // Mettre à jour l'en-tête du compteur
+        const compteurHeader = document.getElementById('compteur-upsell-header');
+        if (compteurHeader) {
+            if (nouveauCompteur > 0) {
+                compteurHeader.innerHTML = `<i class="fas fa-arrow-up mr-1"></i>Upsell Niveau ${nouveauCompteur}`;
+            } else {
+                compteurHeader.innerHTML = `<i class="fas fa-info-circle mr-1"></i>Aucun upsell`;
+            }
+            
+            // Ajouter une animation de mise à jour
+            compteurHeader.classList.add('updated');
+            setTimeout(() => {
+                compteurHeader.classList.remove('updated');
+            }, 1000);
+        }
+        
+        // Mettre à jour les prix unitaires
+        mettreAJourPrixUnitaires(nouveauCompteur);
+        
+        console.log(`✅ Compteur upsell mis à jour vers: ${nouveauCompteur}`);
+    }
+
+    // Fonction pour mettre à jour dynamiquement les prix unitaires
+    function mettreAJourPrixUnitaires(nouveauCompteur) {
+        console.log(`🔄 Mise à jour des prix unitaires pour le compteur: ${nouveauCompteur}`);
+        
+        // Faire un appel AJAX pour récupérer les prix mis à jour depuis le serveur
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        fetch(`{% url "Prepacommande:api_prix_upsell_articles" commande.id %}`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Prix récupérés depuis le serveur:', data.message);
+                console.log('📊 Données reçues:', data.prix_articles);
+                
+                // Mettre à jour chaque article avec les nouveaux prix
+                Object.keys(data.prix_articles).forEach(panierId => {
+                    const prixInfo = data.prix_articles[panierId];
+                    const prixElement = document.getElementById(`prix-unitaire-${panierId}`);
+                    const libelleElement = document.getElementById(`prix-libelle-${panierId}`);
+                    const sousTotalElement = document.getElementById(`sous-total-${panierId}`);
+                    
+                    if (prixElement) {
+                        // S'assurer que le prix est un nombre
+                        const prix = parseFloat(prixInfo.prix) || 0;
+                        const sousTotal = parseFloat(prixInfo.sous_total) || 0;
+                        
+                        console.log(`🔍 Traitement article ${panierId}:`, {
+                            prix_original: prixInfo.prix,
+                            prix_converti: prix,
+                            sous_total_original: prixInfo.sous_total,
+                            sous_total_converti: sousTotal,
+                            type: prixInfo.type
+                        });
+                        
+                        // Mettre à jour le prix
+                        prixElement.textContent = `${prix.toFixed(2)} DH`;
+                        prixElement.className = `font-medium prix-${prixInfo.type}`;
+                        
+                        // Mettre à jour le libellé
+                        if (libelleElement) {
+                            if (prixInfo.libelle !== "Prix normal") {
+                                libelleElement.innerHTML = `<i class="${prixInfo.icone}"></i> ${prixInfo.libelle}`;
+                                libelleElement.className = `text-xs prix-${prixInfo.type} flex items-center justify-end gap-1`;
+                                if (libelleElement.style) {
+                                    libelleElement.style.display = 'block';
+                                }
+                            } else {
+                                if (libelleElement.style) {
+                                    libelleElement.style.display = 'none';
+                                }
+                            }
+                        }
+                        
+                        // Mettre à jour le sous-total
+                        if (sousTotalElement) {
+                            sousTotalElement.textContent = `${sousTotal.toFixed(2)} DH`;
+                        }
+                        
+                        console.log(`✅ Prix mis à jour pour article ${panierId}: ${prixInfo.prix.toFixed(2)} DH (${prixInfo.libelle})`);
+                    }
+                });
+                
+                // Mettre à jour le total de la commande
+                mettreAJourTotalCommande();
+                
+            } else {
+                console.error('❌ Erreur lors de la récupération des prix:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erreur réseau lors de la récupération des prix:', error);
+        });
+    }
+
+
+
+    // Fonction pour mettre à jour le sous-total d'un article
+    function mettreAJourSousTotalArticle(panierId, prixUnitaire) {
+        const sousTotalElement = document.getElementById(`sous-total-${panierId}`);
+        if (sousTotalElement) {
+            // Récupérer la quantité depuis l'input
+            const quantiteInput = document.getElementById(`quantite-${panierId}`);
+            const quantite = quantiteInput ? parseInt(quantiteInput.value) || 1 : 1;
+            
+            // Calculer le nouveau sous-total
+            const nouveauSousTotal = prixUnitaire * quantite;
+            
+            // Mettre à jour l'affichage
+            sousTotalElement.textContent = `${nouveauSousTotal.toFixed(2)} DH`;
+            
+            console.log(`✅ Sous-total mis à jour pour article ${panierId}: ${nouveauSousTotal.toFixed(2)} DH`);
+        }
+    }
+
+    // Fonction pour mettre à jour le total de la commande
+    function mettreAJourTotalCommande() {
+        console.log('🔄 Mise à jour du total de la commande...');
+        
+        // Récupérer tous les sous-totaux
+        const sousTotalElements = document.querySelectorAll('[id^="sous-total-"]');
+        let totalArticles = 0;
+        
+        sousTotalElements.forEach(element => {
+            const sousTotalText = element.textContent.replace(' DH', '');
+            const sousTotal = parseFloat(sousTotalText) || 0;
+            totalArticles += sousTotal;
+        });
+        
+        // Mettre à jour l'affichage du total
+        const totalElements = document.querySelectorAll('.total-commande');
+        totalElements.forEach(element => {
+            element.textContent = `${totalArticles.toFixed(2)} DH`;
+        });
+        
+        // Calculer le total final avec livraison
+        const fraisLivraisonElement = document.querySelector('.total-livraison');
+        let fraisLivraison = 0;
+        if (fraisLivraisonElement) {
+            const livraisonMatch = fraisLivraisonElement.textContent.match(/\+ ([\d.]+) DH/);
+            fraisLivraison = parseFloat(livraisonMatch?.[1] || 0);
+        }
+        
+        const totalFinal = totalArticles + fraisLivraison;
+        
+        const totalFinalElements = document.querySelectorAll('.total-final-commande');
+        totalFinalElements.forEach(element => {
+            element.textContent = `Total: ${totalFinal.toFixed(2)} DH`;
+        });
+        
+        console.log(`✅ Total mis à jour: ${totalArticles.toFixed(2)} DH + ${fraisLivraison.toFixed(2)} DH livraison = ${totalFinal.toFixed(2)} DH`);
+    }
+
+    // Fonction pour rafraîchir la section des articles
+    function rafraichirSectionArticles() {
+        console.log('🔄 Rafraîchissement de la section des articles...');
+        
+        // Trouver le conteneur des articles (tableau principal)
+        const tableBody = document.querySelector('table tbody');
+        if (!tableBody) {
+            console.error('❌ Conteneur d\'articles introuvable');
+            showNotificationToast('❌ Erreur lors du rafraîchissement: conteneur introuvable', 'error');
+            return;
+        }
+        
+        // Afficher un indicateur de chargement
+        const originalContent = tableBody.innerHTML;
+        tableBody.innerHTML = '<tr><td colspan="9" class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-500"></i><p class="mt-2">Rafraîchissement en cours...</p></td></tr>';
+
+        fetch(`{% url 'Prepacommande:rafraichir_articles_commande_prepa' commande.id %}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Mettre à jour la liste des articles avec le HTML du serveur
+                    tableBody.innerHTML = data.html;
+
+                    // Utiliser la fonction centralisée pour mettre à jour tous les totaux
+                    mettreAJourTousLesTotaux(data);
+
+                    showNotificationToast('🔄 Section des articles mise à jour.', 'info');
+                    
+                    // Déclencher des événements personnalisés pour d'autres scripts qui pourraient écouter
+                    window.dispatchEvent(new CustomEvent('articlesRefreshed', { 
+                        detail: { 
+                            articles_count: data.articles_count,
+                            total_commande: data.total_commande,
+                            sous_total_articles: data.sous_total_articles,
+                            compteur: data.compteur
+                        }
+                    }));
+                } else {
+                    tableBody.innerHTML = `<tr><td colspan="9" class="text-center p-4 bg-red-100 text-red-700 rounded-lg">${data.error || 'Erreur inconnue'}</td></tr>`;
+                    showNotificationToast(`❌ Erreur de rafraîchissement: ${data.error || 'Erreur inconnue'}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur de rafraîchissement:', error);
+                tableBody.innerHTML = `<tr><td colspan="9" class="text-center p-4 bg-red-100 text-red-700 rounded-lg">
+                    <div class="font-bold mb-2">Erreur de connexion</div>
+                    <div class="text-sm">${error.message || 'Impossible de contacter le serveur'}</div>
+                    <button onclick="rafraichirSectionArticles()" class="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
+                        <i class="fas fa-sync-alt mr-1"></i>Réessayer
+                    </button>
+                </td></tr>`;
+                showNotificationToast('❌ Erreur de connexion lors du rafraîchissement.', 'error');
+            });
+    }
+
+    // Fonction centralisée pour mettre à jour tous les totaux et compteurs
+    function mettreAJourTousLesTotaux(data) {
+        // Mettre à jour le sous-total global des articles
+        if (data.sous_total_articles !== undefined) {
+            const sousTotalGlobalElement = document.getElementById('sous-total-articles');
+            if (sousTotalGlobalElement) {
+                sousTotalGlobalElement.textContent = `${parseFloat(data.sous_total_articles).toFixed(2)} DH`;
+            }
+        }
+        
+        // Mettre à jour le total de la commande
+        if (data.total_commande !== undefined) {
+            const totalElement = document.getElementById('total-commande');
+            const totalElementHautPage = document.getElementById('total_commande_haut_page');
+            if (totalElement) {
+                totalElement.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+            }
+            if (totalElementHautPage) {
+                totalElementHautPage.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+            }
+            
+            // Également mettre à jour tous les éléments avec la classe total-commande
+            const totalElements = document.querySelectorAll('.total-commande');
+            totalElements.forEach(el => {
+                el.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+            });
+        }
+        
+        // Mettre à jour le compteur d'articles
+        if (data.articles_count !== undefined) {
+            const countElement = document.getElementById('articles-count');
+            if (countElement) {
+                countElement.textContent = data.articles_count;
+            }
+            
+            const pluralElement = document.getElementById('articles-plural');
+            if (pluralElement) {
+                pluralElement.textContent = data.articles_count > 1 ? 's' : '';
+            }
+        }
+        
+        // Mettre à jour le compteur upsell dans tous les endroits possibles
+        if (data.compteur !== undefined) {
+            // Compteur principal
+            const compteurSpan = document.getElementById('compteur-display');
+            if (compteurSpan) {
+                compteurSpan.textContent = data.compteur;
+            }
+            
+            // Niveau upsell dashboard
+            const niveauUpsellDash = document.getElementById('niveau-upsell-dashboard');
+            if (niveauUpsellDash) {
+                niveauUpsellDash.textContent = data.compteur;
+            }
+            
+            // Niveau upsell articles
+            const niveauUpsellArticles = document.getElementById('niveau-upsell-articles');
+            if (niveauUpsellArticles) {
+                niveauUpsellArticles.textContent = data.compteur;
+            }
+            
+            // Mettre à jour les éléments avec la classe compteur-upsell
+            const compteurElements = document.querySelectorAll('.compteur-upsell');
+            compteurElements.forEach(el => {
+                el.textContent = data.compteur;
+            });
+            
+            // Mettre à jour le compteur dans l'en-tête de la page
+            const compteurHeader = document.getElementById('compteur-upsell-header');
+            if (compteurHeader) {
+                compteurHeader.textContent = `Niveau ${data.compteur}`;
+            }
+            
+            // Mettre à jour le badge upsell s'il existe
+            const upsellBadge = document.getElementById('upsell-badge-container');
+            if (upsellBadge && data.compteur > 0) {
+                upsellBadge.innerHTML = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                    <i class="fas fa-arrow-up mr-1"></i>Niveau ${data.compteur}
+                </span>`;
+            } else if (upsellBadge && data.compteur === 0) {
+                upsellBadge.innerHTML = '';
+            }
+        }
+        
+        console.log('✅ Tous les totaux mis à jour:', {
+            sous_total_articles: data.sous_total_articles,
+            total_commande: data.total_commande,
+            articles_count: data.articles_count,
+            compteur: data.compteur
+        });
+    }
+
+    // Fonctions pour la modale d'information upsell
+    window.ouvrirModalInfoUpsell = function() {
+        const modal = document.getElementById('modalInfoUpsell');
+        if (modal) {
+            modal.classList.remove('hidden');
+            console.log('📖 Modal d\'information upsell ouverte');
+        }
+    };
+
+    window.fermerModalInfoUpsell = function() {
+        const modal = document.getElementById('modalInfoUpsell');
+        if (modal) {
+            modal.classList.add('hidden');
+            console.log('📖 Modal d\'information upsell fermée');
+        }
+    };
+
+    // Fonction pour calculer le total des unités upsell
+    function calculerTotalUnitesUpsell() {
+        let total = 0;
+        const articleRows = document.querySelectorAll('tr[data-panier-id]');
+        
+        articleRows.forEach(row => {
+            const articleId = row.getAttribute('data-article-id');
+            const quantiteInput = document.getElementById(`quantite-${row.getAttribute('data-panier-id')}`);
+            const quantite = quantiteInput ? parseInt(quantiteInput.value) || 0 : 0;
+            
+            // Vérifier si c'est un article upsell (on peut ajouter un attribut data-upsell)
+            const upsellBadge = row.querySelector('.bg-orange-100.text-orange-700');
+            if (upsellBadge) {
+                total += quantite;
+            }
+        });
+        
+        return total;
+    }
+
+    // Fonction pour mettre à jour l'affichage du compteur avec animation
+    function mettreAJourCompteurAvecAnimation(ancienCompteur, nouveauCompteur) {
+        const compteurHeader = document.getElementById('compteur-upsell-header');
+        
+        // Vérification robuste de l'existence de l'élément
+        if (!compteurHeader) {
+            console.warn('⚠️ Élément compteur-upsell-header non trouvé');
+            return;
+        }
+        
+        if (!compteurHeader.style) {
+            console.warn('⚠️ Propriété style non disponible sur compteur-upsell-header');
+            return;
+        }
+        
+        try {
+            // Animation de transition
+            compteurHeader.style.transition = 'all 0.5s ease';
+            compteurHeader.style.transform = 'scale(1.1)';
+            compteurHeader.style.backgroundColor = '#fef3c7';
+            
+            setTimeout(() => {
+                // Vérification à nouveau dans le setTimeout
+                if (!compteurHeader || !compteurHeader.style) {
+                    console.warn('⚠️ Élément compteur-upsell-header non disponible dans setTimeout');
+                    return;
+                }
+                
+                try {
+                    if (nouveauCompteur > 0) {
+                        compteurHeader.innerHTML = `<i class="fas fa-arrow-up mr-1"></i>Upsell Niveau ${nouveauCompteur}`;
+                    } else {
+                        compteurHeader.innerHTML = `<i class="fas fa-info-circle mr-1"></i>Aucun upsell`;
+                    }
+                    
+                    compteurHeader.style.transform = 'scale(1)';
+                    compteurHeader.style.backgroundColor = 'transparent';
+                    
+                    // Ajouter une classe pour l'animation CSS
+                    compteurHeader.classList.add('updated');
+                    setTimeout(() => {
+                        if (compteurHeader && compteurHeader.classList) {
+                            compteurHeader.classList.remove('updated');
+                        }
+                    }, 1000);
+                } catch (error) {
+                    console.error('❌ Erreur lors de la mise à jour du compteur:', error);
+                }
+            }, 250);
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'animation du compteur:', error);
+        }
+    }
+
+    // Fonction pour afficher un résumé du diagnostic
+    function afficherResumeDiagnostic(data) {
+        const message = `
+            <div class="text-left">
+                <div class="font-bold mb-2">📊 Résumé du diagnostic :</div>
+                <div class="space-y-1 text-sm">
+                    <div><strong>Compteur :</strong> ${data.ancien_compteur || data.compteur} → ${data.nouveau_compteur || data.compteur}</div>
+                    <div><strong>Articles upsell :</strong> ${data.articles_upsell || 0}</div>
+                    <div><strong>Unités totales :</strong> ${data.quantite_totale_upsell || 0}</div>
+                    <div><strong>Logique :</strong> 0-1 unité = compteur 0 | 2+ unités = compteur total-1</div>
+                </div>
+            </div>
+        `;
+        
+        showNotificationToast(message, 'info');
+    }
 
     function ouvrirModalConfirmation(message, action) {
         const msgElem = document.getElementById('messageConfirmation');
@@ -879,8 +1675,56 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('article_id', panierId);
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
             if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
+            
             fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, { method: 'POST', body: formData })
-                .then(res => res.json()).then(handleResponse).catch(handleError);
+                .then(res => res.json())
+                .then(data => {
+                    debugDatabaseInteraction('supprimer_article', data);
+                    if (data.success) {
+                        // Supprimer la ligne du tableau dynamiquement
+                        const tableRow = document.querySelector(`tr[data-panier-id="${panierId}"]`);
+                        if (tableRow) {
+                            tableRow.remove();
+                        }
+                        
+                        // Mettre à jour les totaux
+                        if (data.total_commande !== undefined) {
+                            const totalElements = document.querySelectorAll('.total-commande, .total-final-commande');
+                            totalElements.forEach(element => {
+                                element.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+                            });
+                        }
+                        
+                        // Mettre à jour le compteur upsell
+                        if (data.compteur !== undefined) {
+                            mettreAJourCompteurUpsell(data.compteur);
+                        }
+                        
+                        // Mettre à jour le nombre d'articles
+                        if (data.nb_articles !== undefined) {
+                            const articlesCount = document.getElementById('articles-count');
+                            if (articlesCount) {
+                                articlesCount.textContent = data.nb_articles;
+                            }
+                        }
+                        
+                        showNotificationToast('Article supprimé avec succès', 'success');
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erreur',
+                            text: data.error || 'Impossible de supprimer l\'article.'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erreur de communication',
+                        text: 'Impossible de contacter le serveur.'
+                    });
+                });
         });
     };
 
@@ -934,6 +1778,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(res => res.json())
         .then(data => {
+            debugDatabaseInteraction('modifier_quantite_directe', data);
             if (data.success) {
                 if (quantite === 0) {
                     // Supprimer la ligne du tableau si l'article a été supprimé
@@ -954,6 +1799,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     totalElements.forEach(element => {
                         element.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
                     });
+                }
+                
+                // Mettre à jour le compteur upsell si nécessaire
+                if (data.compteur !== undefined) {
+                    mettreAJourCompteurUpsell(data.compteur);
                 }
             } else {
                 // Restaurer la valeur précédente en cas d'erreur
@@ -1014,6 +1864,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Fonction de debug pour vérifier les interactions avec la base de données
+    function debugDatabaseInteraction(action, data) {
+        console.log(`🔍 DEBUG - Action: ${action}`);
+        console.log(`📊 Données reçues:`, data);
+        console.log(`✅ Succès: ${data.success}`);
+        if (data.success) {
+            console.log(`💰 Total commande: ${data.total_commande}`);
+            console.log(`📦 Nombre articles: ${data.nb_articles}`);
+            console.log(`⬆️ Compteur upsell: ${data.compteur}`);
+        } else {
+            console.log(`❌ Erreur: ${data.error}`);
+        }
+        console.log('---');
+    }
+
     // Fonction pour afficher des notifications toast discrètes
     function showNotificationToast(message, type = 'success') {
         const toast = document.createElement('div');
@@ -1023,11 +1888,13 @@ document.addEventListener('DOMContentLoaded', function() {
             toast.classList.add('bg-green-500');
         } else if (type === 'error') {
             toast.classList.add('bg-red-500');
-        } else {
+        } else if (type === 'info') {
             toast.classList.add('bg-blue-500');
+        } else {
+            toast.classList.add('bg-gray-500');
         }
         
-        toast.textContent = message;
+        toast.innerHTML = message;
         document.body.appendChild(toast);
         
         // Animation d'apparition
@@ -1035,13 +1902,15 @@ document.addEventListener('DOMContentLoaded', function() {
             toast.classList.remove('translate-x-full', 'opacity-0');
         }, 100);
         
-        // Animation de disparition après 3 secondes
+        // Animation de disparition après 5 secondes
         setTimeout(() => {
             toast.classList.add('translate-x-full', 'opacity-0');
             setTimeout(() => {
-                document.body.removeChild(toast);
+                if (document.body.contains(toast)) {
+                    document.body.removeChild(toast);
+                }
             }, 300);
-        }, 3000);
+        }, 5000);
     }
 
     // Fonctions pour les boutons individuels dans le template des articles
@@ -1084,14 +1953,35 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                     .then(res => res.json())
                     .then(data => {
+                        debugDatabaseInteraction('modifier_quantite_prepa', data);
                         if (data.success) {
+                            // Mettre à jour l'interface dynamiquement
+                            if (data.total_commande !== undefined) {
+                                const totalElements = document.querySelectorAll('.total-commande, .total-final-commande');
+                                totalElements.forEach(element => {
+                                    element.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+                                });
+                            }
+                            
+                            if (data.compteur !== undefined) {
+                                mettreAJourCompteurUpsell(data.compteur);
+                            }
+                            
+                            // Mettre à jour le sous-total de la ligne
+                            if (data.sous_total !== undefined) {
+                                const sousTotalCell = document.querySelector(`tr[data-panier-id="${panierId}"] td:nth-child(7)`);
+                                if (sousTotalCell) {
+                                    sousTotalCell.textContent = `${parseFloat(data.sous_total).toFixed(2)} DH`;
+                                }
+                            }
+                            
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Succès !',
                                 text: 'Quantité modifiée avec succès.',
                                 timer: 2000,
                                 showConfirmButton: false
-                            }).then(() => location.reload());
+                            });
                         } else {
                             Swal.fire({
                                 icon: 'error',
@@ -1264,19 +2154,92 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('quantite', quantite);
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
+        
         fetch(`{% url 'Prepacommande:modifier_commande' commande.id %}`, { method: 'POST', body: formData })
-            .then(res => res.json()).then(handleResponse).catch(handleError);
+            .then(res => res.json())
+            .then(data => {
+                debugDatabaseInteraction('ajouter_article', data);
+                if (data.success) {
+                    // Mettre à jour les totaux
+                    if (data.total_commande !== undefined) {
+                        const totalElements = document.querySelectorAll('.total-commande, .total-final-commande');
+                        totalElements.forEach(element => {
+                            element.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+                        });
+                    }
+                    
+                    // Mettre à jour le compteur upsell
+                    if (data.compteur !== undefined) {
+                        mettreAJourCompteurUpsell(data.compteur);
+                    }
+                    
+                    // Mettre à jour le nombre d'articles
+                    if (data.nb_articles !== undefined) {
+                        const articlesCount = document.getElementById('articles-count');
+                        if (articlesCount) {
+                            articlesCount.textContent = data.nb_articles;
+                        }
+                    }
+                    
+                    // Rafraîchir la section des articles pour voir le nouvel article
+                    setTimeout(() => {
+                        rafraichirSectionArticles();
+                    }, 500);
+                    
+                    showNotificationToast(data.message || 'Article ajouté avec succès', 'success');
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erreur',
+                        text: data.error || 'Impossible d\'ajouter l\'article.'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erreur de communication',
+                    text: 'Impossible de contacter le serveur.'
+                });
+            });
     }
 
     function handleResponse(data) {
         if (data.success) {
+            // Mettre à jour l'interface dynamiquement au lieu de recharger
+            if (data.total_commande !== undefined) {
+                const totalElements = document.querySelectorAll('.total-commande, .total-final-commande');
+                totalElements.forEach(element => {
+                    element.textContent = `${parseFloat(data.total_commande).toFixed(2)} DH`;
+                });
+            }
+            
+            if (data.compteur !== undefined) {
+                mettreAJourCompteurUpsell(data.compteur);
+            }
+            
+            if (data.articles_count !== undefined) {
+                const articlesCount = document.getElementById('articles-count');
+                if (articlesCount) {
+                    articlesCount.textContent = data.articles_count;
+                }
+            }
+            
+            // Rafraîchir la section des articles si nécessaire
+            if (data.success && (data.message.includes('ajouté') || data.message.includes('modifié'))) {
+                setTimeout(() => {
+                    rafraichirSectionArticles();
+                }, 500);
+            }
+            
             Swal.fire({ 
                 icon: 'success', 
                 title: 'Succès !', 
                 text: data.message || 'Opération réussie.', 
                 timer: 2000, 
                 showConfirmButton: false 
-            }).then(() => location.reload());
+            });
         } else {
             Swal.fire({ 
                 icon: 'error', 
@@ -1359,6 +2322,285 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('- articlesList:', document.getElementById('articlesList') ? 'OK' : 'MANQUANT');
     console.log('- searchArticle:', document.getElementById('searchArticle') ? 'OK' : 'MANQUANT');
     console.log('- ville-select:', document.getElementById('ville-select') ? 'OK' : 'MANQUANT');
+    console.log('- modalInfoUpsell:', document.getElementById('modalInfoUpsell') ? 'OK' : 'MANQUANT');
+    console.log('- compteur-upsell-header:', document.getElementById('compteur-upsell-header') ? 'OK' : 'MANQUANT');
+    
+    // Event listeners pour fermer les modales en cliquant à l'extérieur
+    const modals = ['modalAjoutArticle', 'modalInfoUpsell', 'modalInfoPrix', 'modalInfoSousTotal', 'modalInfoTotal', 'modalConfirmation'];
+    
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.addEventListener('click', function(event) {
+                if (event.target === this) {
+                    // Fermer la modale selon son type
+                    switch(modalId) {
+                        case 'modalAjoutArticle':
+                            fermerModalAjoutArticle();
+                            break;
+                        case 'modalInfoUpsell':
+                            fermerModalInfoUpsell();
+                            break;
+                        case 'modalInfoPrix':
+                            fermerModalInfoPrix();
+                            break;
+                        case 'modalInfoSousTotal':
+                            fermerModalInfoSousTotal();
+                            break;
+                        case 'modalInfoTotal':
+                            fermerModalInfoTotal();
+                            break;
+                        case 'modalConfirmation':
+                            fermerModalConfirmation();
+                            break;
+                    }
+                }
+            });
+        }
+    });
+    
+    // Event listener pour fermer les modales avec la touche Escape
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            // Fermer la première modale ouverte
+            if (!document.getElementById('modalAjoutArticle').classList.contains('hidden')) {
+                fermerModalAjoutArticle();
+            } else if (!document.getElementById('modalInfoUpsell').classList.contains('hidden')) {
+                fermerModalInfoUpsell();
+            } else if (!document.getElementById('modalInfoPrix').classList.contains('hidden')) {
+                fermerModalInfoPrix();
+            } else if (!document.getElementById('modalInfoSousTotal').classList.contains('hidden')) {
+                fermerModalInfoSousTotal();
+            } else if (!document.getElementById('modalInfoTotal').classList.contains('hidden')) {
+                fermerModalInfoTotal();
+            } else if (!document.getElementById('modalConfirmation').classList.contains('hidden')) {
+                fermerModalConfirmation();
+            }
+        }
+    });
+    
+    // Fonction pour vérifier l'état de la base de données
+    function verifierEtatBaseDeDonnees() {
+        console.log('🔍 Vérification de l\'état de la base de données...');
+        
+        // Vérifier les éléments de l'interface
+        const articlesCount = document.querySelectorAll('tr[data-panier-id]').length;
+        const compteurHeader = document.getElementById('compteur-upsell-header');
+        const totalElements = document.querySelectorAll('.total-commande');
+        
+        console.log(`📦 Articles dans l'interface: ${articlesCount}`);
+        console.log(`⬆️ Compteur upsell affiché: ${compteurHeader ? compteurHeader.textContent : 'Non trouvé'}`);
+        console.log(`💰 Total affiché: ${totalElements.length > 0 ? totalElements[0].textContent : 'Non trouvé'}`);
+        
+        // Faire un appel API pour vérifier l'état réel
+        fetch(`{% url 'Prepacommande:rafraichir_articles_commande_prepa' commande.id %}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('📊 État réel de la base de données:');
+                console.log(`📦 Articles en DB: ${data.articles_count || 'Non défini'}`);
+                console.log(`💰 Total en DB: ${data.total_commande || 'Non défini'}`);
+                console.log(`⬆️ Compteur en DB: ${data.compteur || 'Non défini'}`);
+                
+                // Comparer avec l'interface
+                if (data.articles_count !== undefined && data.articles_count !== articlesCount) {
+                    console.warn(`⚠️ Incohérence: nombre d'articles différent entre interface (${articlesCount}) et DB (${data.articles_count})`);
+                }
+                if (data.compteur !== undefined && data.compteur !== compteurCommande) {
+                    console.warn(`⚠️ Incohérence: compteur upsell différent entre interface (${compteurCommande}) et DB (${data.compteur})`);
+                }
+                
+                // Si tout est cohérent
+                if (data.articles_count === articlesCount && data.compteur === compteurCommande) {
+                    console.log('✅ Interface et base de données sont cohérentes');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur lors de la vérification:', error);
+                console.log('💡 Essayez de rafraîchir la page ou de recharger les données');
+            });
+    }
+
+    // Initialisation du système upsell
+    console.log('🚀 Initialisation du système upsell...');
+    console.log(`📊 Compteur initial: ${compteurCommande}`);
+    console.log(`📦 Articles dans le panier: ${document.querySelectorAll('tr[data-panier-id]').length}`);
+    
+    // Vérifier que l'élément compteur existe
+    const compteurHeader = document.getElementById('compteur-upsell-header');
+    if (!compteurHeader) {
+        console.error('❌ Élément compteur-upsell-header non trouvé dans le DOM');
+    } else {
+        console.log('✅ Élément compteur-upsell-header trouvé');
+    }
+    
+    // Fonction pour forcer la synchronisation des données
+    function forcerSynchronisation() {
+        console.log('🔄 Forçage de la synchronisation...');
+        
+        // Afficher un indicateur de chargement
+        const syncBtn = document.querySelector('[onclick="forcerSynchronisation()"]');
+        const originalText = syncBtn.innerHTML;
+        syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Sync...';
+        syncBtn.disabled = true;
+        
+        // Rafraîchir la section des articles
+        rafraichirSectionArticles();
+        
+        // Vérifier l'état après un délai
+        setTimeout(() => {
+            verifierEtatBaseDeDonnees();
+            
+            // Restaurer le bouton
+            syncBtn.innerHTML = originalText;
+            syncBtn.disabled = false;
+        }, 2000);
+    }
+
+    // Vérifier l'état de la base de données au chargement
+    setTimeout(verifierEtatBaseDeDonnees, 1000);
+    
+    // Calculer et afficher le total des unités upsell
+    const totalUpsell = calculerTotalUnitesUpsell();
+    console.log(`⬆️ Total unités upsell: ${totalUpsell}`);
+    
+    // Vérifier la cohérence du compteur
+    if (compteurCommande > 0 && totalUpsell === 0) {
+        console.warn('⚠️ Compteur > 0 mais aucun article upsell trouvé');
+        showNotificationToast('⚠️ Attention: Compteur upsell actif mais aucun article upsell détecté', 'warning');
+    } else if (compteurCommande === 0 && totalUpsell > 1) {
+        console.warn('⚠️ Articles upsell présents mais compteur = 0');
+        showNotificationToast('⚠️ Attention: Articles upsell détectés mais compteur = 0. Utilisez le diagnostic pour corriger.', 'warning');
+    }
+
+    // Fonction pour ajouter un nouvel article
+    window.ajouterNouvelArticle = function() {
+        isEditingArticle = false;
+        currentArticleId = null;
+        
+        // Mettre à jour le titre
+        document.getElementById('articleModalTitle').textContent = 'Ajouter un article';
+        
+        // Afficher le champ de sélection, cacher l'affichage
+        document.getElementById('article-selection-field').classList.remove('hidden');
+        document.getElementById('article-display-field').classList.add('hidden');
+        
+        // Réinitialiser le formulaire
+        document.getElementById('articleSelect').value = '';
+        document.getElementById('quantiteInput').value = '1';
+        document.getElementById('article-info').classList.add('hidden');
+        
+        // Charger la liste des articles
+        chargerArticlesDisponibles();
+        
+        // Afficher la modale
+        const modal = document.getElementById('modalAjoutArticle');
+        
+        if (!modal) {
+            console.error('❌ Modale modalAjoutArticle introuvable lors de l\'ajout d\'article');
+            return;
+        }
+        
+        if (!modal.style) {
+            console.error('❌ Propriété style non disponible sur modalAjoutArticle');
+            return;
+        }
+        
+        try {
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'ouverture de la modal:', error);
+        }
+    };
+
+    // Fonction pour sauvegarder l'article
+    window.saveArticle = function() {
+        const quantite = parseInt(document.getElementById('quantiteInput').value);
+        
+        if (!quantite || quantite < 1) {
+            alert('⚠️ Veuillez saisir une quantité valide (minimum 1)');
+            return;
+        }
+        
+        const select = document.getElementById('articleSelect');
+        if (!select.value) {
+            alert('⚠️ Veuillez sélectionner un article');
+            return;
+        }
+        
+        const articleId = select.value;
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+        if (!csrfToken) {
+            showToast('❌ Erreur: Token de sécurité manquant. Veuillez rafraîchir la page.', 'error');
+            return;
+        }
+
+        let action = isEditingArticle ? 'update_article' : 'add_article';
+        
+        let body = new URLSearchParams({
+            'action': action,
+            'article_id': articleId,
+            'quantite': quantite,
+        });
+
+        if(isEditingArticle) {
+            body.append('panier_id', currentArticleId);
+        }
+
+        fetch('{% url "Prepacommande:modifier_commande" commande.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken
+            },
+            body: body
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => { 
+                    throw new Error(`Erreur ${response.status}: ${text}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                let message = data.message || (isEditingArticle ? '✅ Article modifié' : '✅ Article ajouté');
+                
+                showToast(message, 'success');
+                
+                // Mettre à jour les totaux et compteurs avec les nouvelles données
+                mettreAJourTousLesTotaux(data);
+                
+                rafraichirSectionArticles();
+                closeArticleModal();
+            } else {
+                showToast(`❌ Erreur: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erreur Fetch:', error);
+            const match = error.message.match(/<title>(.*?)<\/title>/);
+            const htmlTitle = match ? match[1] : 'Erreur de communication avec le serveur.';
+            showToast(`❌ Erreur: ${htmlTitle}`, 'error');
+        });
+    };
+
+    // Fonction pour fermer la modale d'ajout d'article
+    window.closeArticleModal = function() {
+        const modal = document.getElementById('modalAjoutArticle');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    };
 });
 </script>
 {% endblock %} 
