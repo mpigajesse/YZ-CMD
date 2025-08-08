@@ -1145,7 +1145,7 @@ def performance_operateurs_data(request):
             operateurs_data.append({
                 'id': op_stat['id'],
                 'nom': op_stat['nom'],
-                'username': op_stat['user__username'] or 'N/A',
+                'username': op_stat.get('user__username', 'N/A'),
                 'commands_affected': op_stat['commands_affected'],
                 'commands_in_progress': op_stat['commands_in_progress'],
                 'commands_confirmed': op_stat['commands_confirmed'],
@@ -1179,8 +1179,8 @@ def performance_operateurs_data(request):
         
         if export_format == 'excel':
             logger.info("Export Excel demandé.")
-            # Note: l'export Excel devra peut-être être ajusté pour ces nouvelles données
-            return export_performance_operateurs_excel(operateurs_data, global_metrics, timezone.now().date(), timezone.now().date())
+            # Pour l'export Excel, on ne retourne pas de JSON, on laisse la fonction d'export gérer
+            pass
 
         logger.info(f"Envoi de la réponse JSON pour {len(operateurs_data)} opérateurs.")
         return JsonResponse({
@@ -1203,26 +1203,265 @@ def performance_operateurs_data(request):
 def export_performance_operateurs_excel(request):
     """
     Exporte les données de performance des opérateurs en Excel.
-    S'appuie sur la vue optimisée `performance_operateurs_data`.
     """
-    # Pour simplifier, on appelle la vue JSON et on utilise ses données.
-    # Dans une application très haute performance, on pourrait dupliquer la logique.
-    json_response = performance_operateurs_data(request)
-    if json_response.status_code != 200:
-        return HttpResponse("Erreur lors de la génération des données.", status=500)
-    
-    import json
-    content = json.loads(json_response.content)
-    operateurs_data = content.get('operators', [])
-    global_metrics = content.get('global_metrics', {})
+    try:
+        logger.info("Début de l'export Excel des performances opérateurs")
+        
+        # Récupérer l'ID de l'opérateur si spécifié
+        operator_id = request.GET.get('operator_id')
+        
+        # Date de référence pour les calculs sur 30 jours
+        date_limite_30j = timezone.now() - timedelta(days=30)
 
-    # ... (le reste de la fonction d'export Excel reste ici)
-    # ... on peut la réutiliser ou la simplifier.
-    # Pour l'instant, on se concentre sur la réponse JSON.
-    # Le code de la fonction originale `export_performance_operateurs_excel` doit être placé ici.
-    
-    # Placeholder pour la réponse
-    return HttpResponse("Export Excel à implémenter avec les nouvelles données.", status=200)
+        # 1. Requête principale pour agréger toutes les métriques par opérateur
+        operateurs_query = Operateur.objects.filter(type_operateur='CONFIRMATION')
+        
+        # Si un opérateur spécifique est demandé, filtrer
+        if operator_id:
+            operateurs_query = operateurs_query.filter(id=operator_id)
+            logger.info(f"Export spécifique pour l'opérateur ID: {operator_id}")
+        
+        operateurs_stats = operateurs_query.annotate(
+            # --- Métriques sur l'état ACTUEL ---
+            commands_affected=Count(
+                'etats_modifies__commande',
+                filter=Q(etats_modifies__enum_etat__libelle__iexact='Affectée', etats_modifies__date_fin__isnull=True),
+                distinct=True
+            ),
+            commands_in_progress=Count(
+                'etats_modifies__commande',
+                filter=Q(etats_modifies__enum_etat__libelle__iexact='En cours de confirmation', etats_modifies__date_fin__isnull=True),
+                distinct=True
+            ),
+
+            # --- Métriques HISTORIQUES (tous les temps) ---
+            commands_confirmed=Count(
+                'etats_modifies__commande',
+                filter=Q(etats_modifies__enum_etat__libelle__iexact='Confirmée'),
+                distinct=True
+            ),
+
+            # --- Métriques FINANCIERES sur commandes confirmées ---
+            panier_moyen=Avg(
+                'etats_modifies__commande__total_cmd',
+                filter=Q(etats_modifies__enum_etat__libelle__iexact='Confirmée')
+            ),
+            panier_min=Min(
+                'etats_modifies__commande__total_cmd',
+                filter=Q(etats_modifies__enum_etat__libelle__iexact='Confirmée')
+            ),
+            panier_max=Max(
+                'etats_modifies__commande__total_cmd',
+                filter=Q(etats_modifies__enum_etat__libelle__iexact='Confirmée')
+            ),
+            upsell_count=Count(
+                'etats_modifies__commande',
+                filter=Q(etats_modifies__enum_etat__libelle__iexact='Confirmée', etats_modifies__commande__is_upsell=True),
+                distinct=True
+            ),
+            upsell_amount=Sum(
+                'etats_modifies__commande__total_cmd',
+                filter=Q(etats_modifies__enum_etat__libelle__iexact='Confirmée', etats_modifies__commande__is_upsell=True)
+            ),
+            
+            # --- Métriques sur les OPERATIONS (30 derniers jours) ---
+            total_actions_30j=Count(
+                'operations', # Le related_name sur Operation est 'operations'
+                filter=Q(operations__date_operation__gte=date_limite_30j),
+                distinct=True
+            ),
+            commands_confirmed_30j=Count(
+                'etats_modifies__commande',
+                filter=Q(etats_modifies__enum_etat__libelle__iexact='Confirmée', etats_modifies__date_debut__gte=date_limite_30j),
+                distinct=True
+            ),
+
+        ).values(
+            'id', 'nom', 'user__username',
+            'commands_affected', 'commands_in_progress', 'commands_confirmed',
+            'panier_moyen', 'panier_min', 'panier_max',
+            'upsell_count', 'upsell_amount',
+            'total_actions_30j', 'commands_confirmed_30j'
+        )
+
+        operateurs_data = []
+        total_commandes_affectees_global = 0
+        total_commandes_confirmees_global = 0
+        
+        for op_stat in operateurs_stats:
+            # Calculs post-requête en Python
+            total_commandes_traitees = op_stat['commands_affected'] + op_stat['commands_in_progress'] + op_stat['commands_confirmed']
+            taux_confirmation = (op_stat['commands_confirmed'] / total_commandes_traitees * 100) if total_commandes_traitees > 0 else 0
+            
+            operations_par_commande_30j = (op_stat['total_actions_30j'] / op_stat['commands_confirmed_30j']) if op_stat['commands_confirmed_30j'] > 0 else 0
+
+            operateurs_data.append({
+                'id': op_stat['id'],
+                'nom': op_stat['nom'],
+                'username': op_stat.get('user__username', 'N/A'),
+                'commands_affected': op_stat['commands_affected'],
+                'commands_in_progress': op_stat['commands_in_progress'],
+                'commands_confirmed': op_stat['commands_confirmed'],
+                'confirmation_rate': round(taux_confirmation, 1),
+                'average_basket': float(op_stat['panier_moyen'] or 0),
+                'min_basket': float(op_stat['panier_min'] or 0),
+                'max_basket': float(op_stat['panier_max'] or 0),
+                'upsell_count': op_stat['upsell_count'],
+                'upsell_amount': float(op_stat['upsell_amount'] or 0),
+                'total_actions': op_stat['total_actions_30j'], # Simplifié aux 30j
+                'operations_per_command_30d': round(operations_par_commande_30j, 1),
+                # Les métriques de temps réel sont gérées par une autre API
+                'avg_confirmation_time_minutes': 0, 
+                'avg_arrival_to_confirmation_minutes': 0,
+            })
+            total_commandes_affectees_global += op_stat['commands_affected'] + op_stat['commands_in_progress']
+            total_commandes_confirmees_global += op_stat['commands_confirmed']
+
+        # Calculer le taux de confirmation global
+        total_traitees_global = total_commandes_affectees_global + total_commandes_confirmees_global
+        taux_confirmation_global = (total_commandes_confirmees_global / total_traitees_global * 100) if total_traitees_global > 0 else 0
+
+        global_metrics = {
+            'commands_assigned': total_commandes_affectees_global,
+            'confirmations': total_commandes_confirmees_global,
+            'global_confirmation_rate': round(taux_confirmation_global, 1),
+            'active_operators': operateurs_stats.count()
+        }
+        
+        operateurs_data.sort(key=lambda x: x['commands_confirmed'], reverse=True)
+        
+        logger.info(f"Données récupérées: {len(operateurs_data)} opérateurs")
+
+        # Vérifier que openpyxl est disponible
+        if not openpyxl:
+            return HttpResponse("Module openpyxl non disponible. Installez-le avec: pip install openpyxl", status=500)
+
+        # Créer un nouveau classeur Excel
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        
+        wb = Workbook()
+        ws = wb.active
+        
+        if operator_id and len(operateurs_data) == 1:
+            # Si c'est un export spécifique à un opérateur
+            operateur = operateurs_data[0]
+            ws.title = f"Performance {operateur['username']}"
+        else:
+            # Export global de tous les opérateurs
+            ws.title = "Performance Opérateurs"
+
+        # Styles pour l'en-tête
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Styles pour les données
+        data_alignment = Alignment(horizontal="center", vertical="center")
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        # En-têtes des colonnes
+        headers = [
+            'Opérateur',
+            'Nom d\'utilisateur',
+            'Commandes Affectées',
+            'Commandes En Cours',
+            'Commandes Confirmées',
+            'Taux de Confirmation (%)',
+            'Panier Moyen (MAD)',
+            'Panier Min (MAD)',
+            'Panier Max (MAD)',
+            'Upsells (Nombre)',
+            'Montant Upsells (MAD)',
+            'Actions 30j',
+            'Opérations/Commande 30j'
+        ]
+
+        # Écrire les en-têtes
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = border
+
+        # Écrire les données des opérateurs
+        for row, operateur in enumerate(operateurs_data, 2):
+            ws.cell(row=row, column=1, value=operateur['nom']).border = border
+            ws.cell(row=row, column=2, value=operateur['username']).border = border
+            ws.cell(row=row, column=3, value=operateur['commands_affected']).border = border
+            ws.cell(row=row, column=4, value=operateur['commands_in_progress']).border = border
+            ws.cell(row=row, column=5, value=operateur['commands_confirmed']).border = border
+            ws.cell(row=row, column=6, value=operateur['confirmation_rate']).border = border
+            ws.cell(row=row, column=7, value=operateur['average_basket']).border = border
+            ws.cell(row=row, column=8, value=operateur['min_basket']).border = border
+            ws.cell(row=row, column=9, value=operateur['max_basket']).border = border
+            ws.cell(row=row, column=10, value=operateur['upsell_count']).border = border
+            ws.cell(row=row, column=11, value=operateur['upsell_amount']).border = border
+            ws.cell(row=row, column=12, value=operateur['total_actions']).border = border
+            ws.cell(row=row, column=13, value=operateur['operations_per_command_30d']).border = border
+
+        # Ajouter une ligne de métriques globales
+        row_global = len(operateurs_data) + 3
+        ws.cell(row=row_global, column=1, value="MÉTRIQUES GLOBALES").font = Font(bold=True)
+        ws.cell(row=row_global + 1, column=1, value="Commandes Assignées").border = border
+        ws.cell(row=row_global + 1, column=2, value=global_metrics.get('commands_assigned', 0)).border = border
+        ws.cell(row=row_global + 2, column=1, value="Confirmations").border = border
+        ws.cell(row=row_global + 2, column=2, value=global_metrics.get('confirmations', 0)).border = border
+        ws.cell(row=row_global + 3, column=1, value="Taux de Confirmation Global (%)").border = border
+        ws.cell(row=row_global + 3, column=2, value=global_metrics.get('global_confirmation_rate', 0)).border = border
+        ws.cell(row=row_global + 4, column=1, value="Opérateurs Actifs").border = border
+        ws.cell(row=row_global + 4, column=2, value=global_metrics.get('active_operators', 0)).border = border
+
+        # Ajuster la largeur des colonnes
+        for column in ws.columns:
+            max_length = 0
+            column_letter = get_column_letter(column[0].column)
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+
+        # Créer la réponse HTTP
+        from io import BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        # Générer le nom de fichier avec la date
+        from datetime import datetime
+        date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        if operator_id and len(operateurs_data) == 1:
+            # Si c'est un export spécifique à un opérateur
+            operateur = operateurs_data[0]
+            filename = f"performance_operateur_{operateur['username']}_{date_str}.xlsx"
+        else:
+            # Export global de tous les opérateurs
+            filename = f"performance_operateurs_{date_str}.xlsx"
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        logger.info(f"Export Excel terminé avec succès: {filename}")
+        return response
+
+    except Exception as e:
+        logger.error(f"Erreur lors de l'export Excel: {str(e)}", exc_info=True)
+        return HttpResponse(f"Erreur lors de l'export Excel: {str(e)}", status=500)
 
 @api_login_required
 def operator_history_data(request):
@@ -1535,3 +1774,417 @@ def export_performance_operateurs_csv(request):
             round(avg_arr, 2)
         ])
     return response
+
+@login_required
+def export_etat_commandes_csv(request):
+    """Export CSV du suivi de l'état des commandes"""
+    try:
+        # Récupérer la période depuis les paramètres de requête
+        period = request.GET.get('period', 'aujourd_hui')
+        
+        # Déterminer les dates de début et fin en fonction de la période
+        aujourd_hui = timezone.now().date()
+        if period == 'aujourd_hui':
+            date_debut = aujourd_hui
+            date_fin = aujourd_hui
+        elif period == 'ce_mois':
+            date_debut = aujourd_hui.replace(day=1)
+            date_fin = aujourd_hui
+        elif period == 'cette_annee':
+            date_debut = aujourd_hui.replace(month=1, day=1)
+            date_fin = aujourd_hui
+        else:  # période personnalisée
+            try:
+                from datetime import datetime
+                date_debut = datetime.strptime(request.GET.get('date_debut'), '%Y-%m-%d').date()
+                date_fin = datetime.strptime(request.GET.get('date_fin'), '%Y-%m-%d').date()
+            except (TypeError, ValueError):
+                date_debut = aujourd_hui
+                date_fin = aujourd_hui
+        
+        # Récupérer les données via la fonction existante
+        from django.test import RequestFactory
+        factory = RequestFactory()
+        test_request = factory.get(f'/kpis/api/vue-quantitative/?period={period}')
+        test_request.user = request.user
+        
+        json_response = vue_quantitative_data(test_request)
+        if json_response.status_code != 200:
+            return HttpResponse("Erreur lors de la génération des données.", status=500)
+        
+        import json
+        content = json.loads(json_response.content)
+        etats_data = content.get('etats', {})
+        
+        # Créer la réponse CSV
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="etat_commandes_{period}.csv"'
+        writer = csv.writer(response)
+        
+        # En-têtes enrichies
+        writer.writerow([
+            'État', 
+            'Nombre de commandes', 
+            'Pourcentage', 
+            'Valeur totale (MAD)', 
+            'Panier moyen (MAD)',
+            'Opérateur principal',
+            'Dernière activité'
+        ])
+        
+        # Récupérer des données enrichies
+        etats_enrichis = {}
+        
+        # Liste complète de tous les états possibles
+        tous_etats = [
+            'Non affectée',
+            'Affectée', 
+            'En cours de confirmation',
+            'Confirmée',
+            'Erronée',
+            'Doublon',
+            'En préparation',
+            'Préparée',
+            'En livraison',
+            'Livrée',
+            'Retournée',
+            'Reçue'
+        ]
+        
+        # Traiter tous les états, même ceux avec 0 commandes
+        for etat in tous_etats:
+            nombre = etats_data.get(etat, 0)
+            
+            if nombre > 0:
+                # Récupérer les commandes pour cet état
+                commandes_etat = Commande.objects.filter(
+                    etats__enum_etat__libelle__iexact=etat,
+                    etats__date_debut__date__gte=date_debut,
+                    etats__date_debut__date__lte=date_fin,
+                    etats__date_fin__isnull=True
+                ).select_related('etats__operateur')
+                
+                # Calculer les métriques
+                valeur_totale = commandes_etat.aggregate(total=Sum('total_cmd'))['total'] or 0
+                panier_moyen = commandes_etat.aggregate(moyen=Avg('total_cmd'))['moyen'] or 0
+                
+                # Opérateur principal
+                operateur_principal = commandes_etat.values('etats__operateur__nom').annotate(
+                    count=Count('id')
+                ).order_by('-count').first()
+                
+                # Dernière activité
+                derniere_activite = commandes_etat.aggregate(
+                    derniere=Max('etats__date_debut')
+                )['derniere']
+                
+                etats_enrichis[etat] = {
+                    'nombre': nombre,
+                    'valeur_totale': valeur_totale,
+                    'panier_moyen': panier_moyen,
+                    'operateur_principal': operateur_principal['etats__operateur__nom'] if operateur_principal else 'N/A',
+                    'derniere_activite': derniere_activite.strftime('%d/%m/%Y %H:%M') if derniere_activite else 'N/A'
+                }
+            else:
+                etats_enrichis[etat] = {
+                    'nombre': 0,
+                    'valeur_totale': 0,
+                    'panier_moyen': 0,
+                    'operateur_principal': 'N/A',
+                    'derniere_activite': 'N/A'
+                }
+        
+        # Données enrichies
+        total_commandes = sum(etats_data.values())
+        total_valeur = sum(data['valeur_totale'] for data in etats_enrichis.values())
+        
+        for etat, data in etats_enrichis.items():
+            pourcentage = (data['nombre'] / total_commandes * 100) if total_commandes > 0 else 0
+            writer.writerow([
+                etat, 
+                data['nombre'], 
+                f"{pourcentage:.1f}%",
+                format_number_fr(data['valeur_totale']),
+                format_number_fr(data['panier_moyen']),
+                data['operateur_principal'],
+                data['derniere_activite']
+            ])
+        
+        # Ligne de total
+        total_panier_moyen = total_valeur / total_commandes if total_commandes > 0 else 0
+        writer.writerow([
+            'TOTAL', 
+            total_commandes, 
+            '100%',
+            format_number_fr(total_valeur),
+            format_number_fr(total_panier_moyen),
+            '',
+            ''
+        ])
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de l'export CSV: {str(e)}", exc_info=True)
+        return HttpResponse(f"Erreur lors de l'export CSV: {str(e)}", status=500)
+
+@login_required
+def export_etat_commandes_excel(request):
+    """Export Excel du suivi de l'état des commandes"""
+    try:
+        # Récupérer la période depuis les paramètres de requête
+        period = request.GET.get('period', 'aujourd_hui')
+        
+        # Déterminer les dates de début et fin en fonction de la période
+        aujourd_hui = timezone.now().date()
+        if period == 'aujourd_hui':
+            date_debut = aujourd_hui
+            date_fin = aujourd_hui
+        elif period == 'ce_mois':
+            date_debut = aujourd_hui.replace(day=1)
+            date_fin = aujourd_hui
+        elif period == 'cette_annee':
+            date_debut = aujourd_hui.replace(month=1, day=1)
+            date_fin = aujourd_hui
+        else:  # période personnalisée
+            try:
+                from datetime import datetime
+                date_debut = datetime.strptime(request.GET.get('date_debut'), '%Y-%m-%d').date()
+                date_fin = datetime.strptime(request.GET.get('date_fin'), '%Y-%m-%d').date()
+            except (TypeError, ValueError):
+                date_debut = aujourd_hui
+                date_fin = aujourd_hui
+        
+        # Récupérer les données via la fonction existante
+        from django.test import RequestFactory
+        factory = RequestFactory()
+        test_request = factory.get(f'/kpis/api/vue-quantitative/?period={period}')
+        test_request.user = request.user
+        
+        json_response = vue_quantitative_data(test_request)
+        if json_response.status_code != 200:
+            return HttpResponse("Erreur lors de la génération des données.", status=500)
+        
+        import json
+        content = json.loads(json_response.content)
+        etats_data = content.get('etats', {})
+        
+        # Vérifier que openpyxl est disponible
+        if not openpyxl:
+            return HttpResponse("Module openpyxl non disponible. Installez-le avec: pip install openpyxl", status=500)
+
+        # Créer un nouveau classeur Excel
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "État des Commandes"
+
+        # Styles pour l'en-tête
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Styles pour les données
+        data_alignment = Alignment(horizontal="center", vertical="center")
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        # En-têtes des colonnes enrichies
+        headers = [
+            'État', 
+            'Nombre de commandes', 
+            'Pourcentage', 
+            'Valeur totale (MAD)', 
+            'Panier moyen (MAD)',
+            'Temps moyen traitement (min)',
+            'Opérateur principal',
+            'Dernière activité'
+        ]
+        
+        # Écrire les en-têtes
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = border
+
+        # Calculer le total et récupérer des données enrichies
+        total_commandes = sum(etats_data.values())
+        
+        # Récupérer des données supplémentaires pour chaque état
+        etats_enrichis = {}
+        
+        # Liste complète de tous les états possibles
+        tous_etats = [
+            'Non affectée',
+            'Affectée', 
+            'En cours de confirmation',
+            'Confirmée',
+            'Erronée',
+            'Doublon',
+            'En préparation',
+            'Préparée',
+            'En livraison',
+            'Livrée',
+            'Retournée',
+            'Reçue'
+        ]
+        
+        # Traiter tous les états, même ceux avec 0 commandes
+        for etat in tous_etats:
+            nombre = etats_data.get(etat, 0)
+            
+            if nombre > 0:
+                # Récupérer les commandes pour cet état
+                commandes_etat = Commande.objects.filter(
+                    etats__enum_etat__libelle__iexact=etat,
+                    etats__date_debut__date__gte=date_debut,
+                    etats__date_debut__date__lte=date_fin,
+                    etats__date_fin__isnull=True
+                ).select_related('etats__operateur')
+                
+                # Calculer les métriques
+                valeur_totale = commandes_etat.aggregate(total=Sum('total_cmd'))['total'] or 0
+                panier_moyen = commandes_etat.aggregate(moyen=Avg('total_cmd'))['moyen'] or 0
+                
+                # Opérateur principal (celui qui a traité le plus de commandes)
+                operateur_principal = commandes_etat.values('etats__operateur__nom').annotate(
+                    count=Count('id')
+                ).order_by('-count').first()
+                
+                # Dernière activité
+                derniere_activite = commandes_etat.aggregate(
+                    derniere=Max('etats__date_debut')
+                )['derniere']
+                
+                # Temps moyen de traitement (simplifié)
+                temps_moyen = 0  # À calculer plus précisément si nécessaire
+                
+                etats_enrichis[etat] = {
+                    'nombre': nombre,
+                    'valeur_totale': valeur_totale,
+                    'panier_moyen': panier_moyen,
+                    'temps_moyen': temps_moyen,
+                    'operateur_principal': operateur_principal['etats__operateur__nom'] if operateur_principal else 'N/A',
+                    'derniere_activite': derniere_activite.strftime('%d/%m/%Y %H:%M') if derniere_activite else 'N/A'
+                }
+            else:
+                etats_enrichis[etat] = {
+                    'nombre': 0,
+                    'valeur_totale': 0,
+                    'panier_moyen': 0,
+                    'temps_moyen': 0,
+                    'operateur_principal': 'N/A',
+                    'derniere_activite': 'N/A'
+                }
+        
+        # Écrire les données enrichies
+        row = 2
+        for etat, data in etats_enrichis.items():
+            pourcentage = (data['nombre'] / total_commandes * 100) if total_commandes > 0 else 0
+            
+            ws.cell(row=row, column=1, value=etat).border = border
+            ws.cell(row=row, column=2, value=data['nombre']).border = border
+            ws.cell(row=row, column=3, value=f"{pourcentage:.1f}%").border = border
+            ws.cell(row=row, column=4, value=format_number_fr(data['valeur_totale'])).border = border
+            ws.cell(row=row, column=5, value=format_number_fr(data['panier_moyen'])).border = border
+            ws.cell(row=row, column=6, value=f"{data['temps_moyen']:.1f}").border = border
+            ws.cell(row=row, column=7, value=data['operateur_principal']).border = border
+            ws.cell(row=row, column=8, value=data['derniere_activite']).border = border
+            row += 1
+
+        # Ligne de total
+        total_valeur = sum(data['valeur_totale'] for data in etats_enrichis.values())
+        total_panier_moyen = total_valeur / total_commandes if total_commandes > 0 else 0
+        
+        ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
+        ws.cell(row=row, column=1).border = border
+        ws.cell(row=row, column=2, value=total_commandes).font = Font(bold=True)
+        ws.cell(row=row, column=2).border = border
+        ws.cell(row=row, column=3, value="100%").font = Font(bold=True)
+        ws.cell(row=row, column=3).border = border
+        ws.cell(row=row, column=4, value=format_number_fr(total_valeur)).font = Font(bold=True)
+        ws.cell(row=row, column=4).border = border
+        ws.cell(row=row, column=5, value=format_number_fr(total_panier_moyen)).font = Font(bold=True)
+        ws.cell(row=row, column=5).border = border
+        ws.cell(row=row, column=6, value="").font = Font(bold=True)
+        ws.cell(row=row, column=6).border = border
+        ws.cell(row=row, column=7, value="").font = Font(bold=True)
+        ws.cell(row=row, column=7).border = border
+        ws.cell(row=row, column=8, value="").font = Font(bold=True)
+        ws.cell(row=row, column=8).border = border
+
+        # Ajouter des métriques globales
+        metrics_row = row + 2
+        ws.cell(row=metrics_row, column=1, value="MÉTRIQUES GLOBALES").font = Font(bold=True, size=14)
+        
+        # Calculer des métriques supplémentaires
+        commandes_en_cours = sum(data['nombre'] for etat, data in etats_enrichis.items() 
+                               if 'en_cours' in etat.lower() or 'affectée' in etat)
+        commandes_completees = sum(data['nombre'] for etat, data in etats_enrichis.items() 
+                                 if 'livrée' in etat or 'confirmée' in etat)
+        commandes_problematiques = sum(data['nombre'] for etat, data in etats_enrichis.items() 
+                                     if 'erronée' in etat or 'doublon' in etat or 'retournée' in etat)
+        
+        ws.cell(row=metrics_row + 1, column=1, value="Commandes en cours").border = border
+        ws.cell(row=metrics_row + 1, column=2, value=commandes_en_cours).border = border
+        ws.cell(row=metrics_row + 2, column=1, value="Commandes complétées").border = border
+        ws.cell(row=metrics_row + 2, column=2, value=commandes_completees).border = border
+        ws.cell(row=metrics_row + 3, column=1, value="Commandes problématiques").border = border
+        ws.cell(row=metrics_row + 3, column=2, value=commandes_problematiques).border = border
+        ws.cell(row=metrics_row + 4, column=1, value="Taux de complétion").border = border
+        taux_completion = (commandes_completees / total_commandes * 100) if total_commandes > 0 else 0
+        ws.cell(row=metrics_row + 4, column=2, value=f"{taux_completion:.1f}%").border = border
+
+        # Ajouter des informations sur la période
+        info_row = metrics_row + 6
+        ws.cell(row=info_row, column=1, value="Période d'analyse").font = Font(bold=True)
+        ws.cell(row=info_row, column=2, value=f"Du {date_debut} au {date_fin}").border = border
+        ws.cell(row=info_row + 1, column=1, value="Durée (jours)").font = Font(bold=True)
+        ws.cell(row=info_row + 1, column=2, value=(date_fin - date_debut).days + 1).border = border
+        ws.cell(row=info_row + 2, column=1, value="Généré le").font = Font(bold=True)
+        ws.cell(row=info_row + 2, column=2, value=timezone.now().strftime('%d/%m/%Y à %H:%M')).border = border
+        
+        # Ajuster la largeur des colonnes
+        for column in ws.columns:
+            max_length = 0
+            column_letter = get_column_letter(column[0].column)
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+
+        # Créer la réponse HTTP
+        from io import BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        # Générer le nom de fichier avec la date
+        from datetime import datetime
+        date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"etat_commandes_{period}_{date_str}.xlsx"
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
+
+    except Exception as e:
+        logger.error(f"Erreur lors de l'export Excel: {str(e)}", exc_info=True)
+        return HttpResponse(f"Erreur lors de l'export Excel: {str(e)}", status=500)

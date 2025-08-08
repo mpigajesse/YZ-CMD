@@ -63,6 +63,7 @@ class SyncLog(models.Model):
     existing_orders_updated = models.IntegerField(default=0, verbose_name="Commandes existantes mises à jour") 
     existing_orders_skipped = models.IntegerField(default=0, verbose_name="Commandes existantes inchangées")
     duplicate_orders_found = models.IntegerField(default=0, verbose_name="Doublons détectés et évités")
+    protected_orders_count = models.IntegerField(default=0, verbose_name="Commandes protégées contre la régression d'état")
     
     def __str__(self):
         return f"Synchronisation du {self.sync_date.strftime('%d/%m/%Y %H:%M')} - {self.get_status_display()}"

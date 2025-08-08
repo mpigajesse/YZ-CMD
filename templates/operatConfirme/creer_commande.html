@@ -381,10 +381,7 @@
                 </h3>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="flex items-center">
-                        <input type="checkbox" name="is_upsell" id="is_upsell" class="h-5 w-5 rounded" style="color: #4B352A;">
-                        <label for="is_upsell" class="ml-2 text-sm font-semibold" style="color: #4B352A;">Commande Upsell</label>
-                    </div>
+             
                     <div>
                         <label for="total_cmd" class="label-style">Total Commande (DH):</label>
                         <input type="number" name="total_cmd" id="total_cmd" step="0.01" min="0" class="input-field w-full bg-gray-100 cursor-not-allowed" readonly required>
@@ -715,9 +712,17 @@
     var articleSelect = document.getElementById('article-select');
     var searchTimeout = null;
 
+    console.log('🔍 Initialisation de la recherche d\'articles:', {
+        searchArticleInput: !!searchArticleInput,
+        searchArticleResults: !!searchArticleResults,
+        articleSelect: !!articleSelect
+    });
+
     if (searchArticleInput && searchArticleResults && articleSelect) {
         searchArticleInput.addEventListener('input', function() {
             var query = this.value.trim();
+            console.log('🔍 Recherche d\'article:', query);
+            
             if (searchTimeout) clearTimeout(searchTimeout);
             if (query.length < 2) {
                 searchArticleResults.classList.add('hidden');
@@ -725,9 +730,14 @@
                 return;
             }
             searchTimeout = setTimeout(function() {
+                console.log('🌐 Appel API pour la recherche:', query);
                 fetch('/operateur-confirme/api/recherche-article-ref/?q=' + encodeURIComponent(query))
-                    .then(function(response) { return response.json(); })
+                    .then(function(response) { 
+                        console.log('📡 Réponse API reçue:', response.status);
+                        return response.json(); 
+                    })
                     .then(function(data) {
+                        console.log('📊 Données reçues:', data);
                         if (data.results && data.results.length > 0) {
                             searchArticleResults.innerHTML = data.results.map(function(article) {
                                 return '<div class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100" data-article-id="' + article.id + '"><span class="font-semibold">' + article.nom + '</span> <span class="text-gray-500">(' + article.reference + ')</span> <span class="text-green-700 font-bold">' + article.prix_unitaire.toFixed(2) + ' DH</span></div>';
@@ -736,6 +746,7 @@
                             Array.prototype.forEach.call(searchArticleResults.children, function(item) {
                                 item.addEventListener('click', function() {
                                     var articleId = this.getAttribute('data-article-id');
+                                    console.log('✅ Article sélectionné:', articleId);
                                     // Sélectionner l'article dans le select
                                     articleSelect.value = articleId;
                                     articleSelect.dispatchEvent(new Event('change'));
@@ -749,7 +760,8 @@
                             searchArticleResults.classList.remove('hidden');
                         }
                     })
-                    .catch(function() {
+                    .catch(function(error) {
+                        console.error('❌ Erreur lors de la recherche:', error);
                         searchArticleResults.innerHTML = '<div class="px-4 py-2 text-red-500">Erreur de recherche</div>';
                         searchArticleResults.classList.remove('hidden');
                     });
@@ -759,6 +771,12 @@
             if (!searchArticleResults.contains(e.target) && e.target !== searchArticleInput) {
                 searchArticleResults.classList.add('hidden');
             }
+        });
+    } else {
+        console.error('❌ Éléments de recherche d\'articles manquants:', {
+            searchArticleInput: !!searchArticleInput,
+            searchArticleResults: !!searchArticleResults,
+            articleSelect: !!articleSelect
         });
     }
 })();

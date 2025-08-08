@@ -39,6 +39,7 @@ class GoogleSheetSync:
         self.existing_orders_updated = 0  # Commandes existantes mises à jour
         self.existing_orders_skipped = 0  # Commandes existantes inchangées
         self.duplicate_orders_found = 0   # Commandes en double détectées
+        self.protected_orders_count = 0   # Commandes protégées contre la régression d'état
     
     def _log(self, message, level="info"):
         """Log conditionnel selon le mode verbose"""
@@ -435,7 +436,11 @@ class GoogleSheetSync:
             status_from_sheet = data.get('Statut', '')
             if status_from_sheet:
                 status_libelle = self._map_status(status_from_sheet)
-                self._create_etat_commande(commande, status_libelle, operateur_obj)
+                if status_libelle:  # Seulement si un statut valide a été mappé
+                    self._create_etat_commande(commande, status_libelle, operateur_obj)
+                else:
+                    # Si le statut n'a pas pu être mappé, utiliser l'état par défaut pour les nouvelles commandes
+                    self._create_etat_commande(commande, 'En attente', operateur_obj)
             else:
                 # État par défaut si aucun statut n'est spécifié
                 self._create_etat_commande(commande, 'En attente', operateur_obj)
@@ -451,7 +456,21 @@ class GoogleSheetSync:
         """Détermine si une commande existante doit être mise à jour"""
         # Vérifier si le statut a changé
         current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'En attente'
-        new_status = self._map_status(data.get('Statut', '')) if data.get('Statut') else 'En attente'
+        new_status_raw = self._map_status(data.get('Statut', ''))
+        
+        # Si aucun statut valide n'a été mappé, ne pas changer l'état
+        if new_status_raw is None:
+            new_status = current_status  # Garder le statut actuel
+        else:
+            new_status = new_status_raw
+        
+        # PROTECTION CONTRE LA RÉGRESSION D'ÉTATS
+        # Si la commande a déjà un état avancé, ne pas la réinitialiser à "Non affectée" ou "En attente"
+        if self._is_advanced_status(current_status) and self._is_basic_status(new_status):
+            self._log(f"Protection activée: Commande {existing_commande.num_cmd} a l'état avancé '{current_status}' - ne pas régresser vers '{new_status}'")
+            self.protected_orders_count += 1  # Incrémenter le compteur de protection
+            # Ne pas mettre à jour le statut, mais continuer à vérifier les autres champs
+            new_status = current_status  # Garder le statut actuel
         
         if current_status != new_status:
             return True
@@ -481,6 +500,23 @@ class GoogleSheetSync:
             return True
         
         return False
+    
+    def _is_advanced_status(self, status):
+        """Détermine si un statut est considéré comme avancé (ne doit pas être régressé)"""
+        advanced_statuses = [
+            'Affectée', 'En cours de confirmation', 'Confirmée', 'En préparation', 
+            'En livraison', 'Livrée', 'Expédiée', 'Payé', 'Partiellement payé'
+        ]
+        return status in advanced_statuses
+    
+    def _is_basic_status(self, status):
+        """Détermine si un statut est considéré comme basique (peut être régressé)"""
+        basic_statuses = [
+            'Non affectée', 'En attente', 'Erronée', 'Doublon', 'Annulée', 
+            'Reportée', 'Hors zone', 'Injoignable', 'Pas de réponse', 
+            'Numéro incorrect', 'Échoué', 'Retournée', 'Non payé'
+        ]
+        return status in basic_statuses
     
     def _update_existing_command(self, existing_commande, data, headers):
         """Met à jour une commande existante avec les nouvelles données (PAS D'INSERTION)"""
@@ -524,10 +560,18 @@ class GoogleSheetSync:
                 print(f"📝 Commande mise à jour: ID YZ {existing_commande.id_yz} - Changements: {', '.join(changes_made)}")
             
             # Mettre à jour le statut si nécessaire
-            new_status = self._map_status(data.get('Statut', '')) if data.get('Statut') else None
-            if new_status:
+            new_status_raw = self._map_status(data.get('Statut', ''))
+            if new_status_raw is not None:  # Seulement si un statut valide a été mappé
                 current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'En attente'
-                if current_status != new_status:
+                
+                # PROTECTION CONTRE LA RÉGRESSION D'ÉTATS
+                # Si la commande a déjà un état avancé, ne pas la réinitialiser à un état basique
+                if self._is_advanced_status(current_status) and self._is_basic_status(new_status_raw):
+                    self._log(f"Protection activée lors de la mise à jour: Commande {existing_commande.num_cmd} garde l'état avancé '{current_status}' au lieu de régresser vers '{new_status_raw}'")
+                    self.protected_orders_count += 1  # Incrémenter le compteur de protection
+                    new_status_raw = current_status  # Garder le statut actuel
+                
+                if current_status != new_status_raw:
                     # Récupérer l'opérateur si spécifié
                     operateur_obj = None
                     operator_name = data.get('Opérateur', '')
@@ -538,9 +582,13 @@ class GoogleSheetSync:
                             self.errors.append(f"Opérateur non trouvé: {operator_name}")
                     
                     # Créer le nouvel état
-                    self._create_etat_commande(existing_commande, new_status, operateur_obj)
-                    changes_made.append(f"Statut: '{current_status}' → '{new_status}'")
-                    print(f"📊 État mis à jour pour commande existante ID YZ {existing_commande.id_yz}: {current_status} → {new_status}")
+                    self._create_etat_commande(existing_commande, new_status_raw, operateur_obj)
+                    changes_made.append(f"Statut: '{current_status}' → '{new_status_raw}'")
+                    print(f"📊 État mis à jour pour commande existante ID YZ {existing_commande.id_yz}: {current_status} → {new_status_raw}")
+                else:
+                    self._log(f"Statut inchangé pour commande {existing_commande.num_cmd}: {current_status}")
+            else:
+                self._log(f"Aucun statut valide trouvé pour commande {existing_commande.num_cmd} - état conservé")
             
             # Mettre à jour les informations du client si nécessaire
             client_phone_raw = data.get('Téléphone', '')
@@ -624,6 +672,10 @@ class GoogleSheetSync:
         # Nettoyer le statut reçu
         cleaned_status = status.strip() if status else ''
         
+        # Si le statut est vide ou null, retourner None pour indiquer qu'aucun changement n'est nécessaire
+        if not cleaned_status:
+            return None
+        
         # Chercher dans le dictionnaire (recherche exacte puis insensible à la casse)
         if cleaned_status in status_map:
             return status_map[cleaned_status]
@@ -633,8 +685,10 @@ class GoogleSheetSync:
             if key.lower() == cleaned_status.lower():
                 return value
         
-        # Si aucun statut ne correspond, retourner 'En attente'
-        return 'En attente'
+        # Si aucun statut ne correspond, retourner None au lieu de 'En attente'
+        # Cela évite de forcer un état par défaut qui pourrait régresser une commande
+        self._log(f"Statut non reconnu: '{cleaned_status}' - aucun changement d'état appliqué")
+        return None
 
     def _create_etat_commande(self, commande, status_libelle, operateur=None):
         """Crée un état de commande avec le libellé donné"""
@@ -761,6 +815,7 @@ class GoogleSheetSync:
                 'existing_orders_skipped': self.existing_orders_skipped,
                 'duplicate_orders_found': self.duplicate_orders_found,
                 'insertion_avoided_count': self.duplicate_orders_found,  # Nombre d'insertions évitées
+                'protected_orders_count': self.protected_orders_count,  # Nombre de commandes protégées
             })
             
             # Message de notification détaillé
@@ -778,6 +833,8 @@ class GoogleSheetSync:
                 notification_parts.append(f"🔄 {self.existing_orders_updated} commandes existantes mises à jour")
             if self.existing_orders_skipped > 0:
                 notification_parts.append(f"➖ {self.existing_orders_skipped} commandes existantes inchangées")
+            if self.protected_orders_count > 0:
+                notification_parts.append(f"🛡️ {self.protected_orders_count} commandes protégées contre la régression d'état")
             
             # Message par défaut si rien ne s'est passé
             if not notification_parts:
@@ -825,6 +882,7 @@ class GoogleSheetSync:
             existing_orders_updated=self.existing_orders_updated,
             existing_orders_skipped=self.existing_orders_skipped,
             duplicate_orders_found=self.duplicate_orders_found,
+            protected_orders_count=self.protected_orders_count,
         )
 
 # --- Configuration for Google Sheets API ---

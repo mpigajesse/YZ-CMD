@@ -147,6 +147,8 @@ class Commande(models.Model):
         """
         from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
         
+        print(f"🔄 recalculer_totaux_upsell - Compteur actuel: {self.compteur}")
+        
         nouveau_total = 0
         
         # Recalculer chaque panier selon le compteur upsell
@@ -154,6 +156,8 @@ class Commande(models.Model):
             # Calculer le prix selon le compteur de la commande
             prix_unitaire = get_prix_upsell_avec_compteur(panier.article, self.compteur)
             nouveau_sous_total = prix_unitaire * panier.quantite
+            
+            print(f"   📦 {panier.article.nom} (upsell: {panier.article.isUpsell}): qté={panier.quantite}, prix={prix_unitaire}, sous_total={nouveau_sous_total}")
             
             # Mettre à jour le sous-total du panier si nécessaire
             if panier.sous_total != nouveau_sous_total:

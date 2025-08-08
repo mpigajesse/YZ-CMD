@@ -2760,102 +2760,111 @@ def api_recherche_client_tel(request):
 
 @login_required
 def api_recherche_article_ref(request):
-    """API pour rechercher un article par référence ou par ID"""
+    """API pour rechercher des articles par référence ou nom"""
     try:
-        # Vérifier si l'utilisateur est connecté
-        # Note: Nous ne vérifions plus le type d'opérateur car tous les utilisateurs connectés
-        # devraient pouvoir accéder aux informations de stock
+        # Récupérer les paramètres de recherche
+        query = request.GET.get('q', '').strip()
+        article_id = request.GET.get('id', '').strip()
+        reference = request.GET.get('reference', '').strip()
         
-        # Récupérer la référence ou l'ID depuis la requête
-        reference = request.GET.get('reference', '')
-        article_id = request.GET.get('id', '')
+        # Cas 1: Recherche par ID (pour modifier_commande.html)
+        if article_id:
+            try:
+                article = Article.objects.get(id=article_id, actif=True)
+                # Mettre à jour le prix actuel si nécessaire
+                if article.prix_actuel is None:
+                    article.prix_actuel = article.prix_unitaire
+                    article.save(update_fields=['prix_actuel'])
+                
+                article_data = {
+                    'id': article.id,
+                    'nom': article.nom,
+                    'reference': article.reference or '',
+                    'prix_unitaire': float(article.prix_unitaire),
+                    'prix_actuel': float(article.prix_actuel or article.prix_unitaire),
+                    'qte_disponible': article.qte_disponible or 0,
+                }
+                
+                return JsonResponse({
+                    'success': True,
+                    'article': article_data
+                })
+            except Article.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Article non trouvé'
+                })
         
-        if reference:
-            # Rechercher l'article par référence
+        # Cas 2: Recherche par référence exacte
+        elif reference:
             article = Article.objects.filter(reference=reference, actif=True).first()
-        elif article_id:
-            # Rechercher l'article par ID
-            article = Article.objects.filter(id=article_id, actif=True).first()
+            if article:
+                # Mettre à jour le prix actuel si nécessaire
+                if article.prix_actuel is None:
+                    article.prix_actuel = article.prix_unitaire
+                    article.save(update_fields=['prix_actuel'])
+                
+                article_data = {
+                    'id': article.id,
+                    'nom': article.nom,
+                    'reference': article.reference or '',
+                    'prix_unitaire': float(article.prix_unitaire),
+                    'prix_actuel': float(article.prix_actuel or article.prix_unitaire),
+                    'qte_disponible': article.qte_disponible or 0,
+                }
+                
+                return JsonResponse({
+                    'success': True,
+                    'article': article_data
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Article non trouvé'
+                })
+        
+        # Cas 3: Recherche par texte (pour creer_commande.html)
+        elif query and len(query) >= 2:
+            # Rechercher les articles par référence ou nom
+            articles = Article.objects.filter(
+                Q(reference__icontains=query) | 
+                Q(nom__icontains=query),
+                actif=True
+            ).order_by('nom')[:10]  # Limiter à 10 résultats
+            
+            results = []
+            for article in articles:
+                # Mettre à jour le prix actuel si nécessaire
+                if article.prix_actuel is None:
+                    article.prix_actuel = article.prix_unitaire
+                    article.save(update_fields=['prix_actuel'])
+                
+                results.append({
+                    'id': article.id,
+                    'nom': article.nom,
+                    'reference': article.reference or '',
+                    'prix_unitaire': float(article.prix_unitaire),
+                    'prix_actuel': float(article.prix_actuel or article.prix_unitaire),
+                    'qte_disponible': article.qte_disponible or 0,
+                })
+            
+            return JsonResponse({
+                'results': results
+            })
+        
+        # Cas par défaut: aucun paramètre valide
         else:
             return JsonResponse({
-                'success': False,
-                'error': 'Référence ou ID d\'article requis'
+                'results': []
             })
-        
-        if not article:
-            return JsonResponse({
-                'success': False,
-                'error': 'Article non trouvé'
-            })
-        
-        # Mettre à jour le prix actuel si nécessaire
-        if article.prix_actuel is None:
-            article.prix_actuel = article.prix_unitaire
-            article.save(update_fields=['prix_actuel'])
-        
-        # Préparer les données de l'article avec des vérifications de sécurité
-        try:
-            article_data = {
-                'id': article.id,
-                'nom': article.nom if hasattr(article, 'nom') else 'Sans nom',
-                'reference': article.reference if hasattr(article, 'reference') else '',
-                'prix_actuel': float(article.prix_actuel) if article.prix_actuel else float(article.prix_unitaire),
-                'prix_unitaire': float(article.prix_unitaire) if hasattr(article, 'prix_unitaire') else 0,
-                'prix_upsell_1': float(article.prix_upsell_1) if hasattr(article, 'prix_upsell_1') and article.prix_upsell_1 else None,
-                'prix_upsell_2': float(article.prix_upsell_2) if hasattr(article, 'prix_upsell_2') and article.prix_upsell_2 else None,
-                'prix_upsell_3': float(article.prix_upsell_3) if hasattr(article, 'prix_upsell_3') and article.prix_upsell_3 else None,
-                'prix_upsell_4': float(article.prix_upsell_4) if hasattr(article, 'prix_upsell_4') and article.prix_upsell_4 else None,
-                'isUpsell': article.isUpsell if hasattr(article, 'isUpsell') else False,
-                'pointure': article.pointure if hasattr(article, 'pointure') else '',
-                'couleur': article.couleur if hasattr(article, 'couleur') else '',
-                'qte_disponible': article.qte_disponible or 0,
-                'phase': article.phase if hasattr(article, 'phase') else '',
-                'has_promo_active': hasattr(article, 'promotion') and article.promotion.is_active
-            }
-            
-            # Gérer la catégorie avec précaution pour éviter l'erreur 'str' object has no attribute 'nom'
-            if hasattr(article, 'categorie') and article.categorie:
-                if hasattr(article.categorie, 'nom'):
-                    article_data['categorie'] = article.categorie.nom
-                elif isinstance(article.categorie, str):
-                    article_data['categorie'] = article.categorie
-                else:
-                    article_data['categorie'] = None
-            else:
-                article_data['categorie'] = None
-                
-        except Exception as e:
-            import traceback
-            print(f"⚠️ Erreur lors de la préparation des données de l'article: {str(e)}")
-            print(traceback.format_exc())
-            
-            # Créer un objet minimal avec les données essentielles
-            article_data = {
-                'id': article.id,
-                'nom': str(article),
-                'reference': getattr(article, 'reference', ''),
-                'prix_actuel': float(getattr(article, 'prix_actuel', 0) or getattr(article, 'prix_unitaire', 0)),
-                'prix_unitaire': float(getattr(article, 'prix_unitaire', 0)),
-                'qte_disponible': getattr(article, 'qte_disponible', 0) or 0,
-                'isUpsell': getattr(article, 'isUpsell', False),
-                'categorie': None,
-                'pointure': '',
-                'couleur': '',
-                'phase': '',
-                'has_promo_active': False
-            }
-        
-        return JsonResponse({
-            'success': True,
-            'article': article_data
-        })
         
     except Exception as e:
         import traceback
+        print(f"Erreur dans api_recherche_article_ref: {str(e)}")
+        print(traceback.format_exc())
         return JsonResponse({
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
+            'results': [],
+            'error': str(e)
         })
 
 

@@ -206,7 +206,7 @@
                         <a href="{% url 'app_admin:modifier_operateur' operateur.pk %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
                             <i class="fas fa-edit"></i>
                         </a>
-                        <a href="#" onclick="confirmDelete('{% url 'app_admin:supprimer_operateur' operateur.pk %}', '{{ operateur.prenom }} {{ operateur.nom }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
+                        <a href="#" onclick=" return confirmDelete('{% url 'app_admin:supprimer_operateur' operateur.pk %}', '{{ operateur.nom }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
                             <i class="fas fa-trash-alt"></i>
                         </a>
                     </td>
@@ -271,18 +271,69 @@
 
 {% block extra_js %}
 <script>
-function confirmDelete(deleteUrl, operateurNom) {
-    // Test du token CSRF avant la suppression
-    const csrfToken = getCSRFToken();
-    console.log('Token CSRF pour suppression:', csrfToken);
-    
-    if (!csrfToken) {
-        alert('Erreur: Token CSRF non trouvé. Veuillez actualiser la page.');
-        return;
+
+
+    function confirmDelete(deleteUrl, itemName){
+        showCustomConfirmModal(deleteUrl, `l'opérateur ${itemName}`);
     }
-    
-    showCustomConfirmModal(deleteUrl, `l\'opérateur ${operateurNom}`);
-}
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllCheckbox = document.getElementById('selectAllOperateurs');
+        const operateurCheckboxes = document.querySelectorAll('.operateur-checkbox');
+        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+
+        function updateBulkDeleteButton() {
+            const checkedCount = document.querySelectorAll('.operateur-checkbox:checked').length;
+            if (checkedCount > 0) {
+                bulkDeleteBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                bulkDeleteBtn.disabled = false;
+            } else {
+                bulkDeleteBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                bulkDeleteBtn.disabled = true;
+            }
+        }
+        
+    })
+     
+
+    const OriginalShowCustomConfirmModal = window.showCustomConfirmModal;
+    window.showCustomConfirmModal = function(deleteUrl, itemDescription, selectedIds = null){
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        const modalText = document.getElementById('confirmModalText') || document.getElementById('itemName');
+
+        if (modalText){
+            modalText.innerHTML = `Êtes-vous sûr de vouloir supprimer <strong>${itemDescription}</strong> ? Cette action est irréversible.`;
+        }
+        confirmBtn.onclick = function(){
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = deleteUrl;
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = '{{ csrf_token }}';
+            form.appendChild(csrfInput);
+
+            if (selectedIds){
+                selectedIds.forEach(id => {
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = 'ids[]';
+                    idInput.value = id;
+                    form.appendChild(idInput);
+                })
+            }
+            document.body.appendChild(form);
+            form.submit();
+           
+        }
+        document.getElementById('customConfirmModal').classList.remove('hidden');
+        updateBulkDeleteButton();
+    }
+
+
+    // Suppression en masse
 
     document.addEventListener('DOMContentLoaded', function() {
         const selectAllCheckbox = document.getElementById('selectAllOperateurs');
