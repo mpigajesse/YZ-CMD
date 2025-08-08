@@ -1506,6 +1506,20 @@ def modifier_commande_prepa(request, commande_id):
                     # Déterminer si c'était un ajout ou une mise à jour
                     message = 'Article ajouté avec succès' if not panier_existant else f'Quantité mise à jour ({panier.quantite})'
                     
+                    # Préparer les données de l'article pour le frontend
+                    article_data = {
+                        'panier_id': panier.id,
+                        'nom': article.nom,
+                        'reference': article.reference,
+                        'couleur_fr': article.couleur or '',
+                        'couleur_ar': article.couleur or '',
+                        'pointure': article.pointure or '',
+                        'quantite': panier.quantite,
+                        'prix': panier.sous_total / panier.quantite,  # Prix unitaire
+                        'sous_total': panier.sous_total,
+                        'is_upsell': article.isUpsell
+                    }
+                    
                     return JsonResponse({
                         'success': True,
                         'message': message,
@@ -1514,7 +1528,12 @@ def modifier_commande_prepa(request, commande_id):
                         'nb_articles': commande.paniers.count(),
                         'compteur': commande.compteur,
                         'was_update': panier_existant is not None,
-                        'new_quantity': panier.quantite
+                        'new_quantity': panier.quantite,
+                        'article_data': article_data,
+                        'articles_count': commande.paniers.count(),
+                        'sous_total_articles': float(sum(p.sous_total for p in commande.paniers.all())),
+                        'articles_upsell': articles_upsell.count(),
+                        'quantite_totale_upsell': total_quantite_upsell
                     })
                     
                 except Article.DoesNotExist:
@@ -1606,7 +1625,7 @@ def modifier_commande_prepa(request, commande_id):
                         'compteur': commande.compteur,
                         'articles_upsell': articles_upsell.count(),
                         'quantite_totale_upsell': total_quantite_upsell,
-                        'sous_total_articles': float(commande.total_articles)
+                        'sous_total_articles': float(commande.sous_total_articles)
                     })
                     
                 except Panier.DoesNotExist:
@@ -1680,7 +1699,7 @@ def modifier_commande_prepa(request, commande_id):
                         'compteur': commande.compteur,
                         'articles_upsell': articles_upsell.count(),
                         'quantite_totale_upsell': total_quantite_upsell,
-                        'sous_total_articles': float(commande.total_articles)
+                        'sous_total_articles': float(commande.sous_total_articles)
                     })
                     
                 except Panier.DoesNotExist:
@@ -3711,13 +3730,35 @@ def ajouter_article_commande_prepa(request, commande_id):
             # Déterminer si c'était un ajout ou une mise à jour
             message = 'Article ajouté' if not panier_existant else f'Quantité mise à jour ({panier.quantite})'
             
+            # Préparer les données de l'article pour le frontend
+            article_data = {
+                'panier_id': panier.id,
+                'article_id': article.id,
+                'nom': article.nom,
+                'reference': article.reference,
+                'couleur_fr': article.couleur or '',
+                'couleur_ar': article.couleur or '',
+                'pointure': article.pointure or '',
+                'quantite': panier.quantite,
+                'prix': panier.sous_total / panier.quantite,  # Prix unitaire
+                'sous_total': panier.sous_total,
+                'is_upsell': article.isUpsell,
+                'compteur': commande.compteur,
+                'description': article.description or ''
+            }
+            
             return JsonResponse({
                 'success': True, 
                 'message': message,
                 'compteur': commande.compteur,
                 'total_commande': float(commande.total_cmd),
                 'was_update': panier_existant is not None,
-                'new_quantity': panier.quantite
+                'new_quantity': panier.quantite,
+                'article_data': article_data,
+                'articles_count': commande.paniers.count(),
+                'sous_total_articles': float(sum(p.sous_total for p in commande.paniers.all())),
+                'articles_upsell': articles_upsell.count(),
+                'quantite_totale_upsell': total_quantite_upsell
             })
             
     except Article.DoesNotExist:
@@ -3781,8 +3822,8 @@ def modifier_quantite_article_prepa(request, commande_id):
                 from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
                 prix_unitaire = get_prix_upsell_avec_compteur(article, commande.compteur)
                 panier.sous_total = prix_unitaire * nouvelle_quantite
-                panier.save()
-            
+            panier.save()
+
             commande.total_cmd = sum(p.sous_total for p in commande.paniers.all())
             commande.save()
 
@@ -3799,7 +3840,7 @@ def modifier_quantite_article_prepa(request, commande_id):
                 'articles_upsell': articles_upsell.count(),
                 'quantite_totale_upsell': total_quantite_upsell,
                 'total_commande': float(commande.total_cmd),
-                'sous_total_articles': float(commande.total_articles)
+                'sous_total_articles': float(commande.sous_total_articles)
             })
 
     except Panier.DoesNotExist:
@@ -3856,7 +3897,7 @@ def supprimer_article_commande_prepa(request, commande_id):
                 
                 # Recalculer TOUS les articles de la commande avec le nouveau compteur
                 commande.recalculer_totaux_upsell()
-            
+
             commande.total_cmd = sum(p.sous_total for p in commande.paniers.all())
             commande.save()
 
@@ -3873,7 +3914,7 @@ def supprimer_article_commande_prepa(request, commande_id):
                 'articles_upsell': articles_upsell.count(),
                 'quantite_totale_upsell': total_quantite_upsell,
                 'total_commande': float(commande.total_cmd),
-                'sous_total_articles': float(commande.total_articles)
+                'sous_total_articles': float(commande.sous_total_articles)
             })
 
     except Panier.DoesNotExist:
@@ -4573,13 +4614,13 @@ def export_ville_consolidee_excel(request, ville_id):
         if not commandes.exists():
             messages.warning(request, f"Aucune commande trouvée pour la ville {ville.nom}")
             return redirect('Prepacommande:liste_prepa')
-        
+    
         # Créer le fichier Excel
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         from openpyxl.utils import get_column_letter
         from datetime import datetime
-        
+    
         wb = Workbook()
         ws = wb.active
         ws.title = f"Commandes {ville.nom}"
@@ -4593,7 +4634,7 @@ def export_ville_consolidee_excel(request, ville_id):
             top=Side(style='thin'),
             bottom=Side(style='thin')
         )
-        
+    
         # En-têtes
         headers = [
             'ID YZ', 'Numéro', 'Date', 'Client', 'Téléphone', 'Adresse', 
@@ -4630,7 +4671,7 @@ def export_ville_consolidee_excel(request, ville_id):
             ws.cell(row=row, column=7, value=commande.ville.nom).border = border
             ws.cell(row=row, column=8, value=commande.ville.region.nom_region).border = border
             ws.cell(row=row, column=9, value=commande.etat_actuel.enum_etat.libelle).border = border
-            ws.cell(row=row, column=10, value=float(commande.total_articles)).border = border
+            ws.cell(row=row, column=10, value=float(commande.sous_total_articles)).border = border
             ws.cell(row=row, column=11, value=float(commande.ville.frais_livraison or 0)).border = border
             ws.cell(row=row, column=12, value=float(commande.total_cmd)).border = border
             ws.cell(row=row, column=13, value=commande.compteur).border = border
@@ -4821,7 +4862,7 @@ def diagnostiquer_compteur(request, commande_id):
                 'articles_upsell': articles_upsell.count(),
                 'quantite_totale_upsell': total_quantite_upsell,
                 'articles_count': commande.paniers.count(),
-                'sous_total_articles': float(commande.total_articles)
+                'sous_total_articles': float(commande.sous_total_articles)
             })
         else:
             return JsonResponse({
@@ -4832,7 +4873,7 @@ def diagnostiquer_compteur(request, commande_id):
                 'quantite_totale_upsell': total_quantite_upsell,
                 'total_commande': float(commande.total_cmd),
                 'articles_count': commande.paniers.count(),
-                'sous_total_articles': float(commande.total_articles)
+                'sous_total_articles': float(commande.sous_total_articles)
             })
             
     except Exception as e:
