@@ -14,24 +14,68 @@
         </div>
         
         <div class="flex items-center space-x-4">
-            <div class="text-right">
-                <p class="text-gray-700 font-medium">{{ user.get_full_name|default:user.username }}</p>
-                <p class="text-xs text-gray-500">
-                    {% if user.profil_operateur %}
-                        {{ user.profil_operateur.mail }}
-                    {% elif user.email %}
-                        {{ user.email }}
-                    {% else %}
-                        Email non défini
-                    {% endif %}
-                </p>
-            </div>
-            <form method="post" action="{% url 'logout' %}" class="inline">
-                {% csrf_token %}
-                <button type="submit" class="text-red-600 hover:text-red-800 transition-colors">
-                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+            <!-- Barre de recherche globale -->
+            {% include 'composant_generale/operatLogistic/global_search_component.html' %}
+
+            <!-- Profil utilisateur -->
+            <div class="relative">
+                <button id="profile-dropdown" class="flex items-center space-x-3 transition-all duration-300 transform hover:scale-105 p-2 rounded-lg" style="hover:background-color: var(--logistic-light);">
+                    <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center" style="border-color: var(--logistic-primary); hover:border-color: var(--logistic-dark);">
+                        {% if request.user.profil_operateur and request.user.profil_operateur.photo %}
+                            <img src="{{ request.user.profil_operateur.photo.url }}" alt="Photo de profil" class="w-full h-full object-cover rounded-full">
+                        {% else %}
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-gray-500">
+                                <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clip-rule="evenodd" />
+                            </svg>
+                        {% endif %}
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm font-semibold text-gray-700">
+                            {% if request.user.profil_operateur.nom_complet %}
+                                {{ request.user.profil_operateur.nom_complet }}
+                            {% elif request.user.get_full_name %}
+                                {{ request.user.get_full_name }}
+                            {% else %}
+                                {{ request.user.username }}
+                            {% endif %}
+                        </p>
+                        <p class="text-xs text-gray-500">
+                            {% if request.user.profil_operateur %}
+                                {{ request.user.profil_operateur.mail }}
+                            {% elif request.user.email %}
+                                {{ request.user.email }}
+                            {% else %}
+                                Email non défini
+                            {% endif %}
+                        </p>
+                    </div>
+                    <i class="fas fa-chevron-down text-gray-400 transition-transform duration-200" id="dropdown-arrow"></i>
                 </button>
-            </form>
+
+                <!-- Menu déroulant du profil -->
+                <div id="profile-menu" class="fixed right-4 top-16 w-64 bg-white rounded-xl shadow-2xl border-2 origin-top-right hidden" style="border-color: var(--logistic-primary); z-index: 2147483647 !important;">
+                    <div class="py-2">
+                        <a href="{% url 'operatLogistic:profile' %}" class="flex items-center px-4 py-3 text-sm text-gray-700 transition-all duration-200 transform hover:translate-x-1" style="hover:background: linear-gradient(to right, var(--logistic-light), var(--logistic-light));">
+                            <i class="fas fa-user-circle mr-3 text-blue-600"></i>
+                            <span>Voir Profil</span>
+                        </a>
+                        <a href="{% url 'operatLogistic:modifier_profile' %}" class="flex items-center px-4 py-3 text-sm text-gray-700 transition-all duration-200 transform hover:translate-x-1" style="hover:background: linear-gradient(to right, var(--logistic-light), var(--logistic-light));">
+                            <i class="fas fa-user-edit mr-3 text-blue-600"></i>
+                            <span>Modifier Profil</span>
+                        </a>
+
+                        <hr class="my-2" style="border-color: var(--logistic-primary);">
+                        <!-- Bouton de déconnexion -->
+                        <form method="post" action="{% url 'logout' %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="flex items-center px-4 py-2 text-red-600 hover:text-red-800 rounded-lg transition-colors duration-200">
+                                <i class="fas fa-sign-out-alt mr-2"></i>
+                                Déconnexion
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </header>
@@ -61,5 +105,36 @@
     transform: rotate(-45deg) translate(6px, -6px);
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const profileDropdownButton = document.getElementById('profile-dropdown');
+    const profileMenu = document.getElementById('profile-menu');
+    const dropdownArrow = document.getElementById('dropdown-arrow');
+    
+    // Toggle du menu profil avec animation
+    if (profileDropdownButton && profileMenu) {
+        profileDropdownButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            profileMenu.classList.toggle('hidden');
+            if (dropdownArrow) {
+                dropdownArrow.classList.toggle('rotate-180');
+            }
+        });
+
+        // Fermer le menu en cliquant ailleurs
+        document.addEventListener('click', function(event) {
+            if (!profileDropdownButton.contains(event.target) && !profileMenu.contains(event.target)) {
+                if (!profileMenu.classList.contains('hidden')) {
+                    profileMenu.classList.add('hidden');
+                    if (dropdownArrow) {
+                        dropdownArrow.classList.remove('rotate-180');
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
 
  

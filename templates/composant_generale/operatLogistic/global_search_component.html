@@ -23,7 +23,7 @@
     </div>
 
     <!-- Résultats de recherche -->
-    <div id="headerSearchResults" class="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] max-h-96 overflow-y-auto hidden">
+    <div id="headerSearchResults" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto hidden" style="min-width: 400px; max-width: 600px; z-index: 999999 !important; position: fixed !important;">
         <!-- En-tête des résultats -->
         <div class="p-3 border-b border-gray-100 bg-gray-50">
             <div class="flex items-center justify-between">
@@ -41,7 +41,7 @@
         <div class="p-3 border-t border-gray-100 bg-gray-50">
             <div class="flex items-center justify-between text-xs text-gray-500">
                 <span>Utilisez ↑↓ pour naviguer, Entrée pour sélectionner</span>
-                <a href="{% url 'app_admin:global_search' %}" class="text-blue-600 hover:text-blue-800">
+                <a href="{% url 'operatLogistic:global_search' %}" class="text-blue-600 hover:text-blue-800">
                     Recherche complète <i class="fas fa-external-link-alt ml-1"></i>
                 </a>
             </div>
@@ -49,7 +49,7 @@
     </div>
 
     <!-- Overlay pour fermer les résultats -->
-    <div id="searchOverlay" class="fixed inset-0 bg-black bg-opacity-25 z-[9998] hidden"></div>
+    <div id="searchOverlay" class="fixed inset-0 bg-black bg-opacity-25 hidden" style="z-index: 999998 !important; position: fixed !important;"></div>
 </div>
 
 <style>
@@ -68,6 +68,16 @@
 #headerSearchResults {
     min-width: 400px;
     max-width: 600px;
+    z-index: 999999 !important;
+    position: fixed !important;
+    top: 80px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+}
+
+#searchOverlay {
+    z-index: 999998 !important;
+    position: fixed !important;
 }
 
 .search-result-item {
@@ -279,7 +289,7 @@ function initializeHeaderSearch() {
 }
 
 function performHeaderSearch(query) {
-    fetch(`{% url 'app_admin:global_search_api' %}?q=${encodeURIComponent(query)}&category=all`)
+    fetch(`{% url 'operatLogistic:global_search_api' %}?q=${encodeURIComponent(query)}&category=all`)
         .then(response => response.json())
         .then(data => {
             hideHeaderLoading();
@@ -304,13 +314,13 @@ function displayHeaderResults(results, query) {
     let html = '';
     
     // Parcourir toutes les catégories
-    const categories = ['commandes', 'operateurs', 'regions', 'villes', 'articles', 'statistiques'];
+    const categories = ['commandes', 'livraisons', 'retours', 'regions', 'villes', 'statistiques'];
     const categoryNames = {
         'commandes': 'Commandes',
-        'operateurs': 'Opérateurs', 
+        'livraisons': 'Livraisons', 
+        'retours': 'Retours',
         'regions': 'Régions',
         'villes': 'Villes',
-        'articles': 'Articles',
         'statistiques': 'Fonctionnalités'
     };
     
@@ -331,43 +341,13 @@ function displayHeaderResults(results, query) {
             if (items.length > 3) {
                 html += `
                     <div class="search-result-item p-2 text-center text-blue-600 hover:text-blue-800 cursor-pointer" 
-                         onclick="navigateToHeader('{% url 'app_admin:global_search' %}?q=${encodeURIComponent(query)}&category=${category}')">
+                         onclick="navigateToHeader('{% url 'operatLogistic:global_search' %}?q=${encodeURIComponent(query)}&category=${category}')">
                         <span class="text-xs">Voir ${items.length - 3} résultats supplémentaires...</span>
                     </div>
                 `;
             }
         }
     });
-    
-    // Ajouter les suggestions après les résultats de recherche principaux
-    if (query.length < 2) { // Seulement si la requête est courte, montrer les suggestions initiales
-        const suggestions = headerSearchResults.filter(item => item.isSuggestion); // Filtrer les suggestions
-        if (suggestions.length > 0) {
-            html += `<div class="search-category">Suggestions</div>`;
-            suggestions.slice(0, 5).forEach(suggestion => {
-                html += `
-                    <div class="search-result-item p-3 cursor-pointer border-b border-gray-100 last:border-b-0" 
-                         onclick="navigateToHeader('${suggestion.url}')">
-                        <div class="flex items-start space-x-3">
-                            <div class="flex-shrink-0">
-                                <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 text-gray-600">
-                                    <i class="${suggestion.icon || 'fas fa-lightbulb'} text-sm"></i>
-                                </div>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <h4 class="text-sm font-medium text-gray-900 truncate">
-                                    ${suggestion.text}
-                                </h4>
-                                <p class="text-xs text-gray-600 mt-1 line-clamp-1">
-                                    ${suggestion.category}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-    }
 
     if (totalResults === 0) {
         html = `
@@ -389,7 +369,6 @@ function displayHeaderResults(results, query) {
 function createHeaderResultItem(item, query) {
     const statusClass = getHeaderStatusClass(item.status);
     const iconColor = getHeaderIconColor(item.type);
-    const highlight = item.highlight ? `<span class="search-highlight">${item.highlight}</span>` : '';
     
     return `
         <div class="search-result-item p-3 cursor-pointer border-b border-gray-100 last:border-b-0" 
@@ -410,7 +389,6 @@ function createHeaderResultItem(item, query) {
                     </div>
                     <p class="text-xs text-gray-600 mt-1 line-clamp-2">
                         ${highlightQuery(item.subtitle, query)}
-                        ${highlight ? ` • ${highlight}` : ''}
                     </p>
                 </div>
             </div>
@@ -443,7 +421,6 @@ function getHeaderStatusClass(status) {
         'En stock': 'success',
         'Rupture': 'error',
         'Stock faible': 'warning',
-        'Disponible': 'active',
         'Disponible': 'active'
     };
     return statusMap[status] || 'default';
@@ -452,10 +429,10 @@ function getHeaderStatusClass(status) {
 function getHeaderIconColor(type) {
     const colorMap = {
         'commande': { bg: 'bg-blue-100', text: 'text-blue-600' },
-        'operateur': { bg: 'bg-green-100', text: 'text-green-600' },
+        'livraison': { bg: 'bg-green-100', text: 'text-green-600' },
+        'retour': { bg: 'bg-red-100', text: 'text-red-600' },
         'region': { bg: 'bg-purple-100', text: 'text-purple-600' },
         'ville': { bg: 'bg-orange-100', text: 'text-orange-600' },
-        'article': { bg: 'bg-red-100', text: 'text-red-600' },
         'statistique': { bg: 'bg-indigo-100', text: 'text-indigo-600' }
     };
     return colorMap[type] || { bg: 'bg-gray-100', text: 'text-gray-600' };
@@ -524,4 +501,4 @@ function showHeaderError(message) {
     `;
     showHeaderResults();
 }
-</script> 
+</script>

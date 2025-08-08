@@ -14,24 +14,46 @@
         </div>
         
         <div class="flex items-center space-x-4">
-            <div class="text-right">
-                <p class="text-gray-700 font-medium">{{ user.get_full_name|default:user.username }}</p>
+            <!-- Barre de recherche globale -->
+            {% include 'composant_generale/operatConfirme/global_search_component.html' %}
+
+            <!-- Profil utilisateur -->
+            <div class="relative">
+                <button id="header-profile-dropdown" class="flex items-center space-x-3 transition-all duration-300 transform hover:scale-105 p-2 rounded-lg" style="hover:background-color: #f7d9c4;">
+                    <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center" style="border-color: #8B5A2B; hover:border-color: #4B352A;">
+                        {% if request.user.profil_operateur and request.user.profil_operateur.photo %}
+                            <img src="{{ request.user.profil_operateur.photo.url }}" alt="Photo de profil" class="w-full h-full object-cover rounded-full">
+                        {% else %}
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-gray-500">
+                                <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clip-rule="evenodd" />
+                            </svg>
+                        {% endif %}
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm font-semibold text-gray-700">
+                            {% if request.user.profil_operateur.nom_complet %}
+                                {{ request.user.profil_operateur.nom_complet }}
+                            {% elif request.user.get_full_name %}
+                                {{ request.user.get_full_name }}
+                            {% else %}
+                                {{ request.user.username }}
+                            {% endif %}
+                        </p>
                 <p class="text-xs text-gray-500">
-                    {% if user.profil_operateur %}
-                        {{ user.profil_operateur.mail }}
-                    {% elif user.email %}
-                        {{ user.email }}
+                            {% if request.user.profil_operateur %}
+                                {{ request.user.profil_operateur.mail }}
+                            {% elif request.user.email %}
+                                {{ request.user.email }}
                     {% else %}
                         Email non défini
                     {% endif %}
                 </p>
             </div>
-            <form method="post" action="{% url 'logout' %}" class="inline">
-                {% csrf_token %}
-                <button type="submit" class="text-red-600 hover:text-red-800 transition-colors">
-                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                    <i class="fas fa-chevron-down text-gray-400 transition-transform duration-200" id="dropdown-arrow"></i>
                 </button>
-            </form>
+
+                <!-- Modal déplacé au niveau racine dans base.html -->
+            </div>
         </div>
     </div>
 </header>
@@ -71,110 +93,515 @@
 .hamburger-active #hamburger-line-3 {
     transform: rotate(-45deg) translate(6px, -6px);
 }
+
+/* Force les modals au premier plan absolu */
+.modal-force-top {
+    z-index: 2147483647 !important;
+    position: fixed !important;
+}
+
+/* Styles pour la recherche globale */
+#headerSearchResults {
+    min-width: 400px;
+    max-width: 600px;
+}
+
+.search-result-item {
+    transition: all 0.2s ease;
+    border-radius: 6px;
+    margin: 2px 0;
+}
+
+.search-result-item:hover {
+    background-color: #f8fafc;
+    transform: translateX(2px);
+}
+
+.search-result-item.selected {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.search-result-item.selected .text-gray-600 {
+    color: #e5e7eb !important;
+}
+
+.search-result-item.selected .text-gray-500 {
+    color: #d1d5db !important;
+}
+
+.search-category {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    margin: 8px 0 4px 0;
+    padding: 0 8px;
+}
+
+.search-highlight {
+    background-color: #fef3c7;
+    padding: 1px 2px;
+    border-radius: 2px;
+    font-weight: 500;
+}
+
+.search-status {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.search-status.active {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.search-status.inactive {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.search-status.pending {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.search-status.completed {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.search-status.error {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.search-status.warning {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.search-status.info {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.search-status.success {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.search-status.default {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+/* Animation pour les résultats */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#headerSearchResults {
+    animation: slideIn 0.2s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    #headerGlobalSearch {
+        width: 200px;
+    }
+    
+    #headerSearchResults {
+        min-width: 300px;
+        max-width: 350px;
+    }
+}
+
+@media (max-width: 480px) {
+    #headerGlobalSearch {
+        width: 150px;
+    }
+    
+    #headerSearchResults {
+        min-width: 280px;
+        max-width: 320px;
+    }
+}
 </style>
 
 <script>
+// Variables globales pour la recherche
+let headerSearchTimeout = null;
+let headerCurrentQuery = '';
+let headerSelectedIndex = -1;
+let headerSearchResults = [];
+
 document.addEventListener('DOMContentLoaded', function() {
-    const userMenuButton = document.getElementById('user-menu-button');
-    const userMenu = document.getElementById('user-menu');
-    const chevronIcon = document.getElementById('chevron-icon');
-    const progressBar = document.getElementById('progress-bar');
-    const menuToggle = document.getElementById('menu-toggle');
-    const sidebar = document.getElementById('sidebar');
-    let isSidebarOpen = true;
+    console.log('🔧 Initialisation du modal de profil - Confirmation');
     
-    // Animation de la barre de progression au chargement
-    setTimeout(() => {
-        progressBar.style.width = '100%';
-        setTimeout(() => {
-            progressBar.style.opacity = '0';
-        }, 1000);
-    }, 100);
+    const profileDropdownButton = document.getElementById('header-profile-dropdown');
+    const profileMenu = document.getElementById('header-profile-menu-root');
+    const dropdownArrow = document.getElementById('dropdown-arrow');
     
-    // Toggle de la sidebar avec animation du hamburger
-    menuToggle.addEventListener('click', function() {
-        isSidebarOpen = !isSidebarOpen;
+    console.log('📋 Éléments trouvés:', {
+        profileDropdownButton: profileDropdownButton,
+        profileMenu: profileMenu,
+        dropdownArrow: dropdownArrow
+    });
+    
+    // Toggle du menu profil avec animation
+    if (profileDropdownButton && profileMenu) {
+        console.log('✅ Éléments trouvés, ajout des event listeners');
         
-        if (isSidebarOpen) {
-            // Ouvrir la sidebar
-            sidebar.style.transform = 'translateX(0)';
-            sidebar.style.width = '256px';
-            menuToggle.classList.remove('hamburger-active');
-        } else {
-            // Fermer la sidebar
-            sidebar.style.transform = 'translateX(-100%)';
-            sidebar.style.width = '0px';
-            menuToggle.classList.add('hamburger-active');
-        }
-    });
-    
-    // Toggle du menu utilisateur avec animation
-    userMenuButton.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const isHidden = userMenu.classList.contains('hidden');
-        
-        if (isHidden) {
-            // Afficher le menu
-            userMenu.classList.remove('hidden');
-            setTimeout(() => {
-                userMenu.classList.add('dropdown-enter');
-                userMenu.classList.remove('opacity-0', 'scale-95');
-            }, 10);
-            chevronIcon.style.transform = 'rotate(180deg)';
-        } else {
-            // Masquer le menu
-            userMenu.classList.add('opacity-0', 'scale-95');
-            userMenu.classList.remove('dropdown-enter');
-            setTimeout(() => {
-                userMenu.classList.add('hidden');
-            }, 300);
-            chevronIcon.style.transform = 'rotate(0deg)';
-        }
-    });
-    
-    // Fermer le menu si on clique ailleurs
-    document.addEventListener('click', function(event) {
-        if (!userMenuButton.contains(event.target)) {
-            userMenu.classList.add('opacity-0', 'scale-95');
-            userMenu.classList.remove('dropdown-enter');
-            setTimeout(() => {
-                userMenu.classList.add('hidden');
-            }, 300);
-            chevronIcon.style.transform = 'rotate(0deg)';
-        }
-    });
-    
-    // Animation de pulsation pour les icônes importantes
-    setInterval(() => {
-        const bellIcon = document.querySelector('.fa-bell');
-        if (bellIcon) {
-            bellIcon.parentElement.classList.add('animate-pulse');
-            setTimeout(() => {
-                bellIcon.parentElement.classList.remove('animate-pulse');
-            }, 2000);
-        }
-    }, 10000);
-    
-    // Responsive : fermer la sidebar sur mobile
-    function checkScreenSize() {
-        if (window.innerWidth < 1024) { // lg breakpoint
-            if (isSidebarOpen) {
-                sidebar.style.transform = 'translateX(-100%)';
-                menuToggle.classList.add('hamburger-active');
-                isSidebarOpen = false;
+        profileDropdownButton.addEventListener('click', function(e) {
+            console.log('🖱️ Clic sur le bouton profil détecté');
+            e.stopPropagation();
+            
+            const isHidden = profileMenu.classList.contains('hidden');
+            console.log('📊 État du modal avant toggle:', isHidden ? 'Caché' : 'Visible');
+            console.log('📊 Z-index actuel du modal:', window.getComputedStyle(profileMenu).zIndex);
+            console.log('📊 Position actuelle du modal:', window.getComputedStyle(profileMenu).position);
+            
+            profileMenu.classList.toggle('hidden');
+            
+            // Force le z-index maximum en JavaScript
+            if (!profileMenu.classList.contains('hidden')) {
+                profileMenu.style.zIndex = '2147483647';
+                profileMenu.style.position = 'fixed';
+                console.log('🔧 Z-index forcé à:', profileMenu.style.zIndex);
+                console.log('🔧 Position forcée à:', profileMenu.style.position);
+                
+                // Vérifier les éléments qui pourraient interférer
+                const allElements = document.querySelectorAll('*');
+                let highestZIndex = 0;
+                allElements.forEach(el => {
+                    const zIndex = parseInt(window.getComputedStyle(el).zIndex) || 0;
+                    if (zIndex > highestZIndex && el !== profileMenu) {
+                        highestZIndex = zIndex;
+                        console.log('🔍 Élément avec z-index élevé trouvé:', el.className, 'z-index:', zIndex);
+                    }
+                });
+                console.log('🔍 Z-index le plus élevé trouvé (hors modal):', highestZIndex);
             }
-        } else {
-            if (!isSidebarOpen) {
-                sidebar.style.transform = 'translateX(0)';
-                sidebar.style.width = '256px';
-                menuToggle.classList.remove('hamburger-active');
-                isSidebarOpen = true;
+            
+            if (dropdownArrow) {
+                dropdownArrow.classList.toggle('rotate-180');
+                console.log('🔄 Rotation de la flèche appliquée');
             }
-        }
+            
+            console.log('📊 État du modal après toggle:', profileMenu.classList.contains('hidden') ? 'Caché' : 'Visible');
+        });
+
+        // Fermer le menu en cliquant ailleurs
+        document.addEventListener('click', function(event) {
+            if (!profileDropdownButton.contains(event.target) && !profileMenu.contains(event.target)) {
+                if (!profileMenu.classList.contains('hidden')) {
+                    console.log('🖱️ Clic à l\'extérieur détecté, fermeture du modal');
+                    profileMenu.classList.add('hidden');
+                    if (dropdownArrow) {
+                        dropdownArrow.classList.remove('rotate-180');
+                    }
+                }
+            }
+        });
+        } else {
+        console.error('❌ Éléments manquants:', {
+            profileDropdownButton: !!profileDropdownButton,
+            profileMenu: !!profileMenu
+        });
     }
     
-    // Vérifier la taille d'écran au chargement et au redimensionnement
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
+    console.log('✅ Initialisation terminée');
 });
+
+// Fonctions pour la recherche globale
+function initializeHeaderSearch() {
+    const searchInput = document.getElementById('headerGlobalSearch');
+    const searchResults = document.getElementById('headerSearchResults');
+    const searchOverlay = document.getElementById('searchOverlay');
+    
+    // Focus sur la barre de recherche
+    searchInput.addEventListener('focus', function() {
+        if (headerCurrentQuery.length >= 2) {
+            showHeaderResults();
+        }
+    });
+    
+    // Saisie dans la barre de recherche
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        headerCurrentQuery = query;
+        
+        clearTimeout(headerSearchTimeout);
+        
+        if (query.length >= 2) {
+            showHeaderLoading();
+            headerSearchTimeout = setTimeout(() => {
+                performHeaderSearch(query);
+            }, 300);
+        } else {
+            hideHeaderResults();
+        }
+    });
+    
+    // Navigation au clavier
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            hideHeaderResults();
+            this.blur();
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            navigateHeaderResults(1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            navigateHeaderResults(-1);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            selectHeaderResult();
+        }
+    });
+    
+    // Raccourci clavier global
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+    
+    // Clic sur l'overlay pour fermer
+    searchOverlay.addEventListener('click', hideHeaderResults);
+    
+    // Clic en dehors pour fermer
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            hideHeaderResults();
+        }
+    });
+}
+
+function performHeaderSearch(query) {
+    fetch(`{% url 'operatConfirme:global_search_api' %}?q=${encodeURIComponent(query)}&category=all`)
+        .then(response => response.json())
+        .then(data => {
+            hideHeaderLoading();
+            if (data.success) {
+                displayHeaderResults(data.results, query);
+            } else {
+                showHeaderError(data.message || 'Erreur lors de la recherche');
+            }
+        })
+        .catch(error => {
+            hideHeaderLoading();
+            showHeaderError('Erreur de connexion');
+        });
+}
+
+function displayHeaderResults(results, query) {
+    const content = document.getElementById('headerSearchContent');
+    const countElement = document.getElementById('headerSearchCount');
+    
+    headerSearchResults = [];
+    let totalResults = 0;
+    let html = '';
+    
+    // Parcourir toutes les catégories
+    const categories = ['commandes', 'clients', 'regions', 'villes', 'articles', 'statistiques'];
+    const categoryNames = {
+        'commandes': 'Commandes',
+        'clients': 'Clients', 
+        'regions': 'Régions',
+        'villes': 'Villes',
+        'articles': 'Articles',
+        'statistiques': 'Fonctionnalités'
+    };
+    
+    categories.forEach(category => {
+        const items = results[category] || [];
+        if (items.length > 0) {
+            totalResults += items.length;
+            headerSearchResults.push(...items);
+            
+            html += `<div class="search-category">${categoryNames[category]}</div>`;
+            
+            // Limiter à 3 éléments par catégorie pour le header
+            items.slice(0, 3).forEach((item, index) => {
+                html += createHeaderResultItem(item, query);
+            });
+            
+            // Si plus de 3 éléments, ajouter un lien "voir plus"
+            if (items.length > 3) {
+                html += `
+                    <div class="search-result-item p-2 text-center text-blue-600 hover:text-blue-800 cursor-pointer" 
+                         onclick="navigateToHeader('{% url 'operatConfirme:global_search' %}?q=${encodeURIComponent(query)}&category=${category}')">
+                        <span class="text-xs">Voir ${items.length - 3} résultats supplémentaires...</span>
+                    </div>
+                `;
+            }
+        }
+    });
+
+    if (totalResults === 0) {
+        html = `
+            <div class="p-4 text-center text-gray-500">
+                <i class="fas fa-search text-2xl mb-2"></i>
+                <p>Aucun résultat trouvé pour "${query}"</p>
+                <p class="text-xs mt-1">Essayez d'autres mots-clés</p>
+            </div>
+        `;
+    }
+    
+    content.innerHTML = html;
+    countElement.textContent = `${totalResults} résultat${totalResults > 1 ? 's' : ''}`;
+    
+    headerSelectedIndex = -1;
+    showHeaderResults();
+}
+
+function createHeaderResultItem(item, query) {
+    const statusClass = getHeaderStatusClass(item.status);
+    const iconColor = getHeaderIconColor(item.type);
+    
+    return `
+        <div class="search-result-item p-3 cursor-pointer border-b border-gray-100 last:border-b-0" 
+             onclick="navigateToHeader('${item.url}')"
+             data-index="${headerSearchResults.length - 1}">
+            <div class="flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center ${iconColor.bg}">
+                        <i class="${item.icon} ${iconColor.text} text-sm"></i>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-sm font-medium text-gray-900 truncate">
+                            ${highlightQuery(item.title, query)}
+                        </h4>
+                        <span class="search-status ${statusClass}">${item.status}</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mt-1 line-clamp-2">
+                        ${highlightQuery(item.subtitle, query)}
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function highlightQuery(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(regex, '<mark class="bg-yellow-200 px-1 rounded">$1</mark>');
+}
+
+function getHeaderStatusClass(status) {
+    const statusMap = {
+        'Actif': 'active',
+        'Inactif': 'inactive',
+        'En cours': 'pending',
+        'Terminé': 'completed',
+        'Erreur': 'error',
+        'Avertissement': 'warning',
+        'Info': 'info',
+        'Succès': 'success',
+        'Nouvelle': 'default',
+        'Confirmée': 'active',
+        'Préparée': 'completed',
+        'Livrée': 'success',
+        'Annulée': 'error',
+        'En préparation': 'pending',
+        'En stock': 'success',
+        'Rupture': 'error',
+        'Stock faible': 'warning',
+        'Disponible': 'active'
+    };
+    return statusMap[status] || 'default';
+}
+
+function getHeaderIconColor(type) {
+    const colorMap = {
+        'commande': { bg: 'bg-blue-100', text: 'text-blue-600' },
+        'client': { bg: 'bg-green-100', text: 'text-green-600' },
+        'operateur': { bg: 'bg-green-100', text: 'text-green-600' },
+        'region': { bg: 'bg-purple-100', text: 'text-purple-600' },
+        'ville': { bg: 'bg-orange-100', text: 'text-orange-600' },
+        'article': { bg: 'bg-red-100', text: 'text-red-600' },
+        'statistique': { bg: 'bg-indigo-100', text: 'text-indigo-600' }
+    };
+    return colorMap[type] || { bg: 'bg-gray-100', text: 'text-gray-600' };
+}
+
+function navigateHeaderResults(direction) {
+    const items = document.querySelectorAll('.search-result-item');
+    if (items.length === 0) return;
+    
+    // Retirer la sélection précédente
+    if (headerSelectedIndex >= 0 && headerSelectedIndex < items.length) {
+        items[headerSelectedIndex].classList.remove('selected');
+    }
+    
+    // Calculer le nouvel index
+    headerSelectedIndex += direction;
+    if (headerSelectedIndex >= items.length) headerSelectedIndex = 0;
+    if (headerSelectedIndex < 0) headerSelectedIndex = items.length - 1;
+    
+    // Appliquer la sélection
+    if (headerSelectedIndex >= 0 && headerSelectedIndex < items.length) {
+        items[headerSelectedIndex].classList.add('selected');
+        items[headerSelectedIndex].scrollIntoView({ block: 'nearest' });
+    }
+}
+
+function selectHeaderResult() {
+    if (headerSelectedIndex >= 0 && headerSelectedIndex < headerSearchResults.length) {
+        const item = headerSearchResults[headerSelectedIndex];
+        navigateToHeader(item.url);
+    }
+}
+
+function navigateToHeader(url) {
+    console.log('Navigating to URL:', url);
+    window.location.href = url;
+    hideHeaderResults();
+}
+
+function showHeaderLoading() {
+    document.getElementById('headerSearchLoading').classList.remove('hidden');
+}
+
+function hideHeaderLoading() {
+    document.getElementById('headerSearchLoading').classList.add('hidden');
+}
+
+function showHeaderResults() {
+    document.getElementById('headerSearchResults').classList.remove('hidden');
+    document.getElementById('searchOverlay').classList.remove('hidden');
+}
+
+function hideHeaderResults() {
+    document.getElementById('headerSearchResults').classList.add('hidden');
+    document.getElementById('searchOverlay').classList.add('hidden');
+    headerSelectedIndex = -1;
+}
+
+function showHeaderError(message) {
+    const content = document.getElementById('headerSearchContent');
+    content.innerHTML = `
+        <div class="p-4 text-center text-red-500">
+            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+            <p>${message}</p>
+        </div>
+    `;
+    showHeaderResults();
+}
 </script> 

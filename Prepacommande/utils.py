@@ -1,4 +1,4 @@
-from article.models import MouvementStock
+from article.models import MouvementStock, Article
 from django.db import transaction
 
 def creer_mouvement_stock(article, quantite, type_mouvement, operateur, commande=None, commentaire=None):
@@ -53,7 +53,6 @@ def creer_mouvement_stock(article, quantite, type_mouvement, operateur, commande
     except Exception as e:
         # Gérer d'autres exceptions (ex: article non trouvé, erreur de DB)
         print(f"❌ Erreur lors de la création du mouvement de stock: {str(e)}")
-        # Vous pourriez vouloir logger cette erreur au lieu de l'imprimer
-        # import traceback
-        # traceback.print_exc()
-        return None 
+        import traceback
+        traceback.print_exc()
+        raise e  # Re-lever l'exception pour que la vue puisse l'attraper 

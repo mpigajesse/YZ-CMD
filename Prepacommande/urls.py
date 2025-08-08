@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .barre_recherche_globale import views as search_views
 
 app_name = 'Prepacommande'
 
@@ -59,4 +60,8 @@ urlpatterns = [
     path('export/ville/<int:ville_id>/csv/', views.export_ville_consolidee_csv, name='export_ville_consolidee_csv'),
     path('export/ville/<int:ville_id>/excel/', views.export_ville_consolidee_excel, name='export_ville_consolidee_excel'),
 
+    # URLs pour la recherche globale
+    path('recherche-globale/', search_views.global_search_view, name='global_search'),
+    path('recherche-globale/api/', search_views.global_search_api, name='global_search_api'),
+    path('recherche-globale/suggestions/', search_views.search_suggestions_api, name='search_suggestions_api'),
 ] 

@@ -2493,16 +2493,31 @@ def ajuster_stock(request, article_id):
             commentaire = form.cleaned_data['commentaire']
             
             try:
-                creer_mouvement_stock(
+                print(f"🔧 Ajustement stock - Article: {article.nom}, Type: {type_mouvement}, Quantité: {quantite}")
+                print(f"🔧 Stock avant ajustement: {article.qte_disponible}")
+                
+                mouvement = creer_mouvement_stock(
                     article=article,
                     quantite=quantite,
                     type_mouvement=type_mouvement,
                     operateur=operateur_profile,
                     commentaire=commentaire
                 )
-                messages.success(request, f"Le stock de l'article '{article.nom}' a été ajusté avec succès.")
+                
+                # Recharger l'article pour voir le stock mis à jour
+                article.refresh_from_db()
+                print(f"✅ Stock après ajustement: {article.qte_disponible}")
+                
+                if mouvement:
+                    messages.success(request, f"Le stock de l'article '{article.nom}' a été ajusté avec succès. Nouveau stock: {article.qte_disponible}")
+                else:
+                    messages.warning(request, "L'ajustement n'a pas pu être effectué.")
+                    
                 return redirect('Prepacommande:detail_article', article_id=article.id)
             except Exception as e:
+                print(f"❌ Erreur dans ajuster_stock: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 messages.error(request, f"Une erreur est survenue lors de l'ajustement du stock : {e}")
 
     else:
@@ -3133,9 +3148,51 @@ def modifier_article(request, article_id):
     if request.method == 'POST':
         form = ArticleForm(request.POST, request.FILES, instance=article)
         if form.is_valid():
-            form.save()
-            messages.success(request, f"L'article '{article.nom}' a été modifié avec succès.")
-            return redirect('Prepacommande:detail_article', article_id=article.id)
+            # Sauvegarder l'article
+            article_modifie = form.save()
+            
+            # Gérer l'ajustement de stock optionnel
+            type_mouvement_stock = request.POST.get('type_mouvement_stock')
+            quantite_ajustement = request.POST.get('quantite_ajustement')
+            commentaire_ajustement = request.POST.get('commentaire_ajustement', '')
+            
+            if type_mouvement_stock and quantite_ajustement:
+                try:
+                    quantite = int(quantite_ajustement)
+                    if quantite > 0:
+                        print(f"🔧 Ajustement stock via modification - Article: {article_modifie.nom}, Type: {type_mouvement_stock}, Quantité: {quantite}")
+                        print(f"🔧 Stock avant ajustement: {article_modifie.qte_disponible}")
+                        
+                        mouvement = creer_mouvement_stock(
+                            article=article_modifie,
+                            quantite=quantite,
+                            type_mouvement=type_mouvement_stock,
+                            operateur=operateur_profile,
+                            commentaire=f"Ajustement via modification article. {commentaire_ajustement}".strip()
+                        )
+                        
+                        # Recharger l'article pour voir le stock mis à jour
+                        article_modifie.refresh_from_db()
+                        print(f"✅ Stock après ajustement: {article_modifie.qte_disponible}")
+                        
+                        if mouvement:
+                            messages.success(request, f"L'article '{article_modifie.nom}' a été modifié avec succès. Stock ajusté : nouveau stock = {article_modifie.qte_disponible} unités.")
+                        else:
+                            messages.warning(request, f"L'article '{article_modifie.nom}' a été modifié avec succès, mais l'ajustement de stock a échoué.")
+                    else:
+                        messages.warning(request, f"L'article '{article_modifie.nom}' a été modifié avec succès, mais la quantité d'ajustement doit être positive.")
+                except (ValueError, TypeError) as e:
+                    print(f"❌ Erreur lors de l'ajustement de stock: {str(e)}")
+                    messages.warning(request, f"L'article '{article_modifie.nom}' a été modifié avec succès, mais l'ajustement de stock a échoué (quantité invalide).")
+                except Exception as e:
+                    print(f"❌ Erreur lors de l'ajustement de stock: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    messages.warning(request, f"L'article '{article_modifie.nom}' a été modifié avec succès, mais l'ajustement de stock a échoué.")
+            else:
+                messages.success(request, f"L'article '{article_modifie.nom}' a été modifié avec succès.")
+                
+            return redirect('Prepacommande:detail_article', article_id=article_modifie.id)
         else:
             messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
     else:

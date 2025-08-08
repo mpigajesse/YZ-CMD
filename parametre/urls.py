@@ -62,5 +62,5 @@ urlpatterns = [
     # URLs Barre de Recherche Globale
     path('global-search/', global_search_views.global_search_view, name='global_search'),
     path('global-search/api/', global_search_views.global_search_api, name='global_search_api'),
-    path('global-search/suggestions/', global_search_views.search_suggestions_api, name='global_search_suggestions'),
+    path('global-search/suggestions/', global_search_views.search_suggestions_api, name='search_suggestions_api'),
 ] 

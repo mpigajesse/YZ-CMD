@@ -22,40 +22,15 @@
         </div>
     </div>
 
-    <!-- Résultats de recherche -->
-    <div id="headerSearchResults" class="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] max-h-96 overflow-y-auto hidden">
-        <!-- En-tête des résultats -->
-        <div class="p-3 border-b border-gray-100 bg-gray-50">
-            <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">Résultats de recherche</span>
-                <span id="headerSearchCount" class="text-xs text-gray-500">0 résultats</span>
-            </div>
-        </div>
-        
-        <!-- Contenu des résultats -->
-        <div id="headerSearchContent" class="p-2">
-            <!-- Les résultats seront injectés ici -->
-        </div>
-        
-        <!-- Pied de page -->
-        <div class="p-3 border-t border-gray-100 bg-gray-50">
-            <div class="flex items-center justify-between text-xs text-gray-500">
-                <span>Utilisez ↑↓ pour naviguer, Entrée pour sélectionner</span>
-                <a href="{% url 'app_admin:global_search' %}" class="text-blue-600 hover:text-blue-800">
-                    Recherche complète <i class="fas fa-external-link-alt ml-1"></i>
-                </a>
-            </div>
-        </div>
-    </div>
 
-    <!-- Overlay pour fermer les résultats -->
-    <div id="searchOverlay" class="fixed inset-0 bg-black bg-opacity-25 z-[9998] hidden"></div>
 </div>
 
 <style>
 .global-search-component {
     position: relative;
 }
+
+
 
 .global-search-component input:focus + .absolute {
     display: none;
@@ -68,6 +43,16 @@
 #headerSearchResults {
     min-width: 400px;
     max-width: 600px;
+    z-index: 999999 !important;
+    position: fixed !important;
+    top: 80px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+}
+
+#searchOverlay {
+    z-index: 999998 !important;
+    position: fixed !important;
 }
 
 .search-result-item {
@@ -204,10 +189,14 @@
 </style>
 
 <script>
-let headerSearchTimeout = null;
-let headerCurrentQuery = '';
-let headerSelectedIndex = -1;
-let headerSearchResults = [];
+// Namespace isolé pour l'interface de confirmation
+window.ConfirmSearch = {
+    timeout: null,
+    currentQuery: '',
+    selectedIndex: -1,
+    searchResults: [],
+    isOpen: false
+};
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeHeaderSearch();
@@ -220,7 +209,7 @@ function initializeHeaderSearch() {
     
     // Focus sur la barre de recherche
     searchInput.addEventListener('focus', function() {
-        if (headerCurrentQuery.length >= 2) {
+        if (window.ConfirmSearch.currentQuery.length >= 2) {
             showHeaderResults();
         }
     });
@@ -228,13 +217,13 @@ function initializeHeaderSearch() {
     // Saisie dans la barre de recherche
     searchInput.addEventListener('input', function() {
         const query = this.value.trim();
-        headerCurrentQuery = query;
+        window.ConfirmSearch.currentQuery = query;
         
-        clearTimeout(headerSearchTimeout);
+        clearTimeout(window.ConfirmSearch.timeout);
         
         if (query.length >= 2) {
             showHeaderLoading();
-            headerSearchTimeout = setTimeout(() => {
+            window.ConfirmSearch.timeout = setTimeout(() => {
                 performHeaderSearch(query);
             }, 300);
         } else {
@@ -279,7 +268,7 @@ function initializeHeaderSearch() {
 }
 
 function performHeaderSearch(query) {
-    fetch(`{% url 'app_admin:global_search_api' %}?q=${encodeURIComponent(query)}&category=all`)
+    fetch(`{% url 'operatConfirme:global_search_api' %}?q=${encodeURIComponent(query)}&category=all`)
         .then(response => response.json())
         .then(data => {
             hideHeaderLoading();
@@ -299,15 +288,15 @@ function displayHeaderResults(results, query) {
     const content = document.getElementById('headerSearchContent');
     const countElement = document.getElementById('headerSearchCount');
     
-    headerSearchResults = [];
+    window.ConfirmSearch.searchResults = [];
     let totalResults = 0;
     let html = '';
     
     // Parcourir toutes les catégories
-    const categories = ['commandes', 'operateurs', 'regions', 'villes', 'articles', 'statistiques'];
+    const categories = ['commandes', 'clients', 'regions', 'villes', 'articles', 'statistiques'];
     const categoryNames = {
         'commandes': 'Commandes',
-        'operateurs': 'Opérateurs', 
+        'clients': 'Clients', 
         'regions': 'Régions',
         'villes': 'Villes',
         'articles': 'Articles',
@@ -318,7 +307,7 @@ function displayHeaderResults(results, query) {
         const items = results[category] || [];
         if (items.length > 0) {
             totalResults += items.length;
-            headerSearchResults.push(...items);
+            window.ConfirmSearch.searchResults.push(...items);
             
             html += `<div class="search-category">${categoryNames[category]}</div>`;
             
@@ -331,43 +320,13 @@ function displayHeaderResults(results, query) {
             if (items.length > 3) {
                 html += `
                     <div class="search-result-item p-2 text-center text-blue-600 hover:text-blue-800 cursor-pointer" 
-                         onclick="navigateToHeader('{% url 'app_admin:global_search' %}?q=${encodeURIComponent(query)}&category=${category}')">
+                         onclick="navigateToHeader('{% url 'operatConfirme:global_search' %}?q=${encodeURIComponent(query)}&category=${category}')">
                         <span class="text-xs">Voir ${items.length - 3} résultats supplémentaires...</span>
                     </div>
                 `;
             }
         }
     });
-    
-    // Ajouter les suggestions après les résultats de recherche principaux
-    if (query.length < 2) { // Seulement si la requête est courte, montrer les suggestions initiales
-        const suggestions = headerSearchResults.filter(item => item.isSuggestion); // Filtrer les suggestions
-        if (suggestions.length > 0) {
-            html += `<div class="search-category">Suggestions</div>`;
-            suggestions.slice(0, 5).forEach(suggestion => {
-                html += `
-                    <div class="search-result-item p-3 cursor-pointer border-b border-gray-100 last:border-b-0" 
-                         onclick="navigateToHeader('${suggestion.url}')">
-                        <div class="flex items-start space-x-3">
-                            <div class="flex-shrink-0">
-                                <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 text-gray-600">
-                                    <i class="${suggestion.icon || 'fas fa-lightbulb'} text-sm"></i>
-                                </div>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <h4 class="text-sm font-medium text-gray-900 truncate">
-                                    ${suggestion.text}
-                                </h4>
-                                <p class="text-xs text-gray-600 mt-1 line-clamp-1">
-                                    ${suggestion.category}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-    }
 
     if (totalResults === 0) {
         html = `
@@ -382,19 +341,18 @@ function displayHeaderResults(results, query) {
     content.innerHTML = html;
     countElement.textContent = `${totalResults} résultat${totalResults > 1 ? 's' : ''}`;
     
-    headerSelectedIndex = -1;
+    window.ConfirmSearch.selectedIndex = -1;
     showHeaderResults();
 }
 
 function createHeaderResultItem(item, query) {
     const statusClass = getHeaderStatusClass(item.status);
     const iconColor = getHeaderIconColor(item.type);
-    const highlight = item.highlight ? `<span class="search-highlight">${item.highlight}</span>` : '';
     
     return `
         <div class="search-result-item p-3 cursor-pointer border-b border-gray-100 last:border-b-0" 
              onclick="navigateToHeader('${item.url}')"
-             data-index="${headerSearchResults.length - 1}">
+             data-index="${window.ConfirmSearch.searchResults.length - 1}">
             <div class="flex items-start space-x-3">
                 <div class="flex-shrink-0">
                     <div class="w-8 h-8 rounded-lg flex items-center justify-center ${iconColor.bg}">
@@ -410,7 +368,6 @@ function createHeaderResultItem(item, query) {
                     </div>
                     <p class="text-xs text-gray-600 mt-1 line-clamp-2">
                         ${highlightQuery(item.subtitle, query)}
-                        ${highlight ? ` • ${highlight}` : ''}
                     </p>
                 </div>
             </div>
@@ -443,7 +400,6 @@ function getHeaderStatusClass(status) {
         'En stock': 'success',
         'Rupture': 'error',
         'Stock faible': 'warning',
-        'Disponible': 'active',
         'Disponible': 'active'
     };
     return statusMap[status] || 'default';
@@ -452,7 +408,7 @@ function getHeaderStatusClass(status) {
 function getHeaderIconColor(type) {
     const colorMap = {
         'commande': { bg: 'bg-blue-100', text: 'text-blue-600' },
-        'operateur': { bg: 'bg-green-100', text: 'text-green-600' },
+        'client': { bg: 'bg-green-100', text: 'text-green-600' },
         'region': { bg: 'bg-purple-100', text: 'text-purple-600' },
         'ville': { bg: 'bg-orange-100', text: 'text-orange-600' },
         'article': { bg: 'bg-red-100', text: 'text-red-600' },
@@ -466,25 +422,25 @@ function navigateHeaderResults(direction) {
     if (items.length === 0) return;
     
     // Retirer la sélection précédente
-    if (headerSelectedIndex >= 0 && headerSelectedIndex < items.length) {
-        items[headerSelectedIndex].classList.remove('selected');
+    if (window.ConfirmSearch.selectedIndex >= 0 && window.ConfirmSearch.selectedIndex < items.length) {
+        items[window.ConfirmSearch.selectedIndex].classList.remove('selected');
     }
     
     // Calculer le nouvel index
-    headerSelectedIndex += direction;
-    if (headerSelectedIndex >= items.length) headerSelectedIndex = 0;
-    if (headerSelectedIndex < 0) headerSelectedIndex = items.length - 1;
+    window.ConfirmSearch.selectedIndex += direction;
+    if (window.ConfirmSearch.selectedIndex >= items.length) window.ConfirmSearch.selectedIndex = 0;
+    if (window.ConfirmSearch.selectedIndex < 0) window.ConfirmSearch.selectedIndex = items.length - 1;
     
     // Appliquer la sélection
-    if (headerSelectedIndex >= 0 && headerSelectedIndex < items.length) {
-        items[headerSelectedIndex].classList.add('selected');
-        items[headerSelectedIndex].scrollIntoView({ block: 'nearest' });
+    if (window.ConfirmSearch.selectedIndex >= 0 && window.ConfirmSearch.selectedIndex < items.length) {
+        items[window.ConfirmSearch.selectedIndex].classList.add('selected');
+        items[window.ConfirmSearch.selectedIndex].scrollIntoView({ block: 'nearest' });
     }
 }
 
 function selectHeaderResult() {
-    if (headerSelectedIndex >= 0 && headerSelectedIndex < headerSearchResults.length) {
-        const item = headerSearchResults[headerSelectedIndex];
+    if (window.ConfirmSearch.selectedIndex >= 0 && window.ConfirmSearch.selectedIndex < window.ConfirmSearch.searchResults.length) {
+        const item = window.ConfirmSearch.searchResults[window.ConfirmSearch.selectedIndex];
         navigateToHeader(item.url);
     }
 }
@@ -511,7 +467,7 @@ function showHeaderResults() {
 function hideHeaderResults() {
     document.getElementById('headerSearchResults').classList.add('hidden');
     document.getElementById('searchOverlay').classList.add('hidden');
-    headerSelectedIndex = -1;
+    window.ConfirmSearch.selectedIndex = -1;
 }
 
 function showHeaderError(message) {
@@ -524,4 +480,5 @@ function showHeaderError(message) {
     `;
     showHeaderResults();
 }
-</script> 
+</script>
+

@@ -78,6 +78,64 @@
                 </div>
             </fieldset>
 
+            <!-- Section Ajustement de Stock (Optionnel) -->
+            <fieldset class="border-t pt-6 border-gray-200">
+                <legend class="text-lg font-semibold text-gray-700 px-2 -mt-10 mb-4">
+                    <i class="fas fa-warehouse mr-2 text-blue-500"></i>Ajustement de Stock (Optionnel)
+                </legend>
+                
+                <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                        <span class="text-sm text-blue-700">
+                            Stock actuel : <strong>{{ article.qte_disponible }} unités</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="type_mouvement_stock" class="block text-sm font-medium text-gray-700">Type d'ajustement</label>
+                        <select id="type_mouvement_stock" 
+                                name="type_mouvement_stock"
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Aucun ajustement --</option>
+                            <option value="entree">Entrée de stock</option>
+                            <option value="sortie">Sortie de stock</option>
+                            <option value="ajustement_pos">Ajustement Positif (Inventaire)</option>
+                            <option value="ajustement_neg">Ajustement Négatif (Inventaire)</option>
+                            <option value="retour_client">Retour Client</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="quantite_ajustement" class="block text-sm font-medium text-gray-700">Quantité</label>
+                        <input type="number" 
+                               id="quantite_ajustement" 
+                               name="quantite_ajustement"
+                               min="1"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Ex: 10">
+                    </div>
+                    <div>
+                        <label for="nouveau_stock_previsionnel" class="block text-sm font-medium text-gray-700">Nouveau stock prévisionnel</label>
+                        <input type="text" 
+                               id="nouveau_stock_previsionnel" 
+                               readonly
+                               class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm text-gray-600"
+                               placeholder="Calculé automatiquement">
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <label for="commentaire_ajustement" class="block text-sm font-medium text-gray-700">Commentaire (optionnel)</label>
+                    <textarea id="commentaire_ajustement" 
+                              name="commentaire_ajustement"
+                              rows="2"
+                              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Ex: Inventaire mensuel, retour client défectueux..."></textarea>
+                </div>
+            </fieldset>
+
             <!-- Section Description -->
             <fieldset class="border-t pt-6 border-gray-200">
                 <legend class="text-lg font-semibold text-gray-700 px-2 -mt-10 mb-4"><i class="fas fa-align-left mr-2 text-orange-500"></i>Description</legend>
@@ -132,6 +190,50 @@ document.addEventListener('DOMContentLoaded', function() {
                 reader.readAsDataURL(event.target.files[0]);
             }
         });
+    }
+
+    // Gestion de l'ajustement de stock
+    const stockActuel = {{ article.qte_disponible }};
+    const typeMouvementSelect = document.getElementById('type_mouvement_stock');
+    const quantiteInput = document.getElementById('quantite_ajustement');
+    const nouveauStockInput = document.getElementById('nouveau_stock_previsionnel');
+
+    function calculerNouveauStock() {
+        const typeMouvement = typeMouvementSelect.value;
+        const quantite = parseInt(quantiteInput.value) || 0;
+        
+        if (!typeMouvement || quantite <= 0) {
+            nouveauStockInput.value = '';
+            return;
+        }
+
+        let nouveauStock = stockActuel;
+        
+        switch(typeMouvement) {
+            case 'entree':
+            case 'ajustement_pos':
+            case 'retour_client':
+                nouveauStock = stockActuel + quantite;
+                break;
+            case 'sortie':
+            case 'ajustement_neg':
+                nouveauStock = stockActuel - quantite;
+                break;
+        }
+        
+        // Afficher le nouveau stock avec une indication visuelle
+        if (nouveauStock < 0) {
+            nouveauStockInput.value = nouveauStock + ' ⚠️ (Stock négatif)';
+            nouveauStockInput.classList.add('text-red-600');
+        } else {
+            nouveauStockInput.value = nouveauStock + ' unités';
+            nouveauStockInput.classList.remove('text-red-600');
+        }
+    }
+
+    if (typeMouvementSelect && quantiteInput && nouveauStockInput) {
+        typeMouvementSelect.addEventListener('change', calculerNouveauStock);
+        quantiteInput.addEventListener('input', calculerNouveauStock);
     }
 });
 </script>
