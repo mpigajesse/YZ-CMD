@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .barre_recherche_globale import views as search_views
 
 app_name = 'Prepacommande'
 
@@ -26,11 +27,15 @@ urlpatterns = [
     path('api/commande/<int:commande_id>/panier-livraison/', views.api_panier_commande_livraison, name='api_panier_commande_livraison'),
     path('api/commande/<int:commande_id>/articles-livree-partiellement/', views.api_articles_commande_livree_partiellement, name='api_articles_commande_livree_partiellement'),
 
+    # URL pour le diagnostic du compteur upsell
+    path('commande/<int:commande_id>/diagnostiquer-compteur/', views.diagnostiquer_compteur, name='diagnostiquer_compteur'),
+  
     # URLs pour la gestion des articles pendant la préparation
     path('commande/<int:commande_id>/rafraichir-articles/', views.rafraichir_articles_commande_prepa, name='rafraichir_articles_commande_prepa'),
     path('commande/<int:commande_id>/ajouter-article/', views.ajouter_article_commande_prepa, name='ajouter_article_commande_prepa'),
     path('commande/<int:commande_id>/modifier-quantite/', views.modifier_quantite_article_prepa, name='modifier_quantite_article_prepa'),
     path('commande/<int:commande_id>/supprimer-article/', views.supprimer_article_commande_prepa, name='supprimer_article_commande_prepa'),
+    path('commande/<int:commande_id>/prix-upsell/', views.api_prix_upsell_articles, name='api_prix_upsell_articles'),
 
     # URLs pour la gestion de stock
     path('stock/articles/', views.liste_articles, name='liste_articles'),
@@ -55,4 +60,8 @@ urlpatterns = [
     path('export/ville/<int:ville_id>/csv/', views.export_ville_consolidee_csv, name='export_ville_consolidee_csv'),
     path('export/ville/<int:ville_id>/excel/', views.export_ville_consolidee_excel, name='export_ville_consolidee_excel'),
 
+    # URLs pour la recherche globale
+    path('recherche-globale/', search_views.global_search_view, name='global_search'),
+    path('recherche-globale/api/', search_views.global_search_api, name='global_search_api'),
+    path('recherche-globale/suggestions/', search_views.search_suggestions_api, name='search_suggestions_api'),
 ] 

@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg, Min, Max, Sum
 from django.contrib.auth.models import User, Group
@@ -13,6 +13,13 @@ from django.contrib.messages import success, error
 from django.views.decorators.http import require_POST
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash # Required for password change
+import csv
+import json
+from datetime import datetime, timedelta
+from django.utils import timezone
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.utils import get_column_letter
 
 @login_required
 def dashboard(request):
@@ -1077,3 +1084,1306 @@ def sav_renvoyer_preparation(request, commande_id):
     except Exception as e:
         messages.error(request, f"Erreur lors du renvoi en préparation : {str(e)}")
         return redirect('app_admin:sav_commandes_retournees')
+
+
+@staff_member_required
+@login_required
+def repartition_automatique(request):
+    """Page de répartition automatique des commandes"""
+    from django.db.models import Count, Sum
+    
+    # Gérer les exports
+    export_type = request.GET.get('export')
+    operateur_id = request.GET.get('operateur_id')
+    
+    if export_type == 'csv_operateur' and operateur_id:
+        return export_operateur_csv(request, operateur_id)
+    elif export_type == 'excel_operateur' and operateur_id:
+        return export_operateur_excel(request, operateur_id)
+    
+    # Statistiques pour les KPI
+    total_commandes = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).distinct().count()
+    
+    total_commandes_en_livraison = Commande.objects.filter(
+        etats__enum_etat__libelle='En livraison'
+    ).distinct().count()
+    
+    total_montant_confirmees = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).distinct().aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    operateurs_disponibles = Operateur.objects.filter(actif=True).exclude(type_operateur='ADMIN').count()
+    
+    # Statistiques par région
+    stats_par_region = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')
+    
+    # Données de prévisualisation dynamique et intelligente
+    preview_data = {}
+    operateurs_actifs = Operateur.objects.filter(actif=True).exclude(type_operateur='ADMIN')[:5]
+    
+    # Récupérer toutes les commandes préparées avec leurs états
+    commandes_preparees = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée'
+    ).select_related(
+        'client', 'ville', 'ville__region'
+    ).prefetch_related(
+        'etats__operateur', 'etats__enum_etat'
+    ).distinct()
+    
+    for operateur in operateurs_actifs:
+        # Compter les commandes assignées à cet opérateur
+        commandes_operateur = commandes_preparees.filter(
+            etats__operateur=operateur,
+            etats__enum_etat__libelle='Préparée'
+        ).distinct()
+        
+        nb_commandes = commandes_operateur.count()
+        
+        # Récupérer les régions uniques pour cet opérateur
+        regions_operateur = commandes_operateur.values_list(
+            'ville__region__nom_region', flat=True
+        ).distinct()
+        
+        # Récupérer les détails des commandes (limité à 5 pour l'affichage)
+        commandes_details = commandes_operateur.select_related(
+            'client', 'ville', 'ville__region'
+        )[:5]
+        
+        preview_data[operateur.id] = {
+            'nom_operateur': f"{operateur.prenom} {operateur.nom}",
+            'nb_commandes': nb_commandes,
+            'regions': list(regions_operateur),
+            'commandes': list(commandes_details)
+        }
+    
+    # Historique des répartitions (simulation)
+    historique_repartitions = []
+    
+    # Vérifier si des commandes préparées existent pour les exportations
+    commandes_preparees_exist = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée'
+    ).exists()
+    
+    # Vérifier si openpyxl est disponible
+    try:
+        import openpyxl
+        openpyxl_available = True
+    except ImportError:
+        openpyxl_available = False
+    
+    context = {
+        'total_commandes': total_commandes,
+        'total_commandes_en_livraison': total_commandes_en_livraison,
+        'total_montant_confirmees': total_montant_confirmees,
+        'operateurs_disponibles': operateurs_disponibles,
+        'stats_par_region': stats_par_region,
+        'preview_data': preview_data,
+        'historique_repartitions': historique_repartitions,
+        'commandes_preparees_exist': commandes_preparees_exist,
+        'openpyxl_available': openpyxl_available,
+    }
+    
+    return render(request, 'parametre/repartition_automatique.html', context)
+
+
+@staff_member_required
+@login_required
+def details_region_view(request):
+    """Page de détails par région"""
+    from django.db.models import Count, Sum
+    
+    # Gérer les exports
+    export_type = request.GET.get('export')
+    region_name = request.GET.get('region')
+    
+    if export_type == 'csv_region_detail' and region_name:
+        return export_region_detail_csv(request, region_name)
+    elif export_type == 'excel_region_detail' and region_name:
+        return export_region_detail_excel(request, region_name)
+    elif export_type == 'csv_region':
+        return export_regions_csv(request)
+    elif export_type == 'excel_region':
+        return export_regions_excel(request)
+    elif export_type == 'csv_ville':
+        return export_villes_csv(request)
+    elif export_type == 'excel_ville':
+        return export_villes_excel(request)
+    elif export_type == 'csv_combine':
+        return export_combine_csv(request)
+    elif export_type == 'excel_combine':
+        return export_combine_excel(request)
+    
+    # Statistiques globales
+    total_commandes = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).distinct().count()
+    
+    total_montant = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).distinct().aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    regions = Region.objects.count()
+    
+    # Statistiques par région
+    stats_par_region = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')
+    
+    # Statistiques par ville
+    stats_par_ville = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__nom', 'ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')
+    
+    # Vérifier si des commandes préparées existent pour les exportations
+    commandes_preparees_exist = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée'
+    ).exists()
+    
+    # Vérifier si openpyxl est disponible
+    try:
+        import openpyxl
+        openpyxl_available = True
+    except ImportError:
+        openpyxl_available = False
+    
+    context = {
+        'total_commandes': total_commandes,
+        'total_montant': total_montant,
+        'regions': Region.objects.all(),
+        'stats_par_region': stats_par_region,
+        'stats_par_ville': stats_par_ville,
+        'commandes_preparees_exist': commandes_preparees_exist,
+        'openpyxl_available': openpyxl_available,
+    }
+    
+    return render(request, 'parametre/details_region.html', context)
+
+
+@staff_member_required
+@login_required
+def export_region_detail_csv(request, region_name):
+    """Export CSV détaillé pour une région spécifique"""
+    from commande.models import Commande
+    
+    # Récupérer les commandes PRÉPARÉES de la région
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        ville__region__nom_region=region_name
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"region_{region_name.lower().replace(' ', '_')}_detail_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
+    ]
+    writer.writerow(headers)
+    
+    # Traiter chaque commande
+    for commande in commandes:
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
+        ]
+        writer.writerow(row)
+    
+    return response
+
+
+@staff_member_required
+@login_required
+def export_region_detail_excel(request, region_name):
+    """Export Excel détaillé pour une région spécifique"""
+    from commande.models import Commande
+    
+    # Récupérer les commandes PRÉPARÉES de la région
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        ville__region__nom_region=region_name
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer le fichier Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Région {region_name}"
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
+    ]
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Traiter chaque commande
+    for row, commande in enumerate(commandes, 2):
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row_data = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            commande.total_cmd or 0,
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
+        ]
+        
+        for col, value in enumerate(row_data, 1):
+            ws.cell(row=row, column=col, value=value)
+    
+    # Ajuster la largeur des colonnes
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Créer la réponse
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    filename = f"region_{region_name.lower().replace(' ', '_')}_detail_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
+
+
+@staff_member_required
+@login_required
+def export_villes_csv(request):
+    """Export CSV pour toutes les villes"""
+    from commande.models import Commande
+    
+    # Récupérer les commandes PRÉPARÉES
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée'
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"villes_consolidees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
+    ]
+    writer.writerow(headers)
+    
+    # Traiter chaque commande
+    for commande in commandes:
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
+        ]
+        writer.writerow(row)
+    
+    return response
+
+
+@staff_member_required
+@login_required
+def export_villes_excel(request):
+    """Export Excel pour toutes les villes"""
+    from commande.models import Commande
+    
+    # Récupérer les commandes PRÉPARÉES
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée'
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer le fichier Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Villes Consolidées"
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
+    ]
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Traiter chaque commande
+    for row, commande in enumerate(commandes, 2):
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row_data = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            commande.total_cmd or 0,
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
+        ]
+        
+        for col, value in enumerate(row_data, 1):
+            ws.cell(row=row, column=col, value=value)
+    
+    # Ajuster la largeur des colonnes
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Créer la réponse
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    filename = f"villes_consolidees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
+
+@staff_member_required
+@login_required
+def get_modal_data_ajax(request):
+    """Vue AJAX pour récupérer les données des modales en temps réel"""
+    from django.utils import timezone
+    from datetime import datetime
+    
+    try:
+        # Statistiques globales
+        total_commandes = Commande.objects.filter(
+            etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+        ).distinct().count()
+        
+        total_montant = Commande.objects.filter(
+            etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+        ).distinct().aggregate(total=Sum('total_cmd'))['total'] or 0
+        
+        # Statistiques par région avec pourcentages
+        stats_region_avec_pourcentage = []
+        stats_par_region = Commande.objects.filter(
+            etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+        ).values('ville__region__nom_region').annotate(
+            nb_commandes=Count('id'),
+            total_montant=Sum('total_cmd')
+        ).order_by('-nb_commandes')
+        
+        for stat in stats_par_region:
+            pourcentage = (stat['nb_commandes'] / total_commandes * 100) if total_commandes > 0 else 0
+            stats_region_avec_pourcentage.append({
+                'region': stat['ville__region__nom_region'],
+                'nb_commandes': stat['nb_commandes'],
+                'total_montant': stat['total_montant'] or 0,
+                'pourcentage': round(pourcentage, 1)
+            })
+        
+        # Top 10 des villes
+        top_10_villes = Commande.objects.filter(
+            etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+        ).values('ville__nom', 'ville__region__nom_region').annotate(
+            nb_commandes=Count('id'),
+            total_montant=Sum('total_cmd')
+        ).order_by('-nb_commandes')[:10]
+        
+        # Statistiques globales détaillées
+        nb_regions_actives = len(stats_region_avec_pourcentage)
+        nb_villes_actives = Commande.objects.filter(
+            etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+        ).values('ville').distinct().count()
+        
+        moyenne_commandes_par_region = round(total_commandes / nb_regions_actives, 1) if nb_regions_actives > 0 else 0
+        moyenne_commandes_par_ville = round(total_commandes / nb_villes_actives, 1) if nb_villes_actives > 0 else 0
+        
+        stats_globales = {
+            'total_commandes': total_commandes,
+            'total_montant': total_montant,
+            'nb_regions_actives': nb_regions_actives,
+            'nb_villes_actives': nb_villes_actives,
+            'moyenne_commandes_par_region': moyenne_commandes_par_region,
+            'moyenne_commandes_par_ville': moyenne_commandes_par_ville,
+            'derniere_mise_a_jour': timezone.now().strftime('%d/%m/%Y à %H:%M:%S')
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'stats_region_avec_pourcentage': stats_region_avec_pourcentage,
+            'top_10_villes': list(top_10_villes),
+            'stats_globales': stats_globales
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@staff_member_required
+@login_required
+def export_combine_csv(request):
+    """Export CSV combiné des visualisations : régions et villes"""
+    from django.db.models import Count, Sum
+    from django.http import HttpResponse
+    import csv
+    from django.utils import timezone
+    
+    # Récupérer les statistiques par région
+    stats_par_region = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')
+    
+    # Récupérer les statistiques par ville (Top 10)
+    stats_par_ville = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__nom', 'ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')[:10]
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"visualisations_combinees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # Section 1 : Répartition par Région
+    writer.writerow(['RÉPARTITION PAR RÉGION'])
+    writer.writerow(['Région', 'Nombre de Commandes', 'Total Montant (MAD)', 'Pourcentage'])
+    
+    total_commandes = sum(stat['nb_commandes'] for stat in stats_par_region)
+    
+    for stat in stats_par_region:
+        pourcentage = (stat['nb_commandes'] / total_commandes * 100) if total_commandes > 0 else 0
+        writer.writerow([
+            stat['ville__region__nom_region'] or 'Non définie',
+            stat['nb_commandes'],
+            f"{stat['total_montant'] or 0:.2f}",
+            f"{pourcentage:.1f}%"
+        ])
+    
+    writer.writerow([])  # Ligne vide
+    
+    # Section 2 : Top 10 des Villes
+    writer.writerow(['TOP 10 DES VILLES'])
+    writer.writerow(['Ville', 'Région', 'Nombre de Commandes', 'Total Montant (MAD)'])
+    
+    for stat in stats_par_ville:
+        writer.writerow([
+            stat['ville__nom'] or 'Non définie',
+            stat['ville__region__nom_region'] or 'Non définie',
+            stat['nb_commandes'],
+            f"{stat['total_montant'] or 0:.2f}"
+        ])
+    
+    writer.writerow([])  # Ligne vide
+    
+    # Section 3 : Statistiques Globales
+    writer.writerow(['STATISTIQUES GLOBALES'])
+    writer.writerow(['Métrique', 'Valeur'])
+    writer.writerow(['Total Commandes', total_commandes])
+    writer.writerow(['Nombre de Régions', len(stats_par_region)])
+    writer.writerow(['Nombre de Villes', len(stats_par_ville)])
+    writer.writerow(['Date d\'Export', timezone.now().strftime('%d/%m/%Y à %H:%M:%S')])
+    
+    return response
+
+
+@staff_member_required
+@login_required
+def export_combine_excel(request):
+    """Export Excel combiné des visualisations : régions et villes"""
+    from django.db.models import Count, Sum
+    from django.http import HttpResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from django.utils import timezone
+    
+    # Récupérer les statistiques par région
+    stats_par_region = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')
+    
+    # Récupérer les statistiques par ville (Top 10)
+    stats_par_ville = Commande.objects.filter(
+        etats__enum_etat__libelle__in=['Confirmée', 'À imprimer', 'Préparée']
+    ).values('ville__nom', 'ville__region__nom_region').annotate(
+        nb_commandes=Count('id'),
+        total_montant=Sum('total_cmd')
+    ).order_by('-nb_commandes')[:10]
+    
+    # Créer le fichier Excel
+    wb = Workbook()
+    
+    # Styles
+    header_font = Font(bold=True, color='FFFFFF', size=12)
+    header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+    title_font = Font(bold=True, color='FFFFFF', size=14)
+    title_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Feuille 1 : Répartition par Région
+    ws1 = wb.active
+    ws1.title = "Répartition par Région"
+    
+    # Titre
+    ws1.merge_cells('A1:D1')
+    title_cell = ws1['A1']
+    title_cell.value = "RÉPARTITION PAR RÉGION"
+    title_cell.font = title_font
+    title_cell.fill = title_fill
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # En-têtes
+    headers = ['Région', 'Nombre de Commandes', 'Total Montant (MAD)', 'Pourcentage']
+    for col, header in enumerate(headers, 1):
+        cell = ws1.cell(row=3, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Données
+    total_commandes = sum(stat['nb_commandes'] for stat in stats_par_region)
+    
+    for row, stat in enumerate(stats_par_region, 4):
+        pourcentage = (stat['nb_commandes'] / total_commandes * 100) if total_commandes > 0 else 0
+        
+        ws1.cell(row=row, column=1, value=stat['ville__region__nom_region'] or 'Non définie').border = border
+        ws1.cell(row=row, column=2, value=stat['nb_commandes']).border = border
+        ws1.cell(row=row, column=3, value=f"{stat['total_montant'] or 0:.2f}").border = border
+        ws1.cell(row=row, column=4, value=f"{pourcentage:.1f}%").border = border
+    
+    # Ajuster la largeur des colonnes
+    for column in ws1.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 30)
+        ws1.column_dimensions[column_letter].width = adjusted_width
+    
+    # Feuille 2 : Top 10 des Villes
+    ws2 = wb.create_sheet("Top 10 des Villes")
+    
+    # Titre
+    ws2.merge_cells('A1:D1')
+    title_cell = ws2['A1']
+    title_cell.value = "TOP 10 DES VILLES"
+    title_cell.font = title_font
+    title_cell.fill = title_fill
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # En-têtes
+    headers = ['Ville', 'Région', 'Nombre de Commandes', 'Total Montant (MAD)']
+    for col, header in enumerate(headers, 1):
+        cell = ws2.cell(row=3, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Données
+    for row, stat in enumerate(stats_par_ville, 4):
+        ws2.cell(row=row, column=1, value=stat['ville__nom'] or 'Non définie').border = border
+        ws2.cell(row=row, column=2, value=stat['ville__region__nom_region'] or 'Non définie').border = border
+        ws2.cell(row=row, column=3, value=stat['nb_commandes']).border = border
+        ws2.cell(row=row, column=4, value=f"{stat['total_montant'] or 0:.2f}").border = border
+    
+    # Ajuster la largeur des colonnes
+    for column in ws2.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 30)
+        ws2.column_dimensions[column_letter].width = adjusted_width
+    
+    # Feuille 3 : Statistiques Globales
+    ws3 = wb.create_sheet("Statistiques Globales")
+    
+    # Titre
+    ws3.merge_cells('A1:B1')
+    title_cell = ws3['A1']
+    title_cell.value = "STATISTIQUES GLOBALES"
+    title_cell.font = title_font
+    title_cell.fill = title_fill
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # En-têtes
+    headers = ['Métrique', 'Valeur']
+    for col, header in enumerate(headers, 1):
+        cell = ws3.cell(row=3, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Données
+    stats_data = [
+        ['Total Commandes', total_commandes],
+        ['Nombre de Régions', len(stats_par_region)],
+        ['Nombre de Villes', len(stats_par_ville)],
+        ['Date d\'Export', timezone.now().strftime('%d/%m/%Y à %H:%M:%S')]
+    ]
+    
+    for row, (metric, value) in enumerate(stats_data, 4):
+        ws3.cell(row=row, column=1, value=metric).border = border
+        ws3.cell(row=row, column=2, value=value).border = border
+    
+    # Ajuster la largeur des colonnes
+    for column in ws3.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 30)
+        ws3.column_dimensions[column_letter].width = adjusted_width
+    
+    # Créer la réponse
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    filename = f"visualisations_combinees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
+
+@staff_member_required
+@login_required
+def export_regions_csv(request):
+    """Export CSV pour toutes les régions"""
+    from commande.models import Commande
+    
+    # Récupérer les commandes PRÉPARÉES groupées par région
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée'
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('ville__region__nom_region', '-date_cmd')
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"regions_consolidees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
+    ]
+    writer.writerow(headers)
+    
+    # Traiter chaque commande
+    for commande in commandes:
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
+        ]
+        writer.writerow(row)
+    
+    return response
+
+
+@staff_member_required
+@login_required
+def export_regions_excel(request):
+    """Export Excel pour toutes les régions"""
+    from commande.models import Commande
+    
+    # Récupérer les commandes PRÉPARÉES groupées par région
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée'
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('ville__region__nom_region', '-date_cmd')
+    
+    # Créer le fichier Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Régions Consolidées"
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation'
+    ]
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Traiter chaque commande
+    for row, commande in enumerate(commandes, 2):
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row_data = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            commande.total_cmd or 0,
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation
+        ]
+        
+        for col, value in enumerate(row_data, 1):
+            ws.cell(row=row, column=col, value=value)
+    
+    # Ajuster la largeur des colonnes
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Créer la réponse
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    filename = f"regions_consolidees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
+
+@staff_member_required
+@login_required
+def export_operateur_csv(request, operateur_id):
+    """Export CSV pour les commandes d'un opérateur spécifique"""
+    from commande.models import Commande
+    
+    # Récupérer l'opérateur
+    try:
+        operateur = Operateur.objects.get(id=operateur_id)
+    except Operateur.DoesNotExist:
+        return HttpResponse("Opérateur non trouvé", status=404)
+    
+    # Récupérer les commandes PRÉPARÉES assignées à cet opérateur
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__operateur=operateur
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer la réponse CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    filename = f"operateur_{operateur.prenom}_{operateur.nom}_commandes_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Écrire l'en-tête BOM pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response, delimiter=';')
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation', 'Opérateur Assigné'
+    ]
+    writer.writerow(headers)
+    
+    # Traiter chaque commande
+    for commande in commandes:
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation,
+            f"{operateur.prenom} {operateur.nom}"
+        ]
+        writer.writerow(row)
+    
+    return response
+
+
+@staff_member_required
+@login_required
+def export_operateur_excel(request, operateur_id):
+    """Export Excel pour les commandes d'un opérateur spécifique"""
+    from commande.models import Commande
+    
+    # Récupérer l'opérateur
+    try:
+        operateur = Operateur.objects.get(id=operateur_id)
+    except Operateur.DoesNotExist:
+        return HttpResponse("Opérateur non trouvé", status=404)
+    
+    # Récupérer les commandes PRÉPARÉES assignées à cet opérateur
+    commandes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__operateur=operateur
+    ).select_related(
+        'client', 
+        'ville', 
+        'ville__region'
+    ).prefetch_related(
+        'paniers__article'
+    ).distinct().order_by('-date_cmd')
+    
+    # Créer le fichier Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Opérateur {operateur.prenom} {operateur.nom}"
+    
+    # En-têtes
+    headers = [
+        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
+        'Articles et Quantités', 'Prix Total (MAD)', 'Adresse', 'État', 'Date Commande',
+        'Heure Préparation', 'Heure Exportation', 'Opérateur Assigné'
+    ]
+    
+    # Ajouter les en-têtes
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Traiter chaque commande
+    for row, commande in enumerate(commandes, 2):
+        # Construire la liste des articles avec quantités
+        articles_list = []
+        for panier in commande.paniers.all():
+            article_info = f"{panier.article.nom}"
+            if panier.article.couleur:
+                article_info += f" {panier.article.couleur}"
+            if panier.article.pointure:
+                article_info += f" {panier.article.pointure}"
+            if panier.quantite > 1:
+                article_info += f" x{panier.quantite}"
+            articles_list.append(article_info)
+        
+        # Joindre tous les articles avec des virgules
+        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
+        
+        # État actuel de la commande
+        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
+        
+        # Trouver l'heure de préparation (dernier état "Préparée")
+        heure_preparation = None
+        for etat in commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut'):
+            if etat.date_debut:
+                heure_preparation = etat.date_debut.strftime('%d/%m/%Y %H:%M')
+                break
+        
+        # Heure d'exportation
+        heure_exportation = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+        
+        # Écrire la ligne
+        row_data = [
+            commande.id_yz or commande.num_cmd,
+            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
+            commande.client.numero_tel if commande.client else "N/A",
+            commande.ville.nom if commande.ville else "N/A",
+            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
+            articles_consolides,
+            commande.total_cmd or 0,
+            commande.adresse or "N/A",
+            etat_actuel,
+            commande.date_creation.strftime('%d/%m/%Y %H:%M') if commande.date_creation else "N/A",
+            heure_preparation or "N/A",
+            heure_exportation,
+            f"{operateur.prenom} {operateur.nom}"
+        ]
+        
+        for col, value in enumerate(row_data, 1):
+            ws.cell(row=row, column=col, value=value)
+    
+    # Ajuster la largeur des colonnes
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Créer la réponse
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    filename = f"operateur_{operateur.prenom}_{operateur.nom}_commandes_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response

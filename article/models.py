@@ -19,6 +19,7 @@ class Article(models.Model):
         ('EN_COURS', 'En Cours'),
         ('LIQUIDATION', 'Liquidation'),
         ('EN_TEST', 'En Test'),
+        ('PROMO', 'Promo'),
     ]
     
     CATEGORIES_CHOICES = [

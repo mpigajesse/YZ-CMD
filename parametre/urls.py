@@ -26,6 +26,7 @@ urlpatterns = [
     path('villes/supprimer/<int:pk>/', views.supprimer_ville, name='supprimer_ville'),
     path('villes/supprimer-masse/', views.supprimer_villes_masse, name='supprimer_villes_masse'),
     path('operateurs/modifier/<int:pk>/', views.modifier_operateur, name='modifier_operateur'),
+    
     path('operateurs/supprimer/<int:pk>/', views.supprimer_operateur, name='supprimer_operateur'),
     path('operateurs/supprimer-masse/', views.supprimer_operateurs_masse, name='supprimer_operateurs_masse'),
     path('profile/', views.admin_profile, name='profile'),
@@ -47,6 +48,11 @@ urlpatterns = [
     path('export-csv/', views_360.export_all_data_csv, name='export_all_data_csv'),
     path('export-excel/', views_360.export_all_data_excel, name='export_all_data_excel'),
     
+    # URLs Répartition
+    path('repartition/automatique/', views.repartition_automatique, name='repartition_automatique'),
+    path('repartition/details-region/', views.details_region_view, name='details_region'),
+    path('repartition/get-modal-data-ajax/', views.get_modal_data_ajax, name='get_modal_data_ajax'),
+    
     # URLs API Temps Réel Vue 360
     path('vue360/api/realtime-data/', views_360.vue_360_realtime_data, name='vue_360_realtime_data'),
     path('vue360/api/statistics-update/', views_360.vue_360_statistics_update, name='vue_360_statistics_update'),
@@ -56,5 +62,5 @@ urlpatterns = [
     # URLs Barre de Recherche Globale
     path('global-search/', global_search_views.global_search_view, name='global_search'),
     path('global-search/api/', global_search_views.global_search_api, name='global_search_api'),
-    path('global-search/suggestions/', global_search_views.search_suggestions_api, name='global_search_suggestions'),
+    path('global-search/suggestions/', global_search_views.search_suggestions_api, name='search_suggestions_api'),
 ] 

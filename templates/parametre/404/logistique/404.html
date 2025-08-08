@@ -1,0 +1,506 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page non trouvée | YZ-CMD Logistique</title>
+    
+    {% tailwind_css %}
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --logistique-primary: #1e3a8a;
+            --logistique-secondary: #3b82f6;
+            --logistique-accent: #60a5fa;
+            --logistique-light: #93c5fd;
+            --logistique-dark: #1e40af;
+            --logistique-border-accent: #3b82f6;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        .gradient-logistique {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 25%, #3b82f6 50%, #60a5fa 75%, #93c5fd 100%);
+            position: relative;
+            min-height: 100vh;
+        }
+        
+        .gradient-logistique::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(30, 58, 138, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 40% 60%, rgba(96, 165, 250, 0.15) 0%, transparent 50%);
+            animation: blueShift 20s ease-in-out infinite;
+        }
+        
+        @keyframes blueShift {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .floating-trucks {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        .truck {
+            position: absolute;
+            width: 80px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(59, 130, 246, 0.4);
+            border-radius: 20px;
+            animation: floatTruck 25s linear infinite;
+        }
+        
+        .truck::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            width: 20px;
+            height: 15px;
+            background: rgba(59, 130, 246, 0.3);
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .truck::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 15px;
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            box-shadow: 25px 0 0 rgba(255, 255, 255, 0.2), 50px 0 0 rgba(255, 255, 255, 0.2);
+        }
+        
+        .truck:nth-child(1) { left: 5%; animation-delay: 0s; }
+        .truck:nth-child(2) { left: 20%; animation-delay: -5s; }
+        .truck:nth-child(3) { left: 35%; animation-delay: -10s; }
+        .truck:nth-child(4) { left: 50%; animation-delay: -15s; }
+        .truck:nth-child(5) { left: 65%; animation-delay: -20s; }
+        .truck:nth-child(6) { left: 80%; animation-delay: -25s; }
+        
+        @keyframes floatTruck {
+            0% {
+                transform: translateY(100vh) translateX(-50px) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) translateX(50px) rotate(5deg);
+                opacity: 0;
+            }
+        }
+        
+        .logistique-card {
+            backdrop-filter: blur(25px);
+            background: rgba(255, 255, 255, 0.95);
+            border: 3px solid rgba(59, 130, 246, 0.4);
+            box-shadow: 
+                0 35px 70px -15px rgba(30, 58, 138, 0.3),
+                0 0 0 1px rgba(59, 130, 246, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            animation: cardSlideIn 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        
+        @keyframes cardSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateX(50px) rotateY(15deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0) rotateY(0deg);
+            }
+        }
+        
+        .logistique-icon {
+            position: relative;
+            animation: iconDrive 6s ease-in-out infinite;
+        }
+        
+        .logistique-icon::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 160%;
+            height: 160%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: logistiquePulse 5s ease-out infinite;
+        }
+        
+        @keyframes iconDrive {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-5px) rotate(2deg); }
+            50% { transform: translateY(-10px) rotate(0deg); }
+            75% { transform: translateY(-5px) rotate(-2deg); }
+        }
+        
+        @keyframes logistiquePulse {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
+            50% { transform: translate(-50%, -50%) scale(1.4); opacity: 0.3; }
+            100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
+        }
+        
+        .error-code-logistique {
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            animation: codeGlow 5s ease-in-out infinite;
+        }
+        
+        @keyframes codeGlow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.4)); }
+            50% { filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.8)); }
+        }
+        
+        .interactive-btn-logistique {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(0);
+        }
+        
+        .interactive-btn-logistique::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.8s;
+        }
+        
+        .interactive-btn-logistique:hover::before {
+            left: 100%;
+        }
+        
+        .interactive-btn-logistique:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px rgba(30, 58, 138, 0.4);
+        }
+        
+        .delivery-suggestion {
+            transition: all 0.4s ease;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+        
+        .delivery-suggestion:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-left-color: #3b82f6;
+            transform: translateX(12px) scale(1.03);
+        }
+        
+        .speedometer {
+            width: 90px;
+            height: 90px;
+            position: relative;
+            margin: 0 auto;
+        }
+        
+        .speedometer svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        
+        .speedometer circle {
+            fill: none;
+            stroke-width: 7;
+            stroke-linecap: round;
+        }
+        
+        .speedometer .bg {
+            stroke: rgba(59, 130, 246, 0.2);
+        }
+        
+        .speedometer .progress {
+            stroke: #3b82f6;
+            stroke-dasharray: 202;
+            stroke-dashoffset: 202;
+            animation: speedFill 4s ease-out forwards;
+        }
+        
+        @keyframes speedFill {
+            to { stroke-dashoffset: 78; }
+        }
+        
+        .status-indicator-log {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: statusPulseLog 2.5s ease-in-out infinite;
+            margin-right: 12px;
+        }
+        
+        @keyframes statusPulseLog {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.3); }
+        }
+        
+        .search-box-logistique {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .search-box-logistique::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2), transparent);
+            animation: searchScanLog 6s linear infinite;
+        }
+        
+        @keyframes searchScanLog {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .tooltip-logistique {
+            position: relative;
+        }
+        
+        .tooltip-logistique:hover .tooltip-text-log {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-15px);
+        }
+        
+        .tooltip-text-log {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-5px);
+            background: rgba(30, 58, 138, 0.95);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 15px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s ease;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .tooltip-text-log::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 7px solid transparent;
+            border-top-color: rgba(30, 58, 138, 0.95);
+        }
+        
+        .stats-card-log {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(96, 165, 250, 0.1));
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            animation: statsAppearLog 1s ease-out forwards;
+        }
+        
+        @keyframes statsAppearLog {
+            from { opacity: 0; transform: translateY(25px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .route-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+            animation: routeFlow 8s linear infinite;
+        }
+        
+        @keyframes routeFlow {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+    </style>
+</head>
+<body class="gradient-logistique">
+    <div class="floating-trucks">
+        <div class="truck"></div>
+        <div class="truck"></div>
+        <div class="truck"></div>
+        <div class="truck"></div>
+        <div class="truck"></div>
+        <div class="truck"></div>
+    </div>
+    
+    <div class="route-line"></div>
+    
+    <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div class="max-w-7xl w-full">
+            <!-- Header avec logo animé -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white shadow-2xl mb-4 relative">
+                    <i class="fas fa-truck text-3xl" style="color: #1e3a8a;"></i>
+                    <div class="absolute -inset-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full opacity-20 animate-pulse"></div>
+                </div>
+                <h1 class="text-2xl font-bold text-white mb-4">{{ interface_name }}</h1>
+                <div class="speedometer">
+                    <svg>
+                        <circle class="bg" cx="45" cy="45" r="32"></circle>
+                        <circle class="progress" cx="45" cy="45" r="32"></circle>
+                    </svg>
+                </div>
+            </div>
+            
+            <!-- Carte principale -->
+            <div class="logistique-card rounded-2xl p-6 md:p-8">
+                <div class="grid xl:grid-cols-3 gap-8">
+                    <!-- Section gauche - Erreur -->
+                    <div class="xl:col-span-2">
+                        <div class="flex flex-col lg:flex-row items-center lg:items-start gap-6">
+                            <div class="logistique-icon flex-shrink-0">
+                                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 via-indigo-200 to-blue-300">
+                                    <i class="fas fa-exclamation-triangle text-3xl text-blue-600"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center lg:text-left flex-grow">
+                                <h2 class="error-code-logistique text-6xl font-black mb-4">{{ error_code }}</h2>
+                                <h3 class="text-2xl font-bold mb-4" style="color: #1e3a8a;">{{ error_title }}</h3>
+                                <p class="text-gray-700 text-base leading-relaxed mb-6">{{ error_message }}</p>
+                                
+
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Section droite - Actions -->
+                    <div class="space-y-10">
+                        <!-- Actions principales -->
+                        <div class="space-y-6">
+                            <a href="{{ back_url }}" 
+                               class="interactive-btn-logistique w-full inline-flex items-center justify-center px-12 py-6 text-xl font-semibold rounded-2xl text-white shadow-2xl"
+                               style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);">
+                                <i class="fas fa-home mr-4"></i>
+                                {{ back_text }}
+                            </a>
+                            
+                            <button onclick="window.history.back()" 
+                                    class="interactive-btn-logistique w-full inline-flex items-center justify-center px-12 py-6 text-xl font-semibold rounded-2xl text-white bg-white border-3 hover:bg-blue-50"
+                                    style="color: #1e3a8a; border-color: #3b82f6;">
+                                <i class="fas fa-arrow-left mr-4"></i>
+                                Page précédente
+                            </button>
+                            
+                            <button onclick="window.location.reload()" 
+                                    class="interactive-btn-logistique w-full inline-flex items-center justify-center px-12 py-6 text-xl font-semibold rounded-2xl text-blue-700 bg-blue-50 border-3 border-blue-200 hover:bg-blue-100">
+                                <i class="fas fa-redo mr-4"></i>
+                                Recharger la page
+                            </button>
+                        </div>
+                        
+
+                        
+                        <!-- Aide -->
+                        <div class="text-center">
+                            <div class="tooltip-logistique inline-block">
+                                <i class="fas fa-question-circle text-4xl cursor-pointer hover:text-blue-600 transition-colors" style="color: #3b82f6;"></i>
+                                <div class="tooltip-text-log">
+                                    Support logistique et assistance
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="text-center mt-16">
+                <p class="text-blue-100 text-xl mb-6 flex items-center justify-center">
+                    <span class="status-indicator-log"></span>
+                    <i class="fas fa-truck mr-3"></i>
+                    Interface logistique opérationnelle
+                </p>
+                <div class="flex justify-center space-x-10 text-blue-200 text-base">
+                    <span><i class="fas fa-clock mr-2"></i> {{ "now"|date:"H:i" }}</span>
+                    <span><i class="fas fa-calendar mr-2"></i> {{ "now"|date:"d/m/Y" }}</span>
+                    <span><i class="fas fa-check-circle mr-2"></i> Système actif</span>
+                    <span><i class="fas fa-route mr-2"></i> Routes optimisées</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animation du speedomètre
+            const speedometer = document.querySelector('.speedometer .progress');
+            if (speedometer) {
+                setTimeout(() => {
+                    speedometer.style.animationPlayState = 'running';
+                }, 1000);
+            }
+            
+
+            
+            // Animation des statistiques
+            const statsCards = document.querySelectorAll('.stats-card-log');
+            statsCards.forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.3}s`;
+            });
+        });
+        
+        // Raccourcis clavier spécifiques à la logistique
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                window.history.back();
+            } else if (e.key === 'Enter' && !e.target.matches('input')) {
+                window.location.href = '{{ back_url }}';
+            } else if (e.key === 'r' && e.ctrlKey) {
+                e.preventDefault();
+                window.location.reload();
+            }
+        });
+    </script>
+</body>
+</html>

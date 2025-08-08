@@ -1,0 +1,416 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page non trouvée | YZ-CMD Confirmation</title>
+    
+    {% tailwind_css %}
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        .gradient-confirmation {
+            background: linear-gradient(135deg, #2d1b1b 0%, #4B352A 25%, #6a4c38 50%, #8b6f5a 75%, #a68b7a 100%);
+            position: relative;
+            min-height: 100vh;
+        }
+        
+        .gradient-confirmation::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 30% 20%, rgba(255, 165, 0, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(139, 90, 43, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 20% 60%, rgba(255, 140, 0, 0.1) 0%, transparent 50%);
+            animation: warmGlow 12s ease-in-out infinite;
+        }
+        
+        @keyframes warmGlow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .floating-papers {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        .paper {
+            position: absolute;
+            width: 40px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            animation: floatPaper 25s linear infinite;
+        }
+        
+        .paper:nth-child(1) { left: 10%; animation-delay: 0s; }
+        .paper:nth-child(2) { left: 20%; animation-delay: -5s; }
+        .paper:nth-child(3) { left: 30%; animation-delay: -10s; }
+        .paper:nth-child(4) { left: 40%; animation-delay: -15s; }
+        .paper:nth-child(5) { left: 50%; animation-delay: -20s; }
+        .paper:nth-child(6) { left: 60%; animation-delay: -25s; }
+        .paper:nth-child(7) { left: 70%; animation-delay: -30s; }
+        .paper:nth-child(8) { left: 80%; animation-delay: -35s; }
+        .paper:nth-child(9) { left: 90%; animation-delay: -40s; }
+        
+        @keyframes floatPaper {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        .confirmation-card {
+            backdrop-filter: blur(15px);
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid rgba(255, 165, 0, 0.3);
+            box-shadow: 
+                0 25px 50px -12px rgba(139, 90, 43, 0.25),
+                0 0 0 1px rgba(255, 165, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            animation: cardSlideIn 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        
+        @keyframes cardSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateX(-50px) rotateY(-15deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0) rotateY(0deg);
+            }
+        }
+        
+        .confirmation-icon {
+            position: relative;
+            animation: iconFloat 4s ease-in-out infinite;
+        }
+        
+        .confirmation-icon::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 140%;
+            height: 140%;
+            background: radial-gradient(circle, rgba(255, 165, 0, 0.3) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: confirmPulse 3s ease-out infinite;
+        }
+        
+        @keyframes iconFloat {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+        }
+        
+        @keyframes confirmPulse {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.4; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+        
+        .error-code-confirmation {
+            background: linear-gradient(135deg, #4B352A, #8b6f5a, #ff8c00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            animation: codeGlow 3s ease-in-out infinite;
+        }
+        
+        @keyframes codeGlow {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 140, 0, 0.3)); }
+            50% { filter: drop-shadow(0 0 20px rgba(255, 140, 0, 0.6)); }
+        }
+        
+        .interactive-btn-confirmation {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(0);
+        }
+        
+        .interactive-btn-confirmation::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.6s;
+        }
+        
+        .interactive-btn-confirmation:hover::before {
+            left: 100%;
+        }
+        
+        .interactive-btn-confirmation:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(139, 90, 43, 0.4);
+        }
+        
+        .command-suggestion {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        
+        .command-suggestion:hover {
+            background: rgba(255, 165, 0, 0.1);
+            border-left-color: #ff8c00;
+            transform: translateX(8px);
+        }
+        
+        .progress-bar {
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, #4B352A, #ff8c00);
+            border-radius: 2px;
+            animation: progressLoad 3s ease-out forwards;
+        }
+        
+        @keyframes progressLoad {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff00;
+            animation: statusBlink 2s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes statusBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .search-box {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .search-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 140, 0, 0.1), transparent);
+            animation: searchScan 4s linear infinite;
+        }
+        
+        @keyframes searchScan {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .tooltip-confirmation {
+            position: relative;
+        }
+        
+        .tooltip-confirmation:hover .tooltip-text {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-10px);
+        }
+        
+        .tooltip-text {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-5px);
+            background: rgba(75, 53, 42, 0.95);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .tooltip-text::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: rgba(75, 53, 42, 0.95);
+        }
+    </style>
+</head>
+<body class="gradient-confirmation">
+    <div class="floating-papers">
+        <div class="paper"></div>
+        <div class="paper"></div>
+        <div class="paper"></div>
+        <div class="paper"></div>
+        <div class="paper"></div>
+        <div class="paper"></div>
+        <div class="paper"></div>
+        <div class="paper"></div>
+        <div class="paper"></div>
+    </div>
+    
+    <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div class="max-w-6xl w-full">
+            <!-- Header avec logo animé -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white shadow-2xl mb-4 relative">
+                    <i class="fas fa-clipboard-check text-3xl" style="color: #4B352A;"></i>
+                    <div class="absolute -inset-2 bg-gradient-to-r from-orange-400 to-yellow-500 rounded-full opacity-20 animate-pulse"></div>
+                </div>
+                <h1 class="text-2xl font-bold text-white mb-4">{{ interface_name }}</h1>
+                <div class="progress-bar mx-auto"></div>
+            </div>
+            
+            <!-- Carte principale -->
+            <div class="confirmation-card rounded-2xl p-6 md:p-8">
+                <div class="grid lg:grid-cols-3 gap-8">
+                    <!-- Section gauche - Erreur -->
+                    <div class="lg:col-span-2">
+                        <div class="flex flex-col md:flex-row items-center md:items-start gap-6">
+                            <div class="confirmation-icon flex-shrink-0">
+                                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-orange-100 via-orange-200 to-orange-300">
+                                    <i class="fas fa-exclamation-circle text-3xl text-orange-600"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center md:text-left flex-grow">
+                                <h2 class="error-code-confirmation text-6xl font-black mb-4">{{ error_code }}</h2>
+                                <h3 class="text-2xl font-bold mb-4" style="color: #4B352A;">{{ error_title }}</h3>
+                                <p class="text-gray-700 text-base leading-relaxed mb-6">{{ error_message }}</p>
+                                
+
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Section droite - Actions -->
+                    <div class="space-y-6">
+                        <!-- Actions principales -->
+                        <div class="space-y-4">
+                            <a href="{{ back_url }}" 
+                               class="interactive-btn-confirmation w-full inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl text-white shadow-xl"
+                               style="background: linear-gradient(135deg, #4B352A 0%, #6a4c38 100%);">
+                                <i class="fas fa-home mr-3"></i>
+                                {{ back_text }}
+                            </a>
+                            
+                            <button onclick="window.history.back()" 
+                                    class="interactive-btn-confirmation w-full inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl text-white bg-white border-2 hover:bg-orange-50"
+                                    style="color: #4B352A; border-color: #8B5A2B;">
+                                <i class="fas fa-arrow-left mr-3"></i>
+                                Page précédente
+                            </button>
+                            
+                            <button onclick="window.location.reload()" 
+                                    class="interactive-btn-confirmation w-full inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl text-orange-700 bg-orange-50 border-2 border-orange-200 hover:bg-orange-100">
+                                <i class="fas fa-redo mr-3"></i>
+                                Recharger la page
+                            </button>
+                        </div>
+                        
+
+                        
+                        <!-- Aide -->
+                        <div class="text-center">
+                            <div class="tooltip-confirmation inline-block">
+                                <i class="fas fa-question-circle text-3xl cursor-pointer hover:text-orange-600 transition-colors" style="color: #8B5A2B;"></i>
+                                <div class="tooltip-text">
+                                    Aide et support technique disponible
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="text-center mt-12">
+                <p class="text-orange-100 text-lg mb-4 flex items-center justify-center">
+                    <span class="status-indicator"></span>
+                    <i class="fas fa-clipboard-check mr-2"></i>
+                    Interface de confirmation opérationnelle
+                </p>
+                <div class="flex justify-center space-x-8 text-orange-200 text-sm">
+                    <span><i class="fas fa-clock mr-1"></i> {{ "now"|date:"H:i" }}</span>
+                    <span><i class="fas fa-calendar mr-1"></i> {{ "now"|date:"d/m/Y" }}</span>
+                    <span><i class="fas fa-check-circle mr-1"></i> Système actif</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animation de la barre de progression
+            const progressBar = document.querySelector('.progress-bar');
+            if (progressBar) {
+                setTimeout(() => {
+                    progressBar.style.animationPlayState = 'running';
+                }, 500);
+            }
+            
+
+        });
+        
+        // Raccourcis clavier spécifiques à la confirmation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                window.history.back();
+            } else if (e.key === 'Enter' && !e.target.matches('input')) {
+                window.location.href = '{{ back_url }}';
+            } else if (e.key === 'r' && e.ctrlKey) {
+                e.preventDefault();
+                window.location.reload();
+            }
+        });
+    </script>
+</body>
+</html>

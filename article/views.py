@@ -342,6 +342,8 @@ def modifier_article(request, id):
                         messages.warning(request, f"L'article '{article.nom}' a été mis en liquidation.{upsell_message}")
                     elif phase == 'EN_TEST':
                         messages.info(request, f"L'article '{article.nom}' a été mis en phase de test.{upsell_message}")
+                    elif phase == 'PROMO':
+                        messages.success(request, f"L'article '{article.nom}' a été mis en phase promotion.{upsell_message}")
                     elif phase == 'EN_COURS':
                         messages.success(request, f"L'article '{article.nom}' a été remis en phase par défaut (En Cours).{upsell_message}")
             
@@ -761,6 +763,8 @@ def changer_phase(request, id):
                     messages.warning(request, f"L'article '{article.nom}' a été mis en liquidation.{upsell_message}")
                 elif phase == 'EN_TEST':
                     messages.info(request, f"L'article '{article.nom}' a été mis en phase de test.{upsell_message}")
+                elif phase == 'PROMO':
+                    messages.success(request, f"L'article '{article.nom}' a été mis en phase promotion.{upsell_message}")
                 
     # Rediriger vers la page précédente ou la page de détail
     referer = request.META.get('HTTP_REFERER')

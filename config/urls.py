@@ -48,6 +48,12 @@ urlpatterns = [
     path('parametre/', include('parametre.urls')),
     path('synchronisation/', include('synchronisation.urls')),
     path('kpis/', include('kpis.urls')),
+    
+    # Pages 404 personnalisées par interface
+    path('404/admin/', include('parametre.404.admin.urls')),
+    path('404/confirmation/', include('parametre.404.confirmation.urls')),
+    path('404/preparation/', include('parametre.404.preparation.urls')),
+    path('404/logistique/', include('parametre.404.logistique.urls')),
 
     # Django browser reload (développement)
     path("__reload__/", include("django_browser_reload.urls")),

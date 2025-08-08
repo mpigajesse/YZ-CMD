@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .service_apres_vente import views as sav_views
+from .barre_recherche_globale import views as search_views
 
 app_name = 'operatLogistic'
 
@@ -51,4 +52,9 @@ urlpatterns = [
     path('sav/annulees/', sav_views.commandes_annulees_sav, name='commandes_annulees_sav'),
     path('sav/retournees/', sav_views.commandes_retournees, name='commandes_retournees'),
     path('sav/livrees/', sav_views.commandes_livrees, name='commandes_livrees'),
+    
+    # URLs pour la recherche globale
+    path('recherche-globale/', search_views.global_search_view, name='global_search'),
+    path('recherche-globale/api/', search_views.global_search_api, name='global_search_api'),
+    path('recherche-globale/suggestions/', search_views.search_suggestions_api, name='search_suggestions_api'),
 ] 
