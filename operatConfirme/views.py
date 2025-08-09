@@ -373,7 +373,8 @@ def confirmer_commande_ajax(request, commande_id):
             'success': True, 
             'message': f'Commande {commande.id_yz} confirmée avec succès.',
             'articles_decrémentes': len(articles_decrémentes),
-            'details_stock': articles_decrémentes
+            'details_stock': articles_decrémentes,
+            'redirect_url': '/operateur-confirme/confirmation/'
         })
         
     except Commande.DoesNotExist:
@@ -1044,7 +1045,8 @@ def confirmer_commandes_ajax(request):
             if confirmed_count > 0:
                 return JsonResponse({
                     'success': True,
-                    'message': f'{confirmed_count} commande(s) confirmée(s) avec succès'
+                    'message': f'{confirmed_count} commande(s) confirmée(s) avec succès',
+                    'redirect_url': reverse('operatConfirme:confirmation')
                 })
             else:
                 return JsonResponse({
@@ -2281,6 +2283,13 @@ def api_articles_disponibles(request):
             if stock is None:
                 stock = 0
             
+            # Déterminer l'URL de l'image
+            image_url = None
+            if article.image:
+                image_url = article.image.url
+            elif article.image_url:
+                image_url = article.image_url
+            
             articles_data.append({
                 'id': article.id,
                 'nom': article.nom,
@@ -2299,6 +2308,7 @@ def api_articles_disponibles(request):
                 'phase': article.phase,
                 'has_promo_active': article.has_promo_active,
                 'description': article.description or '',
+                'image_url': image_url,
             })
         
         return JsonResponse(articles_data, safe=False)

@@ -98,10 +98,10 @@
         background-color: #8B5A2B;
         color: white;
         padding: 0.5rem;
-        border-radius: 0.375rem;
-        transition: all 0.3s ease;
+        border-radius: 0.25rem;
         border: none;
         cursor: pointer;
+        transition: all 0.3s ease;
     }
 
     .btn-action:hover {
@@ -181,6 +181,123 @@
     .toggle-switch.active .toggle-handle {
         transform: translateX(30px);
         box-shadow: 0 2px 8px rgba(75, 53, 42, 0.3);
+    }
+
+    /* Styles pour les badges de filtrage */
+    .filter-badge {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .filter-badge:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .filter-badge.active {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        font-weight: bold;
+    }
+
+    .filter-badge.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: currentColor;
+        opacity: 0.7;
+    }
+
+    /* Styles spécifiques pour chaque type de badge actif */
+    #filter-all.active {
+        background: linear-gradient(135deg, #6b7280, #9ca3af) !important;
+        color: white !important;
+    }
+
+    #filter-promo.active {
+        background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+        color: white !important;
+    }
+
+    #filter-liquidation.active {
+        background: linear-gradient(135deg, #ea580c, #f97316) !important;
+        color: white !important;
+    }
+
+    #filter-test.active {
+        background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
+        color: white !important;
+    }
+
+    #filter-upsell.active {
+        background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+        color: white !important;
+    }
+
+    /* Styles pour le tableau des articles */
+    #articlesScrollContainer {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e0 #f7fafc;
+    }
+
+    #articlesScrollContainer::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #articlesScrollContainer::-webkit-scrollbar-track {
+        background: #f7fafc;
+        border-radius: 4px;
+    }
+
+    #articlesScrollContainer::-webkit-scrollbar-thumb {
+        background: #cbd5e0;
+        border-radius: 4px;
+    }
+
+    #articlesScrollContainer::-webkit-scrollbar-thumb:hover {
+        background: #a0aec0;
+    }
+
+    /* Animation pour les lignes du tableau */
+    #articlesTableBody tr {
+        transition: all 0.2s ease;
+    }
+
+    #articlesTableBody tr:hover {
+        transform: translateX(2px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Styles pour les boutons de quantité */
+    #articlesTableBody button {
+        transition: all 0.2s ease;
+    }
+
+    #articlesTableBody button:hover {
+        transform: scale(1.1);
+    }
+
+    /* Styles pour les badges de caractéristiques */
+    .badge-legend .filter-badge {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Responsive pour les badges */
+    @media (max-width: 768px) {
+        .badge-legend {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .badge-legend .filter-badge {
+            flex: none;
+            width: 100%;
+        }
     }
 </style>
 {% endblock %}
@@ -339,18 +456,99 @@
                 
                 <!-- Recherche rapide par référence d'article -->
                 <div class="mb-3 relative">
-                    <label for="search_article_ref" class="label-style">Rechercher par référence d'article</label>
-                    <input type="text" id="search_article_ref" class="input-field w-full" placeholder="Saisir une référence d'article...">
+                    <label for="search_article_ref" class="label-style">Rechercher d'article</label>
+                    <input id="recherche-article-input" type="text" placeholder="Nom, référence, couleur, pointure..." 
+                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                   oninput="rechercherArticles(this.value)" />
                     <div id="search_article_results" class="bg-white border border-gray-200 rounded-lg mt-1 shadow-lg z-50 absolute w-full hidden"></div>
                 </div>
 
-                <div class="flex items-center gap-2 mb-4">
-                    <select id="article-select" class="input-field flex-grow">
-                        <option value="">Sélectionner un article…</option>
-                        {% for article in articles %}
-                            <option value="{{ article.pk }}" data-prix="{{ article.prix_unitaire }}">{{ article.nom }} ({{ article.reference }}) – {{ article.prix_unitaire }} DH</option>
-                        {% endfor %}
-                    </select>
+                <!-- Légende des badges -->
+                <div class="mb-3 p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="text-sm font-semibold text-gray-700 flex items-center">
+                            <i class="fas fa-info-circle mr-2 text-blue-500"></i>
+                            Types d'articles :
+                        </div>
+                    </div>
+                    <div class="badge-legend flex justify-between gap-3 text-sm">
+                        <span id="filter-all" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 rounded-full font-medium cursor-pointer filter-badge active whitespace-nowrap hover:bg-gray-200 transition-colors" 
+                              onclick="filtrerArticles('all')" title="Afficher tous les articles">
+                            🔍 TOUS
+                        </span>
+                        <span id="filter-promo" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-red-100 text-red-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-red-200 transition-colors" 
+                              onclick="filtrerArticles('promo')" title="Filtrer les articles en promotion">
+                            🔥 PROMO
+                        </span>
+                        <span id="filter-liquidation" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-orange-100 text-orange-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-orange-200 transition-colors" 
+                              onclick="filtrerArticles('liquidation')" title="Filtrer les articles en liquidation">
+                            🏷️ LIQUIDATION
+                        </span>
+                        <span id="filter-test" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-blue-200 transition-colors" 
+                              onclick="filtrerArticles('test')" title="Filtrer les articles en test">
+                            🧪 TEST
+                        </span>
+                        <span id="filter-upsell" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-green-100 text-green-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-green-200 transition-colors" 
+                              onclick="filtrerArticles('upsell')" title="Filtrer les articles upsell">
+                            ⬆️ UPSELL
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Select d'origine conservé (masqué) pour compatibilité -->
+                <select id="article-select" class="input-field flex-grow hidden">
+                    <option value="">Sélectionner un article…</option>
+                    {% for article in articles %}
+                        <option value="{{ article.pk }}" data-prix="{{ article.prix_actuel }}">{{ article.nom }} ({{ article.reference }}) – {{ article.prix_actuel }} DH</option>
+                    {% endfor %}
+                </select>
+
+                <!-- Section des articles avec navigation fixe -->
+                <div class="mt-4 border border-gray-200 rounded-lg overflow-hidden">
+                    <!-- En-tête fixe du tableau -->
+                    <div class="bg-gray-50 border-b border-gray-200">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Article</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Prix</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Qté</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                    
+                    <!-- Zone de scroll avec barre de navigation personnalisée -->
+                    <div class="relative">
+                        <!-- Conteneur principal avec scroll -->
+                        <div id="articlesScrollContainer" class="max-h-96 overflow-y-auto">
+                            <table class="min-w-full">
+                                <tbody id="articlesTableBody" class="bg-white divide-y divide-gray-100">
+                                    <!-- Lignes d'articles rendues dynamiquement -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Barre de navigation personnalisée -->
+                        <div id="customScrollbar" class="absolute right-0 top-0 bottom-0 w-3 bg-gray-100 rounded-r-lg">
+                            <div id="scrollThumb" class="w-3 bg-gray-400 rounded-full cursor-pointer hover:bg-gray-500 transition-colors" style="height: 50px; top: 0; position: absolute;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Indicateur de navigation -->
+                    <div class="bg-gray-50 border-t border-gray-200 px-4 py-2 flex items-center justify-between text-xs text-gray-500">
+                        <span id="scrollInfo">Articles disponibles</span>
+                        <div class="flex items-center space-x-2">
+                            <button id="scrollUp" class="p-1 hover:bg-gray-200 rounded" title="Monter">
+                                <i class="fas fa-chevron-up"></i>
+                            </button>
+                            <button id="scrollDown" class="p-1 hover:bg-gray-200 rounded" title="Descendre">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -512,7 +710,7 @@
         
         // On récupère les frais depuis l'input qui est toujours à jour
         const fraisLivraison = parseFloat(fraisLivraisonInput.value) || 0;
-        const totalCommande = totalPanier + fraisLivraison;
+        const totalCommande = totalPanier ;
 
         if(totalPanierElement) totalPanierElement.textContent = `${totalPanier.toFixed(2)} DH`;
         if(fraisLivraisonDisplay) fraisLivraisonDisplay.textContent = `${fraisLivraison.toFixed(2)} DH`;
@@ -704,82 +902,563 @@
 })();
 </script>
 
+
+
 <script>
-// --- Recherche d'article par référence ---
-(function() {
-    var searchArticleInput = document.getElementById('search_article_ref');
-    var searchArticleResults = document.getElementById('search_article_results');
-    var articleSelect = document.getElementById('article-select');
-    var searchTimeout = null;
+// ================== SYSTÈME DE FILTRAGE ET AFFICHAGE DES ARTICLES ==================
 
-    console.log('🔍 Initialisation de la recherche d\'articles:', {
-        searchArticleInput: !!searchArticleInput,
-        searchArticleResults: !!searchArticleResults,
-        articleSelect: !!articleSelect
-    });
+// Variables globales
+let articlesDisponibles = [];
+let filtreActuel = 'all';
 
-    if (searchArticleInput && searchArticleResults && articleSelect) {
-        searchArticleInput.addEventListener('input', function() {
-            var query = this.value.trim();
-            console.log('🔍 Recherche d\'article:', query);
-            
-            if (searchTimeout) clearTimeout(searchTimeout);
-            if (query.length < 2) {
-                searchArticleResults.classList.add('hidden');
-                searchArticleResults.innerHTML = '';
-                return;
-            }
-            searchTimeout = setTimeout(function() {
-                console.log('🌐 Appel API pour la recherche:', query);
-                fetch('/operateur-confirme/api/recherche-article-ref/?q=' + encodeURIComponent(query))
-                    .then(function(response) { 
-                        console.log('📡 Réponse API reçue:', response.status);
-                        return response.json(); 
-                    })
-                    .then(function(data) {
-                        console.log('📊 Données reçues:', data);
-                        if (data.results && data.results.length > 0) {
-                            searchArticleResults.innerHTML = data.results.map(function(article) {
-                                return '<div class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100" data-article-id="' + article.id + '"><span class="font-semibold">' + article.nom + '</span> <span class="text-gray-500">(' + article.reference + ')</span> <span class="text-green-700 font-bold">' + article.prix_unitaire.toFixed(2) + ' DH</span></div>';
-                            }).join('');
-                            searchArticleResults.classList.remove('hidden');
-                            Array.prototype.forEach.call(searchArticleResults.children, function(item) {
-                                item.addEventListener('click', function() {
-                                    var articleId = this.getAttribute('data-article-id');
-                                    console.log('✅ Article sélectionné:', articleId);
-                                    // Sélectionner l'article dans le select
-                                    articleSelect.value = articleId;
-                                    articleSelect.dispatchEvent(new Event('change'));
-                                    searchArticleResults.classList.add('hidden');
-                                    searchArticleResults.innerHTML = '';
-                                    searchArticleInput.value = '';
-                                });
-                            });
-                        } else {
-                            searchArticleResults.innerHTML = '<div class="px-4 py-2 text-gray-500">Aucun article trouvé</div>';
-                            searchArticleResults.classList.remove('hidden');
-                        }
-                    })
-                    .catch(function(error) {
-                        console.error('❌ Erreur lors de la recherche:', error);
-                        searchArticleResults.innerHTML = '<div class="px-4 py-2 text-red-500">Erreur de recherche</div>';
-                        searchArticleResults.classList.remove('hidden');
-                    });
-            }, 300);
-        });
-        document.addEventListener('click', function(e) {
-            if (!searchArticleResults.contains(e.target) && e.target !== searchArticleInput) {
-                searchArticleResults.classList.add('hidden');
-            }
-        });
-    } else {
-        console.error('❌ Éléments de recherche d\'articles manquants:', {
-            searchArticleInput: !!searchArticleInput,
-            searchArticleResults: !!searchArticleResults,
-            articleSelect: !!articleSelect
-        });
+// Fonction pour charger les articles disponibles
+function chargerArticlesDisponibles() {
+    console.log('📦 Chargement des articles disponibles depuis l\'API...');
+    
+    const select = document.getElementById('article-select');
+    const tableBody = document.getElementById('articlesTableBody');
+    
+    if (!select || !tableBody) {
+        console.error('❌ Éléments de sélection d\'articles introuvables');
+        return;
     }
-})();
+    
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('❌ Token CSRF manquant');
+        return;
+    }
+    
+    // Appel à l'API pour récupérer les articles
+    fetch('{% url "operatConfirme:api_articles_disponibles" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrfToken.value,
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+    })
+    .then(response => {
+        console.log('📡 Statut de la réponse:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            return response.text().then(text => {
+                console.error('❌ Réponse d\'erreur:', text);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            });
+        }
+        
+        return response.json();
+    })
+    .then(data => {
+        console.log('📊 Données reçues:', data);
+        
+        // Gestion des deux formats possibles (tableau direct ou objet avec propriété articles)
+        if (Array.isArray(data)) {
+            articlesDisponibles = data;
+            console.log(`📦 ${articlesDisponibles.length} article(s) trouvé(s) (format tableau)`);
+        } else if (data.success && data.articles) {
+            articlesDisponibles = data.articles;
+            console.log(`📦 ${articlesDisponibles.length} article(s) trouvé(s) (format objet)`);
+        } else {
+            console.warn('⚠️ Format de données inattendu:', data);
+            articlesDisponibles = [];
+        }
+        
+        // Mettre à jour le select pour compatibilité
+        select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
+        
+        if (articlesDisponibles.length === 0) {
+            select.innerHTML = '<option value="">-- Aucun article disponible --</option>';
+            tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Aucun article disponible</td></tr>`;
+            console.warn('⚠️ Aucun article trouvé dans la base de données');
+            showNotification('⚠️ Aucun article disponible', 'error');
+            return;
+        }
+        
+        // Ajouter les options au select pour compatibilité
+        articlesDisponibles.forEach((article, index) => {
+            try {
+                const option = document.createElement('option');
+                option.value = article.id;
+                
+                // Construire le texte de l'option
+                let optionText = article.nom || 'Article sans nom';
+                
+                // Ajouter les badges de statut
+                const badges = [];
+                if (article.has_promo_active) badges.push('🔥PROMO');
+                if (article.phase === 'LIQUIDATION') badges.push('🏷️LIQUIDATION');
+                if (article.phase === 'EN_TEST') badges.push('🧪TEST');
+                if (article.isUpsell) badges.push('⬆️UPSELL');
+                
+                if (badges.length > 0) {
+                    optionText += ` [${badges.join(' ')}]`;
+                }
+                
+                if (article.prix_actuel) {
+                    optionText += ` - ${article.prix_actuel} DH`;
+                }
+                
+                // Ajouter détails
+                const details = [];
+                if (article.pointure && article.pointure.trim()) {
+                    details.push(`T:${article.pointure}`);
+                }
+                if (article.couleur && article.couleur.trim()) {
+                    details.push(`C:${article.couleur}`);
+                }
+                
+                if (details.length > 0) {
+                    optionText += ` (${details.join(', ')})`;
+                }
+                
+                option.textContent = optionText;
+                option.dataset.article = JSON.stringify(article);
+                option.dataset.prix = article.prix_actuel;
+                
+                select.appendChild(option);
+                
+            } catch (error) {
+                console.error(`❌ Erreur lors de l'ajout de l'article ${index + 1}:`, error);
+            }
+        });
+        
+        console.log(`✅ ${articlesDisponibles.length} articles chargés avec succès`);
+        
+        // Debug des premiers articles pour vérifier les données
+        if (articlesDisponibles.length > 0) {
+            console.log('🔍 DEBUG: Premier article chargé:', articlesDisponibles[0]);
+            console.log('🔍 DEBUG: Champs disponibles:', Object.keys(articlesDisponibles[0]));
+        }
+        
+        // Sauvegarder dans la variable globale
+        window.articlesDisponibles = articlesDisponibles;
+        
+        // Initialiser l'affichage avec tous les articles
+        filtrerArticles('all');
+        
+        showNotification(`✅ ${articlesDisponibles.length} article(s) chargé(s)`, 'success');
+        
+    })
+    .catch(error => {
+        console.error('❌ Erreur lors du chargement des articles:', error);
+        showNotification('❌ Erreur lors du chargement des articles', 'error');
+        
+        // Fallback : utiliser les données du template Django
+        console.log('🔄 Fallback vers les données du template Django...');
+        chargerArticlesDepuisTemplate();
+    });
+}
+
+// Fonction de fallback pour charger les articles depuis le template Django
+function chargerArticlesDepuisTemplate() {
+    console.log('📦 Chargement des articles depuis le template Django (fallback)...');
+    
+    const select = document.getElementById('article-select');
+    const tableBody = document.getElementById('articlesTableBody');
+    
+    if (!select || !tableBody) {
+        console.error('❌ Éléments de sélection d\'articles introuvables');
+        return;
+    }
+    
+    // Récupérer les articles depuis le template Django
+    const options = select.querySelectorAll('option');
+    articlesDisponibles = [];
+    
+    options.forEach((option, index) => {
+        if (option.value && index > 0) { // Ignorer l'option par défaut
+            const articleData = {
+                id: option.value,
+                nom: option.textContent.split(' (')[0],
+                reference: option.textContent.match(/\(([^)]+)\)/)?.[1] || '',
+                prix_actuel: parseFloat(option.dataset.prix) || 0,
+                // Données par défaut pour les nouveaux champs
+                has_promo_active: false,
+                phase: 'NORMAL',
+                isUpsell: false,
+                qte_disponible: 10, // Valeur par défaut
+                pointure: '',
+                couleur: '',
+                categorie: '',
+                image_url: ''
+            };
+            articlesDisponibles.push(articleData);
+        }
+    });
+    
+    console.log(`✅ ${articlesDisponibles.length} articles chargés depuis le template`);
+    
+    // Initialiser l'affichage
+    filtrerArticles('all');
+}
+
+// Fonction principale de filtrage des articles
+function filtrerArticles(typeFiltre) {
+    console.log(`🔍 Filtrage des articles par type: ${typeFiltre}`);
+    
+    filtreActuel = typeFiltre;
+    
+    // Mettre à jour l'état visuel des badges
+    mettreAJourBadgesActifs(typeFiltre);
+    
+    // Appliquer le filtre sur le tableau
+    appliquerFiltreTableau(typeFiltre);
+    
+    // Afficher une notification
+    const compteur = compterArticlesParType(typeFiltre);
+    const message = typeFiltre === 'all' ? 
+        `🔍 Affichage de tous les articles (${compteur} total)` :
+        `🔍 Filtrage par ${typeFiltre.toUpperCase()}: ${compteur} article(s) trouvé(s)`;
+    
+    showNotification(message, 'info', 2000);
+}
+
+// Fonction pour mettre à jour l'état visuel des badges
+function mettreAJourBadgesActifs(typeActif) {
+    // Retirer la classe active de tous les badges
+    document.querySelectorAll('.filter-badge').forEach(badge => {
+        badge.classList.remove('active');
+    });
+    
+    // Ajouter la classe active au badge sélectionné
+    const badgeActif = document.getElementById(`filter-${typeActif}`);
+    if (badgeActif) {
+        badgeActif.classList.add('active');
+    }
+}
+
+// Fonction pour appliquer le filtre sur le tableau
+function appliquerFiltreTableau(typeFiltre) {
+    const tableBody = document.getElementById('articlesTableBody');
+    if (!tableBody) {
+        console.warn('⚠️ Tableau des articles introuvable');
+        return;
+    }
+    
+    // Vider le tableau
+    tableBody.innerHTML = '';
+    
+    if (!articlesDisponibles || articlesDisponibles.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Aucun article disponible</td></tr>`;
+        return;
+    }
+    
+    let articlesAffiches = 0;
+    
+    articlesDisponibles.forEach((article, index) => {
+        // Vérifier si l'article correspond au filtre
+        if (typeFiltre === 'all' || correspondAuFiltre(article, typeFiltre)) {
+            try {
+                // Ligne du tableau
+                const tr = document.createElement('tr');
+                tr.dataset.article = JSON.stringify(article);
+
+                // Déterminer classes de fond/texte selon type
+                let rowBg = '';
+                let badgeHtml = '';
+                if (article.has_promo_active) {
+                    rowBg = 'bg-red-50';
+                    badgeHtml += '<span class="inline-flex items-center px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold mr-2"><i class="fas fa-fire mr-1"></i>PROMO</span>';
+                }
+                if (article.phase === 'LIQUIDATION') {
+                    rowBg = 'bg-orange-50';
+                    badgeHtml += '<span class="inline-flex items-center px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold mr-2"><i class="fas fa-tags mr-1"></i>LIQUIDATION</span>';
+                }
+                if (article.phase === 'EN_TEST') {
+                    rowBg = 'bg-blue-50';
+                    badgeHtml += '<span class="inline-flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold mr-2"><i class="fas fa-flask mr-1"></i>TEST</span>';
+                }
+                if (article.isUpsell) {
+                    rowBg = 'bg-green-50';
+                    badgeHtml += '<span class="inline-flex items-center px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold mr-2"><i class="fas fa-arrow-up mr-1"></i>UPSELL</span>';
+                }
+                tr.className = rowBg;
+
+                const prixActuel = (typeof article.prix_actuel === 'number' ? article.prix_actuel : (article.prix_unitaire || 0));
+                const stock = (typeof article.qte_disponible === 'number' ? article.qte_disponible : (parseInt(article.qte_disponible || '0') || 0));
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3">
+                        <div class="flex items-start space-x-4">
+                            <!-- Image de l'article -->
+                            <div class="flex-shrink-0">
+                                <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                                    ${article.image_url ? 
+                                        `<img src="${article.image_url}" alt="Image de ${article.nom}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-200" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : 
+                                        ''
+                                    }
+                                    <div class="w-full h-full flex items-center justify-center text-gray-400 ${article.image_url ? 'hidden' : ''}">
+                                        <i class="fas fa-image text-xl"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Informations de l'article -->
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-gray-900">${article.nom || ''}</div>
+                                <div class="text-xs text-gray-500">Réf: ${article.reference || '-'}</div>
+                                <div class="mt-1">${badgeHtml}</div>
+                                <div class="mt-1 flex flex-wrap gap-2 text-xs">
+                                    ${article.pointure ? `<span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class="fas fa-ruler-vertical mr-1"></i>${article.pointure}</span>` : ''}
+                                    ${article.couleur ? `<span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full"><i class="fas fa-palette mr-1"></i>${article.couleur}</span>` : ''}
+                                    ${typeof article.categorie === 'string' ? `<span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full"><i class="fas fa-tag mr-1"></i>${article.categorie}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-center font-semibold text-green-600">${prixActuel} DH</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium ${stock <= 0 ? 'bg-red-100 text-red-700' : (stock < 5 ? 'bg-orange-100 text-orange-700' : 'bg-teal-100 text-teal-700')}">
+                            ${stock <= 0 ? 'Épuisé' : stock + ' unités'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center justify-center gap-2">
+                            <button type="button" class="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded" onclick="changerQteLigne(this,-1)">-</button>
+                            <input type="number" min="1" value="1" class="w-16 text-center border rounded px-2 py-1" />
+                            <button type="button" class="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded" onclick="changerQteLigne(this,1)">+</button>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <button type="button" class="px-3 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg" onclick="ajouterDepuisLigne(this)">
+                            <i class="fas fa-plus mr-1"></i>Ajouter
+                        </button>
+                    </td>`;
+                tableBody.appendChild(tr);
+                articlesAffiches++;
+                
+            } catch (error) {
+                console.error(`❌ Erreur lors de l'ajout de l'article filtré ${index + 1}:`, error);
+            }
+        }
+    });
+    
+    console.log(`📊 Filtrage terminé: ${articlesAffiches} article(s) affiché(s) sur ${articlesDisponibles.length} total`);
+}
+
+// Fonction pour vérifier si un article correspond au filtre
+function correspondAuFiltre(article, typeFiltre) {
+    switch (typeFiltre) {
+        case 'promo':
+            return article.has_promo_active === true;
+        case 'liquidation':
+            return article.phase === 'LIQUIDATION';
+        case 'test':
+            return article.phase === 'EN_TEST';
+        case 'upsell':
+            return article.isUpsell === true;
+        default:
+            return true;
+    }
+}
+
+// Fonction pour compter les articles par type
+function compterArticlesParType(typeFiltre) {
+    if (!articlesDisponibles) return 0;
+    
+    if (typeFiltre === 'all') {
+        return articlesDisponibles.length;
+    }
+    
+    return articlesDisponibles.filter(article => correspondAuFiltre(article, typeFiltre)).length;
+}
+
+// Fonction pour changer la quantité dans une ligne
+function changerQteLigne(button, delta) {
+    const input = button.parentNode.querySelector('input[type="number"]');
+    if (input) {
+        let newValue = parseInt(input.value) + delta;
+        if (newValue < 1) newValue = 1;
+        input.value = newValue;
+    }
+}
+
+// Fonction pour ajouter un article depuis une ligne du tableau
+function ajouterDepuisLigne(button) {
+    const row = button.closest('tr');
+    const articleData = JSON.parse(row.dataset.article || '{}');
+    const quantiteInput = row.querySelector('input[type="number"]');
+    const quantite = quantiteInput ? parseInt(quantiteInput.value) || 1 : 1;
+    
+    console.log('➕ Ajout d\'article:', {
+        article: articleData.nom,
+        quantite: quantite,
+        prix: articleData.prix_actuel
+    });
+    
+    // Ajouter au panier (fonction existante)
+    ajouterAuPanier(articleData.id, quantite);
+    
+    // Notification de succès
+    showNotification(`✅ ${articleData.nom} ajouté au panier (${quantite} unité${quantite > 1 ? 's' : ''})`, 'success');
+}
+
+// Fonction pour ajouter un article au panier (compatible avec le système existant)
+function ajouterAuPanier(articleId, quantite) {
+    // Récupérer les informations de l'article depuis le select
+    const articleSelect = document.getElementById('article-select');
+    const selectedOption = articleSelect.querySelector(`option[value="${articleId}"]`);
+    
+    if (!selectedOption) {
+        console.error('❌ Article non trouvé dans le select:', articleId);
+        return;
+    }
+    
+    const articleNom = selectedOption.text.split(' (')[0];
+    const articleRef = selectedOption.text.match(/\(([^)]+)\)/)?.[1] || '';
+    const articlePrix = parseFloat(selectedOption.dataset.prix) || 0;
+    
+    // Utiliser la fonction existante pour ajouter au panier
+    ajouterArticleAuPanier(articleId, articleNom, articleRef, articlePrix, quantite);
+}
+
+// Fonction modifiée pour ajouter un article au panier avec quantité
+function ajouterArticleAuPanier(id, nom, reference, prix, quantiteInitiale = 1) {
+    // Afficher le conteneur du panier s'il était caché
+    const panierItemsContainer = document.getElementById('panier-items-container');
+    if (panierItemsContainer) {
+        panierItemsContainer.classList.remove('hidden');
+    }
+    
+    const panierItems = document.getElementById('panierItems');
+    if (!panierItems) {
+        console.error('❌ Conteneur du panier introuvable');
+        return;
+    }
+    
+    // Vérifier si l'article est déjà dans le panier
+    const existingArticle = panierItems.querySelector(`[data-article-id="${id}"]`);
+    if (existingArticle) {
+        // Si l'article existe déjà, augmenter la quantité
+        const quantiteInput = existingArticle.querySelector('.quantite-input');
+        if (quantiteInput) {
+            const currentQte = parseInt(quantiteInput.value) || 1;
+            quantiteInput.value = currentQte + quantiteInitiale;
+            quantiteInput.dispatchEvent(new Event('change'));
+        }
+        return;
+    }
+    
+    // Créer un élément pour l'article
+    const articleElement = document.createElement('div');
+    articleElement.className = 'panier-item';
+    articleElement.dataset.articleId = id;
+    
+    // Générer un ID unique pour cet article dans le panier
+    const uniqueId = `article_${Date.now()}`;
+    
+    articleElement.innerHTML = `
+        <div class="flex justify-between items-center">
+            <div class="flex-1">
+                <div class="font-semibold">${nom}</div>
+                <div class="text-xs text-gray-200">Réf: ${reference}</div>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="number" min="1" value="${quantiteInitiale}" class="quantite-input w-16 p-1 text-center rounded bg-white/90 text-gray-800" 
+                       data-price="${prix}" data-article-id="${id}">
+                <div class="text-sm font-semibold whitespace-nowrap">${prix.toFixed(2)} DH</div>
+                <button type="button" class="btn-action btn-danger remove-article">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        <input type="hidden" name="article_id" value="${id}">
+        <input type="hidden" name="quantite" value="${quantiteInitiale}">
+    `;
+    
+    // Ajouter l'élément au panier
+    panierItems.appendChild(articleElement);
+    
+    // Ajouter les écouteurs d'événements pour la quantité et la suppression
+    const quantiteInput = articleElement.querySelector('.quantite-input');
+    quantiteInput.addEventListener('change', function() {
+        // Mettre à jour la valeur dans le champ caché
+        const hiddenInput = articleElement.querySelector('input[name="quantite"]');
+        hiddenInput.value = this.value;
+        calculerTotal();
+    });
+    
+    const removeButton = articleElement.querySelector('.remove-article');
+    removeButton.addEventListener('click', function() {
+        articleElement.remove();
+        calculerTotal();
+        
+        // Cacher le conteneur si le panier est vide
+        if (panierItems.children.length === 0 && panierItemsContainer) {
+            panierItemsContainer.classList.add('hidden');
+        }
+    });
+    
+    // Calculer le total
+    calculerTotal();
+}
+
+// Fonction pour afficher des notifications
+function showNotification(message, type = 'info', duration = 3000) {
+    try {
+        const notification = document.createElement('div');
+        
+        // Déterminer les couleurs selon le type
+        let bgColor = 'bg-blue-500'; // info par défaut
+        if (type === 'success') bgColor = 'bg-green-500';
+        else if (type === 'error') bgColor = 'bg-red-500';
+        else if (type === 'warning') bgColor = 'bg-yellow-500';
+        
+        notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white text-sm z-50 transition-all duration-300 ${bgColor} max-w-sm`;
+        notification.style.whiteSpace = 'pre-line';
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Supprimer après la durée déterminée
+        setTimeout(() => {
+            try {
+                if (notification && notification.parentNode) {
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        try {
+                            if (notification && notification.parentNode) {
+                                document.body.removeChild(notification);
+                            }
+                        } catch (error) {
+                            console.warn('⚠️ Erreur lors de la suppression de la notification:', error);
+                        }
+                    }, 300);
+                }
+            } catch (error) {
+                console.warn('⚠️ Erreur lors de la modification de l\'opacité de la notification:', error);
+            }
+        }, duration);
+    } catch (error) {
+        console.error('❌ Erreur lors de la création de la notification:', error);
+        alert(message);
+    }
+}
+
+
+function rechercherArticles(terme) {
+    const value = (terme || '').toString().toLowerCase();
+    const rows = document.querySelectorAll('#articlesTableBody tr');
+    rows.forEach(row => {
+        try {
+            const article = JSON.parse(row.dataset.article || '{}');
+            const cible = [article.nom, article.reference, article.couleur, article.pointure, article.categorie]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+            row.style.display = !value || cible.includes(value) ? '' : 'none';
+        } catch (_) {}
+    });
+}
+
+// Initialisation au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initialisation du système de filtrage des articles...');
+    chargerArticlesDisponibles();
+});
 </script>
 {% endblock %}
 
