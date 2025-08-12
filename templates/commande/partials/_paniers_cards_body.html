@@ -1,0 +1,104 @@
+{% for panier in page_obj %}
+<div class="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 border border-gray-100 overflow-hidden">
+    <!-- Header de la card avec info commande -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b border-gray-100">
+        <div class="flex justify-between items-center">
+            <div>
+                <h3 class="font-bold text-gray-800 text-sm">{{ panier.commande.id_yz }}</h3>
+                {% if panier.commande.num_cmd %}
+                <p class="text-xs text-gray-500">({{ panier.commande.num_cmd }})</p>
+                {% endif %}
+            </div>
+            <div class="text-right">
+                {% if panier.commande.etat_actuel %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium" 
+                      style="background-color: {{ panier.commande.etat_actuel.enum_etat.couleur }}20; color: {{ panier.commande.etat_actuel.enum_etat.couleur }};">
+                    {{ panier.commande.etat_actuel.enum_etat.libelle }}
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    Nouveau
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Image et info produit -->
+    <div class="p-4">
+        <div class="flex items-start space-x-3 mb-3">
+            <div class="flex-shrink-0">
+                {% if panier.article.image %}
+                <img class="w-16 h-16 rounded-lg object-cover shadow-md" src="{{ panier.article.image.url }}" alt="{{ panier.article.nom }}">
+                {% else %}
+                <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-md">
+                    <i class="fas fa-box text-gray-500 text-xl"></i>
+                </div>
+                {% endif %}
+            </div>
+            <div class="flex-1">
+                <h4 class="font-semibold text-gray-800 text-sm leading-tight mb-1">{{ panier.article.nom }}</h4>
+                <p class="text-xs text-gray-500 mb-1">{{ panier.article.reference }}</p>
+                {% if panier.article.couleur or panier.article.pointure %}
+                <div class="flex items-center space-x-2 text-xs text-gray-400">
+                    {% if panier.article.couleur %}
+                    <span class="bg-gray-100 px-2 py-1 rounded">{{ panier.article.couleur }}</span>
+                    {% endif %}
+                    {% if panier.article.pointure %}
+                    <span class="bg-gray-100 px-2 py-1 rounded">{{ panier.article.pointure }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Info client -->
+        <div class="bg-gray-50 rounded-lg p-3 mb-3">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 flex items-center justify-center">
+                    <i class="fas fa-user text-blue-600 text-sm"></i>
+                </div>
+                <div>
+                    <p class="font-medium text-gray-800 text-sm">{{ panier.commande.client.nom }} {{ panier.commande.client.prenom }}</p>
+                    <p class="text-xs text-gray-500">{{ panier.commande.client.numero_tel }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quantité et prix -->
+        <div class="flex justify-between items-center mb-3">
+            <div class="text-center">
+                <p class="text-xs text-gray-500 mb-1">Quantité</p>
+                <span class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 rounded-full text-sm font-bold">
+                    {{ panier.quantite }}
+                </span>
+            </div>
+            <div class="text-center">
+                <p class="text-xs text-gray-500 mb-1">Prix Unit.</p>
+                <p class="font-semibold text-gray-800 text-sm">{{ panier.article.prix_unitaire|floatformat:2 }} DH</p>
+            </div>
+            <div class="text-center">
+                <p class="text-xs text-gray-500 mb-1">Total</p>
+                <p class="font-bold text-lg" style="color: var(--admin-color);">{{ panier.sous_total|floatformat:2 }} DH</p>
+            </div>
+        </div>
+
+        <!-- Date -->
+        <div class="text-center mb-3">
+            <p class="text-xs text-gray-500">{{ panier.commande.date_cmd|date:"d/m/Y" }} à {{ panier.commande.date_creation|date:"H:i" }}</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-center space-x-2">
+            <a href="{% url 'commande:detail' panier.commande.pk %}" 
+               class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium py-2 px-3 rounded-lg transition-colors text-center">
+                <i class="fas fa-eye mr-1"></i>Voir
+            </a>
+            <a href="{% url 'commande:modifier' panier.commande.pk %}" 
+               class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-medium py-2 px-3 rounded-lg transition-colors text-center">
+                <i class="fas fa-edit mr-1"></i>Modifier
+            </a>
+        </div>
+    </div>
+</div>
+{% endfor %}

@@ -246,6 +246,7 @@
                 </tr>
             </thead>
             <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
+            <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
                 {% for commande in page_obj %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-4 whitespace-nowrap">
@@ -344,19 +345,106 @@
         </table>
     </div>
 
-    <!-- Pagination -->
+    <!-- Contrôles de pagination flexible (style Excel) -->
+    <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 transition-all duration-300 hover:shadow-xl">
+        <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+            <!-- Section Éléments par page -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-list-ol text-sm" style="color: var(--admin-color);"></i>
+                    <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                </div>
+                <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                    <option value="10" {% if items_per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                    <option value="250" {% if items_per_page == 250 %}selected{% endif %}>250</option>
+                    <option value="500" {% if items_per_page == 500 %}selected{% endif %}>500</option>
+                    <option value="1000" {% if items_per_page == 1000 %}selected{% endif %}>1000</option>
+                    <option value="2500" {% if items_per_page == 2500 %}selected{% endif %}>2500</option>
+                    <option value="5000" {% if items_per_page == 5000 %}selected{% endif %}>5000</option>
+                    <option value="10000" {% if items_per_page == 10000 %}selected{% endif %}>10000</option>
+                    <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                </select>
+            </div>
+            
+            <!-- Section Plage personnalisée -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-arrows-alt-h text-sm" style="color: var(--admin-color);"></i>
+                    <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                </div>
+                <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                        <span class="text-gray-500 text-xs font-medium">à</span>
+                        <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-check mr-1"></i>Appliquer
+                        </button>
+                        <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-times mr-1"></i>Effacer
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section Statistiques -->
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                    <i class="fas fa-chart-bar text-sm" style="color: var(--admin-color);"></i>
+                    <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> commandes non affectées</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Indicateur de statut -->
+        <div class="mt-3 pt-3 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs text-gray-600">Pagination active</span>
+                    </div>
+                    {% if start_range and end_range %}
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-filter text-xs text-blue-500"></i>
+                        <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                    <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination améliorée -->
     {% if page_obj.has_other_pages %}
-    <div class="flex justify-center mt-8">
-        <nav aria-label="Navigation des commandes">
+    <div id="paginationControls" class="flex justify-center mt-6">
+        <nav aria-label="Navigation des commandes" class="bg-white rounded-xl shadow-lg border border-gray-100 p-4">
             <ul class="flex items-center -space-x-px">
             {% if page_obj.has_previous %}
                 <li>
-                    <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                    <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                       class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                       style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
                         <i class="fas fa-angle-double-left"></i>
                     </a>
                 </li>
                 <li>
-                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                       class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                       style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
                         <i class="fas fa-angle-left"></i>
                     </a>
                 </li>
@@ -365,23 +453,29 @@
             {% for num in page_obj.paginator.page_range %}
                 {% if page_obj.number == num %}
                     <li>
-                        <span class="px-3 py-2 leading-tight text-white border" style="background-color: var(--admin-color); border-color: var(--admin-color);">{{ num }}</span>
+                        <span class="px-3 py-2 leading-tight text-white border font-semibold" style="background-color: var(--admin-color); border-color: var(--admin-color);">{{ num }}</span>
                     </li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                     <li>
-                        <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">{{ num }}</a>
+                        <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                           class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                           style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">{{ num }}</a>
                     </li>
                 {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
                 <li>
-                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                       class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                       style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
                         <i class="fas fa-angle-right"></i>
                     </a>
                 </li>
                 <li>
-                    <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                       class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                       style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
                         <i class="fas fa-angle-double-right"></i>
                     </a>
                 </li>
@@ -389,14 +483,12 @@
             </ul>
         </nav>
     </div>
+    {% endif %}
 
     <!-- Informations de pagination -->
-    <div class="flex justify-center mt-4">
-        <div class="text-sm text-gray-600">
-            Affichage de {{ page_obj.start_index }} à {{ page_obj.end_index }} sur {{ page_obj.paginator.count }} commandes non affectées.
-        </div>
+    <div id="paginationInfoContainer">
+        {% include 'commande/partials/_non_affectees_pagination_info.html' %}
     </div>
-    {% endif %}
     {% endif %}
 </div>
 
@@ -499,6 +591,17 @@
 let currentCommandeId = null;
 let selectedOperateurId = null;
 
+// Déclarations de variables globales pour les éléments DOM
+const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+const startRangeInput = document.getElementById('startRangeInput');
+const endRangeInput = document.getElementById('endRangeInput');
+const applyRangeBtn = document.getElementById('applyRangeBtn');
+const clearRangeBtn = document.getElementById('clearRangeBtn');
+const commandTableBody = document.getElementById('commandTableBody');
+const paginationControlsContainer = document.getElementById('paginationControls'); // Renommé pour éviter le conflit
+
+const searchInput = document.querySelector('input[name="search"]');
+
 // Fonction pour afficher des toasts élégants
 function showToast(message, type = 'info') {
     // Supprimer les anciens toasts
@@ -550,6 +653,15 @@ function showToast(message, type = 'info') {
     }, 5000);
 }
 
+                // Fonctions de chargement simples comme dans la page Liste des Commandes
+        function showLoading() {
+            // Pas d'indicateur de chargement pour une expérience plus fluide
+        }
+
+        function hideLoading() {
+            // Pas d'indicateur de chargement pour une expérience plus fluide
+}
+
 // Données des opérateurs depuis Django
 const operateursData = {
     'CONFIRMATION': [
@@ -564,11 +676,88 @@ const operateursData = {
     ]
 };
 
-// Gestion de la sélection multiple pour l'affectation
-document.addEventListener('DOMContentLoaded', function() {
+// Fonction pour charger les données via AJAX (simplifiée comme dans Liste des Commandes)
+async function loadNonAffecteesData(params = {}) {
+    const url = new URL(window.location.origin + window.location.pathname);
+    
+    // Ajouter les paramètres de recherche existants
+    if (searchInput && searchInput.value) {
+        url.searchParams.set('search', searchInput.value);
+    }
+
+    // Ajouter les nouveaux paramètres de pagination
+    Object.keys(params).forEach(key => {
+        if (params[key] !== null && params[key] !== '') {
+            url.searchParams.set(key, params[key]);
+        } else {
+            url.searchParams.delete(key);
+        }
+    });
+
+    try {
+        const response = await fetch(url.toString(), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Mettre à jour le contenu du tableau
+        if (commandTableBody) {
+            commandTableBody.innerHTML = data.html_table_body;
+        }
+        
+        // Mettre à jour la pagination
+        if (paginationControlsContainer) {
+            paginationControlsContainer.innerHTML = data.html_pagination;
+        }
+        
+        // Mettre à jour les informations de pagination
+        const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+        if (paginationInfoContainer && data.html_pagination_info) {
+            paginationInfoContainer.innerHTML = data.html_pagination_info;
+        }
+
+        // Mettre à jour l'URL sans recharger la page
+        window.history.pushState({}, '', url.toString());
+
+        // Réinitialiser les checkboxes et ré-attacher les event listeners
+        initializeCheckboxes();
+        attachPaginationListeners();
+
+    } catch (error) {
+        console.error('Erreur lors du chargement des données:', error);
+        showToast('Erreur lors du chargement des données: ' + error.message, 'error');
+    }
+}
+
+// Fonction pour réinitialiser les checkboxes et leurs écouteurs
+function initializeCheckboxes() {
     const selectAllCheckbox = document.getElementById('selectAllCommandes');
     const commandeCheckboxes = document.querySelectorAll('.commande-checkbox');
     const bulkAffectBtn = document.getElementById('bulkAffectBtn');
+
+    // Supprimer les anciens écouteurs avant d'en ajouter de nouveaux pour éviter les duplications
+    if (selectAllCheckbox) {
+        selectAllCheckbox.removeEventListener('change', handleSelectAllChange);
+        selectAllCheckbox.checked = false; // Réinitialiser l'état
+    }
+    commandeCheckboxes.forEach(checkbox => {
+        checkbox.removeEventListener('change', updateBulkButtons);
+        checkbox.checked = false; // Réinitialiser l'état
+    });
+
+    function handleSelectAllChange() {
+        commandeCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        updateBulkButtons();
+    }
 
     function updateBulkButtons() {
         const checkedCount = document.querySelectorAll('.commande-checkbox:checked').length;
@@ -582,19 +771,45 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-            commandeCheckboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
-            });
-            updateBulkButtons();
-        });
+        selectAllCheckbox.addEventListener('change', handleSelectAllChange);
     }
-
-    commandeCheckboxes.forEach(checkbox => {
+            commandeCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', updateBulkButtons);
     });
+    updateBulkButtons(); // Mettre à jour l'état initial des boutons
+}
 
-    // Actions en masse - seulement affectation
+
+// Fonction pour attacher les event listeners à la pagination
+function attachPaginationListeners() {
+    // Supprimer les anciens écouteurs avant d'en ajouter de nouveaux
+    document.querySelectorAll('#paginationControls a').forEach(link => {
+        link.removeEventListener('click', handlePaginationClick);
+    });
+
+    // Ajouter les nouveaux écouteurs
+    document.querySelectorAll('#paginationControls a').forEach(link => {
+        link.addEventListener('click', handlePaginationClick);
+    });
+}
+
+        // Fonction pour gérer les clics sur la pagination
+        function handlePaginationClick(e) {
+            e.preventDefault();
+            const url = new URL(this.href);
+            const page = url.searchParams.get('page');
+            // Récupérer tous les paramètres de l'URL actuelle et ajouter/modifier la page
+            const currentParams = new URLSearchParams(window.location.search);
+            currentParams.set('page', page);
+            // Pagination instantanée sans indicateur de chargement
+            loadNonAffecteesData(Object.fromEntries(currentParams));
+        }
+
+
+// Exécuté une seule fois au chargement initial de la page
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestion de la sélection multiple pour l'affectation (initialisation DOMContentLoaded)
+    const bulkAffectBtn = document.getElementById('bulkAffectBtn');
     if (bulkAffectBtn) {
         bulkAffectBtn.addEventListener('click', function() {
             const selectedIds = Array.from(document.querySelectorAll('.commande-checkbox:checked'))
@@ -604,6 +819,125 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Gestion du changement d'éléments par page
+    if (itemsPerPageSelect) {
+        itemsPerPageSelect.addEventListener('change', function() {
+            const selectedValue = this.value;
+            loadNonAffecteesData({
+                'items_per_page': selectedValue,
+                'start_range': '',
+                'end_range': '',
+                'page': '1' // Toujours revenir à la première page lors du changement d'éléments par page
+            });
+        });
+    }
+
+    // Gestion de l'application de la plage personnalisée
+    if (applyRangeBtn) {
+        applyRangeBtn.addEventListener('click', function() {
+            const startRange = startRangeInput.value.trim();
+            const endRange = endRangeInput.value.trim();
+            
+            if (!startRange || !endRange) {
+                showToast('Veuillez remplir les deux champs de plage', 'warning');
+                return;
+            }
+            
+            const start = parseInt(startRange);
+            const end = parseInt(endRange);
+            
+            if (isNaN(start) || isNaN(end)) {
+                showToast('Veuillez entrer des nombres valides', 'warning');
+                return;
+            }
+            
+            if (start <= 0 || end <= 0) {
+                showToast('Les valeurs doivent être supérieures à 0', 'warning');
+                return;
+            }
+            
+            if (start > end) {
+                showToast('La valeur de début doit être inférieure à la valeur de fin', 'warning');
+                return;
+            }
+            
+            loadNonAffecteesData({
+                'start_range': start,
+                'end_range': end,
+                'items_per_page': '10', // Réinitialiser à 10 pour la plage personnalisée
+                'page': '1' // Toujours revenir à la première page lors de l'application de la plage
+            });
+        });
+    }
+
+    // Gestion de l'effacement de la plage personnalisée
+    if (clearRangeBtn) {
+        clearRangeBtn.addEventListener('click', function() {
+            startRangeInput.value = '';
+            endRangeInput.value = '';
+            loadNonAffecteesData({
+                'start_range': '',
+                'end_range': '',
+                'items_per_page': '10',
+                'page': '1'
+            });
+        });
+    }
+
+    // Gestion de la touche Entrée dans les champs de plage
+    [startRangeInput, endRangeInput].forEach(input => {
+        if (input) {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyRangeBtn.click();
+                }
+            });
+        }
+    });
+
+    // Validation en temps réel des champs de plage
+    [startRangeInput, endRangeInput].forEach(input => {
+        if (input) {
+            input.addEventListener('input', function() {
+                const value = this.value;
+                if (value && !/^\d+$/.test(value)) {
+                    this.classList.add('border-red-500');
+                } else {
+                    this.classList.remove('border-red-500');
+                }
+            });
+        }
+    });
+
+    // Animation des contrôles de pagination
+    const paginationControlsElement = document.querySelector('.bg-white.rounded-xl.shadow-lg');
+    if (paginationControlsElement) {
+        paginationControlsElement.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
+        });
+        
+        paginationControlsElement.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+        });
+    }
+
+                // Event listener for search input for dynamic updates, with a debounce for performance
+            let searchTimeout;
+            if (searchInput) {
+                searchInput.addEventListener('keyup', () => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        loadNonAffecteesData({ 'page': '1' }); // Reset to page 1 on search change
+                    }, 300); // Même délai que dans Liste des Commandes
+                });
+            }
+    
+    // Initialiser les checkboxes et attacher les event listeners au chargement initial
+    initializeCheckboxes();
+    attachPaginationListeners();
 });
 
 // Fonctions pour les actions

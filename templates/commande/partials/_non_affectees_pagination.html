@@ -1,0 +1,56 @@
+{% if page_obj.has_other_pages %}
+<div class="flex justify-center mt-6">
+    <nav aria-label="Navigation des commandes" class="bg-white rounded-xl shadow-lg border border-gray-100 p-4">
+        <ul class="flex items-center -space-x-px">
+        {% if page_obj.has_previous %}
+            <li>
+                <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                   class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                   style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+            </li>
+            <li>
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                   class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                   style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+            </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li>
+                    <span class="px-3 py-2 leading-tight text-white border font-semibold" style="background-color: var(--admin-color); border-color: var(--admin-color);">{{ num }}</span>
+                </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li>
+                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                       class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                       style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">{{ num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <li>
+                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                   class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                   style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+            </li>
+            <li>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
+                   class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
+                   style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            </li>
+        {% endif %}
+        </ul>
+    </nav>
+</div>
+
+{% endif %}

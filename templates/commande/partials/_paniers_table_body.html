@@ -1,0 +1,58 @@
+{% for panier in page_obj %}
+<tr class="panier-card hover:bg-gray-50 transition-colors">
+    <td class="px-4 py-3 text-sm text-gray-900 border-r border-b border-gray-200">
+        <div class="font-medium">{{ panier.commande.id_yz }}</div>
+        {% if panier.commande.num_cmd %}
+        <div class="text-xs text-gray-500">({{ panier.commande.num_cmd }})</div>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 text-sm text-gray-900 border-r border-b border-gray-200">
+        <div class="font-medium">{{ panier.commande.client.nom }} {{ panier.commande.client.prenom }}</div>
+        <div class="text-xs text-gray-500">{{ panier.commande.client.numero_tel }}</div>
+    </td>
+    <td class="px-4 py-3 text-sm text-gray-900 border-r border-b border-gray-200">
+        <div class="font-medium">{{ panier.article.nom }}</div>
+        {% if panier.article.reference %}
+        <div class="text-xs text-gray-500">Réf: {{ panier.article.reference }}</div>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 text-sm font-medium text-center border-r border-b border-gray-200" style="color: var(--admin-color);">
+        {{ panier.quantite }}
+    </td>
+    <td class="px-4 py-3 text-sm text-gray-900 border-r border-b border-gray-200">
+        {{ panier.article.prix_unitaire|floatformat:2 }} DH
+    </td>
+    <td class="px-4 py-3 text-sm font-medium text-green-600 border-r border-b border-gray-200">
+        {{ panier.sous_total|floatformat:2 }} DH
+    </td>
+    <td class="px-4 py-3 text-sm border-r border-b border-gray-200">
+        {% if panier.commande.etat_actuel %}
+        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium" 
+              style="background-color: {{ panier.commande.etat_actuel.enum_etat.couleur }}20; color: {{ panier.commande.etat_actuel.enum_etat.couleur }};">
+            {{ panier.commande.etat_actuel.enum_etat.libelle }}
+        </span>
+        {% else %}
+        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            Nouveau
+        </span>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 text-sm text-gray-500 border-r border-b border-gray-200">
+        {{ panier.commande.date_cmd|date:"d/m/Y" }}
+    </td>
+    <td class="px-4 py-3 text-center border-r border-b border-gray-200">
+        <div class="flex justify-center space-x-2">
+            <a href="{% url 'commande:detail' panier.commande.pk %}" 
+               class="text-blue-600 hover:text-blue-800 transition-colors" 
+               title="Voir la commande">
+                <i class="fas fa-eye"></i>
+            </a>
+            <a href="{% url 'commande:modifier' panier.commande.pk %}" 
+               class="text-green-600 hover:text-green-800 transition-colors" 
+               title="Modifier la commande">
+                <i class="fas fa-edit"></i>
+            </a>
+        </div>
+    </td>
+</tr>
+{% endfor %}
