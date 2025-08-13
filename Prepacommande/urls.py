@@ -11,6 +11,7 @@ urlpatterns = [
     path('a-imprimer/', views.commandes_a_imprimer, name='commandes_a_imprimer'),
     path('en-preparation/', views.commandes_en_preparation, name='commandes_en_preparation'),
     path('livrees-partiellement/', views.commandes_livrees_partiellement, name='commandes_livrees_partiellement'),
+    path('retournees/', views.commandes_retournees, name='commandes_retournees'),
     path('profile/', views.profile_view, name='profile'),
     path('modifier-profile/', views.modifier_profile_view, name='modifier_profile'),
     path('changer-mot-de-passe/', views.changer_mot_de_passe_view, name='changer_mot_de_passe'),
@@ -26,6 +27,7 @@ urlpatterns = [
     path('api/commande/<int:commande_id>/panier/', views.api_panier_commande_prepa, name='api_panier_commande'),
     path('api/commande/<int:commande_id>/panier-livraison/', views.api_panier_commande_livraison, name='api_panier_commande_livraison'),
     path('api/commande/<int:commande_id>/articles-livree-partiellement/', views.api_articles_commande_livree_partiellement, name='api_articles_commande_livree_partiellement'),
+    path('api/traiter-commande-retournee/<int:commande_id>/', views.traiter_commande_retournee_api, name='traiter_commande_retournee_api'),
 
     # URL pour le diagnostic du compteur upsell
     path('commande/<int:commande_id>/diagnostiquer-compteur/', views.diagnostiquer_compteur, name='diagnostiquer_compteur'),

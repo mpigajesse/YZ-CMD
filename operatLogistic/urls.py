@@ -43,7 +43,7 @@ urlpatterns = [
     path('api/articles/', views.api_articles, name='api_articles'),
     path('api/commande/<int:commande_id>/panier/', views.api_panier_commande, name='api_panier_commande'),
     path('api/article/<int:article_id>/stock/', views.api_verifier_stock_article, name='api_verifier_stock_article'),
-    path('api/test-reintegration-stock/', views.api_test_reintegration_stock, name='api_test_reintegration_stock'),
+
     
     # URLs pour les listes SAV
     path('sav/reportees/', sav_views.commandes_reportees, name='commandes_reportees'),

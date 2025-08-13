@@ -95,13 +95,7 @@ def changer_etat_livraison(request, commande_id):
                 
                 details_supplementaires = f"\nType d'annulation : {type_annulation}"
                 
-                # Réincrémenter le stock si c'est une bonne annulation
-                if type_annulation == 'bonne':
-                    for panier in commande.paniers.all():
-                        article = panier.article
-                        article.stock += panier.quantite
-                        article.save()
-                        details_supplementaires += f"\nStock réincrémenté pour {article.nom} : +{panier.quantite}"
+
 
             # Créer le nouvel état avec le commentaire complet
             commentaire_complet = commentaire + details_supplementaires
@@ -510,7 +504,8 @@ def commandes_retournees(request):
                 'pointure': getattr(panier.article, 'pointure', ''),
                 'couleur': getattr(panier.article, 'couleur', ''),
                 'quantite_livree': panier.quantite,
-                'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0)
+                'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0),
+                'prix_actuel': float(getattr(panier.article, 'prix_actuel', 0.0) or 0.0)
             }
             for panier in commande.paniers.all()
         ]

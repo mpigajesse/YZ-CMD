@@ -351,6 +351,13 @@
                     {% for panier in paniers %}
                         <tr>
                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {% if panier.article.image_url %}
+                                    <img src="{{ panier.article.image_url }}" alt="{{ panier.article.nom }}" class="w-10 h-10 object-cover rounded-full mr-2">
+                                {% else %}
+                                    <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-500 mr-2">
+                                        <i class="fas fa-image"></i>
+                                    </span>
+                                {% endif %}
                                 {{ panier.article.nom }}
                                 {% if panier.article.reference %}
                                     <span class="text-xs text-gray-500 block">Réf: {{ panier.article.reference }}</span>
@@ -414,56 +421,8 @@
             <i class="fas fa-history mr-2"></i>Actions et Historique des États
         </h2>
         
-        <!-- Actions -->
-        <div class="mb-8 p-6 rounded-lg shadow-inner bg-gray-50">
-            <h3 class="text-xl font-bold mb-4 text-gray-700">Actions possibles</h3>
-            <form method="post" id="actionForm">
-                {% csrf_token %}
-                
-                {% if etat_preparation and not etat_preparation.date_fin and etat_preparation.enum_etat.libelle == 'À imprimer' %}
-                    <!-- Action: Commencer la préparation -->
-                    <button type="submit" name="action" value="commencer_preparation" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                        <i class="fas fa-play-circle text-2xl"></i>
-                        <div>
-                            Commencer la préparation
-                            <span class="block text-sm font-normal">Passe la commande à l'état "En préparation".</span>
-                        </div>
-                    </button>
-                {% elif etat_actuel.enum_etat.libelle == 'En préparation' %}
-                    <!-- Action: Marquer comme préparée -->
-                    <button type="submit" name="action" value="marquer_preparee" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                        <i class="fas fa-check-circle text-2xl"></i>
-                        <div>
-                            Marquer comme Préparée
-                            <span class="block text-sm font-normal">Finalise la préparation et la rend prête pour l'expédition.</span>
-                        </div>
-                    </button>
-                    
-                    <!-- Action: Signaler un problème -->
-                    <button type="button" onclick="showProblemModal()" class="mt-4 w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                        <i class="fas fa-exclamation-triangle text-2xl"></i>
-                        <div>
-                            Signaler un problème
-                            <span class="block text-sm font-normal">Renvoyer la commande à la confirmation si un article est défectueux.</span>
-                        </div>
-                    </button>
+    
 
-                {% elif etat_preparation.date_fin %}
-                     <!-- État: Déjà préparée -->
-                    <div class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-gray-200 text-gray-600">
-                        <i class="fas fa-check-double text-2xl text-green-500"></i>
-                        <div>
-                            Commande déjà préparée
-                            <span class="block text-sm font-normal">Cette commande a été marquée comme préparée.</span>
-                        </div>
-                    </div>
-                {% else %}
-                     <!-- Aucune action -->
-                     <p class="text-gray-500">Aucune action requise pour le moment.</p>
-                {% endif %}
-            </form>
-        </div>
-        
         <!-- Historique des états (timeline) -->
         <div class="space-y-4">
             {% for etat in etats_commande %}

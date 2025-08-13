@@ -223,6 +223,9 @@ def liste_prepa(request):
             etats__operateur=operateur_profile,
             etats__date_fin__isnull=True  # État actif (en cours)
         ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+    elif filter_type == 'retournees':
+        # Obsolète: rediriger vers la page dédiée
+        return redirect('Prepacommande:commandes_retournees')
     elif filter_type == 'affectees_admin':
         # Filtrer les commandes affectées directement par l'admin
         # Inclure les commandes en "À imprimer" ET "En préparation"
@@ -387,7 +390,9 @@ def liste_prepa(request):
     # Calculer les statistiques par type de commande
     stats_par_type = {
         'renvoyees_logistique': 0,
-        'livrees_partiellement': 0
+        'livrees_partiellement': 0,
+        'retournees': 0,
+        'affectees_admin': 0,
     }
     
     # Pour chaque commande, ajouter l'état précédent pour comprendre d'où elle vient
@@ -538,6 +543,7 @@ def liste_prepa(request):
     stats_par_type = {
         'renvoyees_logistique': 0,
         'livrees_partiellement': 0,
+        'retournees': 0,
         'affectees_admin': 0
     }
     
@@ -789,38 +795,30 @@ def commandes_livrees_partiellement(request):
         messages.error(request, "Votre profil opérateur n'existe pas.")
         return redirect('login')
 
-    # Récupérer les commandes de renvoi créées lors de livraisons partielles qui sont affectées à cet opérateur
-    # Ces commandes ont un num_cmd qui commence par "RENVOI-" et sont en état "En préparation"
+    # Nouvel objectif: récupérer les commandes livrées partiellement
+    # qui ont été préparées (envoyées à la logistique) par cet opérateur
+    # L'opérateur de préparation crée l'état 'En préparation', pas 'Préparée'
+    commandes_livrees_partiellement_qs = (
+        Commande.objects
+        .filter(etats__enum_etat__libelle='Livrée Partiellement')
+        .filter(etats__enum_etat__libelle='En préparation', etats__operateur=operateur_profile)
+        .select_related('client', 'ville', 'ville__region')
+        .prefetch_related('paniers__article', 'etats')
+        .distinct()
+    )
     
-    commandes_renvoi_livraison_partielle = Commande.objects.filter(
-        num_cmd__startswith='RENVOI-',
-        etats__enum_etat__libelle='En préparation',
-        etats__operateur=operateur_profile,
-        etats__date_fin__isnull=True
-    ).select_related('client', 'ville', 'ville__region').prefetch_related(
-        'paniers__article', 
-        'etats'
-    ).distinct()
+
     
-    print(f"DEBUG: {commandes_renvoi_livraison_partielle.count()} commandes de renvoi trouvées pour l'opérateur {operateur_profile.prenom} {operateur_profile.nom}")
-    
-    # Pour chaque commande de renvoi, récupérer la commande originale livrée partiellement
+    # Pour chaque commande originale, essayer de retrouver une éventuelle commande de renvoi associée
     commandes_livrees_partiellement = []
-    for commande_renvoi in commandes_renvoi_livraison_partielle:
-        # Extraire le numéro de commande original du num_cmd de renvoi
-        # Exemple: RENVOI-YCN-000013 -> YCN-000013
-        num_cmd_original = commande_renvoi.num_cmd.replace('RENVOI-', '')
-        
-        # Chercher la commande originale
-        commande_originale = Commande.objects.filter(
-            num_cmd=num_cmd_original,
-            etats__enum_etat__libelle='Livrée Partiellement'
+    for commande_originale in commandes_livrees_partiellement_qs:
+        commande_renvoi = Commande.objects.filter(
+            num_cmd__startswith=f"RENVOI-{commande_originale.num_cmd}",
+            client=commande_originale.client
         ).first()
-        
-        if commande_originale:
-            # Ajouter les informations de la commande de renvoi à la commande originale
+        if commande_renvoi:
             commande_originale.commande_renvoi = commande_renvoi
-            commandes_livrees_partiellement.append(commande_originale)
+        commandes_livrees_partiellement.append(commande_originale)
 
     # Les commandes sont déjà filtrées et pertinentes
     commandes_filtrees = commandes_livrees_partiellement
@@ -850,11 +848,137 @@ def commandes_livrees_partiellement(request):
         'page_title': 'Commandes Livrées Partiellement',
         'page_subtitle': 'Interface Opérateur de Préparation',
         'profile': operateur_profile,
-        'commandes': commandes_livrees_partiellement,
+        'commandes_livrees_partiellement': commandes_livrees_partiellement,
         'commandes_count': len(commandes_livrees_partiellement),
         'active_tab': 'livrees_partiellement'
     }
     return render(request, 'Prepacommande/commandes_livrees_partiellement.html', context)
+
+@login_required
+def commandes_retournees(request):
+    """Liste des commandes retournées (état actuel 'Retournée') préparées initialement par l'opérateur courant"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé. Vous n'êtes pas un opérateur de préparation.")
+            return redirect('login')
+    
+    except Operateur.DoesNotExist:
+        messages.error(request, "Votre profil opérateur n'existe pas.")
+        return redirect('login')
+
+    # Commandes dont l'état ACTUEL est 'Retournée' et qui ont été préparées par l'opérateur courant
+    # L'opérateur de préparation crée l'état 'En préparation', pas 'Préparée'
+    commandes_qs = (
+        Commande.objects
+        .filter(etats__enum_etat__libelle='Retournée', etats__date_fin__isnull=True)  # État actuel
+        .filter(etats__enum_etat__libelle='En préparation', etats__operateur=operateur_profile)
+        .select_related('client', 'ville', 'ville__region')
+        .prefetch_related('paniers__article', 'etats')
+        .distinct()
+    )
+
+    commandes = list(commandes_qs)
+    
+
+
+    # Enrichir avec méta d'état 'Retournée'
+    for commande in commandes:
+        etat_retour = commande.etats.filter(enum_etat__libelle='Retournée').order_by('-date_debut').first()
+        if etat_retour:
+            commande.date_retournee = etat_retour.date_debut
+            commande.commentaire_retournee = etat_retour.commentaire
+            commande.operateur_retour = etat_retour.operateur
+
+    context = {
+        'page_title': 'Commandes Retournées',
+        'page_subtitle': "Commandes renvoyées à la préparation (état 'Retournée')",
+        'profile': operateur_profile,
+        'commandes_retournees': commandes,
+        'commandes_count': len(commandes),
+        'active_tab': 'retournees',
+    }
+    return render(request, 'Prepacommande/commandes_retournees.html', context)
+
+
+@login_required
+def traiter_commande_retournee_api(request, commande_id):
+    """API pour traiter une commande retournée et gérer la réincrémentation du stock"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Méthode non autorisée'})
+    
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
+        
+        # Récupérer la commande
+        commande = get_object_or_404(Commande, id=commande_id)
+        
+        # Vérifier que la commande est bien retournée et préparée par cet opérateur
+        if not commande.etats.filter(
+            enum_etat__libelle='Retournée',
+            date_fin__isnull=True
+        ).exists():
+            return JsonResponse({'success': False, 'message': 'Commande non retournée'})
+        
+        if not commande.etats.filter(
+            enum_etat__libelle='En préparation',
+            operateur=operateur_profile
+        ).exists():
+            return JsonResponse({'success': False, 'message': 'Commande non préparée par vous'})
+        
+        # Récupérer les données de la requête
+        data = json.loads(request.body)
+        type_traitement = data.get('type_traitement')
+        etat_stock = data.get('etat_stock')
+        commentaire = data.get('commentaire')
+        
+        if not all([type_traitement, etat_stock, commentaire]):
+            return JsonResponse({'success': False, 'message': 'Données manquantes'})
+        
+        # Traitement selon le type
+        with transaction.atomic():
+            if type_traitement == 'repreparer':
+                # Ne pas changer l'état de la commande, elle reste "Retournée"
+                # Seulement réincrémenter le stock si les produits sont en bon état
+                if etat_stock == 'bon':
+                    for panier in commande.paniers.all():
+                        article = panier.article
+                        quantite = panier.quantite
+                        
+                        # Réincrémenter le stock disponible
+                        article.qte_disponible += quantite
+                        article.save()
+                        
+                        # Créer un mouvement de stock pour tracer
+                        from article.models import MouvementStock
+                        MouvementStock.objects.create(
+                            article=article,
+                            quantite=quantite,
+                            type_mouvement='entree',
+                            commentaire=f"Réincrémentation - Commande retournée {commande.id_yz} - Produits en bon état - {commentaire}",
+                            operateur=operateur_profile,
+                            qte_apres_mouvement=article.qte_disponible
+                        )
+                
+                message = f"Stock réincrémenté: {'Oui' if etat_stock == 'bon' else 'Non'}. Commande reste en état 'Retournée'."
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': message,
+                    'commande_id': commande.id
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'commande_id': commande.id
+            })
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+
 
 @login_required
 def profile_view(request):
@@ -979,10 +1103,25 @@ def detail_prepa(request, pk):
     commande_originale = None # Initialiser à None
     etat_articles_renvoyes = {} # Initialiser à un dictionnaire vide
 
-    # Ajouter le prix unitaire et le total de chaque ligne
+    # Ajouter le prix unitaire, le total de chaque ligne, et l'URL d'image si disponible
+    articles_image_urls = {}
     for panier in paniers:
         panier.prix_unitaire = panier.sous_total / panier.quantite if panier.quantite > 0 else 0
         panier.total_ligne = panier.sous_total
+        image_url = None
+        try:
+            # Protéger l'accès à .url si aucun fichier n'est associé
+            if getattr(panier.article, 'image', None):
+                # Certains backends lèvent une exception si l'image n'existe pas
+                if hasattr(panier.article.image, 'url'):
+                    image_url = panier.article.image.url
+        except Exception:
+            image_url = None
+        # Rendre accessible directement dans le template via panier.article.image_url
+        setattr(panier.article, 'image_url', image_url)
+        # Egalement disponible dans le context si nécessaire
+        if getattr(panier.article, 'id', None) is not None:
+            articles_image_urls[panier.article.id] = image_url
     
     # Récupérer tous les états de la commande pour afficher l'historique
     etats_commande = commande.etats.all().select_related('enum_etat', 'operateur').order_by('date_debut')
@@ -1237,6 +1376,7 @@ def detail_prepa(request, pk):
         'is_commande_livree_partiellement': is_commande_livree_partiellement,
         'articles_livres': articles_livres,
         'articles_renvoyes': articles_renvoyes,
+        'articles_image_urls': articles_image_urls,
         # Variables de debug/informations supplémentaires
         'commande_originale': commande_originale,
         'commande_renvoi': commande_renvoi,

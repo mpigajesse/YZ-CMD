@@ -1796,16 +1796,16 @@ def suivi_confirmations(request):
     from django.utils import timezone
     from datetime import datetime, timedelta
     
-    # Récupérer toutes les commandes confirmées par les opérateurs
-    commandes_confirmees = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
+    # Récupérer toutes les commandes EN COURS DE CONFIRMATION
+    commandes_en_cours = Commande.objects.filter(
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True
     ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
     
     # Recherche
     search_query = request.GET.get('search', '')
     if search_query:
-        commandes_confirmees = commandes_confirmees.filter(
+        commandes_en_cours = commandes_en_cours.filter(
             Q(id_yz__icontains=search_query) |
             Q(num_cmd__icontains=search_query) |
             Q(client__nom__icontains=search_query) |
@@ -1815,11 +1815,11 @@ def suivi_confirmations(request):
             Q(etats__operateur__prenom__icontains=search_query)
         ).distinct()
     
-    # Tri par date de confirmation (plus récentes en premier)
-    commandes_confirmees = commandes_confirmees.order_by('-etats__date_debut')
+    # Tri par date de début de confirmation (plus récentes en premier)
+    commandes_en_cours = commandes_en_cours.order_by('-etats__date_debut')
     
     # Pagination
-    paginator = Paginator(commandes_confirmees, 25)  # 25 commandes par page
+    paginator = Paginator(commandes_en_cours, 25)  # 25 commandes par page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -1828,21 +1828,21 @@ def suivi_confirmations(request):
     yesterday = today - timedelta(days=1)
     this_week = today - timedelta(days=7)
     
-    # Compter par période
-    confirmees_aujourd_hui = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
+    # Compter par période - commandes EN COURS DE CONFIRMATION
+    en_cours_aujourd_hui = Commande.objects.filter(
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True,
         etats__date_debut__date=today
     ).distinct().count()
     
-    confirmees_hier = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
+    en_cours_hier = Commande.objects.filter(
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True,
         etats__date_debut__date=yesterday
     ).distinct().count()
     
-    confirmees_semaine = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
+    en_cours_semaine = Commande.objects.filter(
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True,
         etats__date_debut__date__gte=this_week
     ).distinct().count()
@@ -1853,20 +1853,21 @@ def suivi_confirmations(request):
         etats__date_fin__isnull=True
     ).distinct().count()
     
-    # Montant total des commandes confirmées
-    montant_total = commandes_confirmees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    # Montant total des commandes en cours de confirmation
+    montant_total = commandes_en_cours.aggregate(total=Sum('total_cmd'))['total'] or 0
     
-    # Récupérer les opérateurs de préparation actifs
-    operateurs_preparation = Operateur.objects.filter(
-        type_operateur='PREPARATION',
+    # Récupérer les opérateurs de confirmation actifs
+    operateurs_confirmation = Operateur.objects.filter(
+        type_operateur='CONFIRMATION',
         actif=True
     ).order_by('nom', 'prenom')
     
     # Récupérer les commandes par opérateur
     commandes_par_operateur = {}
-    for commande in commandes_confirmees:
-        operateur = commande.etats.filter(enum_etat__libelle='Confirmée').first().operateur
-        if operateur:
+    for commande in commandes_en_cours:
+        etat_en_cours = commande.etats.filter(enum_etat__libelle='En cours de confirmation').first()
+        if etat_en_cours and etat_en_cours.operateur:
+            operateur = etat_en_cours.operateur
             if operateur.nom not in commandes_par_operateur:
                 commandes_par_operateur[operateur.nom] = []
             commandes_par_operateur[operateur.nom].append(commande)
@@ -1879,15 +1880,15 @@ def suivi_confirmations(request):
     }
     
     context = {
-        'commandes_confirmees': commandes_confirmees,
+        'commandes_en_cours': commandes_en_cours,
         'page_obj': page_obj,
         'search_query': search_query,
-        'confirmees_aujourd_hui': confirmees_aujourd_hui,
-        'confirmees_hier': confirmees_hier,
-        'confirmees_semaine': confirmees_semaine,
+        'en_cours_aujourd_hui': en_cours_aujourd_hui,
+        'en_cours_hier': en_cours_hier,
+        'en_cours_semaine': en_cours_semaine,
         'en_attente_count': en_attente_count,
         'montant_total': montant_total,
-        'operateurs_preparation': operateurs_preparation,
+        'operateurs_confirmation': operateurs_confirmation,
         'commandes_par_operateur': sorted(commandes_par_operateur.items()),
         'jours_verification': jours_verification,
     }
