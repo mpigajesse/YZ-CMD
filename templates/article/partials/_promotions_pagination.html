@@ -1,0 +1,50 @@
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-between bg-white px-4 py-3 sm:px-6 rounded-lg shadow-md mt-4">
+    <div class="flex flex-1 justify-between sm:hidden">
+            {% if page_obj.has_previous %}
+            <a href="javascript:void(0)" onclick="changePage({{ page_obj.previous_page_number }})" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+            <a href="javascript:void(0)" onclick="changePage({{ page_obj.next_page_number }})" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
+        {% endif %}
+    </div>
+    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+            <p class="text-sm text-gray-700">
+                Affiche de
+                <span class="font-medium">{{ page_obj.start_index }}</span>
+                à
+                <span class="font-medium">{{ page_obj.end_index }}</span>
+                sur
+                <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                résultats
+            </p>
+        </div>
+        <div>
+            <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+            {% if page_obj.has_previous %}
+                    <a href="javascript:void(0)" onclick="changePage({{ page_obj.previous_page_number }})" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                <span class="sr-only">Précédent</span>
+                        <i class="fas fa-chevron-left h-5 w-5"></i>
+            </a>
+            {% endif %}
+            
+            {% for i in page_obj.paginator.page_range %}
+                    {% if i == page_obj.number %}
+                    <span aria-current="page" class="relative z-10 inline-flex items-center bg-indigo-600 px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ i }}</span>
+                    {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                    <a href="javascript:void(0)" onclick="changePage({{ i }})" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">{{ i }}</a>
+                    {% endif %}
+                {% endfor %}
+                
+            {% if page_obj.has_next %}
+                    <a href="javascript:void(0)" onclick="changePage({{ page_obj.next_page_number }})" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                <span class="sr-only">Suivant</span>
+                        <i class="fas fa-chevron-right h-5 w-5"></i>
+            </a>
+            {% endif %}
+            </nav>
+        </div>
+    </div>
+</div>
+{% endif %}

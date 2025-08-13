@@ -1,0 +1,60 @@
+{% if page_obj.has_other_pages and page_obj.object_list %}
+<div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-6">
+    <div class="flex flex-1 justify-between sm:hidden">
+        {% if page_obj.has_previous %}
+            <button onclick="changePage({{ page_obj.previous_page_number }})" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</button>
+        {% endif %}
+        {% if page_obj.has_next %}
+            <button onclick="changePage({{ page_obj.next_page_number }})" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</button>
+        {% endif %}
+    </div>
+    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+            <p class="text-sm text-gray-700">
+                Affichage de <span class="font-medium">{{ page_obj.start_index }}</span> à <span class="font-medium">{{ page_obj.end_index }}</span> sur <span class="font-medium">{{ page_obj.paginator.count }}</span> résultats
+            </p>
+        </div>
+        <div>
+            <ul class="flex items-center -space-x-px">
+                {% if page_obj.has_previous %}
+                    <li>
+                        <button onclick="changePage(1)" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                            <i class="fas fa-angle-double-left"></i>
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="changePage({{ page_obj.previous_page_number }})" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                            <i class="fas fa-angle-left"></i>
+                        </button>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li>
+                            <span class="px-3 py-2 leading-tight text-white border" style="background-color: var(--admin-color); border-color: var(--admin-color);">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li>
+                            <button onclick="changePage({{ num }})" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">{{ num }}</button>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li>
+                        <button onclick="changePage({{ page_obj.next_page_number }})" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                            <i class="fas fa-angle-right"></i>
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="changePage({{ page_obj.paginator.num_pages }})" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                            <i class="fas fa-angle-double-right"></i>
+                        </button>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}

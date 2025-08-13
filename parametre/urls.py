@@ -8,6 +8,7 @@ app_name = 'app_admin'
 urlpatterns = [
     path('', views.dashboard, name='home'),
     path('operateurs/', views.liste_operateurs, name='liste_operateurs'),
+    path('operateurs/ajax/', views.liste_operateurs_ajax, name='liste_operateurs_ajax'),
     path('operateurs/creer/', views.creer_operateur, name='creer_operateur'),
     path('operateurs/detail/<int:pk>/', views.detail_operateur, name='detail_operateur'),
     

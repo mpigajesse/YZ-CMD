@@ -22,13 +22,22 @@ def is_admin(user):
 @user_passes_test(is_admin)
 def sync_dashboard(request):
     """Tableau de bord de synchronisation pour l'administrateur"""
+    from django.core.paginator import Paginator
+    
     configs = GoogleSheetConfig.objects.filter(is_active=True)
-    recent_logs = SyncLog.objects.all().order_by('-sync_date')[:10]
+    
+    # Pagination des logs récents - 5 par page
+    all_recent_logs = SyncLog.objects.all().order_by('-sync_date')
+    paginator = Paginator(all_recent_logs, 5)
+    page_number = request.GET.get('logs_page', 1)
+    recent_logs_page = paginator.get_page(page_number)
+    
     nb_erreurs = SyncLog.objects.filter(status='error').order_by('-sync_date')[:10].count()
     
     context = {
         'configs': configs,
-        'recent_logs': recent_logs,
+        'recent_logs': recent_logs_page,
+        'recent_logs_paginator': paginator,
         'nb_erreurs': nb_erreurs,
     }
     return render(request, 'synchronisation/dashboard.html', context)

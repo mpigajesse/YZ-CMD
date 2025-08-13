@@ -1,0 +1,55 @@
+{% load commande_filters %}
+{% for article in page_obj %}
+<div class="bg-white rounded-xl shadow-md border p-4 flex items-center gap-6" style="border-color: #e6fffe;">
+    <a href="{% url 'article:detail' article.id %}">
+        {% if article.image %}
+            <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-24 h-24 object-cover rounded-lg" onerror="this.onerror=null;this.src='/static/img/default.png';">
+        {% elif article.image_url %}
+            <img src="{{ article.image_url }}" alt="{{ article.nom }}" class="w-24 h-24 object-cover rounded-lg" onerror="this.onerror=null;this.src='/static/img/default.png';">
+        {% else %}
+            <div class="w-24 h-24 rounded-lg flex items-center justify-center" style="background-color: var(--admin-light-accent);">
+                <i class="fas fa-box-open text-[var(--admin-accent-color)] text-3xl opacity-70"></i>
+            </div>
+        {% endif %}
+    </a>
+    <div class="flex-grow">
+        <div class="flex justify-between items-start">
+        <h3 class="text-xl font-bold" style="color: #023535;">
+            <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a]">{{ article.nom }}</a>
+        </h3>
+            {% if article.has_promo_active %}
+            <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
+            {% endif %}
+        </div>
+        <p class="text-sm font-mono text-gray-500">{{ article.reference|default:'N/A' }}</p>
+        <div class="flex items-center gap-4 mt-1 text-sm">
+            <span><i class="fas fa-sitemap mr-1" style="color: #034a4a;"></i> {{ article.categorie }}</span>
+            <span><i class="fas fa-palette mr-1" style="color: #034a4a;"></i> {{ article.couleur }}</span>
+            <span><i class="fas fa-ruler-horizontal mr-1" style="color: #034a4a;"></i> {{ article.pointure }}</span>
+        </div>
+    </div>
+    <div class="flex items-center gap-4">
+        <div class="flex flex-col items-end">
+            {% with article|get_prix_avec_phase_simple as prix_info %}
+            <div class="text-xl font-bold {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</div>
+            <div class="text-xs {{ prix_info.couleur_classe }}">{{ prix_info.libelle }}</div>
+            {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
+                <div class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+            {% endif %}
+            {% endwith %}
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{% url 'article:detail' article.id %}" class="text-blue-500 hover:text-blue-700" title="Voir Détails">
+                <i class="fas fa-eye"></i>
+            </a>
+            <a href="{% url 'article:modifier' article.id %}" class="text-yellow-500 hover:text-yellow-700" title="Modifier">
+                <i class="fas fa-edit"></i>
+            </a>
+            <!-- Bouton pour ouvrir la modale de suppression -->
+            <button type="button" onclick="confirmDeleteArticle('{% url 'article:supprimer' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700" title="Supprimer">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endfor %}

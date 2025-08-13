@@ -82,10 +82,47 @@ def liste_articles(request):
             price_query                         # Recherche par prix
         ).distinct()
     
-    # Pagination
-    paginator = Paginator(articles, 12)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    # Gestion de la pagination flexible
+    items_per_page = request.GET.get('items_per_page', 12)
+    start_range = request.GET.get('start_range', '')
+    end_range = request.GET.get('end_range', '')
+    
+    # Conserver une copie des articles non paginés pour les statistiques
+    articles_non_pagines = articles
+    
+    # Gestion de la plage personnalisée
+    if start_range and end_range:
+        try:
+            start_idx = int(start_range) - 1  # Index commence à 0
+            end_idx = int(end_range)
+            if start_idx >= 0 and end_idx > start_idx:
+                articles = list(articles)[start_idx:end_idx]
+                # Créer un paginator factice pour la plage
+                paginator = Paginator(articles, len(articles))
+                page_obj = paginator.get_page(1)
+        except (ValueError, TypeError):
+            # En cas d'erreur, utiliser la pagination normale
+            items_per_page = 12
+            paginator = Paginator(articles, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        page_number = request.GET.get('page', 1)
+        if items_per_page == 'all':
+            # Afficher tous les articles
+            paginator = Paginator(articles, articles.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 12
+            except (ValueError, TypeError):
+                items_per_page = 12
+            
+            paginator = Paginator(articles, items_per_page)
+            page_obj = paginator.get_page(page_number)
     
     # Statistiques mises à jour selon les filtres appliqués
     all_articles = Article.objects.filter(actif=True)
@@ -104,6 +141,43 @@ def liste_articles(request):
         'articles_stock_faible': all_articles.filter(qte_disponible__gt=0, qte_disponible__lt=5).count(),
     }
     
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        
+        # Rendre les templates partiels pour AJAX
+        html_cards_body = render_to_string('article/partials/_articles_cards_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_table_body = render_to_string('article/partials/_articles_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('article/partials/_articles_pagination.html', {
+            'page_obj': page_obj,
+            'search': search,
+            'filtre_phase': filtre_phase,
+            'filtre_promotion': filtre_promotion,
+            'filtre_stock': filtre_stock,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('article/partials/_articles_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_cards_body': html_cards_body,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': articles_non_pagines.count()
+        })
+
     context = {
         'page_obj': page_obj,
         'search': search,
@@ -112,6 +186,9 @@ def liste_articles(request):
         'filtre_phase': filtre_phase,
         'filtre_promotion': filtre_promotion,
         'filtre_stock': filtre_stock,
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     return render(request, 'article/liste.html', context)
 
@@ -513,10 +590,47 @@ def liste_promotions(request):
             Q(description__icontains=search)
         )
     
-    # Pagination
-    paginator = Paginator(promotions, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    # Gestion de la pagination flexible
+    items_per_page = request.GET.get('items_per_page', 10)
+    start_range = request.GET.get('start_range', '')
+    end_range = request.GET.get('end_range', '')
+    
+    # Conserver une copie des promotions non paginées pour les statistiques
+    promotions_non_paginees = promotions
+    
+    # Gestion de la plage personnalisée
+    if start_range and end_range:
+        try:
+            start_idx = int(start_range) - 1  # Index commence à 0
+            end_idx = int(end_range)
+            if start_idx >= 0 and end_idx > start_idx:
+                promotions = list(promotions)[start_idx:end_idx]
+                # Créer un paginator factice pour la plage
+                paginator = Paginator(promotions, len(promotions))
+                page_obj = paginator.get_page(1)
+        except (ValueError, TypeError):
+            # En cas d'erreur, utiliser la pagination normale
+            items_per_page = 10
+            paginator = Paginator(promotions, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        page_number = request.GET.get('page', 1)
+        if items_per_page == 'all':
+            # Afficher toutes les promotions
+            paginator = Paginator(promotions, promotions.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 10
+            except (ValueError, TypeError):
+                items_per_page = 10
+            
+            paginator = Paginator(promotions, items_per_page)
+            page_obj = paginator.get_page(page_number)
     
     # Statistiques
     stats = {
@@ -537,12 +651,45 @@ def liste_promotions(request):
         ).distinct().count()
     }
     
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('article/partials/_promotions_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('article/partials/_promotions_pagination.html', {
+            'page_obj': page_obj,
+            'search': search,
+            'filtre': filtre,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('article/partials/_promotions_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': promotions_non_paginees.count()
+        })
+
     context = {
         'page_obj': page_obj,
         'stats': stats,
         'filtre': filtre,
         'search': search,
-        'form_promotion': form_promotion  # Renommer form en form_promotion pour correspondre au template
+        'form_promotion': form_promotion,
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     return render(request, 'article/liste_promotions.html', context)
 

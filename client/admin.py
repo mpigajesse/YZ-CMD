@@ -4,8 +4,9 @@ from .models import Client
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
     list_display = ('numero_tel', 'nom', 'prenom', 'email', 'date_creation', 'is_active')
-    list_filter = ('is_active', 'date_creation')
-    search_fields = ('numero_tel', 'nom', 'prenom', 'email')
+    # Suppression des filtres comme demandé
+    # list_filter = ('is_active', 'date_creation')
+    search_fields = ('numero_tel', 'nom', 'prenom', 'email', 'adresse')
     ordering = ('-date_creation',)
     readonly_fields = ('date_creation', 'date_modification')
     

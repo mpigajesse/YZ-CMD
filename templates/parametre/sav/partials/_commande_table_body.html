@@ -1,0 +1,89 @@
+{% for commande in page_obj %}
+<tr class="hover:bg-gray-50 transition-colors">
+    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {{ forloop.counter|add:page_obj.start_index|add:"-1" }}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        <div class="text-sm font-medium text-gray-900">{{ commande.id_yz }}</div>
+        <div class="text-sm text-gray-500">{{ commande.num_cmd }}</div>
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        <div class="text-sm font-medium text-gray-900">
+            {{ commande.client.prenom }} {{ commande.client.nom }}
+        </div>
+        <div class="text-sm text-gray-500">{{ commande.client.adresse|truncatechars:30 }}</div>
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {{ commande.client.numero_tel }}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+        <div class="text-sm text-gray-500">{{ commande.ville.region.nom_region }}</div>
+    </td>
+    <td class="px-6 py-4">
+        <div class="text-sm">
+            {% for panier in commande.paniers.all|slice:":2" %}
+                <div class="mb-1">
+                    <span class="font-medium">{{ panier.article.nom|truncatechars:20 }}</span>
+                    <span class="text-gray-500">({{ panier.quantite }}x)</span>
+                </div>
+            {% endfor %}
+            {% if commande.paniers.count > 2 %}
+                <div class="text-xs text-gray-500">+{{ commande.paniers.count|add:"-2" }} autre{{ commande.paniers.count|add:"-2"|pluralize }}</div>
+            {% endif %}
+        </div>
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+        {{ commande.total_cmd|floatformat:2 }} DH
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        {% with etat=commande.etat_actuel %}
+            {% if etat %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ color }}-100 text-{{ color }}-800">
+                    {{ etat.enum_etat.libelle }}
+                </span>
+            {% else %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    Aucun état
+                </span>
+            {% endif %}
+        {% endwith %}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {{ commande.date_cmd|date:"d/m/Y" }}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <div class="flex space-x-2">
+            <!-- Voir détail -->
+            <a href="{% url 'commande:detail' commande.id %}" 
+               class="text-blue-600 hover:text-blue-900 transition-colors"
+               title="Voir détail">
+                <i class="fas fa-eye"></i>
+            </a>
+            
+            <!-- Actions spécifiques selon le type -->
+            {% if title == "Commandes Retournées" %}
+                <!-- Créer nouvelle commande SAV -->
+                <button onclick="openSavModal({{ commande.id }}, '{{ commande.num_cmd }}')"
+                        class="text-green-600 hover:text-green-900 transition-colors"
+                        title="Créer commande SAV">
+                    <i class="fas fa-plus-circle"></i>
+                </button>
+            {% elif title == "Commandes Reportées" %}
+                <!-- Renvoyer en préparation -->
+                <button onclick="openPreparationModal({{ commande.id }}, '{{ commande.num_cmd }}')"
+                        class="text-orange-600 hover:text-orange-900 transition-colors"
+                        title="Renvoyer en préparation">
+                    <i class="fas fa-redo"></i>
+                </button>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="10" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        Aucune commande trouvée.
+    </td>
+</tr>
+{% endfor %}

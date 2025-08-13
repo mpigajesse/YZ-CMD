@@ -126,15 +126,15 @@
 
     <!-- Filtres et recherche -->
     <div class="bg-white rounded-xl shadow-md border p-6 mb-8" style="border-color: #e6fffe;">
-        <form method="GET" action="{% url 'app_admin:liste_operateurs' %}" class="flex flex-col md:flex-row gap-4">
+        <div class="flex flex-col md:flex-row gap-4">
             <div class="relative flex-grow">
-                <input type="text" name="search" placeholder="Rechercher un opérateur..."
+                <input type="text" id="searchInput" placeholder="Rechercher un opérateur..."
                        class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all"
                        style="border-color: #99dddd; focus:ring-color: #023535;" value="{{ search|default:'' }}">
                 <i class="fas fa-search text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
             </div>
             <div>
-                <select name="type" class="w-full pl-3 pr-10 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all"
+                <select id="typeFilterSelect" class="w-full pl-3 pr-10 py-2 rounded-lg border focus:ring-2 focus:ring-offset-2 transition-all"
                         style="border-color: #99dddd; focus:ring-color: #023535;">
                     <option value="">Tous les types</option>
                     {% for type_code, type_label in types_operateur %}
@@ -142,14 +142,14 @@
                     {% endfor %}
                 </select>
             </div>
-            <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+            <button type="button" id="filterBtn" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105"
                     style="background-color: #023535;">
                 Filtrer
             </button>
             {% if type_filter or search %}
-                <a href="{% url 'app_admin:liste_operateurs' %}" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">Réinitialiser</a>
+                <button type="button" id="resetBtn" class="px-6 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">Réinitialiser</button>
             {% endif %}
-        </form>
+        </div>
     </div>
 
     <div class="flex justify-end mb-4">
@@ -176,90 +176,84 @@
                     <th scope="col" class="relative px-4 py-3 border-b border-gray-200"><span class="sr-only text-white">Actions</span></th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for operateur in page_obj.object_list %}
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-4 py-4 whitespace-nowrap text-sm border-r border-gray-200">
-                        <input type="checkbox" class="operateur-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-operateur-id="{{ operateur.pk }}" />
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg leading-none" style="background-color: var(--admin-color);">
-                            {{ operateur.prenom|first|upper }}{{ operateur.nom|first|upper }}
-                        </div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">{{ operateur.user.username }}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ operateur.prenom }} {{ operateur.nom }}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ operateur.mail }}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ operateur.telephone|default:'N/A' }}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ operateur.get_type_operateur_display }}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm border-r border-gray-200">
-                        {% if operateur.actif %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Oui</span>
-                        {% else %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Non</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a href="{% url 'app_admin:detail_operateur' operateur.pk %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        <a href="{% url 'app_admin:modifier_operateur' operateur.pk %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <a href="#" onclick=" return confirmDelete('{% url 'app_admin:supprimer_operateur' operateur.pk %}', '{{ operateur.nom }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
-                            <i class="fas fa-trash-alt"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
+            <tbody id="operateursTableBody" class="bg-white divide-y divide-gray-200">
+                {% include 'parametre/partials/_operateurs_table_body.html' with page_obj=page_obj %}
             </tbody>
         </table>
     </div>
 
-    <!-- Pagination -->
-    <div class="flex justify-center mt-8">
-        <nav aria-label="Navigation des opérateurs">
-            <ul class="flex items-center -space-x-px">
-                {% if page_obj.has_previous %}
-                    <li>
-                        <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
-                            <i class="fas fa-angle-double-left"></i>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
-                            <i class="fas fa-angle-left"></i>
-                        </a>
-                    </li>
-                {% endif %}
-
-                {% for num in page_obj.paginator.page_range %}
-                    {% if page_obj.number == num %}
-                        <li>
-                            <span class="px-3 py-2 leading-tight text-white bg-[#023535] border border-[#023535]">{{ num }}</span>
-                        </li>
-                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                        <li>
-                            <a href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">{{ num }}</a>
-                        </li>
-                    {% endif %}
-                {% endfor %}
-
-                {% if page_obj.has_next %}
-                    <li>
-                        <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
-                            <i class="fas fa-angle-right"></i>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
-                            <i class="fas fa-angle-double-right"></i>
-                        </a>
-                    </li>
-                {% endif %}
-            </ul>
-        </nav>
+    <!-- Contrôles de pagination flexible -->
+    {% if page_obj and page_obj.object_list %}
+    <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 mt-6 transition-all duration-300 hover:shadow-xl">
+        <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+            <!-- Section Éléments par page -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-list-ol text-sm" style="color: #023535;"></i>
+                    <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                </div>
+                <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: #023535; border-color: #99dddd;">
+                    <option value="5" {% if items_per_page == '5' %}selected{% endif %}>5</option>
+                    <option value="6" {% if items_per_page == '6' %}selected{% endif %}>6</option>
+                    <option value="10" {% if items_per_page == '10' %}selected{% endif %}>10</option>
+                    <option value="12" {% if items_per_page == '12' %}selected{% endif %}>12</option>
+                    <option value="15" {% if items_per_page == '15' %}selected{% endif %}>15</option>
+                    <option value="20" {% if items_per_page == '20' %}selected{% endif %}>20</option>
+                    <option value="24" {% if items_per_page == '24' %}selected{% endif %}>24</option>
+                    <option value="25" {% if items_per_page == '25' %}selected{% endif %}>25</option>
+                    <option value="48" {% if items_per_page == '48' %}selected{% endif %}>48</option>
+                    <option value="50" {% if items_per_page == '50' %}selected{% endif %}>50</option>
+                    <option value="96" {% if items_per_page == '96' %}selected{% endif %}>96</option>
+                    <option value="100" {% if items_per_page == '100' %}selected{% endif %}>100</option>
+                    <option value="250" {% if items_per_page == '250' %}selected{% endif %}>250</option>
+                    <option value="500" {% if items_per_page == '500' %}selected{% endif %}>500</option>
+                    <option value="1000" {% if items_per_page == '1000' %}selected{% endif %}>1000</option>
+                    <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                </select>
+            </div>
+            
+            <!-- Section Plage personnalisée -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-arrows-alt-h text-sm" style="color: #023535;"></i>
+                    <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                </div>
+                <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                               class="w-20 px-2 py-1 text-sm border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <span class="text-gray-500">à</span>
+                        <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                               class="w-20 px-2 py-1 text-sm border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <button id="applyRangeBtn" class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">
+                        Appliquer
+                    </button>
+                    <button id="clearRangeBtn" class="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors">
+                        Effacer
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Section Statistiques -->
+            <div class="flex items-center space-x-2 text-sm text-gray-600">
+                <i class="fas fa-chart-bar" style="color: #023535;"></i>
+                <span>Total: <strong style="color: #023535;">{{ page_obj.paginator.count }}</strong> opérateur(s)</span>
+            </div>
+        </div>
     </div>
+    {% endif %}
+
+    <!-- Pagination -->
+    <div id="paginationControls">
+        {% include 'parametre/partials/_operateurs_pagination.html' with page_obj=page_obj search=search type_filter=type_filter %}
+    </div>
+
+    <!-- Informations de pagination -->
+    <div id="paginationInfoContainer">
+        {% include 'parametre/partials/_operateurs_pagination_info.html' with page_obj=page_obj %}
+    </div>
+
     {% else %}
     <div class="text-center py-10">
         <i class="fas fa-info-circle text-6xl mb-4" style="color: #99dddd;"></i>
@@ -480,6 +474,208 @@
                 document.getElementById('customConfirmModal').classList.remove('hidden');
             };
         }
+    });
+
+    // Variables globales pour la pagination flexible
+    let currentPage = {{ page_obj.number|default:1 }};
+    let currentItemsPerPage = {{ items_per_page|default:'20' }};
+    let currentStartRange = '{{ start_range|default:"" }}';
+    let currentEndRange = '{{ end_range|default:"" }}';
+    let currentSearchQuery = '{{ search|default:"" }}';
+    let currentTypeFilter = '{{ type_filter|default:"" }}';
+
+    // Fonction pour charger les données de pagination
+    function loadData(searchQuery = '', typeFilter = '', page = 1, itemsPerPage = null, startRange = null, endRange = null) {
+        const url = new URL(window.location);
+        
+        // Mettre à jour les paramètres
+        if (searchQuery !== '') url.searchParams.set('search', searchQuery);
+        if (typeFilter !== '') url.searchParams.set('type', typeFilter);
+        if (page > 1) url.searchParams.set('page', page);
+        if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+        if (startRange !== null) url.searchParams.set('start_range', startRange);
+        if (endRange !== null) url.searchParams.set('end_range', endRange);
+        
+        // Mettre à jour l'URL sans recharger la page
+        window.history.pushState({}, '', url);
+        
+        // Appel AJAX
+        fetch(`{% url 'app_admin:liste_operateurs_ajax' %}?${url.searchParams.toString()}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour le tableau
+                const tableBody = document.getElementById('operateursTableBody');
+                if (tableBody) {
+                    tableBody.innerHTML = data.html_table_body;
+                }
+                
+                // Mettre à jour la pagination
+                const paginationControls = document.getElementById('paginationControls');
+                if (paginationControls) {
+                    paginationControls.innerHTML = data.html_pagination;
+                }
+                
+                // Mettre à jour les informations de pagination
+                const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+                if (paginationInfoContainer) {
+                    paginationInfoContainer.innerHTML = data.html_pagination_info;
+                }
+                
+                // Mettre à jour les variables globales
+                currentPage = data.current_page || 1;
+                if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
+                if (startRange !== null) currentStartRange = startRange;
+                if (endRange !== null) currentEndRange = endRange;
+                currentSearchQuery = searchQuery;
+                currentTypeFilter = typeFilter;
+                
+                // Réinitialiser les gestionnaires d'événements pour les checkboxes
+                // Note: Les checkboxes sont gérées par le code existant dans le DOMContentLoaded
+                
+                // Réattacher les event listeners pour la pagination flexible
+                attachEventListeners();
+            } else {
+                console.error('Réponse AJAX invalide:', data);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des données:', error);
+        });
+    }
+
+    // Fonction pour changer de page
+    function changePage(page) {
+        loadData(currentSearchQuery, currentTypeFilter, page, currentItemsPerPage, currentStartRange, currentEndRange);
+    }
+
+    // Fonction pour changer le nombre d'éléments par page
+    function changeItemsPerPage(itemsPerPage) {
+        loadData(currentSearchQuery, currentTypeFilter, 1, itemsPerPage, '', '');
+    }
+
+    // Fonction pour appliquer une plage personnalisée
+    function applyCustomRange(startRange, endRange) {
+        loadData(currentSearchQuery, currentTypeFilter, 1, null, startRange, endRange);
+    }
+
+    // Fonction pour effacer la plage personnalisée
+    function clearCustomRange() {
+        loadData(currentSearchQuery, currentTypeFilter, 1, currentItemsPerPage, '', '');
+    }
+
+    // Fonction pour attacher les event listeners de pagination flexible
+    function attachEventListeners() {
+        // Event listener pour le select des éléments par page
+        const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+        if (itemsPerPageSelect) {
+            itemsPerPageSelect.removeEventListener('change', handleItemsPerPageChange);
+            itemsPerPageSelect.addEventListener('change', handleItemsPerPageChange);
+        }
+        
+        // Event listener pour le bouton d'application de la plage
+        const applyRangeBtn = document.getElementById('applyRangeBtn');
+        if (applyRangeBtn) {
+            applyRangeBtn.removeEventListener('click', handleApplyRange);
+            applyRangeBtn.addEventListener('click', handleApplyRange);
+        }
+        
+        // Event listener pour le bouton d'effacement de la plage
+        const clearRangeBtn = document.getElementById('clearRangeBtn');
+        if (clearRangeBtn) {
+            clearRangeBtn.removeEventListener('click', handleClearRange);
+            clearRangeBtn.addEventListener('click', handleClearRange);
+        }
+    }
+
+    // Handlers pour les event listeners
+    function handleItemsPerPageChange(event) {
+        const itemsPerPage = event.target.value;
+        changeItemsPerPage(itemsPerPage);
+    }
+
+    function handleApplyRange() {
+        const startRange = document.getElementById('startRangeInput').value;
+        const endRange = document.getElementById('endRangeInput').value;
+        
+        if (startRange && endRange) {
+            applyCustomRange(startRange, endRange);
+        } else {
+            alert('Veuillez remplir les deux champs de plage');
+        }
+    }
+
+    function handleClearRange() {
+        document.getElementById('startRangeInput').value = '';
+        document.getElementById('endRangeInput').value = '';
+        clearCustomRange();
+    }
+
+    // Gestion de la recherche et des filtres
+    const searchInput = document.getElementById('searchInput');
+    const typeFilterSelect = document.getElementById('typeFilterSelect');
+    const filterBtn = document.getElementById('filterBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    let searchTimeout;
+
+    if (filterBtn) {
+        filterBtn.addEventListener('click', function() {
+            const searchQuery = searchInput.value.trim();
+            const typeFilter = typeFilterSelect.value;
+            loadData(searchQuery, typeFilter, 1, currentItemsPerPage, currentStartRange, currentEndRange);
+        });
+    }
+
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            typeFilterSelect.value = '';
+            loadData('', '', 1, currentItemsPerPage, '', '');
+        });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchQuery = this.value.trim();
+            
+            // Effacer le timeout précédent
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            // Définir un nouveau timeout pour la recherche
+            searchTimeout = setTimeout(() => {
+                const typeFilter = typeFilterSelect.value;
+                loadData(searchQuery, typeFilter, 1, currentItemsPerPage, currentStartRange, currentEndRange);
+            }, 500);
+        });
+        
+        // Recherche avec la touche Entrée
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const searchQuery = this.value.trim();
+                const typeFilter = typeFilterSelect.value;
+                loadData(searchQuery, typeFilter, 1, currentItemsPerPage, currentStartRange, currentEndRange);
+            }
+        });
+    }
+
+    if (typeFilterSelect) {
+        typeFilterSelect.addEventListener('change', function() {
+            const searchQuery = searchInput.value.trim();
+            const typeFilter = this.value;
+            loadData(searchQuery, typeFilter, 1, currentItemsPerPage, currentStartRange, currentEndRange);
+        });
+    }
+
+    // Initialiser la pagination flexible quand le DOM est chargé
+    document.addEventListener('DOMContentLoaded', function() {
+        attachEventListeners();
     });
 </script>
 {% endblock %} 

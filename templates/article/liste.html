@@ -284,7 +284,7 @@
     <!-- Vues des articles -->
     <div id="articleViews">
         <!-- Vue grille/mosaïque -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8" id="gridView">
+        <div id="gridView" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
         {% for article in page_obj %}
             <div class="bg-white rounded-xl shadow-lg border overflow-hidden transform hover:-translate-y-2 transition-transform duration-300" style="border-color: #e6fffe;">
                 <a href="{% url 'article:detail' article.id %}" class="block">
@@ -346,61 +346,8 @@
     </div>
 
         <!-- Vue liste -->
-    <div class="space-y-3 mb-8 hidden" id="listView">
-        {% for article in page_obj %}
-            <div class="bg-white rounded-xl shadow-md border p-4 flex items-center gap-6" style="border-color: #e6fffe;">
-                <a href="{% url 'article:detail' article.id %}">
-                    {% if article.image %}
-                        <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-24 h-24 object-cover rounded-lg" onerror="this.onerror=null;this.src='/static/img/default.png';">
-                    {% elif article.image_url %}
-                        <img src="{{ article.image_url }}" alt="{{ article.nom }}" class="w-24 h-24 object-cover rounded-lg" onerror="this.onerror=null;this.src='/static/img/default.png';">
-                    {% else %}
-                        <div class="w-24 h-24 rounded-lg flex items-center justify-center" style="background-color: var(--admin-light-accent);">
-                            <i class="fas fa-box-open text-[var(--admin-accent-color)] text-3xl opacity-70"></i>
-                        </div>
-                    {% endif %}
-                </a>
-                <div class="flex-grow">
-                    <div class="flex justify-between items-start">
-                    <h3 class="text-xl font-bold" style="color: #023535;">
-                        <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a]">{{ article.nom }}</a>
-                    </h3>
-                        {% if article.has_promo_active %}
-                        <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
-                        {% endif %}
-                    </div>
-                    <p class="text-sm font-mono text-gray-500">{{ article.reference|default:'N/A' }}</p>
-                    <div class="flex items-center gap-4 mt-1 text-sm">
-                        <span><i class="fas fa-sitemap mr-1" style="color: #034a4a;"></i> {{ article.categorie }}</span>
-                        <span><i class="fas fa-palette mr-1" style="color: #034a4a;"></i> {{ article.couleur }}</span>
-                        <span><i class="fas fa-ruler-horizontal mr-1" style="color: #034a4a;"></i> {{ article.pointure }}</span>
-                    </div>
-                </div>
-                                    <div class="flex items-center gap-4">
-                    <div class="flex flex-col items-end">
-                        {% with article|get_prix_avec_phase_simple as prix_info %}
-                        <div class="text-xl font-bold {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</div>
-                        <div class="text-xs {{ prix_info.couleur_classe }}">{{ prix_info.libelle }}</div>
-                        {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
-                            <div class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</div>
-                        {% endif %}
-                        {% endwith %}
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <a href="{% url 'article:detail' article.id %}" class="text-blue-500 hover:text-blue-700" title="Voir Détails">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        <a href="{% url 'article:modifier' article.id %}" class="text-yellow-500 hover:text-yellow-700" title="Modifier">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <!-- Bouton pour ouvrir la modale de suppression -->
-                        <button type="button" onclick="confirmDeleteArticle('{% url 'article:supprimer' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700" title="Supprimer">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
+    <div id="listView" class="space-y-3 mb-8 hidden">
+        {% include 'article/partials/_articles_cards_body.html' with page_obj=page_obj %}
     </div>
 
         <!-- Vue tableau -->
@@ -420,112 +367,102 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for article in page_obj %}
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r border-gray-200">
-                            <input type="checkbox" class="article-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-article-id="{{ article.id }}" />
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">
-                            <div class="flex items-center">
-                                    {% if article.image %}
-                                    <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="h-10 w-10 rounded-full object-cover mr-2" onerror="this.onerror=null;this.src='/static/img/default.png';">
-                                    {% elif article.image_url %}
-                                    <img src="{{ article.image_url }}" alt="{{ article.nom }}" class="h-10 w-10 rounded-full object-cover mr-2" onerror="this.onerror=null;this.src='/static/img/default.png';">
-                                    {% else %}
-                                    <div class="h-10 w-10 rounded-full flex items-center justify-center mr-2" style="background-color: var(--admin-light-accent);">
-                                        <i class="fas fa-box-open text-[var(--admin-accent-color)] text-xl opacity-70"></i>
-                                </div>
-                                {% endif %}
-                                <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a] transition-colors" style="color: #023535;">{{ article.nom }}</a>
-                            </div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.categorie }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.couleur }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.pointure }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
-                            <div class="flex flex-col">
-                                {% with article|get_prix_avec_phase_simple as prix_info %}
-                                <div class="flex items-center gap-2">
-                                    {% if article.has_promo_active %}
-                                    <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
-                                    {% elif article.phase == 'LIQUIDATION' %}
-                                    <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">LIQUIDATION</span>
-                                    {% elif article.phase == 'EN_TEST' %}
-                                    <span class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">TEST</span>
-                                    {% endif %}
-                                    <span class="font-bold {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</span>
-                                </div>
-                                <span class="text-xs {{ prix_info.couleur_classe }}">{{ prix_info.libelle }}</span>
-                                {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
-                                <span class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</span>
-                                {% endif %}
-                                {% endwith %}
-                            </div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.qte_disponible }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="{% url 'article:detail' article.id %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                            <a href="{% url 'article:modifier' article.id %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                            <a href="#" onclick="confirmDeleteArticle('{% url 'article:supprimer' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
-                                <i class="fas fa-trash-alt"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
+                <tbody id="articlesTableBody" class="bg-white divide-y divide-gray-200">
+                    {% include 'article/partials/_articles_table_body.html' with page_obj=page_obj %}
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- Pagination -->
-    <div class="flex justify-center mt-8">
-        <nav aria-label="Navigation des articles">
-            <ul class="flex items-center -space-x-px">
-            {% if page_obj.has_previous %}
-                    <li>
-                        <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
-                            <i class="fas fa-angle-double-left"></i>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
-                            <i class="fas fa-angle-left"></i>
-                        </a>
-                    </li>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-                {% if page_obj.number == num %}
-                        <li>
-                            <span class="px-3 py-2 leading-tight text-white bg-[#023535] border border-[#023535]">{{ num }}</span>
-                        </li>
-                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                        <li>
-                            <a href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">{{ num }}</a>
-                        </li>
-                {% endif %}
-            {% endfor %}
-
-            {% if page_obj.has_next %}
-                    <li>
-                        <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
-                            <i class="fas fa-angle-right"></i>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if filtre_phase and filtre_phase != 'tous' %}&filtre_phase={{ filtre_phase }}{% endif %}{% if filtre_promotion %}&filtre_promotion={{ filtre_promotion }}{% endif %}{% if filtre_stock %}&filtre_stock={{ filtre_stock }}{% endif %}" class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100" style="color: #023535; border-color: #99dddd; hover:text-gray-700;">
-                            <i class="fas fa-angle-double-right"></i>
-                        </a>
-                    </li>
-            {% endif %}
-            </ul>
-        </nav>
+    <!-- Contrôles de pagination flexible -->
+    {% if page_obj %}
+    <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 mt-6 transition-all duration-300 hover:shadow-xl">
+        <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+            <!-- Section Éléments par page -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-list-ol text-sm" style="color: #023535;"></i>
+                    <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                </div>
+                <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: #023535; border-color: #99dddd;">
+                    <option value="6" {% if items_per_page == 6 %}selected{% endif %}>6</option>
+                    <option value="12" {% if items_per_page == 12 %}selected{% endif %}>12</option>
+                    <option value="24" {% if items_per_page == 24 %}selected{% endif %}>24</option>
+                    <option value="48" {% if items_per_page == 48 %}selected{% endif %}>48</option>
+                    <option value="96" {% if items_per_page == 96 %}selected{% endif %}>96</option>
+                    <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                </select>
+            </div>
+            
+            <!-- Section Plage personnalisée -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-arrows-alt-h text-sm" style="color: #023535;"></i>
+                    <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                </div>
+                <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: #023535; border-color: #99dddd;">
+                        <span class="text-gray-500 text-xs font-medium">à</span>
+                        <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: #023535; border-color: #99dddd;">
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-check mr-1"></i>Appliquer
+                        </button>
+                        <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-times mr-1"></i>Effacer
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section Statistiques -->
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                    <i class="fas fa-chart-bar text-sm" style="color: #023535;"></i>
+                    <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> article(s)</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Indicateur de statut -->
+        <div class="mt-3 pt-3 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs text-gray-600">Pagination active</span>
+                    </div>
+                    {% if start_range and end_range %}
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-filter text-xs text-blue-500"></i>
+                        <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                    <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Pagination -->
+    <div id="paginationControls" class="flex justify-center mt-8">
+        {% include 'article/partials/_articles_pagination.html' %}
+    </div>
+
+    <!-- Informations de pagination -->
+    <div id="paginationInfoContainer">
+        {% include 'article/partials/_articles_pagination_info.html' %}
+    </div>
+    {% endif %}
 </div>
 
 <!-- Modale de confirmation de suppression -->
@@ -768,6 +705,183 @@
                 }
             });
         }
+    });
+
+    // ===== PAGINATION AJAX FLEXIBLE =====
+
+    // Variables globales pour la pagination
+    let currentPage = 1;
+    let currentItemsPerPage = {{ items_per_page|default:12 }};
+    let currentStartRange = '{{ start_range|default:"" }}';
+    let currentEndRange = '{{ end_range|default:"" }}';
+    let currentSearch = '{{ search|default:"" }}';
+    let currentFiltrePhase = '{{ filtre_phase|default:"" }}';
+    let currentFiltrePromotion = '{{ filtre_promotion|default:"" }}';
+    let currentFiltreStock = '{{ filtre_stock|default:"" }}';
+
+    // Fonction pour mettre à jour l'URL sans recharger la page
+    function updateUrl(page, itemsPerPage, startRange, endRange, search, filtrePhase, filtrePromotion, filtreStock) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        
+        if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+        if (startRange !== null) url.searchParams.set('start_range', startRange);
+        if (endRange !== null) url.searchParams.set('end_range', endRange);
+        if (search !== null) url.searchParams.set('search', search);
+        if (filtrePhase !== null) url.searchParams.set('filtre_phase', filtrePhase);
+        if (filtrePromotion !== null) url.searchParams.set('filtre_promotion', filtrePromotion);
+        if (filtreStock !== null) url.searchParams.set('filtre_stock', filtreStock);
+        
+        window.history.pushState({}, '', url.toString());
+    }
+
+    // Fonction pour charger les données via AJAX
+    function loadData(page, itemsPerPage, startRange, endRange, search, filtrePhase, filtrePromotion, filtreStock) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        
+        if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+        if (startRange !== null) url.searchParams.set('start_range', startRange);
+        if (endRange !== null) url.searchParams.set('end_range', endRange);
+        if (search !== null) url.searchParams.set('search', search);
+        if (filtrePhase !== null) url.searchParams.set('filtre_phase', filtrePhase);
+        if (filtrePromotion !== null) url.searchParams.set('filtre_promotion', filtrePromotion);
+        if (filtreStock !== null) url.searchParams.set('filtre_stock', filtreStock);
+        
+        // Ajouter le header AJAX
+        fetch(url.toString(), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour la vue grille (on garde le contenu statique pour la grille)
+                // La grille sera mise à jour par rechargement de page pour l'instant
+                
+                // Mettre à jour la vue liste (cartes)
+                const listView = document.getElementById('listView');
+                if (listView) {
+                    listView.innerHTML = data.html_cards_body;
+                }
+                
+                // Mettre à jour le tableau
+                const tableBody = document.getElementById('articlesTableBody');
+                if (tableBody) {
+                    tableBody.innerHTML = data.html_table_body;
+                }
+                
+                // Mettre à jour la pagination
+                const paginationControls = document.getElementById('paginationControls');
+                if (paginationControls) {
+                    paginationControls.innerHTML = data.html_pagination;
+                }
+                
+                // Mettre à jour les informations de pagination
+                const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+                if (paginationInfoContainer) {
+                    paginationInfoContainer.innerHTML = data.html_pagination_info;
+                }
+                
+                // Mettre à jour l'URL
+                updateUrl(page, itemsPerPage, startRange, endRange, search, filtrePhase, filtrePromotion, filtreStock);
+                
+                // Mettre à jour les variables globales
+                currentPage = page;
+                if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
+                if (startRange !== null) currentStartRange = startRange;
+                if (endRange !== null) currentEndRange = endRange;
+                if (search !== null) currentSearch = search;
+                if (filtrePhase !== null) currentFiltrePhase = filtrePhase;
+                if (filtrePromotion !== null) currentFiltrePromotion = filtrePromotion;
+                if (filtreStock !== null) currentFiltreStock = filtreStock;
+                
+                // Réattacher les event listeners
+                attachEventListeners();
+            } else {
+                console.error('Erreur lors du chargement des données:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+        });
+    }
+
+    // Fonction pour changer de page
+    function changePage(page) {
+        loadData(page, currentItemsPerPage, currentStartRange, currentEndRange, 
+                 currentSearch, currentFiltrePhase, currentFiltrePromotion, currentFiltreStock);
+    }
+
+    // Fonction pour changer le nombre d'éléments par page
+    function changeItemsPerPage(itemsPerPage) {
+        loadData(1, itemsPerPage, currentStartRange, currentEndRange, 
+                 currentSearch, currentFiltrePhase, currentFiltrePromotion, currentFiltreStock);
+    }
+
+    // Fonction pour appliquer une plage personnalisée
+    function applyCustomRange(startRange, endRange) {
+        loadData(1, null, startRange, endRange, 
+                 currentSearch, currentFiltrePhase, currentFiltrePromotion, currentFiltreStock);
+    }
+
+    // Fonction pour effacer la plage personnalisée
+    function clearCustomRange() {
+        loadData(1, currentItemsPerPage, '', '', 
+                 currentSearch, currentFiltrePhase, currentFiltrePromotion, currentFiltreStock);
+    }
+
+    // Fonction pour attacher les event listeners
+    function attachEventListeners() {
+        // Event listener pour le select des éléments par page
+        const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+        if (itemsPerPageSelect) {
+            itemsPerPageSelect.removeEventListener('change', handleItemsPerPageChange);
+            itemsPerPageSelect.addEventListener('change', handleItemsPerPageChange);
+        }
+        
+        // Event listener pour le bouton d'application de la plage
+        const applyRangeBtn = document.getElementById('applyRangeBtn');
+        if (applyRangeBtn) {
+            applyRangeBtn.removeEventListener('click', handleApplyRange);
+            applyRangeBtn.addEventListener('click', handleApplyRange);
+        }
+        
+        // Event listener pour le bouton d'effacement de la plage
+        const clearRangeBtn = document.getElementById('clearRangeBtn');
+        if (clearRangeBtn) {
+            clearRangeBtn.removeEventListener('click', handleClearRange);
+            clearRangeBtn.addEventListener('click', handleClearRange);
+        }
+    }
+
+    // Handlers pour les event listeners
+    function handleItemsPerPageChange(event) {
+        const itemsPerPage = event.target.value;
+        changeItemsPerPage(itemsPerPage);
+    }
+
+    function handleApplyRange() {
+        const startRange = document.getElementById('startRangeInput').value;
+        const endRange = document.getElementById('endRangeInput').value;
+        
+        if (startRange && endRange) {
+            applyCustomRange(startRange, endRange);
+        } else {
+            alert('Veuillez remplir les deux champs de plage');
+        }
+    }
+
+    function handleClearRange() {
+        document.getElementById('startRangeInput').value = '';
+        document.getElementById('endRangeInput').value = '';
+        clearCustomRange();
+    }
+
+    // Initialisation de la pagination AJAX au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        attachEventListeners();
     });
 </script>
 {% endblock %} 

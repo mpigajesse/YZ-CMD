@@ -150,7 +150,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Synchronisations Récentes</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ recent_logs.count }}</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ recent_logs_paginator.count }}</p>
                     </div>
                 </div>
             </div>
@@ -262,7 +262,7 @@
         <div class="p-6 border-b border-gray-200">
             <div class="flex justify-between items-center">
                 <h2 class="text-xl font-semibold text-gray-800">Logs récents</h2>
-                <a href="{% url 'synchronisation:logs' %}" class="text-sm text-blue-600 hover:text-blue-900 flex items-center">
+                <a href="{% url 'synchronisation:logs' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm flex items-center">
                     <i class="fas fa-history mr-2"></i>Voir tous les logs
                 </a>
             </div>
@@ -302,6 +302,69 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pagination des logs récents -->
+        {% if recent_logs_paginator.num_pages > 1 %}
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <!-- Navigation de pagination -->
+            <div class="flex justify-center mb-4">
+                <nav aria-label="Navigation des logs récents" class="bg-white rounded-xl shadow-lg border border-gray-100 p-3 transition-all duration-300 hover:shadow-xl">
+                    <ul class="flex items-center -space-x-px">
+                        {% if recent_logs.has_previous %}
+                            <li>
+                                <a href="?logs_page=1" class="px-2.5 py-1.5 leading-tight bg-white border rounded-l-lg hover:bg-gray-50 transition-all duration-200 transform hover:scale-105 shadow-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                                    <i class="fas fa-angle-double-left text-xs"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="?logs_page={{ recent_logs.previous_page_number }}" class="px-2.5 py-1.5 leading-tight bg-white border hover:bg-gray-50 transition-all duration-200 transform hover:scale-105 shadow-sm text-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                                    <i class="fas fa-angle-left text-xs"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        <!-- Pages numérotées -->
+                        {% for num in recent_logs_paginator.page_range %}
+                            {% if recent_logs.number == num %}
+                                <li>
+                                    <span class="px-2.5 py-1.5 leading-tight text-white border text-sm font-medium shadow-sm" style="background-color: var(--admin-color); border-color: var(--admin-color);">{{ num }}</span>
+                                </li>
+                            {% elif num > recent_logs.number|add:'-3' and num < recent_logs.number|add:'3' %}
+                                <li>
+                                    <a href="?logs_page={{ num }}" class="px-2.5 py-1.5 leading-tight bg-white border hover:bg-gray-50 transition-all duration-200 transform hover:scale-105 shadow-sm text-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if recent_logs.has_next %}
+                            <li>
+                                <a href="?logs_page={{ recent_logs.next_page_number }}" class="px-2.5 py-1.5 leading-tight bg-white border hover:bg-gray-50 transition-all duration-200 transform hover:scale-105 shadow-sm text-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                                    <i class="fas fa-angle-right text-xs"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="?logs_page={{ recent_logs_paginator.num_pages }}" class="px-2.5 py-1.5 leading-tight bg-white border rounded-r-lg hover:bg-gray-50 transition-all duration-200 transform hover:scale-105 shadow-sm text-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
+                                    <i class="fas fa-angle-double-right text-xs"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            
+            <!-- Informations de pagination -->
+            <div class="flex justify-center">
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-4 py-2 border border-blue-200 shadow-sm">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-info-circle text-sm" style="color: var(--admin-color);"></i>
+                        <span class="text-sm font-medium text-gray-700">
+                            Affichage de <span class="font-bold text-blue-600">{{ recent_logs.start_index }}</span> à <span class="font-bold text-blue-600">{{ recent_logs.end_index }}</span> sur <span class="font-bold text-blue-600">{{ recent_logs_paginator.count }}</span> logs récents
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 

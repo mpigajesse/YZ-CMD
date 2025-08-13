@@ -1,0 +1,122 @@
+{% if page_obj %}
+<table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
+    <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+        <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">
+                <input type="checkbox" id="selectAllClients" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" />
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Client</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Ville Initiale</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Contact</th>
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Commandes</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Date Création</th>
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
+        </tr>
+    </thead>
+    <tbody id="clientsTableBody" class="bg-white divide-y divide-gray-200">
+        {% include 'client/partials/_clients_table_body.html' with page_obj=page_obj search_query=search_query %}
+    </tbody>
+</table>
+
+<!-- Contrôles de pagination flexible -->
+{% if page_obj and page_obj.object_list %}
+<div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 mt-6 transition-all duration-300 hover:shadow-xl">
+    <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+        <!-- Section Éléments par page -->
+        <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-list-ol text-sm" style="color: #023535;"></i>
+                <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+            </div>
+            <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: #023535; border-color: #99dddd;">
+                <option value="10" {% if items_per_page == 10 %}selected{% endif %}>10</option>
+                <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                <option value="250" {% if items_per_page == 250 %}selected{% endif %}>250</option>
+                <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+            </select>
+        </div>
+        
+        <!-- Section Plage personnalisée -->
+        <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-arrows-alt-h text-sm" style="color: #023535;"></i>
+                <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+            </div>
+            <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                <div class="flex items-center space-x-2">
+                    <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                           class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                           style="color: #023535; border-color: #99dddd;">
+                    <span class="text-gray-500 text-xs font-medium">à</span>
+                    <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                           class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                           style="color: #023535; border-color: #99dddd;">
+                </div>
+                <div class="flex items-center space-x-1">
+                    <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                        <i class="fas fa-check mr-1"></i>Appliquer
+                    </button>
+                    <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                        <i class="fas fa-times mr-1"></i>Effacer
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section Statistiques -->
+        <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                <i class="fas fa-chart-bar text-sm" style="color: #023535;"></i>
+                <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> client(s)</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Indicateur de statut -->
+    <div class="mt-3 pt-3 border-t border-gray-200">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-xs text-gray-600">Pagination active</span>
+                </div>
+                {% if start_range and end_range %}
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-filter text-xs text-blue-500"></i>
+                    <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                </div>
+                {% endif %}
+            </div>
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+<div id="paginationControls" class="flex justify-center mt-8">
+    {% include 'client/partials/_clients_pagination.html' %}
+</div>
+
+<!-- Informations de pagination -->
+<div id="paginationInfoContainer">
+    {% include 'client/partials/_clients_pagination_info.html' %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="text-center py-10">
+    <i class="fas fa-users text-6xl text-gray-300 mb-4" style="color: var(--admin-accent-color);"></i>
+    <h5 class="text-gray-500 text-lg mb-2" style="color: var(--admin-color);">Aucun client trouvé{% if search_query %} pour la recherche "{{ search_query }}"{% endif %}.</h5>
+    {% if search_query %}
+    <button onclick="clearSearch()" class="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+           style="background-color: var(--admin-color); color: white;">
+        <i class="fas fa-list mr-2"></i> Effacer la recherche
+    </button>
+    {% endif %}
+</div>
+{% endif %}
