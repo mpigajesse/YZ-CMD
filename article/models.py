@@ -3,16 +3,213 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 from decimal import Decimal, ROUND_HALF_UP
 
 # Create your models here.
 
+
+class Categorie(models.Model):
+    """
+    Modèle pour les catégories d'articles
+    """
+    CATEGORIE_CHOICES = [
+        ('SANDALES', 'Sandales'),
+        ('SABOT', 'Sabot'),
+        ('CHAUSSURES', 'Chaussures'),
+        ('ESPARILLE', 'Espadrilles'),
+        ('BASKET', 'Baskets'),
+        ('MULES', 'Mules'),
+        ('PACK_SAC', 'Pack Sac'),
+        ('BOTTE', 'Bottes'),
+        ('ESCARPINS', 'Escarpins'),
+    ]
+    
+    nom = models.CharField(max_length=50, default='', choices=CATEGORIE_CHOICES, unique=True)
+    description = models.TextField(blank=True, null=True)
+    isUpsell = models.BooleanField(default=False, verbose_name="Est un upsell")
+    qte_disponible = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    actif = models.BooleanField(default=True)
+    date_creation = models.DateTimeField(default=timezone.now, editable=False)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Catégorie"
+        verbose_name_plural = "Catégories"
+        ordering = ['nom']
+    
+    def __str__(self):
+        return self.get_nom_display()
+
+
+class Genre(models.Model):
+    """
+    Modèle pour les genres d'articles
+    """
+    GENRE_CHOICES = [
+        ('HOMME', 'Homme'),
+        ('FEMME', 'Femme'),
+        ('FILLE', 'Fille'),
+        ('GARCON', 'Garçon'),
+    ]
+    
+    nom = models.CharField(max_length=20, choices=GENRE_CHOICES, unique=True)
+    description = models.TextField(blank=True, null=True)
+    actif = models.BooleanField(default=True)
+    date_creation = models.DateTimeField(default=timezone.now, editable=False)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Genre"
+        verbose_name_plural = "Genres"
+        ordering = ['nom']
+    
+    def __str__(self):
+        return self.get_nom_display()
+
+
+class Pointure(models.Model):
+    """
+    Modèle pour les pointures disponibles
+    """
+    pointure = models.CharField(max_length=10, unique=True)
+    description = models.TextField(blank=True, null=True)
+    ordre = models.IntegerField(default=0, help_text="Ordre d'affichage des pointures")
+    actif = models.BooleanField(default=True)
+    date_creation = models.DateTimeField(default=timezone.now, editable=False)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Pointure"
+        verbose_name_plural = "Pointures"
+        ordering = ['ordre', 'pointure']
+    
+    def __str__(self):
+        return self.pointure
+
+
+class Couleur(models.Model):
+    """
+    Modèle pour les couleurs disponibles
+    """
+    nom = models.CharField(max_length=50, unique=True)
+    code_hex = models.CharField(max_length=7, blank=True, null=True, help_text="Code couleur hexadécimal (ex: #FF0000)")
+    description = models.TextField(blank=True, null=True)
+    actif = models.BooleanField(default=True)
+    date_creation = models.DateTimeField(default=timezone.now, editable=False)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Couleur"
+        verbose_name_plural = "Couleurs"
+        ordering = ['nom']
+    
+    def __str__(self):
+        return self.nom
+
+
+class VarianteArticle(models.Model):
+    """
+    Modèle pour les variantes d'articles (combinaison couleur/pointure)
+    """
+    article = models.ForeignKey('Article', on_delete=models.CASCADE, related_name='variantes')
+    couleur = models.ForeignKey(Couleur, on_delete=models.CASCADE)
+    pointure = models.ForeignKey(Pointure, on_delete=models.CASCADE)
+    qte_disponible = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
+    prix_achat = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    prix_actuel = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    actif = models.BooleanField(default=True)
+    date_creation = models.DateTimeField(default=timezone.now, editable=False)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Variante d'article"
+        verbose_name_plural = "Variantes d'articles"
+        unique_together = ['article', 'couleur', 'pointure']
+        ordering = ['article__nom', 'couleur__nom', 'pointure__pointure']
+    
+    def __str__(self):
+        return f"{self.article.nom} - {self.couleur.nom} - {self.pointure.pointure}"
+    
+    def clean(self):
+        # Vérifier que le prix actuel a exactement 2 décimales
+        if self.prix_actuel is not None:
+            prix_decimal = Decimal(str(self.prix_actuel))
+            if prix_decimal != prix_decimal.quantize(Decimal('0.01')):
+                raise ValidationError({
+                    'prix_actuel': 'Assurez-vous qu\'il n\'y a pas plus de 2 chiffres après la virgule.'
+                })
+        
+        super().clean()
+    
+    def save(self, *args, **kwargs):
+        # Toujours s'assurer que prix_actuel est défini
+        if self.prix_actuel is None:
+            self.prix_actuel = self.prix_unitaire
+        
+        # Arrondir le prix actuel à 2 décimales si nécessaire
+        self.prix_actuel = Decimal(str(self.prix_actuel)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        
+        super().save(*args, **kwargs)
+    
+    @property
+    def est_disponible(self):
+        return self.qte_disponible > 0 and self.actif and self.article.actif
+
+
+class MouvementStock(models.Model):
+    """
+    Modèle pour tracer les mouvements de stock des articles
+    """
+    TYPE_MOUVEMENT_CHOICES = [
+        ('entree', 'Entrée'),
+        ('sortie', 'Sortie'),
+        ('ajustement_pos', 'Ajustement Positif'),
+        ('ajustement_neg', 'Ajustement Négatif'),
+        ('inventaire', 'Inventaire'),
+        ('retour_client', 'Retour Client'),
+    ]
+    
+    article = models.ForeignKey('Article', on_delete=models.CASCADE, related_name='mouvements')
+    variante = models.ForeignKey(VarianteArticle, on_delete=models.CASCADE, related_name='mouvements', null=True, blank=True)
+    type_mouvement = models.CharField(max_length=20, choices=TYPE_MOUVEMENT_CHOICES)
+    quantite = models.IntegerField(help_text="Quantité du mouvement. Positive pour une entrée, négative pour une sortie.")
+    qte_apres_mouvement = models.IntegerField()
+    date_mouvement = models.DateTimeField(auto_now_add=True)
+    commentaire = models.TextField(blank=True, null=True)
+    commande_associee = models.ForeignKey(
+        'commande.Commande', 
+        on_delete=models.SET_NULL, 
+        blank=True, 
+        null=True,
+        help_text="Commande liée à ce mouvement (si applicable)"
+    )
+    operateur = models.ForeignKey(
+        'parametre.Operateur', 
+        on_delete=models.SET_NULL, 
+        blank=True, 
+        null=True
+    )
+    
+    class Meta:
+        verbose_name = "Mouvement de stock"
+        verbose_name_plural = "Mouvements de stock"
+        ordering = ['-date_mouvement']
+    
+    def __str__(self):
+        if self.variante:
+            return f"{self.article.nom} - {self.variante.couleur.nom} - {self.variante.pointure.pointure} - {self.get_type_mouvement_display()} - {self.quantite}"
+        return f"{self.article.nom} - {self.get_type_mouvement_display()} - {self.quantite}"
+
+
+# Garder le modèle Article existant tel quel pour l'instant
+# Nous le modifierons plus tard avec une migration séparée
 class Article(models.Model):
     """
-    Modèle pour les articles
+    Modèle pour les articles (version existante - à modifier plus tard)
     """
     # Choix pour la phase
     PHASE_CHOICES = [
@@ -20,11 +217,6 @@ class Article(models.Model):
         ('LIQUIDATION', 'Liquidation'),
         ('EN_TEST', 'En Test'),
         ('PROMO', 'Promo'),
-    ]
-    
-    CATEGORIES_CHOICES = [
-        ('HOMME', 'Homme'),
-        ('FEMME', 'Femme'),
     ]
     
     nom = models.CharField(max_length=200)
@@ -66,12 +258,6 @@ class Article(models.Model):
         constraints = [
             models.CheckConstraint(check=models.Q(prix_unitaire__gt=0), name='prix_unitaire_positif'),
             models.CheckConstraint(check=models.Q(qte_disponible__gte=0), name='qte_disponible_positif'),
-            # La contrainte sur la pointure a été supprimée car elle pose problème avec SQLite
-            # models.CheckConstraint(
-            #     check=models.Q(pointure__regex=r'^(3[0-9]|4[0-9]|50)$'), 
-            #     name='pointure_valide'
-            # ),
-
         ]
     
     def __str__(self):
@@ -149,7 +335,7 @@ class Article(models.Model):
     def appliquer_promotion(self, promotion):
         """Applique une promotion spécifique à cet article"""
         if promotion.est_active and self in promotion.articles.all():
-            reduction = self.prix_unitaire * (promotion.pourcentage_reduction / 100)
+            reduction = self.prix_unitaire * (promotion_active.pourcentage_reduction / 100)
             nouveau_prix = self.prix_unitaire - reduction
             self.prix_actuel = Decimal(str(nouveau_prix)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             
@@ -244,6 +430,16 @@ class Article(models.Model):
         elif quantite > 4:
             return 4 if self.prix_upsell_4 else 0
         return 0
+
+    def get_variantes_disponibles(self):
+        """Retourne toutes les variantes disponibles de cet article"""
+        return self.variantes.filter(actif=True, qte_disponible__gt=0)
+    
+    def get_total_qte_disponible(self):
+        """Calcule la quantité totale disponible en sommant toutes les variantes"""
+        return self.variantes.filter(actif=True).aggregate(
+            total=models.Sum('qte_disponible')
+        )['total'] or 0
 
 
 class Promotion(models.Model):
@@ -405,62 +601,6 @@ class Promotion(models.Model):
             'nb_articles': len(articles)
         }
 
-class Categorie(models.Model):
-    """
-    Modèle pour les catégories d'articles
-    """
-    isUpsell = models.BooleanField(default=False)
-    qte_disponible = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    
-    class Meta:
-        verbose_name = "Catégorie"
-        verbose_name_plural = "Catégories"
-    
-    def __str__(self):
-        return f"Catégorie - Upsell: {self.isUpsell}"
-
-
-class MouvementStock(models.Model):
-    """
-    Modèle pour tracer les mouvements de stock des articles
-    """
-    TYPE_MOUVEMENT_CHOICES = [
-        ('entree', 'Entrée'),
-        ('sortie', 'Sortie'),
-        ('ajustement_pos', 'Ajustement Positif'),
-        ('ajustement_neg', 'Ajustement Négatif'),
-        ('inventaire', 'Inventaire'),
-        ('retour_client', 'Retour Client'),
-    ]
-    
-    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='mouvements')
-    type_mouvement = models.CharField(max_length=20, choices=TYPE_MOUVEMENT_CHOICES)
-    quantite = models.IntegerField(help_text="Quantité du mouvement. Positive pour une entrée, négative pour une sortie.")
-    qte_apres_mouvement = models.IntegerField()
-    date_mouvement = models.DateTimeField(auto_now_add=True)
-    commentaire = models.TextField(blank=True, null=True)
-    commande_associee = models.ForeignKey(
-        'commande.Commande', 
-        on_delete=models.SET_NULL, 
-        blank=True, 
-        null=True,
-        help_text="Commande liée à ce mouvement (si applicable)"
-    )
-    operateur = models.ForeignKey(
-        'parametre.Operateur', 
-        on_delete=models.SET_NULL, 
-        blank=True, 
-        null=True
-    )
-    
-    class Meta:
-        verbose_name = "Mouvement de stock"
-        verbose_name_plural = "Mouvements de stock"
-        ordering = ['-date_mouvement']
-    
-    def __str__(self):
-        return f"{self.article.nom} - {self.get_type_mouvement_display()} - {self.quantite}"
-
 
 # Signal pour initialiser le prix actuel au prix unitaire lors de la création
 @receiver(post_save, sender=Article)
@@ -486,3 +626,21 @@ def update_article_prices(sender, instance, created, **kwargs):
     for article in instance.articles.all():
         # Mettre à jour le prix actuel basé sur toutes les promotions actives
         article.update_prix_actuel()
+
+# Signal pour mettre à jour la quantité totale de l'article quand une variante est modifiée
+@receiver(post_save, sender=VarianteArticle)
+def update_article_total_qte(sender, instance, **kwargs):
+    """Met à jour la quantité totale de l'article quand une variante est modifiée"""
+    if instance.article:
+        total_qte = instance.article.get_total_qte_disponible()
+        if instance.article.qte_disponible != total_qte:
+            instance.article.qte_disponible = total_qte
+            instance.article.save(update_fields=['qte_disponible'])
+
+@receiver(post_delete, sender=VarianteArticle)
+def update_article_total_qte_on_delete(sender, instance, **kwargs):
+    """Met à jour la quantité totale de l'article quand une variante est supprimée"""
+    if instance.article:
+        total_qte = instance.article.get_total_qte_disponible()
+        instance.article.qte_disponible = total_qte
+        instance.article.save(update_fields=['qte_disponible'])
