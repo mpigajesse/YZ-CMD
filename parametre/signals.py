@@ -17,6 +17,10 @@ def create_operateur_profile(sender, instance, created, **kwargs):
             type_operateur = 'CONFIRMATION'
         elif instance.groups.filter(name='operateur_logistique').exists():
             type_operateur = 'LOGISTIQUE'
+        elif instance.groups.filter(name='operateur_preparation').exists():
+            type_operateur = 'PREPARATION'
+        elif instance.groups.filter(name='superviseur').exists():
+            type_operateur = 'SUPERVISEUR_PREPARATION'
         elif instance.is_superuser or instance.groups.filter(name='admin').exists():
             type_operateur = 'ADMIN'
         

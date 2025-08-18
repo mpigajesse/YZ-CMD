@@ -343,6 +343,8 @@ def creer_operateur(request):
             group_name_map = {
                 'CONFIRMATION': 'operateur_confirme',
                 'LOGISTIQUE': 'operateur_logistique',
+                'PREPARATION': 'operateur_preparation',
+                'SUPERVISEUR_PREPARATION': 'superviseur',
                 'ADMIN': 'administrateur', # Assurez-vous que ce groupe existe
             }
             group_name = group_name_map.get(type_operateur)

@@ -1,0 +1,69 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-user-circle mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: var(--preparation-border-accent);">{{ page_subtitle }}</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'Superpreparation:modifier_profile' %}" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-edit mr-2"></i>Modifier le Profil
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold mb-6" style="color: var(--preparation-primary);">Informations du Profil</h2>
+        
+        {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                    <div class="p-3 rounded-lg text-sm {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <p class="text-sm font-semibold text-gray-600">Nom complet:</p>
+                <p class="text-lg text-gray-900">{{ profile.prenom }} {{ profile.nom }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-600">Email:</p>
+                <p class="text-lg text-gray-900">{{ profile.mail }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-600">Téléphone:</p>
+                <p class="text-lg text-gray-900">{{ profile.telephone|default:"Non spécifié" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-600">Adresse:</p>
+                <p class="text-lg text-gray-900">{{ profile.adresse|default:"Non spécifiée" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-600">Email:</p>
+                <p class="text-lg text-gray-900">{{ profile.mail }}</p>
+            </div>
+            {% if profile.photo %}
+            <div>
+                <p class="text-sm font-semibold text-gray-600">Photo:</p>
+                <img src="{{ profile.photo.url }}" alt="Photo de profil" class="w-24 h-24 object-cover rounded-full mt-2">
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

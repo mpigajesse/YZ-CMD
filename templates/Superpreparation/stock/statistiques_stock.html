@@ -1,0 +1,534 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Statistiques Stock - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --prepa-bg-gradient: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-dark) 100%);
+    }
+    
+    /* Correction pour la sidebar - s'assurer qu'elle utilise le bon thème */
+    #sidebar {
+        background: linear-gradient(to bottom, var(--preparation-primary), var(--preparation-dark)) !important;
+        border-color: var(--preparation-dark) !important;
+    }
+    
+    /* Cartes KPI avec fond blanc et accents marron */
+    .kpi-card {
+        background-color: #fff;
+        color: var(--preparation-primary);
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1), 0 2px 4px -2px rgba(54, 31, 39, 0.06);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid var(--preparation-border-accent);
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(54, 31, 39, 0.1), 0 4px 6px -4px rgba(54, 31, 39, 0.1);
+        border-color: var(--preparation-primary);
+    }
+    .kpi-card .text-2xl {
+        color: var(--preparation-primary) !important;
+    }
+    .kpi-card .text-sm {
+        color: #6b7280 !important;
+    }
+    
+    /* Filtres avec fond blanc et bordures marron */
+    .filter-card {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1);
+    }
+    .filter-card label {
+        color: var(--preparation-primary) !important;
+    }
+    .filter-card input,
+    .filter-card select {
+        background-color: #fff;
+        border-color: var(--preparation-border-accent);
+        color: #374151;
+    }
+    .filter-card input::placeholder {
+        color: #9ca3af;
+    }
+    .filter-card input:focus,
+    .filter-card select:focus {
+        background-color: #fff;
+        border-color: var(--preparation-primary);
+        color: #374151;
+        box-shadow: 0 0 0 3px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* Cartes de contenu avec fond blanc */
+    .content-card {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* En-têtes de cartes avec thème marron */
+    .card-header {
+        background-color: var(--preparation-primary);
+        color: var(--preparation-text-light);
+        border-bottom-color: var(--preparation-border-accent);
+    }
+    
+    /* Tableaux avec fond blanc */
+    .content-card tbody {
+        background-color: #fff;
+    }
+    .content-card tbody tr {
+        border-color: #e5e7eb;
+    }
+    .content-card tbody tr:hover {
+        background-color: #f9fafb !important;
+    }
+    .content-card tbody td {
+        color: #374151;
+    }
+    .content-card tbody .text-gray-500 {
+        color: #6b7280 !important;
+    }
+    
+    /* Niveaux de stock avec couleurs appropriées */
+    .niveau-rupture {
+        background-color: #fef2f2;
+        border-color: #fecaca;
+        color: #991b1b;
+    }
+    .niveau-faible {
+        background-color: #fffbeb;
+        border-color: #fed7aa;
+        color: #92400e;
+    }
+    .niveau-normal {
+        background-color: #eff6ff;
+        border-color: #dbeafe;
+        color: #1e40af;
+    }
+    .niveau-eleve {
+        background-color: #f0fdf4;
+        border-color: #bbf7d0;
+        color: #166534;
+    }
+    
+    /* Alertes avec couleurs sémantiques */
+    .alerte-warning {
+        background-color: #fffbeb;
+        border-color: #fed7aa;
+        color: #92400e;
+    }
+    .alerte-error {
+        background-color: #fef2f2;
+        border-color: #fecaca;
+        color: #991b1b;
+    }
+    .alerte-info {
+        background-color: #eff6ff;
+        border-color: #dbeafe;
+        color: #1e40af;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 text-white p-5 rounded-xl shadow-lg"
+         style="background: var(--prepa-bg-gradient);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center">
+                <i class="fas fa-chart-bar mr-3" style="color: var(--preparation-border-accent);"></i>
+                Statistiques de Stock
+            </h1>
+            <p style="color: var(--preparation-border-accent);" class="mt-1">Analyse de la performance et de la valeur de l'inventaire</p>
+        </div>
+        <div class="flex gap-3 mt-4 md:mt-0">
+            <button onclick="exportStats()" class="inline-flex items-center px-4 py-2 text-white text-sm font-semibold rounded-md shadow-sm transition-all duration-200" style="background-color: var(--preparation-border-accent); hover:background-color: var(--preparation-primary);">
+                <i class="fas fa-download mr-2"></i>
+                Exporter
+            </button>
+            <a href="{% url 'Superpreparation:liste_articles' %}" class="inline-flex items-center px-4 py-2 text-white text-sm font-semibold rounded-md shadow-sm transition-all duration-200" style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);">
+                <i class="fas fa-boxes mr-2"></i>
+                Voir Stock
+            </a>
+        </div>
+    </div>
+
+    <!-- Cartes de Statistiques -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-coins fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ valeur_stock|floatformat:0|intcomma }}</p>
+                <p class="text-sm font-medium">Valeur du Stock (DH)</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-boxes fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ articles_en_stock|intcomma }}</p>
+                <p class="text-sm font-medium">Articles en Stock</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-sync fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ rotation_stock|floatformat:1 }}%</p>
+                <p class="text-sm font-medium">Rotation Stock</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-exclamation-triangle fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ taux_rupture|floatformat:1 }}%</p>
+                <p class="text-sm font-medium">Taux de Rupture</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-card rounded-xl shadow-md p-5 mb-8">
+        <h3 class="text-xl font-bold mb-4 flex items-center" style="color: var(--preparation-primary);">
+            <i class="fas fa-filter mr-2" style="color: var(--preparation-border-accent);"></i>
+            Filtres d'Analyse
+        </h3>
+        <form method="get" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label for="periode" class="block text-sm font-medium mb-1">Période d'analyse</label>
+                    <select id="periode" name="periode" class="w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition">
+                        <option value="7" {% if periode_actuelle == 7 %}selected{% endif %}>7 derniers jours</option>
+                        <option value="30" {% if periode_actuelle == 30 %}selected{% endif %}>30 derniers jours</option>
+                        <option value="90" {% if periode_actuelle == 90 %}selected{% endif %}>3 derniers mois</option>
+                        <option value="365" {% if periode_actuelle == 365 %}selected{% endif %}>Dernière année</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="categorie" class="block text-sm font-medium mb-1">Catégorie</label>
+                    <select id="categorie" name="categorie" class="w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition">
+                        <option value="">Toutes les catégories</option>
+                        {% for cat in categories_disponibles %}
+                            <option value="{{ cat }}" {% if categorie_actuelle == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="w-full flex justify-center items-center px-4 py-2 text-white font-semibold rounded-md transition-colors" style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);">
+                        <i class="fas fa-search mr-2"></i>Analyser
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Distribution par niveau de stock -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Graphique distribution stock -->
+        <div class="content-card rounded-xl shadow-md overflow-hidden">
+            <div class="card-header px-6 py-4 border-b">
+                <h3 class="text-xl font-bold flex items-center">
+                    <i class="fas fa-chart-pie mr-2" style="color: var(--preparation-border-accent);"></i>
+                    Distribution par Niveau de Stock
+                </h3>
+            </div>
+            <div class="p-6">
+                <canvas id="stockDistributionChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Niveaux de stock détaillés -->
+        <div class="content-card rounded-xl shadow-md overflow-hidden">
+            <div class="card-header px-6 py-4 border-b">
+                <h3 class="text-xl font-bold flex items-center">
+                    <i class="fas fa-layer-group mr-2" style="color: var(--preparation-border-accent);"></i>
+                    Détail par Niveau
+                </h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="flex items-center justify-between p-4 niveau-rupture rounded-lg">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-red-500 rounded-full mr-3"></div>
+                        <span class="font-medium">En rupture</span>
+                    </div>
+                    <span class="text-2xl font-bold text-red-600">{{ stats_niveaux.rupture }}</span>
+                </div>
+
+                <div class="flex items-center justify-between p-4 niveau-faible rounded-lg">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-orange-500 rounded-full mr-3"></div>
+                        <span class="font-medium">Stock faible (≤10)</span>
+                    </div>
+                    <span class="text-2xl font-bold text-orange-600">{{ stats_niveaux.stock_faible }}</span>
+                </div>
+
+                <div class="flex items-center justify-between p-4 niveau-normal rounded-lg">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-blue-500 rounded-full mr-3"></div>
+                        <span class="font-medium">Stock normal (11-50)</span>
+                    </div>
+                    <span class="text-2xl font-bold text-blue-600">{{ stats_niveaux.stock_normal }}</span>
+                </div>
+
+                <div class="flex items-center justify-between p-4 niveau-eleve rounded-lg">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-green-500 rounded-full mr-3"></div>
+                        <span class="font-medium">Stock élevé (>50)</span>
+                    </div>
+                    <span class="text-2xl font-bold text-green-600">{{ stats_niveaux.stock_eleve }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top articles et analyses -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Top articles par valeur -->
+        <div class="content-card rounded-xl shadow-md overflow-hidden">
+            <div class="card-header px-6 py-4 border-b">
+                <h3 class="text-xl font-bold flex items-center">
+                    <i class="fas fa-trophy mr-2" style="color: var(--preparation-border-accent);"></i>
+                    Top Articles par Valeur
+                </h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead style="background-color: var(--preparation-light);">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Article</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Stock</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Valeur</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for article in top_articles_valeur|slice:":5" %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium" style="color: var(--preparation-primary);">{{ article.nom|truncatewords:3 }}</div>
+                                <div class="text-sm text-gray-500">{{ article.categorie }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ article.qte_disponible|intcomma }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                                {% widthratio article.qte_disponible 1 article.prix_unitaire as valeur_article %}
+                                {{ valeur_article|floatformat:0|intcomma }} DH
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-6 py-4 text-center text-gray-500">Aucun article trouvé</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Top articles par quantité -->
+        <div class="content-card rounded-xl shadow-md overflow-hidden">
+            <div class="card-header px-6 py-4 border-b">
+                <h3 class="text-xl font-bold flex items-center">
+                    <i class="fas fa-sort-amount-down mr-2" style="color: var(--preparation-border-accent);"></i>
+                    Top Articles par Quantité
+                </h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead style="background-color: var(--preparation-light);">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Article</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Quantité</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Prix</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for article in top_articles_quantite|slice:":5" %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium" style="color: var(--preparation-primary);">{{ article.nom|truncatewords:3 }}</div>
+                                <div class="text-sm text-gray-500">{{ article.categorie }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                                {{ article.qte_disponible|intcomma }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ article.prix_unitaire|floatformat:0|intcomma }} DH
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-6 py-4 text-center text-gray-500">Aucun article trouvé</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analyse par catégorie -->
+    {% if stats_categories %}
+    <div class="content-card rounded-xl shadow-md overflow-hidden mb-8">
+        <div class="card-header px-6 py-4 border-b">
+            <h3 class="text-xl font-bold flex items-center">
+                <i class="fas fa-tags mr-2" style="color: var(--preparation-border-accent);"></i>
+                Analyse par Catégorie
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead style="background-color: var(--preparation-light);">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Catégorie</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Articles</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Stock Total</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Valeur</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Prix Moyen</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Alertes</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for stat in stats_categories %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium" style="color: var(--preparation-primary);">{{ stat.categorie }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ stat.total_articles|intcomma }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ stat.stock_total|default:0|intcomma }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                            {{ stat.valeur_totale|floatformat:0|intcomma }} DH
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ stat.prix_moyen|floatformat:0|intcomma }} DH
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if stat.articles_rupture > 0 %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    {{ stat.articles_rupture }} rupture{{ stat.articles_rupture|pluralize }}
+                                </span>
+                            {% elif stat.articles_faible > 0 %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    {{ stat.articles_faible }} faible{{ stat.articles_faible|pluralize }}
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check mr-1"></i>OK
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Alertes et recommandations -->
+    {% if alertes %}
+    <div class="content-card rounded-xl shadow-md overflow-hidden">
+        <div class="card-header px-6 py-4 border-b">
+            <h3 class="text-xl font-bold flex items-center">
+                <i class="fas fa-bell mr-2" style="color: var(--preparation-border-accent);"></i>
+                Alertes et Recommandations
+            </h3>
+        </div>
+        <div class="p-6 space-y-4">
+            {% for alerte in alertes %}
+            <div class="flex items-start p-4 rounded-lg {% if alerte.type == 'warning' %}alerte-warning{% elif alerte.type == 'error' %}alerte-error{% else %}alerte-info{% endif %}">
+                <div class="flex-shrink-0">
+                    {% if alerte.type == 'warning' %}
+                        <i class="fas fa-exclamation-triangle text-yellow-600"></i>
+                    {% elif alerte.type == 'error' %}
+                        <i class="fas fa-times-circle text-red-600"></i>
+                    {% else %}
+                        <i class="fas fa-info-circle text-blue-600"></i>
+                    {% endif %}
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium {% if alerte.type == 'warning' %}text-yellow-800{% elif alerte.type == 'error' %}text-red-800{% else %}text-blue-800{% endif %}">
+                        {{ alerte.titre }}
+                    </p>
+                    <p class="text-sm {% if alerte.type == 'warning' %}text-yellow-700{% elif alerte.type == 'error' %}text-red-700{% else %}text-blue-700{% endif %} mt-1">
+                        {{ alerte.message }}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script src="{% static 'vendor/chart.min.js' %}"></script>
+<script>
+// Graphique de distribution du stock
+const ctx = document.getElementById('stockDistributionChart').getContext('2d');
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['En rupture', 'Stock faible', 'Stock normal', 'Stock élevé'],
+        datasets: [{
+            data: [{{ stats_niveaux.rupture }}, {{ stats_niveaux.stock_faible }}, {{ stats_niveaux.stock_normal }}, {{ stats_niveaux.stock_eleve }}],
+            backgroundColor: [
+                '#EF4444', // Rouge
+                '#F59E0B', // Orange
+                '#3B82F6', // Bleu
+                '#10B981'  // Vert
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 20,
+                    font: {
+                        size: 12
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Fonction d'export
+function exportStats() {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "Superpreparation:statistiques_stock" %}';
+    
+    const csrfToken = document.createElement('input');
+    csrfToken.type = 'hidden';
+    csrfToken.name = 'csrfmiddlewaretoken';
+    csrfToken.value = '{{ csrf_token }}';
+    form.appendChild(csrfToken);
+    
+    const exportField = document.createElement('input');
+    exportField.type = 'hidden';
+    exportField.name = 'export';
+    exportField.value = 'csv';
+    form.appendChild(exportField);
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+}
+</script>
+{% endblock %} 

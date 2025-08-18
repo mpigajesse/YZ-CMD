@@ -1,0 +1,240 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+
+{% block title %}Modifier Article - {{ article.nom }}{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2"><i class="fas fa-edit mr-3"></i> Modifier Article</h1>
+            <p style="color: var(--preparation-border-accent);">Modification de : {{ article.nom }}</p>
+        </div>
+        <div class="flex gap-3 mt-4 md:mt-0">
+            <a href="{% url 'Superpreparation:liste_articles' %}" class="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md">
+                <i class="fas fa-arrow-left mr-2"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {% csrf_token %}
+        
+        <!-- Colonne de gauche : Formulaire -->
+        <div class="lg:col-span-2 bg-white p-8 rounded-lg shadow-md space-y-8">
+
+            <!-- Section Identification -->
+            <fieldset class="border-t pt-6 border-gray-200">
+                <legend class="text-lg font-semibold text-gray-700 px-2 -mt-10 mb-4"><i class="fas fa-tag mr-2 text-blue-500"></i>Identification</legend>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="{{ form.nom.id_for_label }}" class="block text-sm font-medium text-gray-700">Nom de l'article</label>
+                        {{ form.nom }}
+                    </div>
+                    <div>
+                        <label for="{{ form.reference.id_for_label }}" class="block text-sm font-medium text-gray-700">Référence</label>
+                        {{ form.reference }}
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Section Détails -->
+            <fieldset class="border-t pt-6 border-gray-200">
+                <legend class="text-lg font-semibold text-gray-700 px-2 -mt-10 mb-4"><i class="fas fa-palette mr-2 text-purple-500"></i>Détails & Classification</legend>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="{{ form.categorie.id_for_label }}" class="block text-sm font-medium text-gray-700">Catégorie</label>
+                        {{ form.categorie }}
+                    </div>
+                    <div>
+                        <label for="{{ form.couleur.id_for_label }}" class="block text-sm font-medium text-gray-700">Couleur</label>
+                        {{ form.couleur }}
+                    </div>
+                    <div>
+                        <label for="{{ form.pointure.id_for_label }}" class="block text-sm font-medium text-gray-700">Pointure</label>
+                        {{ form.pointure }}
+                    </div>
+                </div>
+            </fieldset>
+            
+            <!-- Section Tarification et Statut -->
+            <fieldset class="border-t pt-6 border-gray-200">
+                <legend class="text-lg font-semibold text-gray-700 px-2 -mt-10 mb-4"><i class="fas fa-dollar-sign mr-2 text-green-500"></i>Tarif & Statut</legend>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="{{ form.prix_unitaire.id_for_label }}" class="block text-sm font-medium text-gray-700">Prix Unitaire (DH)</label>
+                        {{ form.prix_unitaire }}
+                    </div>
+                    <div>
+                        <label for="{{ form.phase.id_for_label }}" class="block text-sm font-medium text-gray-700">Phase de l'article</label>
+                        {{ form.phase }}
+                    </div>
+                    <div class="flex items-center pt-6">
+                        {{ form.actif }}
+                        <label for="{{ form.actif.id_for_label }}" class="ml-2 block text-sm font-medium text-gray-900">Article Actif</label>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Section Ajustement de Stock (Optionnel) -->
+            <fieldset class="border-t pt-6 border-gray-200">
+                <legend class="text-lg font-semibold text-gray-700 px-2 -mt-10 mb-4">
+                    <i class="fas fa-warehouse mr-2 text-blue-500"></i>Ajustement de Stock (Optionnel)
+                </legend>
+                
+                <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                        <span class="text-sm text-blue-700">
+                            Stock actuel : <strong>{{ article.qte_disponible }} unités</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="type_mouvement_stock" class="block text-sm font-medium text-gray-700">Type d'ajustement</label>
+                        <select id="type_mouvement_stock" 
+                                name="type_mouvement_stock"
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Aucun ajustement --</option>
+                            <option value="entree">Entrée de stock</option>
+                            <option value="sortie">Sortie de stock</option>
+                            <option value="ajustement_pos">Ajustement Positif (Inventaire)</option>
+                            <option value="ajustement_neg">Ajustement Négatif (Inventaire)</option>
+                            <option value="retour_client">Retour Client</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="quantite_ajustement" class="block text-sm font-medium text-gray-700">Quantité</label>
+                        <input type="number" 
+                               id="quantite_ajustement" 
+                               name="quantite_ajustement"
+                               min="1"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Ex: 10">
+                    </div>
+                    <div>
+                        <label for="nouveau_stock_previsionnel" class="block text-sm font-medium text-gray-700">Nouveau stock prévisionnel</label>
+                        <input type="text" 
+                               id="nouveau_stock_previsionnel" 
+                               readonly
+                               class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm text-gray-600"
+                               placeholder="Calculé automatiquement">
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <label for="commentaire_ajustement" class="block text-sm font-medium text-gray-700">Commentaire (optionnel)</label>
+                    <textarea id="commentaire_ajustement" 
+                              name="commentaire_ajustement"
+                              rows="2"
+                              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Ex: Inventaire mensuel, retour client défectueux..."></textarea>
+                </div>
+            </fieldset>
+
+            <!-- Section Description -->
+            <fieldset class="border-t pt-6 border-gray-200">
+                <legend class="text-lg font-semibold text-gray-700 px-2 -mt-10 mb-4"><i class="fas fa-align-left mr-2 text-orange-500"></i>Description</legend>
+                {{ form.description }}
+            </fieldset>
+            
+            <div class="mt-8 pt-6 border-t border-gray-200 flex justify-end gap-3">
+                <a href="{% url 'Superpreparation:detail_article' article.pk %}" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md">Annuler</a>
+                <button type="submit" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                    <i class="fas fa-save mr-2"></i>Sauvegarder
+                </button>
+            </div>
+        </div>
+
+        <!-- Colonne de droite : Image -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-6 text-gray-800"><i class="fas fa-image mr-3 text-purple-500"></i> Image de l'article</h2>
+            
+            <div id="image-preview-container" class="mb-4">
+                <img id="image-preview" src="{% if article.image %}{{ article.image.url }}{% endif %}" alt="Aperçu de l'image" 
+                     class="w-full h-auto object-cover rounded-lg shadow-lg {% if not article.image %}hidden{% endif %}">
+                <div id="image-placeholder" class="w-full h-48 bg-gray-200 flex items-center justify-center rounded-lg shadow-inner {% if article.image %}hidden{% endif %}">
+                    <i class="fas fa-image text-4xl text-gray-400"></i>
+                </div>
+            </div>
+            
+            <div>
+                <label for="{{ form.image.id_for_label }}" class="block text-sm font-medium text-gray-700">Changer l'image</label>
+                {{ form.image }}
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const imageInput = document.getElementById('{{ form.image.id_for_label }}');
+    const imagePreview = document.getElementById('image-preview');
+    const imagePlaceholder = document.getElementById('image-placeholder');
+
+    if (imageInput && imagePreview && imagePlaceholder) {
+        imageInput.addEventListener('change', function(event) {
+            if (event.target.files && event.target.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.classList.remove('hidden');
+                    imagePlaceholder.classList.add('hidden');
+                }
+                
+                reader.readAsDataURL(event.target.files[0]);
+            }
+        });
+    }
+
+    // Gestion de l'ajustement de stock
+    const stockActuel = {{ article.qte_disponible }};
+    const typeMouvementSelect = document.getElementById('type_mouvement_stock');
+    const quantiteInput = document.getElementById('quantite_ajustement');
+    const nouveauStockInput = document.getElementById('nouveau_stock_previsionnel');
+
+    function calculerNouveauStock() {
+        const typeMouvement = typeMouvementSelect.value;
+        const quantite = parseInt(quantiteInput.value) || 0;
+        
+        if (!typeMouvement || quantite <= 0) {
+            nouveauStockInput.value = '';
+            return;
+        }
+
+        let nouveauStock = stockActuel;
+        
+        switch(typeMouvement) {
+            case 'entree':
+            case 'ajustement_pos':
+            case 'retour_client':
+                nouveauStock = stockActuel + quantite;
+                break;
+            case 'sortie':
+            case 'ajustement_neg':
+                nouveauStock = stockActuel - quantite;
+                break;
+        }
+        
+        // Afficher le nouveau stock avec une indication visuelle
+        if (nouveauStock < 0) {
+            nouveauStockInput.value = nouveauStock + ' ⚠️ (Stock négatif)';
+            nouveauStockInput.classList.add('text-red-600');
+        } else {
+            nouveauStockInput.value = nouveauStock + ' unités';
+            nouveauStockInput.classList.remove('text-red-600');
+        }
+    }
+
+    if (typeMouvementSelect && quantiteInput && nouveauStockInput) {
+        typeMouvementSelect.addEventListener('change', calculerNouveauStock);
+        quantiteInput.addEventListener('input', calculerNouveauStock);
+    }
+});
+</script>
+{% endblock %} 

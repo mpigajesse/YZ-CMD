@@ -1,0 +1,133 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-box-open mr-3"></i>
+                Détail Article
+            </h1>
+            <p style="color: var(--preparation-border-accent);">Informations détaillées de : {{ article.nom }}</p>
+        </div>
+        <div class="flex gap-3 mt-4 md:mt-0">
+            <a href="{% url 'Superpreparation:modifier_article' article.id %}" class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md shadow-sm">
+                <i class="fas fa-edit mr-2"></i> Modifier
+            </a>
+            <a href="{% url 'Superpreparation:ajuster_stock' article.id %}" class="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-md shadow-sm">
+                <i class="fas fa-balance-scale mr-2"></i> Ajuster Stock
+            </a>
+            <a href="{% url 'Superpreparation:liste_articles' %}" class="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md shadow-sm">
+                <i class="fas fa-arrow-left mr-2"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Colonne de gauche : Informations générales -->
+        <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-6 flex items-center text-gray-800">
+                <i class="fas fa-info-circle mr-3 text-blue-500"></i> Informations Générales
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Image de l'article -->
+                <div class="md:col-span-1 flex flex-col items-center">
+                    {% if article.image %}
+                        <img src="{{ article.image.url }}" alt="Image de {{ article.nom }}" class="w-full h-48 object-cover rounded-lg shadow-lg mb-4" onerror="this.onerror=null;this.src='/static/img/default.png';">
+                    {% elif article.image_url %}
+                        <img src="{{ article.image_url }}" alt="Image de {{ article.nom }}" class="w-full h-48 object-cover rounded-lg shadow-lg mb-4" onerror="this.onerror=null;this.src='/static/img/default.png';">
+                    {% else %}
+                        <div class="w-full h-48 bg-gray-200 flex items-center justify-center rounded-lg shadow-inner mb-4">
+                            <i class="fas fa-image text-4xl text-gray-400"></i>
+                        </div>
+                    {% endif %}
+                    <span class="text-xs text-gray-500">Image de l'article</span>
+                </div>
+
+                <!-- Détails de l'article -->
+                <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600">Nom de l'article</label>
+                        <p class="mt-1 text-lg font-semibold text-gray-900">{{ article.nom }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600">Référence</label>
+                        <p class="mt-1 text-md text-gray-800">{{ article.reference }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600">Catégorie</label>
+                        <p class="mt-1 text-md text-gray-800">{{ article.categorie }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600">Prix unitaire</label>
+                        <p class="mt-1 text-md font-bold text-green-600">{{ article.prix_actuel|default:article.prix_unitaire|floatformat:2 }} DH</p>
+                    </div>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-600">Couleur</label>
+                        <p class="mt-1 text-md text-gray-800">{{ article.couleur }}</p>
+                    </div>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-600">Pointure</label>
+                        <p class="mt-1 text-md text-gray-800">{{ article.pointure }}</p>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-gray-600">Niveau de stock</label>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                            <div class="bg-blue-600 h-2.5 rounded-full" style="width: {% widthratio article.qte_disponible 100 100 %}%"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Seuil non défini</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Colonne de droite : Statistiques -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-6 flex items-center text-gray-800">
+                <i class="fas fa-chart-pie mr-3 text-purple-500"></i> Statistiques
+            </h2>
+            <div class="space-y-5">
+                <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-blue-200 text-blue-600"><i class="fas fa-boxes"></i></div>
+                        <p class="ml-4 font-medium text-gray-700">Stock actuel</p>
+                    </div>
+                    <p class="font-bold text-lg text-blue-700">{{ article.qte_disponible|intcomma }}</p>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-200 text-green-600"><i class="fas fa-dollar-sign"></i></div>
+                        <p class="ml-4 font-medium text-gray-700">Valeur stock</p>
+                    </div>
+                    <p class="font-bold text-lg text-green-700">{{ valeur_stock|floatformat:2 }} DH</p>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-orange-50 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-orange-200 text-orange-600"><i class="fas fa-exclamation-triangle"></i></div>
+                        <p class="ml-4 font-medium text-gray-700">Seuil alerte</t>
+                    </div>
+                    <p class="font-bold text-lg text-orange-700">10</p> <!-- Valeur statique -->
+                </div>
+                <div class="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-purple-200 text-purple-600"><i class="fas fa-history"></i></div>
+                        <p class="ml-4 font-medium text-gray-700">Dernier mouvement</p>
+                    </div>
+                    {% if dernier_mouvement %}
+                    <p class="font-semibold text-sm text-purple-700">{{ dernier_mouvement.date_mouvement|date:"d/m/y H:i" }}</p>
+                    {% else %}
+                    <p class="font-semibold text-sm text-purple-700">Aucun</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -18,14 +18,13 @@
             <p style="color: var(--preparation-border-accent);">{{ page_subtitle }}</p>
         </div>
         <div class="flex items-center gap-4 mt-4 md:mt-0">
-            {% if commande_renvoi_id %}
-                <a href="{% url 'Prepacommande:modifier_commande' commande_renvoi_id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
-                    <i class="fas fa-edit mr-2"></i>Modifier
-                </a>
-            {% else %}
-                <a href="{% url 'Prepacommande:modifier_commande' commande.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
-                    <i class="fas fa-edit mr-2"></i>Modifier
-                </a>
+            {% if etat_actuel.enum_etat.libelle != 'Préparée' %}
+            {% with target_id=commande_renvoi_id|default:commande.id %}
+            <a href="{% url 'Prepacommande:modifier_commande' target_id %}" 
+               class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-edit mr-2"></i>Modifier
+            </a>
+        {% endwith %}
             {% endif %}
             <a href="{% url 'Prepacommande:liste_prepa' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
                 <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
@@ -361,6 +360,7 @@
                                 {{ panier.article.nom }}
                                 {% if panier.article.reference %}
                                     <span class="text-xs text-gray-500 block">Réf: {{ panier.article.reference }}</span>
+                                    
                                 {% endif %}
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ panier.quantite }}</td>
@@ -496,7 +496,7 @@
             </form>
         </div>
         {% elif etat_preparation.enum_etat.libelle == 'En préparation' %}
-        <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <div class="bg-white rounded-xl shadow-lg mt-4 border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
             <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
                 <i class="fas fa-clipboard-list mr-2"></i>Finaliser la Préparation
             </h2>

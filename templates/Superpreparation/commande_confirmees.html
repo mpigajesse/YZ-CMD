@@ -1,0 +1,925 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+{% load commande_filters %}
+
+{% block title %}Commandes Confirmées - YZ-CMD{% endblock %}
+
+
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+
+    /* Style pour la modale de succès */
+    .success-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #2e1b22;
+        padding: 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        z-index: 50;
+        max-width: 32rem;
+        width: 90%;
+    }
+
+    .success-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color:#2e1b22;
+        z-index: 40;
+    }
+
+    .success-icon {
+        width: 3rem;
+        height: 3rem;
+        margin: 0 auto 1rem;
+        background-color: #2e1b22;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+
+    /* Styles harmonisés avec le thème de la page "Liste des Articles" */
+    .theme-header {
+        background: #2e1b22;
+        border: 2px solid #D2691E;
+        box-shadow: 0 4px 15px rgba(46, 27, 34, 0.2);
+    }
+
+    .theme-card {
+        background: #2e1b22;
+        border: 2px solid #F5DEB3;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(46, 27, 34, 0.1);
+    }
+
+    .theme-card:hover {
+        border-color: #D2691E;
+        box-shadow: 0 8px 25px rgba(46, 27, 34, 0.15);
+        transform: translateY(-3px);
+    }
+
+    .theme-button-primary {
+        background: linear-gradient(135deg, #2e1b22, #8B4513);
+        border: 2px solid #D2691E;
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(46, 27, 34, 0.2);
+    }
+
+    .theme-button-primary:hover {
+        background: linear-gradient(135deg, #8B4513, #2e1b22);
+        border-color: #CD853F;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(46, 27, 34, 0.3);
+    }
+
+    .theme-button-secondary {
+        background: #F5DEB3;
+        border: 2px solid #D2691E;
+        color: #2e1b22;
+        transition: all 0.3s ease;
+        font-weight: 600;
+    }
+
+    .theme-button-secondary:hover {
+        background: #DEB887;
+        border-color: #CD853F;
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    .theme-input {
+        border: 2px solid #F5DEB3;
+        transition: all 0.3s ease;
+        border-radius: 8px;
+    }
+
+    .theme-input:focus {
+        border-color: #D2691E;
+        box-shadow: 0 0 0 3px rgba(210, 105, 30, 0.1);
+        outline: none;
+    }
+
+    .theme-table-header {
+        background: linear-gradient(135deg, #2e1b22, #8B4513);
+        border-bottom: 3px solid #D2691E;
+        color: white;
+    }
+
+    .theme-pagination-controls {
+        background: white;
+        border: 2px solid #F5DEB3;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(46, 27, 34, 0.1);
+    }
+
+    .theme-pagination-controls:hover {
+        border-color: #D2691E;
+        box-shadow: 0 5px 15px rgba(46, 27, 34, 0.15);
+    }
+
+    .theme-modal {
+        border: 3px solid #2e1b22;
+        box-shadow: 0 25px 50px rgba(46, 27, 34, 0.3);
+        border-radius: 16px;
+    }
+
+    .theme-modal-header {
+        border-bottom: 2px solid #D2691E;
+        background: linear-gradient(135deg, #F5DEB3, #DEB887);
+        border-radius: 12px 12px 0 0;
+        padding: 20px;
+    }
+
+    .theme-modal-footer {
+        border-top: 2px solid #D2691E;
+        background: linear-gradient(135deg, #F5DEB3, #DEB887);
+        border-radius: 0 0 12px 12px;
+        padding: 20px;
+    }
+
+    /* Styles spécifiques pour les cartes de statistiques */
+    .stats-card {
+        background: #2e1b22;
+        border: 2px solid #F5DEB3;
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(46, 27, 34, 0.1);
+    }
+
+    .stats-card:hover {
+        border-color: #D2691E;
+        box-shadow: 0 8px 25px rgba(46, 27, 34, 0.2);
+        transform: translateY(-5px);
+    }
+
+    /* Styles pour les icônes des statistiques */
+    .stats-icon {
+        background: linear-gradient(135deg, #2e1b22, #8B4513);
+        color: white;
+        border-radius: 50%;
+        padding: 16px;
+        transition: all 0.3s ease;
+    }
+
+    .stats-card:hover .stats-icon {
+        background: linear-gradient(135deg, #8B4513, #2e1b22);
+        transform: scale(1.1);
+    }
+
+
+
+
+
+    /* Styles pour les champs de recherche */
+    .search-section {
+        background: white;
+        border: 2px solid #F5DEB3;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(46, 27, 34, 0.1);
+    }
+
+    .search-section:hover {
+        border-color: #D2691E;
+        box-shadow: 0 6px 20px rgba(46, 27, 34, 0.15);
+    }
+</style>
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg bg-[#2e1b22] border-[2px] border-[#D2691E] shadow-[0_4px_15px_rgba(46,27,34,0.2)] rounded-xl">
+
+       
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-check-circle mr-3" style="color: #9a6a4d;"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: #9a6a4d;">{{ page_subtitle }}</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <div class="text-right">
+                <div class="text-2xl font-bold" style="color: #ffffff;">{{ total_confirmees|default:0 }}</div>
+                <div class="text-sm opacity-80">Total confirmées</div>
+            </div>
+            <div class="text-right border-l border-white/50 pl-4 ml-4">
+                <div class="text-2xl font-bold" style="color: #ffffff;">{{ montant_total|default:0|floatformat:0 }} DH</div>
+                <div class="text-sm opacity-80">Valeur totale</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- Aujourd'hui -->
+        <div class="stats-card group rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.1s;">
+                <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                        <i class="fas fa-calendar-day text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Aujourd'hui</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ confirmees_aujourd_hui|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- Cette semaine -->
+        <div class="stats-card group rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.2s;">
+                <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                        <i class="fas fa-calendar-week text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Cette semaine</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ confirmees_semaine|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- Ce mois -->
+        <div class="stats-card group rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.3s;">
+                <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                        <i class="fas fa-calendar-alt text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Ce mois</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ confirmees_mois|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- Total -->
+        <div class="stats-card group rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.4s;">
+                <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-check-double text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Confirmées</p>
+                    <p class="text-3xl font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{{ total_confirmees|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et filtres -->
+    <div class="search-section rounded-xl shadow-md p-6 mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+            <form method="get" class="flex-grow flex items-center gap-4">
+                <div class="relative flex-grow">
+                        <input type="text" name="search" value="{{ search_query|default:'' }}" 
+                               class="theme-input w-full pl-10 pr-4 py-2 rounded-lg focus:ring-2 focus:ring-offset-2 transition-all" 
+                               placeholder="Rechercher par N° commande, client, opérateur...">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
+                <button type="submit" class="px-6 py-2 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" 
+                        style="background-color: #2e1b22;">
+                    Rechercher
+                </button>
+                {% if search_query %}
+                <a href="{% url 'Superpreparation:commandes_confirmees' %}" class="px-4 py-2 rounded-lg bg-gray-500 text-white font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    Réinitialiser
+                </a>
+                {% endif %}
+            </form>
+             <!-- Actions en masse -->
+            <div class="flex gap-2">
+                <button class="px-4 py-2 rounded-lg font-medium transition-all shadow-sm opacity-50 cursor-not-allowed bg-[#2e1b22] text-white flex items-center gap-2">
+                    <i class="fas fa-users-cog"></i> Affecter sélection
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message si aucun résultat -->
+    {% if not page_obj.object_list %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    {% if search_query %}
+                        Aucune commande confirmée trouvée pour la recherche "{{ search_query }}".
+                    {% else %}
+                        Aucune commande confirmée pour le moment.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tableau des commandes confirmées -->
+    {% if page_obj.object_list %}
+    <div class="overflow-x-auto mb-8 theme-card rounded-xl shadow-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-[#2e1b22] border-b-[3px] border-[#2e1b22] text-white">
+                <tr>
+                    <th class="px-4 py-3 text-left">
+                        <input type="checkbox" id="selectAll" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500">
+                </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Confirmation</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur Conf.</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
+                {% include 'Superpreparation/partials/_confirmees_table_body.html' with page_obj=page_obj %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Contrôles de pagination flexible (style Excel) -->
+    <div class="theme-pagination-controls p-4 mb-6 transition-all duration-300">
+        <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+            <!-- Section Éléments par page -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-list-ol text-sm" style="color: #2e1b22;"></i>
+                    <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                </div>
+                <select id="itemsPerPageSelect" class="theme-input px-3 py-1.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm">
+                    <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                    <option value="250" {% if items_per_page == 250 %}selected{% endif %}>250</option>
+                    <option value="500" {% if items_per_page == 500 %}selected{% endif %}>500</option>
+                    <option value="1000" {% if items_per_page == 1000 %}selected{% endif %}>1000</option>
+                    <option value="2500" {% if items_per_page == 2500 %}selected{% endif %}>2500</option>
+                    <option value="5000" {% if items_per_page == 5000 %}selected{% endif %}>5000</option>
+                    <option value="10000" {% if items_per_page == 10000 %}selected{% endif %}>10000</option>
+                    <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                </select>
+            </div>
+            
+            <!-- Section Plage personnalisée -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-arrows-alt-h text-sm" style="color: #2e1b22;"></i>
+                    <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                </div>
+                <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                               class="theme-input px-2 py-1 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm">
+                        <span class="text-gray-500 text-xs font-medium">à</span>
+                        <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                               class="theme-input px-2 py-1 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm">
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-check mr-1"></i>Appliquer
+                        </button>
+                        <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-times mr-1"></i>Effacer
+                        </button>
+                    </div>
+        </div>
+            </div>
+            
+            <!-- Section Statistiques -->
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                    <i class="fas fa-chart-bar text-sm" style="color: #2e1b22;"></i>
+                    <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> commandes confirmées</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Indicateur de statut -->
+        <div class="mt-3 pt-3 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs text-gray-600">Pagination active</span>
+                    </div>
+                    {% if start_range and end_range %}
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-filter text-xs text-blue-500"></i>
+                        <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                    </div>
+        {% endif %}
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                    <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="paginationControls" class="flex justify-center mt-8">
+        {% include 'Superpreparation/partials/_confirmees_pagination.html' %}
+    </div>
+
+    <!-- Informations de pagination -->
+    <div id="paginationInfoContainer">
+        {% include 'Superpreparation/partials/_confirmees_pagination_info.html' %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal d'affectation aux opérateurs de préparation -->
+<div id="affectationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="theme-modal relative p-8 bg-white w-full max-w-4xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down">
+        <!-- En-tête du modal -->
+        <div class="theme-modal-header flex justify-between items-center pb-4">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: #8B4513;">
+                    <i class="fas fa-cogs text-white text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold" style="color: #8B4513;">Affecter à la Préparation</h3>
+            </div>
+            <button onclick="hideAffectationModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="mb-6">
+                <p class="text-gray-600 mb-2">Commandes : <span id="commandeIdAffectation" class="font-bold" style="color: #8B4513;"></span></p>
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-info-circle text-green-500 mr-2"></i>
+                        <p class="text-sm text-green-700">Affectation aux opérateurs de préparation uniquement</p>
+                    </div>
+                </div>
+                <p class="text-gray-700 font-medium">Sélectionner un opérateur :</p>
+            </div>
+            
+            <!-- Grille des opérateurs de préparation -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 max-h-80 overflow-y-auto">
+                {% for operateur in operateurs_preparation %}
+                <div class="operateur-card border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all duration-200" 
+                     data-operateur-id="{{ operateur.id }}" onclick="selectOperateur(this, {{ operateur.id }})">
+                    <div class="flex flex-col items-center text-center">
+                        <!-- Avatar -->
+                        <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mb-3">
+                            <i class="fas fa-user text-white text-lg"></i>
+                        </div>
+                        <!-- Email de l'opérateur -->
+                        <h4 class="font-semibold text-gray-900 text-sm mb-1">{{ operateur.mail }}</h4>
+                        <!-- Nom -->
+                        <p class="text-xs text-gray-500 mb-2">{{ operateur.nom_complet }}</p>
+                        <!-- Badge du nombre de commandes -->
+                        <div class="flex items-center">
+                            <i class="fas fa-cogs text-green-500 mr-1 text-xs"></i>
+                            <span class="text-xs text-green-600 font-medium">0 commandes affectées</span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full text-center py-8 text-gray-500">
+                    <i class="fas fa-user-slash text-4xl mb-4"></i>
+                    <p>Aucun opérateur de préparation disponible</p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Commentaire optionnel -->
+            <div class="mb-4">
+                <label for="commentaireAffectation" class="block text-sm font-medium text-gray-700 mb-2">
+                    Commentaire (optionnel)
+                </label>
+                <textarea id="commentaireAffectation" rows="3" 
+                          class="theme-input w-full p-3 rounded-lg focus:ring-2 focus:ring-offset-2 transition-all" 
+                          placeholder="Ajoutez un commentaire pour l'affectation..."></textarea>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="theme-modal-footer flex justify-end space-x-3 pt-4">
+            <button onclick="hideAffectationModal()" 
+                    class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-all duration-200">
+                <i class="fas fa-times mr-2"></i>
+                Annuler
+            </button>
+            <button onclick="proceedAffectation()" 
+                    class="theme-button-primary px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5">
+                <i class="fas fa-check mr-2"></i>
+                Affecter
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modale de succès -->
+<div id="successModal" class="success-modal-overlay hidden">
+    <div class="success-modal">
+        <div class="success-icon">
+            <i class="fas fa-check text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-center mb-2">Succès !</h3>
+        <p id="successMessage" class="text-sm text-gray-600 text-center mb-6"></p>
+        <div class="flex justify-center">
+            <button onclick="hideSuccessModal()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                OK
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modale d'erreur -->
+<div id="errorModal" class="success-modal-overlay hidden">
+    <div class="success-modal">
+        <div class="success-icon" style="background-color: #2e1b22;">
+            <i class="fas fa-exclamation-triangle text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-center mb-2">Erreur</h3>
+        <p id="errorMessage" class="text-sm text-gray-600 text-center mb-6"></p>
+        <div class="flex justify-center">
+            <button onclick="hideErrorModal()" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let commandeToAffect = null;
+    let bulkAffect = false;
+    let selectedOperateurId = null;
+
+    function showAffectationModal(commandeId, commandeIdYz, isBulk = false) {
+        bulkAffect = isBulk;
+        if (isBulk) {
+            const selectedCommandes = getSelectedCommandes();
+            document.getElementById('commandeIdAffectation').textContent = `${selectedCommandes.length} commandes sélectionnées`;
+        } else {
+        commandeToAffect = commandeId;
+        document.getElementById('commandeIdAffectation').textContent = commandeIdYz;
+        }
+        // Réinitialiser la sélection
+        selectedOperateurId = null;
+        document.querySelectorAll('.operateur-card').forEach(card => {
+            card.classList.remove('border-green-500', 'bg-green-100', 'ring-2', 'ring-green-500');
+            card.classList.add('border-gray-200');
+        });
+        document.getElementById('commentaireAffectation').value = '';
+        document.getElementById('affectationModal').classList.remove('hidden');
+    }
+
+    function selectOperateur(cardElement, operateurId) {
+        // Désélectionner toutes les cartes
+        document.querySelectorAll('.operateur-card').forEach(card => {
+            card.classList.remove('border-green-500', 'bg-green-100', 'ring-2', 'ring-green-500');
+            card.classList.add('border-gray-200');
+        });
+        
+        // Sélectionner la carte cliquée
+        cardElement.classList.remove('border-gray-200');
+        cardElement.classList.add('border-green-500', 'bg-green-100', 'ring-2', 'ring-green-500');
+        
+        selectedOperateurId = operateurId;
+    }
+
+    function hideAffectationModal() {
+        document.getElementById('affectationModal').classList.add('hidden');
+        commandeToAffect = null;
+        bulkAffect = false;
+    }
+
+    function getCsrfToken() {
+        const token = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (token) {
+            return token.value;
+        }
+        console.error('CSRF token not found');
+        return '';
+    }
+
+    function getSelectedCommandes() {
+        return Array.from(document.querySelectorAll('.commande-checkbox:checked')).map(cb => cb.dataset.commandeId);
+    }
+
+    function showSuccessModal(message) {
+        document.getElementById('successMessage').textContent = message;
+        document.getElementById('successModal').classList.remove('hidden');
+        setTimeout(() => {
+            hideSuccessModal();
+            window.location.reload();
+        }, 2000);
+    }
+
+    function hideSuccessModal() {
+        document.getElementById('successModal').classList.add('hidden');
+    }
+
+    function showErrorModal(message) {
+        document.getElementById('errorMessage').textContent = message;
+        document.getElementById('errorModal').classList.remove('hidden');
+    }
+
+    function hideErrorModal() {
+        document.getElementById('errorModal').classList.add('hidden');
+    }
+
+    function proceedAffectation() {
+        const operateurId = selectedOperateurId;
+        const commentaire = document.getElementById('commentaireAffectation').value;
+        
+        if (!operateurId) {
+            showErrorModal('Veuillez sélectionner un opérateur.');
+            return;
+        }
+        
+        const button = event.target;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Affectation...';
+
+        let url = `/commande/affecter-preparation-multiple/`;
+        let body = JSON.stringify({ 
+            operateur_id: operateurId, 
+            commentaire: commentaire,
+            commande_ids: bulkAffect ? getSelectedCommandes() : [commandeToAffect]
+        });
+        
+        const csrfToken = getCsrfToken();
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: body
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                hideAffectationModal();
+                showSuccessModal(data.message || 'Les commandes ont été affectées pour la préparation.');
+            } else {
+                showErrorModal(data.message || 'Une erreur est survenue.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showErrorModal('Impossible de contacter le serveur.');
+        }).finally(() => {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-check mr-2"></i>Affecter';
+        });
+    }
+
+    // Gestion de la sélection
+    document.addEventListener('DOMContentLoaded', () => {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.commande-checkbox');
+        const bulkAffectBtn = document.getElementById('bulkAffectBtn');
+
+        // Vérifier si les éléments existent avant de continuer
+        if (!selectAll || !bulkAffectBtn || checkboxes.length === 0) {
+            console.log('Certains éléments de sélection ne sont pas présents dans la page');
+            return;
+        }
+
+        function toggleBulkButton() {
+            const anyChecked = getSelectedCommandes().length > 0;
+            bulkAffectBtn.disabled = !anyChecked;
+            bulkAffectBtn.classList.toggle('opacity-50', !anyChecked);
+            bulkAffectBtn.classList.toggle('cursor-not-allowed', !anyChecked);
+        }
+
+        selectAll.addEventListener('change', (e) => {
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+            });
+            toggleBulkButton();
+        });
+
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                if (!checkbox.checked) {
+                    selectAll.checked = false;
+                } else if (getSelectedCommandes().length === checkboxes.length) {
+                    selectAll.checked = true;
+                }
+                toggleBulkButton();
+            });
+        });
+
+        bulkAffectBtn.addEventListener('click', () => {
+            showAffectationModal(null, null, true);
+        });
+
+        toggleBulkButton();
+    });
+
+    // Event listeners to close the modal
+    const affectationModal = document.getElementById('affectationModal');
+    if (affectationModal) {
+        window.addEventListener('click', (event) => {
+            if (event.target === affectationModal) {
+                hideAffectationModal();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                hideAffectationModal();
+            }
+        });
+    }
+
+    // ===== PAGINATION AJAX =====
+    // Variables globales pour la pagination
+    let currentPage = 1;
+    let currentItemsPerPage = {{ items_per_page|default:25 }};
+    let currentStartRange = '{{ start_range|default:"" }}';
+    let currentEndRange = '{{ end_range|default:"" }}';
+    let currentSearchQuery = '{{ search_query|default:"" }}';
+    let searchTimeout;
+
+    // Fonction pour construire l'URL avec les paramètres de pagination
+    function buildUrl(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+        const params = new URLSearchParams();
+        
+        if (page > 1) params.append('page', page);
+        if (itemsPerPage !== null) params.append('items_per_page', itemsPerPage);
+        if (startRange !== null) params.append('start_range', startRange);
+        if (endRange !== null) params.append('end_range', endRange);
+        if (searchQuery !== null && searchQuery.trim() !== '') params.append('search', searchQuery.trim());
+        
+        const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        return url;
+    }
+
+    // Fonction pour mettre à jour l'URL sans recharger la page
+    function updateUrl(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+        const url = buildUrl(page, itemsPerPage, startRange, endRange, searchQuery);
+        window.history.pushState({}, '', url);
+    }
+
+    // Fonction pour charger les données via AJAX
+    function loadData(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+        const url = buildUrl(page, itemsPerPage, startRange, endRange, searchQuery);
+        
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour le contenu du tableau
+                document.getElementById('commandTableBody').innerHTML = data.html_table_body;
+                
+                // Mettre à jour la pagination
+                const paginationContainer = document.getElementById('paginationControls');
+                if (paginationContainer) {
+                    paginationContainer.innerHTML = data.html_pagination;
+                }
+                
+                // Mettre à jour les informations de pagination
+                const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+                if (paginationInfoContainer) {
+                    paginationInfoContainer.innerHTML = data.html_pagination_info;
+                }
+                
+                // Mettre à jour l'URL
+                updateUrl(page, itemsPerPage, startRange, endRange, searchQuery);
+                
+                // Mettre à jour les variables globales
+                currentPage = page;
+                if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
+                if (startRange !== null) currentStartRange = startRange;
+                if (endRange !== null) currentEndRange = endRange;
+                if (searchQuery !== null) currentSearchQuery = searchQuery;
+                
+                // Réattacher les event listeners
+                attachEventListeners();
+            } else {
+                console.error('Erreur lors du chargement des données:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+        });
+    }
+
+    // Fonction pour changer de page
+    function changePage(page) {
+        loadData(page, currentItemsPerPage, currentStartRange, currentEndRange, currentSearchQuery);
+    }
+
+    // Fonction pour changer le nombre d'éléments par page
+    function changeItemsPerPage(itemsPerPage) {
+        loadData(1, itemsPerPage, currentStartRange, currentEndRange, currentSearchQuery);
+    }
+
+    // Fonction pour appliquer une plage personnalisée
+    function applyCustomRange(startRange, endRange) {
+        loadData(1, null, startRange, endRange, currentSearchQuery);
+    }
+
+    // Fonction pour effacer la plage personnalisée
+    function clearCustomRange() {
+        loadData(1, currentItemsPerPage, '', '', currentSearchQuery);
+    }
+
+    // Fonction pour attacher les event listeners
+    function attachEventListeners() {
+        // Event listener pour le select des éléments par page
+        const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+        if (itemsPerPageSelect) {
+            itemsPerPageSelect.removeEventListener('change', handleItemsPerPageChange);
+            itemsPerPageSelect.addEventListener('change', handleItemsPerPageChange);
+        }
+        
+        // Event listener pour le bouton d'application de la plage
+        const applyRangeBtn = document.getElementById('applyRangeBtn');
+        if (applyRangeBtn) {
+            applyRangeBtn.removeEventListener('click', handleApplyRange);
+            applyRangeBtn.addEventListener('click', handleApplyRange);
+        }
+        
+        // Event listener pour le bouton d'effacement de la plage
+        const clearRangeBtn = document.getElementById('clearRangeBtn');
+        if (clearRangeBtn) {
+            clearRangeBtn.removeEventListener('click', handleClearRange);
+            clearRangeBtn.addEventListener('click', handleClearRange);
+        }
+    }
+
+    // Handlers pour les event listeners
+    function handleItemsPerPageChange(event) {
+        const itemsPerPage = event.target.value;
+        changeItemsPerPage(itemsPerPage);
+    }
+
+    function handleApplyRange() {
+        const startRange = document.getElementById('startRangeInput').value;
+        const endRange = document.getElementById('endRangeInput').value;
+        
+        if (startRange && endRange) {
+            applyCustomRange(startRange, endRange);
+        } else {
+            alert('Veuillez remplir les deux champs de plage');
+        }
+    }
+
+    function handleClearRange() {
+        document.getElementById('startRangeInput').value = '';
+        document.getElementById('endRangeInput').value = '';
+        clearCustomRange();
+    }
+
+    // Initialisation de la pagination AJAX au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        attachEventListeners();
+    });
+</script>
+{% endblock %} 

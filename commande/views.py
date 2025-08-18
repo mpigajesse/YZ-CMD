@@ -2446,9 +2446,13 @@ def suivi_confirmations(request):
     commandes_en_cours = commandes_en_cours.order_by('-etats__date_debut')
     
     # Pagination
-    paginator = Paginator(commandes_confirmees, 25)  # 25 commandes par page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    if commandes_en_cours.exists():
+        paginator = Paginator(commandes_en_cours, 25)  # 25 commandes par page
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+    else:
+        paginator = Paginator([], 25)
+        page_obj = paginator.get_page(1)
     
     # Statistiques
     today = timezone.now().date()
@@ -2480,8 +2484,11 @@ def suivi_confirmations(request):
         etats__date_fin__isnull=True
     ).distinct().count()
     
-    # Montant total des commandes confirmées
-    montant_total = commandes_confirmees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    # Montant total des commandes en cours de confirmation
+    if commandes_en_cours.exists():
+        montant_total = commandes_en_cours.aggregate(total=Sum('total_cmd'))['total'] or 0
+    else:
+        montant_total = 0
     
     # Récupérer les opérateurs de confirmation actifs
     operateurs_confirmation = Operateur.objects.filter(
@@ -2491,12 +2498,14 @@ def suivi_confirmations(request):
     
     # Récupérer les commandes par opérateur (utiliser les données non paginées)
     commandes_par_operateur = {}
-    for commande in commandes_confirmees:
-        operateur = commande.etats.filter(enum_etat__libelle='Confirmée').first().operateur
-        if operateur:
-            if operateur.nom not in commandes_par_operateur:
-                commandes_par_operateur[operateur.nom] = []
-            commandes_par_operateur[operateur.nom].append(commande)
+    if commandes_en_cours.exists():
+        for commande in commandes_en_cours:
+            etat_en_cours = commande.etats.filter(enum_etat__libelle='En cours de confirmation').first()
+            if etat_en_cours and etat_en_cours.operateur:
+                operateur_nom = f"{etat_en_cours.operateur.prenom} {etat_en_cours.operateur.nom}"
+                if operateur_nom not in commandes_par_operateur:
+                    commandes_par_operateur[operateur_nom] = []
+                commandes_par_operateur[operateur_nom].append(commande)
     
     # Récupérer les jours de vérification
     jours_verification = {
@@ -2514,10 +2523,7 @@ def suivi_confirmations(request):
         
         html_pagination = render_to_string('commande/partials/_suivi_confirmations_pagination.html', {
             'page_obj': page_obj,
-            'search_query': search_query,
-            'items_per_page': items_per_page,
-            'start_range': start_range,
-            'end_range': end_range
+            'search_query': search_query
         }, request=request)
         
         html_pagination_info = render_to_string('commande/partials/_suivi_confirmations_pagination_info.html', {
@@ -2529,11 +2535,11 @@ def suivi_confirmations(request):
             'html_table_body': html_table_body,
             'html_pagination': html_pagination,
             'html_pagination_info': html_pagination_info,
-            'total_count': commandes_confirmees.count()
+            'total_count': commandes_en_cours.count() if commandes_en_cours.exists() else 0
         })
     
     context = {
-        'commandes_confirmees': commandes_confirmees,
+        'commandes_en_cours': commandes_en_cours,
         'page_obj': page_obj,
         'search_query': search_query,
         'en_cours_aujourd_hui': en_cours_aujourd_hui,
@@ -2544,9 +2550,6 @@ def suivi_confirmations(request):
         'operateurs_confirmation': operateurs_confirmation,
         'commandes_par_operateur': sorted(commandes_par_operateur.items()),
         'jours_verification': jours_verification,
-        'items_per_page': items_per_page,
-        'start_range': start_range,
-        'end_range': end_range,
     }
     
     return render(request, 'commande/suivi_confirmations.html', context)

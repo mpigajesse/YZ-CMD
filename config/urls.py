@@ -44,6 +44,7 @@ urlpatterns = [
     path('operatConfirme/', RedirectView.as_view(url='/operateur-confirme/', permanent=True)),
     path('operateur-logistique/', include('operatLogistic.urls')),
     path('operateur-preparation/', include('Prepacommande.urls')),
+    path('Superpreparation/', include('Superpreparation.urls')),
     path('livraison/', include('livraison.urls')),
     path('parametre/', include('parametre.urls')),
     path('synchronisation/', include('synchronisation.urls')),
