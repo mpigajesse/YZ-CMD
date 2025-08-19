@@ -7,6 +7,9 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 from decimal import Decimal, ROUND_HALF_UP
+# Nouveau import correct :
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
 # Create your models here.
 
@@ -29,8 +32,6 @@ class Categorie(models.Model):
     
     nom = models.CharField(max_length=50, default='', choices=CATEGORIE_CHOICES, unique=True)
     description = models.TextField(blank=True, null=True)
-    isUpsell = models.BooleanField(default=False, verbose_name="Est un upsell")
-    qte_disponible = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     actif = models.BooleanField(default=True)
     date_creation = models.DateTimeField(default=timezone.now, editable=False)
     date_modification = models.DateTimeField(auto_now=True)
@@ -42,7 +43,20 @@ class Categorie(models.Model):
     
     def __str__(self):
         return self.get_nom_display()
+    
 
+    @property
+    def qte_disponible(self):
+        """
+        Calcule la quantité totale disponible pour cette catégorie
+        """
+        from article.models import Article  # Import circulaire évité
+        return Article.objects.filter(
+            categorie=self, 
+            actif=True
+        ).aggregate(
+            total=Sum('qte_disponible')
+        ).get('total', 0) or 0
 
 class Genre(models.Model):
     """
@@ -55,7 +69,7 @@ class Genre(models.Model):
         ('GARCON', 'Garçon'),
     ]
     
-    nom = models.CharField(max_length=20, choices=GENRE_CHOICES, unique=True)
+    nom = models.CharField(max_length=20,default='', choices=GENRE_CHOICES, unique=True)
     description = models.TextField(blank=True, null=True)
     actif = models.BooleanField(default=True)
     date_creation = models.DateTimeField(default=timezone.now, editable=False)
@@ -114,9 +128,9 @@ class VarianteArticle(models.Model):
     """
     Modèle pour les variantes d'articles (combinaison couleur/pointure)
     """
-    article = models.ForeignKey('Article', on_delete=models.CASCADE, related_name='variantes')
-    couleur = models.ForeignKey(Couleur, on_delete=models.CASCADE)
-    pointure = models.ForeignKey(Pointure, on_delete=models.CASCADE)
+    article = models.ForeignKey('Article', on_delete=models.CASCADE,null=True, blank=True, related_name='variantes')
+    couleur = models.ForeignKey(Couleur, on_delete=models.CASCADE,null=True, blank=True)
+    pointure = models.ForeignKey(Pointure, on_delete=models.CASCADE,null=True, blank=True)
     qte_disponible = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
     prix_achat = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -132,7 +146,7 @@ class VarianteArticle(models.Model):
         ordering = ['article__nom', 'couleur__nom', 'pointure__pointure']
     
     def __str__(self):
-        return f"{self.article.nom} - {self.couleur.nom} - {self.pointure.pointure}"
+        return f"{self.article.nom}"
     
     def clean(self):
         # Vérifier que le prix actuel a exactement 2 décimales
@@ -221,19 +235,18 @@ class Article(models.Model):
     
     nom = models.CharField(max_length=200)
     reference = models.CharField(max_length=50, unique=True, null=True, blank=True, default=None)
-    couleur = models.CharField(max_length=50)
-    pointure = models.CharField(max_length=10)
     prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
+    genre = models.ForeignKey('Genre', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Genre")
+
     prix_achat = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     prix_actuel = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    categorie = models.CharField(max_length=100)
+    categorie = models.ForeignKey(Categorie, on_delete=models.CASCADE,related_name='articles',default=None)
     phase = models.CharField(
         max_length=20,
         choices=PHASE_CHOICES,
         default='EN_COURS',
         verbose_name="Phase de l'article"
     )
-    qte_disponible = models.IntegerField()
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to='articles/', blank=True, null=True)
     image_url = models.URLField(blank=True, null=True, help_text="Lien direct vers une image externe (ex: Unsplash)")
@@ -253,15 +266,13 @@ class Article(models.Model):
     class Meta:
         verbose_name = "Article"
         verbose_name_plural = "Articles"
-        ordering = ['nom', 'couleur', 'pointure']
-        unique_together = ['nom', 'couleur', 'pointure']  # Combinaison unique
+        ordering = ['nom', 'reference']
         constraints = [
             models.CheckConstraint(check=models.Q(prix_unitaire__gt=0), name='prix_unitaire_positif'),
-            models.CheckConstraint(check=models.Q(qte_disponible__gte=0), name='qte_disponible_positif'),
         ]
     
     def __str__(self):
-        base_str = f"{self.nom} - {self.couleur} - {self.pointure}"
+        base_str = f"{self.nom}"
         if self.isUpsell:
             base_str += f" (Upsell - PA: {self.prix_achat} MAD)"
         elif self.prix_achat > 0:
@@ -440,6 +451,23 @@ class Article(models.Model):
         return self.variantes.filter(actif=True).aggregate(
             total=models.Sum('qte_disponible')
         )['total'] or 0
+    
+    @property
+    def couleur(self):
+        """Propriété de compatibilité pour accéder à la couleur de la première variante"""
+        variante = self.variantes.filter(actif=True).first()
+        return variante.couleur.nom if variante and variante.couleur else ''
+    
+    @property
+    def pointure(self):
+        """Propriété de compatibilité pour accéder à la pointure de la première variante"""
+        variante = self.variantes.filter(actif=True).first()
+        return variante.pointure.pointure if variante and variante.pointure else ''
+    
+    @property
+    def qte_disponible(self):
+        """Propriété de compatibilité pour accéder à la quantité disponible totale"""
+        return self.get_total_qte_disponible()
 
 
 class Promotion(models.Model):

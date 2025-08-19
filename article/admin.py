@@ -1,13 +1,14 @@
 from django.contrib import admin
 from .models import Article, Promotion, Categorie, Genre, Pointure, Couleur, VarianteArticle, MouvementStock
+from django.db.models import Sum, Q
 
 @admin.register(Categorie)
 class CategorieAdmin(admin.ModelAdmin):
-    list_display = ('nom', 'isUpsell', 'qte_disponible', 'actif', 'date_creation')
-    list_filter = ('isUpsell', 'actif', 'date_creation')
+    list_display = ('nom', 'quantite_disponible', 'actif', 'date_creation')
+    list_filter = ('actif', 'date_creation')
     search_fields = ('nom', 'description')
     ordering = ('nom',)
-    list_editable = ('isUpsell', 'qte_disponible', 'actif')
+    list_editable = ['actif']
     readonly_fields = ('date_creation', 'date_modification')
     
     fieldsets = (
@@ -15,13 +16,23 @@ class CategorieAdmin(admin.ModelAdmin):
             'fields': ('nom', 'description')
         }),
         ('Configuration', {
-            'fields': ('isUpsell', 'qte_disponible', 'actif')
+            'fields': ('actif',)
         }),
         ('Dates', {
             'fields': ('date_creation', 'date_modification'),
             'classes': ('collapse',)
         }),
     )
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.annotate(
+            total_qte=Sum('articles__variantes__qte_disponible', filter=Q(articles__actif=True, articles__variantes__actif=True))
+        )
+
+    def quantite_disponible(self, obj):
+        return obj.total_qte or 0
+    quantite_disponible.short_description = 'Quantité disponible'
+    quantite_disponible.admin_order_field = 'total_qte'
 
 
 @admin.register(Genre)
@@ -119,7 +130,7 @@ class VarianteArticleAdmin(admin.ModelAdmin):
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'reference', 'nom', 'categorie', 'prix_unitaire', 'prix_achat', 'prix_actuel', 'phase', 'qte_disponible', 'actif', 'est_disponible', 'isUpsell')
+    list_display = ('id', 'reference', 'nom', 'categorie', 'prix_unitaire', 'prix_achat', 'prix_actuel', 'phase', 'actif', 'est_disponible', 'isUpsell')
     list_filter = ('categorie', 'phase', 'actif', 'date_creation', 'isUpsell')
     search_fields = ('nom', 'reference', 'categorie')
     ordering = ('nom', 'categorie')
@@ -139,7 +150,7 @@ class ArticleAdmin(admin.ModelAdmin):
             'description': 'Configuration pour les articles upsell'
         }),
         ('Stock', {
-            'fields': ('qte_disponible', 'actif'),
+            'fields': ('actif',),
             'description': 'La quantité totale est calculée automatiquement à partir des variantes'
         }),
         ('Média', {

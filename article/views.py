@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg, Sum, Min, Max
-from .models import Article, Promotion
+from .models import Article, Promotion, VarianteArticle, Categorie, Genre
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
@@ -17,7 +17,7 @@ import json
 @login_required
 def liste_articles(request):
     """Liste des articles avec recherche, filtres et pagination"""
-    articles = Article.objects.filter(actif=True).order_by('nom', 'couleur', 'pointure')
+    articles = Article.objects.all().filter(actif=True).order_by('nom')
     
     # Formulaire de promotion pour la modal
     form_promotion = PromotionForm()
@@ -49,11 +49,15 @@ def liste_articles(request):
     
     # Filtrage par stock
     if filtre_stock == 'disponible':
-        articles = articles.filter(qte_disponible__gt=0)
+        articles = articles.filter(variantes__qte_disponible__gt=0, variantes__actif=True).distinct()
     elif filtre_stock == 'rupture':
-        articles = articles.filter(qte_disponible=0)
+        articles = articles.exclude(variantes__qte_disponible__gt=0, variantes__actif=True).distinct()
     elif filtre_stock == 'stock_faible':
-        articles = articles.filter(qte_disponible__gt=0, qte_disponible__lt=5)
+        articles = articles.filter(
+            variantes__qte_disponible__gt=0, 
+            variantes__qte_disponible__lt=5, 
+            variantes__actif=True
+        ).distinct()
     
     # Recherche unique sur plusieurs champs
     if search:
@@ -76,9 +80,9 @@ def liste_articles(request):
         articles = articles.filter(
             Q(reference__icontains=search) |    # Recherche par référence
             Q(nom__icontains=search) |          # Recherche par nom
-            Q(couleur__icontains=search) |      # Recherche par couleur
-            Q(pointure__icontains=search) |     # Recherche par pointure
-            Q(categorie__icontains=search) |    # Recherche par catégorie
+            Q(variantes__couleur__nom__icontains=search) |      # Recherche par couleur
+            Q(variantes__pointure__pointure__icontains=search) | # Recherche par pointure
+            Q(categorie__nom__icontains=search) |    # Recherche par catégorie
             price_query                         # Recherche par prix
         ).distinct()
     
@@ -125,10 +129,10 @@ def liste_articles(request):
             page_obj = paginator.get_page(page_number)
     
     # Statistiques mises à jour selon les filtres appliqués
-    all_articles = Article.objects.filter(actif=True)
+    all_articles = Article.objects.all().filter(actif=True)
     stats = {
         'total_articles': all_articles.count(),
-        'articles_disponibles': all_articles.filter(qte_disponible__gt=0).count(),
+        'articles_disponibles': all_articles.filter(variantes__qte_disponible__gt=0, variantes__actif=True).distinct().count(),
         'articles_en_cours': all_articles.filter(phase='EN_COURS').count(),
         'articles_liquidation': all_articles.filter(phase='LIQUIDATION').count(),
         'articles_test': all_articles.filter(phase='EN_TEST').count(),
@@ -137,8 +141,12 @@ def liste_articles(request):
             promotions__date_debut__lte=now,
             promotions__date_fin__gte=now
         ).distinct().count(),
-        'articles_rupture': all_articles.filter(qte_disponible=0).count(),
-        'articles_stock_faible': all_articles.filter(qte_disponible__gt=0, qte_disponible__lt=5).count(),
+        'articles_rupture': all_articles.exclude(variantes__qte_disponible__gt=0, variantes__actif=True).distinct().count(),
+        'articles_stock_faible': all_articles.filter(
+            variantes__qte_disponible__gt=0, 
+            variantes__qte_disponible__lt=5, 
+            variantes__actif=True
+        ).distinct().count(),
     }
     
     # Vérifier si c'est une requête AJAX
@@ -197,11 +205,11 @@ def detail_article(request, id):
     """Détail d'un article"""
     article = get_object_or_404(Article, id=id, actif=True)
     
-    # Articles similaires (même catégorie, couleur différente)
+    # Articles similaires (même catégorie)
     articles_similaires = Article.objects.filter(
         categorie=article.categorie,
         actif=True
-    ).exclude(id=article.id).order_by('nom', 'couleur')[:6]
+    ).exclude(id=article.id).order_by('nom')[:6]
     
     # Récupérer l'URL de la page précédente, avec fallback
     previous_page = request.META.get('HTTP_REFERER', reverse('article:liste'))
@@ -220,11 +228,15 @@ def creer_article(request):
         try:
             # Récupérer les données du formulaire
             nom = request.POST.get('nom')
-            couleur = request.POST.get('couleur')
-            pointure = request.POST.get('pointure')
+            couleur_id = request.POST.get('couleur')
+            pointure_id = request.POST.get('pointure')
 
             # Vérifier l'unicité de la combinaison nom, couleur, pointure
-            if Article.objects.filter(nom=nom, couleur=couleur, pointure=pointure).exists():
+            if VarianteArticle.objects.filter(
+                article__nom=nom, 
+                couleur_id=couleur_id, 
+                pointure_id=pointure_id
+            ).exists():
                 messages.error(request, "Un article avec le même nom, couleur et pointure existe déjà.")
                 # Renvoyer le formulaire avec les données saisies
                 return render(request, 'article/creer.html', {'form_data': request.POST})
@@ -244,21 +256,6 @@ def creer_article(request):
                 messages.error(request, "Le prix unitaire doit être un nombre valide.")
                 return render(request, 'article/creer.html', {'form_data': request.POST})
 
-            # Valider la pointure
-            pointure_str = request.POST.get('pointure', '').strip()
-            if not pointure_str:
-                messages.error(request, "La pointure est obligatoire.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
-            
-            try:
-                pointure = int(pointure_str)
-                if pointure < 30:
-                    messages.error(request, "La pointure ne peut pas être inférieure à 30.")
-                    return render(request, 'article/creer.html', {'form_data': request.POST})
-            except ValueError:
-                messages.error(request, "La pointure doit être un nombre entier valide.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
-
             # Valider la quantité
             qte_str = request.POST.get('qte_disponible', '').strip()
             if not qte_str:
@@ -274,16 +271,14 @@ def creer_article(request):
                 messages.error(request, "La quantité disponible doit être un nombre entier valide.")
                 return render(request, 'article/creer.html', {'form_data': request.POST})
 
+            # Créer l'article principal
             article = Article()
             article.nom = nom
-            article.couleur = couleur
-            article.pointure = pointure_str  # Utiliser la chaîne de caractères pour la pointure
             article.reference = request.POST.get('reference')
             article.description = request.POST.get('description')
             article.prix_unitaire = prix_unitaire
             article.prix_actuel = prix_unitaire  # Assurer que le prix actuel = prix unitaire
-            article.qte_disponible = qte_disponible
-            article.categorie = request.POST.get('categorie')
+            article.categorie_id = request.POST.get('categorie')
             
             # Gérer le prix d'achat
             prix_achat_str = request.POST.get('prix_achat', '').strip().replace(',', '.')
@@ -318,6 +313,20 @@ def creer_article(request):
             
             article.save()
             
+            # Créer la variante avec couleur et pointure
+            if couleur_id and pointure_id:
+                variante = VarianteArticle()
+                variante.article = article
+                variante.couleur_id = couleur_id
+                variante.pointure_id = pointure_id
+                variante.qte_disponible = qte_disponible
+                variante.prix_unitaire = prix_unitaire
+                variante.prix_achat = article.prix_achat
+                variante.prix_actuel = prix_unitaire
+                variante.save()
+            else:
+                messages.warning(request, "Attention: Aucune variante (couleur/pointure) n'a été créée pour cet article.")
+            
             messages.success(request, f"L'article '{article.nom}' a été créé avec succès.")
             return redirect('article:liste')
             
@@ -331,15 +340,21 @@ def creer_article(request):
 def modifier_article(request, id):
     """Modifier un article existant"""
     article = get_object_or_404(Article, id=id, actif=True)
+    categories = Categorie.objects.all()
+    genres = Genre.objects.all()
 
     if request.method == 'POST':
         try:
             nom = request.POST.get('nom')
-            couleur = request.POST.get('couleur')
-            pointure = request.POST.get('pointure')
+            couleur_id = request.POST.get('couleur')
+            pointure_id = request.POST.get('pointure')
 
             # Vérifier l'unicité de la combinaison nom, couleur, pointure
-            if Article.objects.filter(nom=nom, couleur=couleur, pointure=pointure).exclude(pk=id).exists():
+            if VarianteArticle.objects.filter(
+                article__nom=nom, 
+                couleur_id=couleur_id, 
+                pointure_id=pointure_id
+            ).exclude(article=article).exists():
                 messages.error(request, "Un autre article avec le même nom, couleur et pointure existe déjà.")
                 return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
 
@@ -374,13 +389,12 @@ def modifier_article(request, id):
                 return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
 
             article.nom = nom
-            article.couleur = couleur
-            article.pointure = pointure
             article.reference = request.POST.get('reference')
             article.description = request.POST.get('description')
             article.prix_unitaire = prix_unitaire
-            article.qte_disponible = qte_disponible
-            article.categorie = request.POST.get('categorie')
+            # La quantité est maintenant gérée dans les variantes
+            article.categorie_id = request.POST.get('categorie')
+            article.genre_id = request.POST.get('genre')
             
             # Gérer le prix d'achat
             prix_achat_str = request.POST.get('prix_achat', '').strip().replace(',', '.')
@@ -452,6 +466,31 @@ def modifier_article(request, id):
                 article.prix_actuel = article.prix_unitaire
             
             article.save()
+            
+            # Mettre à jour la variante principale
+            variante_principale = article.variantes.first()
+            if variante_principale and couleur_id and pointure_id:
+                variante_principale.couleur_id = couleur_id
+                variante_principale.pointure_id = pointure_id
+                variante_principale.qte_disponible = qte_disponible
+                variante_principale.prix_unitaire = prix_unitaire
+                variante_principale.prix_achat = article.prix_achat
+                variante_principale.prix_actuel = prix_unitaire
+                variante_principale.save()
+            elif couleur_id and pointure_id:
+                # Créer une nouvelle variante si elle n'existe pas
+                variante = VarianteArticle()
+                variante.article = article
+                variante.couleur_id = couleur_id
+                variante.pointure_id = pointure_id
+                variante.qte_disponible = qte_disponible
+                variante.prix_unitaire = prix_unitaire
+                variante.prix_achat = article.prix_achat
+                variante.prix_actuel = prix_unitaire
+                variante.save()
+            else:
+                messages.warning(request, "Attention: Aucune variante (couleur/pointure) n'a été mise à jour pour cet article.")
+            
             messages.success(request, f"L'article '{article.nom}' a été modifié avec succès.")
             return redirect('article:detail', id=article.id)
             
@@ -460,7 +499,10 @@ def modifier_article(request, id):
             return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
     
     context = {
-        'article': article
+        'article': article,
+        'categories': categories,
+        'genres': genres
+        
     }
     return render(request, 'article/modifier.html', context)
 
@@ -498,16 +540,15 @@ def supprimer_articles_masse(request):
 def articles_par_categorie(request, categorie):
     """Articles filtrés par catégorie"""
     articles = Article.objects.filter(
-        categorie__icontains=categorie,
+        categorie__nom__icontains=categorie,
         actif=True
-    ).order_by('nom', 'couleur', 'pointure')
+    ).order_by('nom')
     
     # Recherche dans la catégorie
     search = request.GET.get('search')
     if search:
         articles = articles.filter(
             Q(nom__icontains=search) | 
-            Q(couleur__icontains=search) |
             Q(description__icontains=search)
         )
     
@@ -528,10 +569,11 @@ def articles_par_categorie(request, categorie):
 def stock_faible(request):
     """Articles avec stock faible (moins de 5 unités)"""
     articles = Article.objects.filter(
-        qte_disponible__lt=5,
-        qte_disponible__gt=0,
+        variantes__qte_disponible__lt=5,
+        variantes__qte_disponible__gt=0,
+        variantes__actif=True,
         actif=True
-    ).order_by('qte_disponible', 'nom')
+    ).order_by('variantes__qte_disponible', 'nom')
     
     # Pagination
     paginator = Paginator(articles, 20)
@@ -548,9 +590,10 @@ def stock_faible(request):
 def rupture_stock(request):
     """Articles en rupture de stock"""
     articles = Article.objects.filter(
-        qte_disponible=0,
+        variantes__qte_disponible=0,
+        variantes__actif=True,
         actif=True
-    ).order_by('nom', 'couleur', 'pointure')
+    ).order_by('nom', 'variantes__couleur__nom', 'variantes__pointure__pointure')
     
     # Pagination
     paginator = Paginator(articles, 20)
@@ -699,7 +742,7 @@ def detail_promotion(request, id):
     promotion = get_object_or_404(Promotion, id=id)
     
     # Articles en promotion
-    articles = promotion.articles.all().order_by('nom', 'couleur', 'pointure')
+    articles = promotion.articles.all().order_by('nom', 'variantes__couleur__nom', 'variantes__pointure__pointure')
     
     context = {
         'promotion': promotion,
@@ -977,8 +1020,6 @@ def reinitialiser_prix(request, id):
         return redirect(referer)
     return redirect('article:detail', id=article.id)
 
-
-
 @login_required
 def gerer_promotions_automatiquement(request):
     """Gère automatiquement toutes les promotions selon leur date et statut"""
@@ -1022,9 +1063,6 @@ def gerer_promotions_automatiquement(request):
     return redirect('article:liste_promotions')
 
 
-
-@login_required
-def corriger_upsells(request):
     """Corrige les upsells qui devraient être désactivés (vue web)"""
     try:
         # Compter les articles avec upsell qui devraient être désactivés

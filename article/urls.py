@@ -33,6 +33,5 @@ urlpatterns = [
     path('appliquer-liquidation/<int:id>/', views.appliquer_liquidation, name='appliquer_liquidation'),
     path('reinitialiser-prix/<int:id>/', views.reinitialiser_prix, name='reinitialiser_prix'),
     
-    # Gestion des upsells
-    path('corriger-upsells/', views.corriger_upsells, name='corriger_upsells'),
+
 ] 

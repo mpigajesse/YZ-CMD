@@ -27,6 +27,10 @@ def create_etats_commande():
         {'libelle': 'Confirmée', 'ordre': 4, 'couleur': '#10B981'},
         {'libelle': 'Doublon', 'ordre': 5, 'couleur': '#EF4444'},
         {'libelle': 'Erronée', 'ordre': 6, 'couleur': '#F97316'},
+        {'libelle': 'Retournée', 'ordre': 7, 'couleur': '#EF4444'},
+        {'libelle': 'Livrée', 'ordre': 8, 'couleur': '#EF4444'},
+        {'libelle': 'En preparation', 'ordre': 9, 'couleur': '#EF4444'},
+        {'libelle': 'Preparée', 'ordre': 10, 'couleur': '#EF4444'},
     ]
     
     created_count = 0
