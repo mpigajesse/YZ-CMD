@@ -20,6 +20,7 @@ from article.models import Article
 import logging
 from django.urls import reverse
 from django.template.loader import render_to_string
+# Suppression de l'app notifications: retirer les imports
 
 # Create your views here.
 
@@ -2877,7 +2878,92 @@ def api_recherche_article_ref(request):
             'error': str(e)
         })
 
+@login_required
+def test_modal(request):
+    """Page de test du modal de notifications pour l'interface de confirmation"""
+    try:
+        # Récupérer le profil opérateur de l'utilisateur connecté
+        operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil d'opérateur de confirmation non trouvé.")
+        return redirect('login')
+    
+    return render(request, 'operatConfirme/test_modal.html', {
+        'operateur': operateur
+    })
 
-
+@login_required
+def centre_notifications(request):
+    """Page du centre de notifications pour les opérateurs de confirmation"""
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"=== CENTRE NOTIFICATIONS - DEBUT ===")
+    logger.info(f"User: {request.user.username} (ID: {request.user.id})")
+    logger.info(f"Method: {request.method}")
+    logger.info(f"URL: {request.path}")
+    
+    # Récupérer toutes les notifications de l'utilisateur (sans slice pour les calculs)
+    notifications_base = NotificationOperateur.objects.filter(
+        destinataire=request.user
+    ).order_by('-date_creation')
+    
+    # Compter les notifications lues et non lues AVANT le slice
+    notifications_lues = notifications_base.filter(lu=True).count()
+    notifications_non_lues = notifications_base.filter(lu=False).count()
+    
+    logger.info(f"DEBUG: Repartition LU - Lues: {notifications_lues}, Non lues: {notifications_non_lues}")
+    
+    # Statistiques des notifications
+    total_notifications = notifications_base.count()
+    notifications_aujourd_hui = notifications_base.filter(
+        date_creation__date=timezone.now().date()
+    ).count()
+    
+    logger.info(f"DEBUG: Statistiques - Total: {total_notifications}, Non lues: {notifications_non_lues}, Aujourd'hui: {notifications_aujourd_hui}")
+    
+    # Notifications par type (AVANT le slice)
+    notifications_par_type = {}
+    for notification in notifications_base[:100]:  # Slice seulement pour l'itération
+        type_notif = notification.type_notification
+        if type_notif not in notifications_par_type:
+            notifications_par_type[type_notif] = 0
+        notifications_par_type[type_notif] += 1
+    
+    logger.info(f"DEBUG: Repartition par type: {notifications_par_type}")
+    
+    # Notifications récentes (7 derniers jours)
+    notifications_recentes = notifications_base.filter(
+        date_creation__gte=timezone.now() - timedelta(days=7)
+    ).count()
+    
+    # Maintenant appliquer le slice pour l'affichage
+    notifications = notifications_base[:100]  # Limiter à 100 notifications pour l'affichage
+    
+    logger.info(f"DEBUG: {notifications.count()} notifications trouvees pour l'utilisateur {request.user.username}")
+    
+    # Log détaillé de chaque notification avec statut LU
+    logger.info("=== DEBUG DETAILLE DES NOTIFICATIONS ===")
+    for i, notif in enumerate(notifications):
+        logger.info(f"DEBUG: Notification {i+1} - ID: {notif.id}, Type: {notif.type_notification}, LU: {notif.lu}, Titre: {notif.titre[:50]}...")
+    
+    context = {
+        'notifications': notifications,
+        'total_notifications': total_notifications,
+        'notifications_non_lues': notifications_non_lues,
+        'notifications_aujourd_hui': notifications_aujourd_hui,
+        'notifications_recentes': notifications_recentes,
+        'notifications_par_type': notifications_par_type,
+        'page_title': 'Centre de Notifications',
+        'page_subtitle': 'Gérez toutes vos notifications'
+    }
+    
+    logger.info(f"DEBUG: Context prepare avec {len(notifications)} notifications")
+    logger.info(f"DEBUG: Notifications lues dans context: {notifications_lues}")
+    logger.info(f"DEBUG: Notifications non lues dans context: {notifications_non_lues}")
+    logger.info(f"=== CENTRE NOTIFICATIONS - FIN ===")
+    
+    return render(request, 'operatConfirme/centre_notifications.html', context)
 
 

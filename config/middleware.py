@@ -78,6 +78,7 @@ class UserTypeValidationMiddleware:
             '/password_reset/', # Si vous avez des URLs de réinitialisation de mot de passe
             '/__reload__/', # Pour le middleware de rechargement automatique en développement
             '/api/csrf/', # Pour les routes CSRF
+            # '/notifications/', # Notifications supprimées
         )
         self.universal_allowed_exact_paths = (
             # Ajoutez ici des chemins exacts si nécessaire, par exemple une page d'accueil publique

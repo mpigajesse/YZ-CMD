@@ -49,6 +49,7 @@ urlpatterns = [
     path('parametre/', include('parametre.urls')),
     path('synchronisation/', include('synchronisation.urls')),
     path('kpis/', include('kpis.urls')),
+    # Notifications app supprimée
     
     # Pages 404 personnalisées par interface
     path('404/admin/', include('parametre.404.admin.urls')),
