@@ -97,19 +97,16 @@ class CouleurAdmin(admin.ModelAdmin):
 
 @admin.register(VarianteArticle)
 class VarianteArticleAdmin(admin.ModelAdmin):
-    list_display = ('article', 'couleur', 'pointure', 'qte_disponible', 'prix_unitaire', 'prix_achat', 'prix_actuel', 'actif')
+    list_display = ('article', 'reference_variante', 'couleur', 'pointure', 'qte_disponible', 'prix_unitaire_display', 'prix_achat_display', 'prix_actuel_display', 'actif')
     list_filter = ('actif', 'article__categorie', 'couleur', 'pointure', 'date_creation')
     search_fields = ('article__nom', 'couleur__nom', 'pointure__pointure')
     ordering = ('article__nom', 'couleur__nom', 'pointure__pointure')
-    list_editable = ('qte_disponible', 'prix_unitaire', 'prix_achat', 'actif')
+    list_editable = ('qte_disponible', 'actif')
     readonly_fields = ('date_creation', 'date_modification')
     
     fieldsets = (
         ('Article et variante', {
             'fields': ('article', 'couleur', 'pointure')
-        }),
-        ('Prix', {
-            'fields': ('prix_unitaire', 'prix_achat', 'prix_actuel')
         }),
         ('Stock', {
             'fields': ('qte_disponible', 'actif')
@@ -120,18 +117,26 @@ class VarianteArticleAdmin(admin.ModelAdmin):
         }),
     )
     
-    def prix_actuel(self, obj):
+    def prix_unitaire_display(self, obj):
+        return f"{obj.prix_unitaire} MAD" if obj.prix_unitaire else "Non défini"
+    prix_unitaire_display.short_description = 'Prix unitaire'
+    
+    def prix_achat_display(self, obj):
+        return f"{obj.prix_achat} MAD" if obj.prix_achat else "Non défini"
+    prix_achat_display.short_description = 'Prix d\'achat'
+    
+    def prix_actuel_display(self, obj):
         prix = obj.prix_actuel
         if prix and prix != obj.prix_unitaire:
             return f"{prix} MAD (promo)"
         return f"{prix} MAD" if prix else "Non défini"
-    prix_actuel.short_description = 'Prix actuel'
+    prix_actuel_display.short_description = 'Prix actuel'
 
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'reference', 'nom', 'categorie', 'prix_unitaire', 'prix_achat', 'prix_actuel', 'phase', 'actif', 'est_disponible', 'isUpsell')
-    list_filter = ('categorie', 'phase', 'actif', 'date_creation', 'isUpsell')
+    list_display = ('id', 'reference', 'nom', 'genre', 'categorie', 'prix_unitaire', 'prix_achat', 'prix_actuel', 'phase', 'actif', 'est_disponible', 'isUpsell')
+    list_filter = ('categorie', 'phase', 'actif', 'date_creation', 'isUpsell','genre')
     search_fields = ('nom', 'reference', 'categorie')
     ordering = ('nom', 'categorie')
     list_editable = ('prix_unitaire', 'prix_achat', 'actif', 'phase', 'isUpsell')
@@ -139,7 +144,7 @@ class ArticleAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Informations produit', {
-            'fields': ('nom', 'reference', 'categorie', 'phase', 'description')
+            'fields': ('nom', 'reference', 'categorie', 'genre', 'phase', 'description')
         }),
         ('Prix', {
             'fields': ('prix_unitaire', 'prix_achat', 'prix_upsell_1', 'prix_upsell_2', 'prix_upsell_3', 'prix_upsell_4'),

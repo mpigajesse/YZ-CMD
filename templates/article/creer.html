@@ -32,7 +32,15 @@
                 </div>
                 <div>
                     <label for="id_reference" class="block text-sm font-semibold mb-2" style="color: #023535;">Référence:</label>
-                    <input type="text" name="reference" id="id_reference" value="{{ form_data.reference|default:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: REF-2024-001, NK-AM-001...">
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm text-blue-700">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            La référence sera générée automatiquement au format : <strong>{CATEGORIE}-{GENRE}-YZ-{MODELE}</strong>
+                        </p>
+                        <p class="text-xs text-blue-600 mt-1">
+                            Exemple : SPORT-HOMME-YZ-1001, CHAUSSURES-FEMME-YZ-2001
+                        </p>
+                    </div>
                 </div>
                 <div>
                     <label for="id_prix_unitaire" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix Unitaire (DH):</label>
@@ -46,21 +54,25 @@
                 </div>
                 <div>
                     <label for="id_categorie" class="block text-sm font-semibold mb-2" style="color: #023535;">Catégorie:</label>
-                    <input type="text" name="categorie" id="id_categorie" value="{{ form_data.categorie|default:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: femme, homme, enfant, sport..." required>
+                   <select name="categorie" id="id_categorie" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
+                    {% for categorie in categories %}
+                        <option value="{{ categorie.id }}" {% if article.categorie_id == categorie.id %}selected{% endif %}>{{ categorie.nom }}</option>
+                    {% endfor %}
+                   </select>
                 </div>
                 <div>
-                    <label for="id_couleur" class="block text-sm font-semibold mb-2" style="color: #023535;">Couleur:</label>
-                    <input type="text" name="couleur" id="id_couleur" value="{{ form_data.couleur|default:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: noir, blanc, rouge, bleu marine..." required>
+                    <label for="id_modele" class="block text-sm font-semibold mb-2" style="color: #023535;">Numero du Modele : </label>
+                    <input type="number" name="modele" id="id_modele" value="{{ form_data.modele|default:'' }}" min="1" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: 1001, 2001, 3001..." required>
+                    <small class="text-gray-600">Le numero du modele doit être supérieur à 0 et ne doit pas etre identique a un autre modele</small>
                 </div>
                 <div>
-                    <label for="id_pointure" class="block text-sm font-semibold mb-2" style="color: #023535;">Pointure:</label>
-                    <input type="number" name="pointure" id="id_pointure" value="{{ form_data.pointure|default:'' }}" min="30" max="50" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: 36, 39, 42, 45..." required>
-                    <small class="text-gray-600">Pointure comprise entre 30 et 50</small>
-                </div>
-                <div>
-                    <label for="id_qte_disponible" class="block text-sm font-semibold mb-2" style="color: #023535;">Quantité Disponible:</label>
-                    <input type="number" name="qte_disponible" id="id_qte_disponible" value="{{ form_data.qte_disponible|default:'' }}" min="0" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: 25, 100, 15 paires..." required>
-                    <small class="text-gray-600">Nombre de paires en stock (minimum 0)</small>
+                    <label for="id_genre" class="block text-sm font-semibold mb-2" style="color: #023535;">Genre:</label>
+
+                    <select name="genre" id="id_genre" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
+                        {% for genre in genres %}
+                            <option value="{{ genre.id }}" {% if article.genre_id == genre.id %}selected{% endif %}>{{ genre.nom }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div>
                     <label for="id_image" class="block text-sm font-semibold mb-2" style="color: #023535;">Image:</label>

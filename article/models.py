@@ -12,8 +12,6 @@ from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
 # Create your models here.
-
-
 class Categorie(models.Model):
     """
     Modèle pour les catégories d'articles
@@ -129,12 +127,10 @@ class VarianteArticle(models.Model):
     Modèle pour les variantes d'articles (combinaison couleur/pointure)
     """
     article = models.ForeignKey('Article', on_delete=models.CASCADE,null=True, blank=True, related_name='variantes')
+    reference_variante = models.CharField(max_length=50, unique=True, null=True, blank=True)
     couleur = models.ForeignKey(Couleur, on_delete=models.CASCADE,null=True, blank=True)
     pointure = models.ForeignKey(Pointure, on_delete=models.CASCADE,null=True, blank=True)
     qte_disponible = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
-    prix_achat = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    prix_actuel = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     actif = models.BooleanField(default=True)
     date_creation = models.DateTimeField(default=timezone.now, editable=False)
     date_modification = models.DateTimeField(auto_now=True)
@@ -149,31 +145,29 @@ class VarianteArticle(models.Model):
         return f"{self.article.nom}"
     
     def clean(self):
-        # Vérifier que le prix actuel a exactement 2 décimales
-        if self.prix_actuel is not None:
-            prix_decimal = Decimal(str(self.prix_actuel))
-            if prix_decimal != prix_decimal.quantize(Decimal('0.01')):
-                raise ValidationError({
-                    'prix_actuel': 'Assurez-vous qu\'il n\'y a pas plus de 2 chiffres après la virgule.'
-                })
-        
+        # Validation spécifique aux variantes si nécessaire
         super().clean()
     
     def save(self, *args, **kwargs):
-        # Toujours s'assurer que prix_actuel est défini
-        if self.prix_actuel is None:
-            self.prix_actuel = self.prix_unitaire
-        
-        # Arrondir le prix actuel à 2 décimales si nécessaire
-        self.prix_actuel = Decimal(str(self.prix_actuel)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        
         super().save(*args, **kwargs)
     
     @property
     def est_disponible(self):
         return self.qte_disponible > 0 and self.actif and self.article.actif
-
-
+    
+    @property
+    def prix_unitaire(self):
+        return self.article.prix_unitaire
+    
+    @property
+    def prix_achat(self):
+        return self.article.prix_achat
+    
+    @property
+    def prix_actuel(self):
+        return self.article.prix_actuel
+    
+  
 class MouvementStock(models.Model):
     """
     Modèle pour tracer les mouvements de stock des articles
@@ -235,6 +229,7 @@ class Article(models.Model):
     
     nom = models.CharField(max_length=200)
     reference = models.CharField(max_length=50, unique=True, null=True, blank=True, default=None)
+    modele = models.IntegerField(null=True, blank=True, unique=True)
     prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
     genre = models.ForeignKey('Genre', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Genre")
 
@@ -270,6 +265,26 @@ class Article(models.Model):
         constraints = [
             models.CheckConstraint(check=models.Q(prix_unitaire__gt=0), name='prix_unitaire_positif'),
         ]
+    
+
+    def modele_complet(self):
+        if self.modele is not None:
+            return f"YZ{self.modele}"
+        return None 
+
+    def generer_reference_automatique(self):
+        """Génère automatiquement la référence avec le format catégorie-genre-modèle_complet"""
+        if not self.categorie or not self.genre or not self.modele:
+            return None
+        
+        # Nettoyer les noms pour éviter les caractères spéciaux
+        categorie_clean = self.categorie.nom.replace(' ', '-').replace('é', 'e').replace('è', 'e').replace('à', 'a').replace('ç', 'c').upper()
+        genre_clean = self.genre.nom.replace(' ', '-').replace('é', 'e').replace('è', 'e').replace('à', 'a').replace('ç', 'c').upper()
+        modele_clean = self.modele_complet()
+        
+        if modele_clean:
+            return f"{categorie_clean}-{genre_clean}-{modele_clean}"
+        return None
     
     def __str__(self):
         base_str = f"{self.nom}"
@@ -346,7 +361,7 @@ class Article(models.Model):
     def appliquer_promotion(self, promotion):
         """Applique une promotion spécifique à cet article"""
         if promotion.est_active and self in promotion.articles.all():
-            reduction = self.prix_unitaire * (promotion_active.pourcentage_reduction / 100)
+            reduction = self.prix_unitaire * (promotion.pourcentage_reduction / 100)
             nouveau_prix = self.prix_unitaire - reduction
             self.prix_actuel = Decimal(str(nouveau_prix)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             

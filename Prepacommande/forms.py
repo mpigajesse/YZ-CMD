@@ -39,13 +39,11 @@ class VarianteArticleForm(forms.ModelForm):
     
     class Meta:
         model = VarianteArticle
-        fields = ['couleur', 'pointure', 'qte_disponible', 'prix_unitaire', 'prix_achat', 'actif']
+        fields = ['couleur', 'pointure', 'qte_disponible', 'actif']
         widgets = {
             'couleur': forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'}),
             'pointure': forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'}),
             'qte_disponible': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'min': '0'}),
-            'prix_unitaire': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'step': '0.01'}),
-            'prix_achat': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'step': '0.01'}),
             'actif': forms.CheckboxInput(attrs={'class': 'h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'}),
         }
 

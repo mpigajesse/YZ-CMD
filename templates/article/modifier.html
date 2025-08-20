@@ -32,7 +32,33 @@
                 </div>
                 <div>
                     <label for="id_reference" class="block text-sm font-semibold mb-2" style="color: #023535;">Référence:</label>
-                    <input type="text" name="reference" id="id_reference" value="{% if form_data.reference %}{{ form_data.reference }}{% else %}{{ article.reference|default_if_none:'' }}{% endif %}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: REF-2024-001, NK-AM-001...">
+                    {% if article.reference %}
+                        <div class="p-3 bg-green-50 border border-green-200 rounded-lg mb-2">
+                            <p class="text-sm text-green-700">
+                                <i class="fas fa-check-circle mr-2"></i>
+                                Référence actuelle : <strong>{{ article.reference }}</strong>
+                            </p>
+                        </div>
+                    {% endif %}
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm text-blue-700">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            La référence sera régénérée automatiquement au format : <strong>{CATEGORIE}-{GENRE}-YZ-{MODELE}</strong>
+                        </p>
+                        <p class="text-xs text-blue-600 mt-1">
+                            Exemple : SPORT-HOMME-YZ-1001, CHAUSSURES-FEMME-YZ-2001
+                        </p>
+                    </div>
+                </div>
+                <div>
+                    <label for="id_modele" class="block text-sm font-semibold mb-2" style="color: #023535;">Numéro du Modèle:</label>
+                    <input type="number" name="modele" id="id_modele" value="{% if form_data.modele %}{{ form_data.modele }}{% else %}{{ article.modele|default_if_none:'' }}{% endif %}" min="1" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200" placeholder="Ex: 1001, 2001, 3001...">
+                    <small class="text-gray-600">Le numéro du modèle doit être unique et supérieur à 0</small>
+                    {% if article.modele %}
+                    <div class="mt-2 p-2 bg-blue-50 rounded-lg">
+                        <p class="text-sm text-blue-700">Modèle complet: <span class="font-semibold">YZ-{{ article.modele }}</span></p>
+                    </div>
+                    {% endif %}
                 </div>
                 <div>
                     <label for="id_prix_unitaire" class="block text-sm font-semibold mb-2" style="color: #023535;">Prix Unitaire (DH):</label>
@@ -80,7 +106,7 @@
                 <div>
                     <label for="id_qte_disponible" class="block text-sm font-semibold mb-2" style="color: #023535;">Quantité Disponible:</label>
                     
-                    <span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium">{{ article.variantes.all.count }} paires en stock</span>
+                    <span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium">{{ article.qte_disponible }} paires en stock</span>
                     <small class="text-gray-600">Nombre de paires en stock (minimum 0)</small>
                 </div>
                 <div>

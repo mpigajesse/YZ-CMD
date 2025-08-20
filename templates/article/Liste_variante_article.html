@@ -2,7 +2,7 @@
 {% load static %}
 {% load commande_filters %}
 
-{% block title %}Liste des Articles - YZ-CMD{% endblock %}
+{% block title %}Liste des variantes d'articles - YZ-CMD{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -31,7 +31,7 @@
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
                 <i class="fas fa-box mr-3" style="color: var(--admin-accent-color);"></i>
-                Liste des Articles
+                Liste des variantes d'articles
             </h1>
             <p style="color: var(--admin-accent-color);">Gérez les articles du système</p>
         </div>
@@ -278,13 +278,13 @@
     <div id="articleViews">
         <!-- Vue grille/mosaïque -->
         <div id="gridView" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-        {% for article in page_obj %}
+        {% for variante in page_obj %}
             <div class="bg-white rounded-xl shadow-lg border overflow-hidden transform hover:-translate-y-2 transition-transform duration-300" style="border-color: #e6fffe;">
-                <a href="{% url 'article:detail' article.id %}" class="block">
-                {% if article.image %}
-                        <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="w-full h-56 object-cover" onerror="this.onerror=null;this.src='/static/img/default.png';">
-                    {% elif article.image_url %}
-                        <img src="{{ article.image_url }}" alt="{{ article.nom }}" class="w-full h-56 object-cover" onerror="this.onerror=null;this.src='/static/img/default.png';">
+                <a href="{% url 'article:detail' variante.article.id %}" class="block">
+                {% if variante.article.image %}
+                        <img src="{{ variante.article.image.url }}" alt="{{ variante.article.nom }}" class="w-full h-56 object-cover" onerror="this.onerror=null;this.src='/static/img/default.png';">
+                    {% elif variante.article.image_url %}
+                        <img src="{{ variante.article.image_url }}" alt="{{ variante.article.nom }}" class="w-full h-56 object-cover" onerror="this.onerror=null;this.src='/static/img/default.png';">
                     {% else %}
                         <div class="w-full h-56 flex items-center justify-center" style="background-color: var(--admin-light-accent);">
                             <i class="fas fa-box-open text-[var(--admin-accent-color)] text-7xl opacity-70"></i>
@@ -294,42 +294,42 @@
             <div class="p-4">
                     <div class="flex justify-between items-start mb-2">
                     <h3 class="text-lg font-bold truncate" style="color: #023535;">
-                        <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a]">{{ article.nom }}</a>
+                        <a href="{% url 'article:detail' variante.article.id %}" class="hover:text-[#034a4a]">{{ variante.article.nom }}</a>
                     </h3>
                     <div class="flex gap-1">
-                        {% if article.has_promo_active %}
+                        {% if variante.article.has_promo_active %}
                         <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
                         {% endif %}
-                        {% if article.phase == 'LIQUIDATION' %}
+                        {% if variante.article.phase == 'LIQUIDATION' %}
                         <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">LIQUIDATION</span>
                         {% endif %}
-                        {% if article.phase == 'EN_TEST' %}
+                        {% if variante.article.phase == 'EN_TEST' %}
                         <span class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">TEST</span>
                         {% endif %}
                     </div>
                     </div>
-                    <p class="text-sm font-mono text-gray-500 mb-2">{{ article.reference|default:'N/A' }}</p>
+                    <p class="text-sm font-mono text-gray-500 mb-2">{{ variante.article.reference|default:'N/A' }}</p>
                 
                     <div class="flex items-center justify-between text-sm mb-3">
                         <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium border border-blue-200">
-                            {{ article.couleur }}
+                            {{ variante.couleur.nom }}
                     </span>
                         <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium border" style="background-color: #f0fffe; color: #023535; border-color: #99dddd;">
-                            Taille: {{ article.pointure }}
+                            Taille: {{ variante.pointure.pointure }}
                     </span>
                 </div>
                 
                                         <div class="flex justify-between items-center pt-3 border-t" style="border-color: #99dddd;">
                         <div class="flex flex-col">
-                            {% with article|get_prix_avec_phase_simple as prix_info %}
+                            {% with variante.article|get_prix_avec_phase_simple as prix_info %}
                             <div class="text-xl font-bold {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</div>
                             <div class="text-xs {{ prix_info.couleur_classe }}">{{ prix_info.libelle }}</div>
-                            {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
-                                <div class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</div>
+                            {% if variante.article.has_promo_active or variante.article.phase == 'LIQUIDATION' %}
+                                <div class="text-sm text-gray-500 line-through">{{ variante.article.prix_unitaire|floatformat:2 }} DH</div>
                             {% endif %}
                             {% endwith %}
                         </div>
-                        <a href="{% url 'article:detail' article.id %}" class="inline-flex items-center text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: #023535;">
+                        <a href="{% url 'article:detail' variante.article.id %}" class="inline-flex items-center text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: #023535;">
                         <i class="fas fa-eye mr-1"></i>Détails
                     </a>
                 </div>
@@ -340,7 +340,7 @@
 
         <!-- Vue liste -->
     <div id="listView" class="space-y-3 mb-8 hidden">
-        {% include 'article/partials/_articles_cards_body.html' with page_obj=page_obj %}
+        {% include 'article/partials/variantes_articles_cards_body.html' with page_obj=page_obj %}
     </div>
 
         <!-- Vue tableau -->
@@ -361,7 +361,7 @@
                     </tr>
                 </thead>
                 <tbody id="articlesTableBody" class="bg-white divide-y divide-gray-200">
-                    {% include 'article/partials/_articles_table_body.html' with page_obj=page_obj %}
+                    {% include 'article/partials/variantes_articles_table_body.html' with page_obj=page_obj %}
                 </tbody>
             </table>
         </div>
