@@ -204,7 +204,7 @@ class GoogleSheetSync:
                 total_cmd_price = 0.0
 
             # Créer une NOUVELLE commande (vérification déjà effectuée)
-            print(f"➕ Création NOUVELLE commande {order_number}")
+           
             commande = Commande.objects.create(
                 num_cmd=order_number,
                 date_cmd=self._parse_date(data.get('Date Création', '') or data.get('Date', '')),
@@ -237,16 +237,9 @@ class GoogleSheetSync:
                 commande.save(update_fields=['produit_init'])
 
             # Créer un panier vide pour la commande
-            try:
-                from commande.models import Panier
-                panier = Panier.objects.create(
-                        commande=commande,
-                    # Le panier est créé vide, sans articles
-                    # Les articles seront ajoutés manuellement plus tard si nécessaire
-                    )
-                self._log(f"Panier vide créé pour la commande {commande.num_cmd} (ID: {panier.id})")
-            except Exception as e:
-                self.errors.append(f"Erreur lors de la création du panier pour la commande {commande.num_cmd}: {str(e)}")
+            # SUPPRIMÉ : Un panier ne peut pas être vide selon le modèle (champs article, quantite, sous_total obligatoires)
+            # Le panier sera créé plus tard quand des articles seront ajoutés à la commande
+            self._log(f"Pas de panier créé pour la commande {commande.num_cmd} - sera créé lors de l'ajout d'articles")
 
             # Si un opérateur est spécifié et que la commande est affectée
             operator_name = data.get('Opérateur', '')
@@ -295,22 +288,6 @@ class GoogleSheetSync:
                 if not etat_created:
                     self._log(f"Échec de création de l'état par défaut pour la commande {order_number}", "error")
 
-            # Finalisation du traitement
-            print(f"🎉 === FINALISATION ===")
-            print(f"✅ Commande {order_number} traitée avec succès!")
-            print(f"📊 Résumé:")
-            print(f"   📋 ID YZ: {commande.id_yz}")
-            print(f"   📋 Client: {commande.client.nom} {commande.client.prenom}")
-            print(f"   📋 Produit: {commande.produit_init}")
-            print(f"   📋 Statut: {status_libelle if status_libelle else 'Non affectée'}")
-            print(f"   📋 Opérateur: {operateur_obj.nom_complet if operateur_obj else 'Aucun'}")
-            print(f"   📋 Prix: {commande.total_cmd}")
-            print(f"   📋 Ville: {commande.ville_init}")
-            print(f"   📋 Origine: {commande.origine}")
-            print(f"   📋 Date sync: {commande.last_sync_date}")
-            
-            # VÉRIFICATION FINALE DE L'ÉTAT
-            print(f"🔍 === VÉRIFICATION FINALE ÉTAT ===")
             try:
                 # Forcer le rafraîchissement depuis la base
                 commande.refresh_from_db()
@@ -1241,12 +1218,9 @@ def sync_google_sheet_data(config_id):
                     if created_commande:
                         logs.append(f"Successfully created order: {commande.numero_commande}")
                         
-                        # Créer un panier vide pour la nouvelle commande
-                        try:
-                            panier = Panier.objects.create(commande=commande)
-                            logs.append(f"Empty cart created for order: {commande.numero_commande}")
-                        except Exception as e:
-                            logs.append(f"Error creating cart for order {commande.numero_commande}: {e}")
+                        # SUPPRIMÉ : Création du panier vide - un panier doit toujours contenir des articles
+                        # Le panier sera créé plus tard quand des articles seront ajoutés à la commande
+                        logs.append(f"Order created without cart - cart will be created when articles are added")
                     else:
                         logs.append(f"Successfully updated order: {commande.numero_commande}")
 
