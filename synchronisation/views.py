@@ -48,8 +48,8 @@ def sync_now(request, config_id):
     """Déclenche une synchronisation manuelle avec vérifications en arrière-plan"""
     config = get_object_or_404(GoogleSheetConfig, pk=config_id, is_active=True)
     
-    # Créer une instance de synchronisation et l'exécuter (mode silencieux par défaut)
-    syncer = GoogleSheetSync(config, triggered_by=request.user.username, verbose=False)
+    # Créer une instance de synchronisation et l'exécuter (mode verbose pour diagnostiquer)
+    syncer = GoogleSheetSync(config, triggered_by=request.user.username, verbose=True)
     success = syncer.sync()
     
     # Préparer le message de notification détaillé

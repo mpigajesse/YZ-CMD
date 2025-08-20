@@ -150,7 +150,21 @@ class VarianteArticle(models.Model):
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+
+    def generer_reference_variante_automatique(self):
+        """Génère automatiquement la référence avec le format catégorie-genre-modèle_complet"""
+        if not self.article.reference:
+            return None
+        # Nettoyer la référence pour éviter les caractères spéciaux
+        reference_clean = self.article.reference.replace(' ', '-').replace('é', 'e').replace('è', 'e').replace('à', 'a').replace('ç', 'c').upper()
+        reference_variante_clean = f"{reference_clean}-{self.couleur.nom}-{self.pointure.pointure}"
+        
+        if reference_variante_clean:
+            return f"{reference_variante_clean}"
+        return None
     
+
+
     @property
     def est_disponible(self):
         return self.qte_disponible > 0 and self.actif and self.article.actif

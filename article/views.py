@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg, Sum, Min, Max
-from .models import Article, Promotion, VarianteArticle, Categorie, Genre
+from .models import Article, Promotion, VarianteArticle, Categorie, Genre, Couleur, Pointure
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
@@ -257,6 +257,8 @@ def creer_article(request):
     """Créer un nouvel article"""
     categories = Categorie.objects.all()
     genres = Genre.objects.all()
+    couleurs = Couleur.objects.filter(actif=True).order_by('nom')
+    pointures = Pointure.objects.filter(actif=True).order_by('ordre', 'pointure')
 
     if request.method == 'POST':
         try:
@@ -273,7 +275,13 @@ def creer_article(request):
             ).exists():
                 messages.error(request, "Un article avec le même nom, couleur et pointure existe déjà.")
                 # Renvoyer le formulaire avec les données saisies
-                return render(request, 'article/creer.html', {'form_data': request.POST})
+                return render(request, 'article/creer.html', {
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
 
             # Vérifier l'unicité du modèle
             modele = request.POST.get('modele')
@@ -282,30 +290,66 @@ def creer_article(request):
                     modele_int = int(modele)
                     if modele_int <= 0:
                         messages.error(request, "Le numéro du modèle doit être supérieur à 0.")
-                        return render(request, 'article/creer.html', {'form_data': request.POST})
+                        return render(request, 'article/creer.html', {
+                            'form_data': request.POST,
+                            'categories': categories,
+                            'genres': genres,
+                            'couleurs': couleurs,
+                            'pointures': pointures
+                        })
                     
                     # Vérifier si le modèle existe déjà
                     if Article.objects.filter(modele=modele_int).exists():
                         messages.error(request, f"Le modèle {modele_int} est déjà utilisé par un autre article.")
-                        return render(request, 'article/creer.html', {'form_data': request.POST})
+                        return render(request, 'article/creer.html', {
+                            'form_data': request.POST,
+                            'categories': categories,
+                            'genres': genres,
+                            'couleurs': couleurs,
+                            'pointures': pointures
+                        })
                 except ValueError:
                     messages.error(request, "Le numéro du modèle doit être un nombre entier valide.")
-                    return render(request, 'article/creer.html', {'form_data': request.POST})
+                    return render(request, 'article/creer.html', {
+                        'form_data': request.POST,
+                        'categories': categories,
+                        'genres': genres,
+                        'couleurs': couleurs,
+                        'pointures': pointures
+                    })
 
             # Valider et convertir le prix
             prix_str = request.POST.get('prix_unitaire', '').strip().replace(',', '.')
             if not prix_str:
                 messages.error(request, "Le prix unitaire est obligatoire.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
+                return render(request, 'article/creer.html', {
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
             
             try:
                 prix_unitaire = float(prix_str)
                 if prix_unitaire <= 0:
                     messages.error(request, "Le prix unitaire doit être supérieur à 0.")
-                    return render(request, 'article/creer.html', {'form_data': request.POST})
+                    return render(request, 'article/creer.html', {
+                        'form_data': request.POST,
+                        'categories': categories,
+                        'genres': genres,
+                        'couleurs': couleurs,
+                        'pointures': pointures
+                    })
             except ValueError:
                 messages.error(request, "Le prix unitaire doit être un nombre valide.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
+                return render(request, 'article/creer.html', {
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
 
             # Créer l'article principal
             article = Article()
@@ -360,29 +404,34 @@ def creer_article(request):
             
             article.save()
             
-            # Créer la variante avec couleur et pointure
-            if couleur_id and pointure_id:
-                variante = VarianteArticle()
-                variante.article = article
-                variante.couleur_id = couleur_id
-                variante.pointure_id = pointure_id
-                variante.prix_unitaire = prix_unitaire
-                variante.prix_achat = article.prix_achat
-                variante.prix_actuel = prix_unitaire
-                variante.save()
-            else:
-                messages.warning(request, "Attention: Aucune variante (couleur/pointure) n'a été créée pour cet article.")
+            # Vérifier si c'est une requête AJAX (pour la création des variantes)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'article_id': article.id,
+                    'article_nom': article.nom,
+                    'message': f"Article '{article.nom}' créé avec succès"
+                })
             
             messages.success(request, f"L'article '{article.nom}' a été créé avec succès.")
+            
             return redirect('article:liste')
             
         except Exception as e:
             messages.error(request, f"Une erreur est survenue lors de la création de l'article : {str(e)}")
-            return render(request, 'article/creer.html', {'form_data': request.POST})
+            return render(request, 'article/creer.html', {
+                'form_data': request.POST,
+                'categories': categories,
+                'genres': genres,
+                'couleurs': couleurs,
+                'pointures': pointures
+            })
         
     context = {
         'categories': categories,
         'genres': genres,
+        'couleurs': couleurs,
+        'pointures': pointures,
     }
     
     return render(request,'article/creer.html',context)
@@ -393,6 +442,8 @@ def modifier_article(request, id):
     article = get_object_or_404(Article, id=id, actif=True)
     categories = Categorie.objects.all()
     genres = Genre.objects.all()
+    couleurs = Couleur.objects.filter(actif=True).order_by('nom')
+    pointures = Pointure.objects.filter(actif=True).order_by('ordre', 'pointure')
 
     if request.method == 'POST':
         try:
@@ -407,7 +458,14 @@ def modifier_article(request, id):
                 pointure_id=pointure_id
             ).exclude(article=article).exists():
                 messages.error(request, "Un autre article avec le même nom, couleur et pointure existe déjà.")
-                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                return render(request, 'article/modifier.html', {
+                    'article': article, 
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
 
             # Vérifier l'unicité du modèle
             modele = request.POST.get('modele')
@@ -416,30 +474,72 @@ def modifier_article(request, id):
                     modele_int = int(modele)
                     if modele_int <= 0:
                         messages.error(request, "Le numéro du modèle doit être supérieur à 0.")
-                        return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                        return render(request, 'article/modifier.html', {
+                            'article': article, 
+                            'form_data': request.POST,
+                            'categories': categories,
+                            'genres': genres,
+                            'couleurs': couleurs,
+                            'pointures': pointures
+                        })
                     
                     # Vérifier si le modèle existe déjà sur un autre article
                     if Article.objects.filter(modele=modele_int).exclude(id=article.id).exists():
                         messages.error(request, f"Le modèle {modele_int} est déjà utilisé par un autre article.")
-                        return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                        return render(request, 'article/modifier.html', {
+                            'article': article, 
+                            'form_data': request.POST,
+                            'categories': categories,
+                            'genres': genres,
+                            'couleurs': couleurs,
+                            'pointures': pointures
+                        })
                 except ValueError:
                     messages.error(request, "Le numéro du modèle doit être un nombre entier valide.")
-                    return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                    return render(request, 'article/modifier.html', {
+                        'article': article, 
+                        'form_data': request.POST,
+                        'categories': categories,
+                        'genres': genres,
+                        'couleurs': couleurs,
+                        'pointures': pointures
+                    })
 
             # Valider et convertir le prix
             prix_str = request.POST.get('prix_unitaire', '').strip().replace(',', '.')
             if not prix_str:
                 messages.error(request, "Le prix unitaire est obligatoire.")
-                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                return render(request, 'article/modifier.html', {
+                    'article': article, 
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
             
             try:
                 prix_unitaire = float(prix_str)
                 if prix_unitaire <= 0:
                     messages.error(request, "Le prix unitaire doit être supérieur à 0.")
-                    return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                    return render(request, 'article/modifier.html', {
+                        'article': article, 
+                        'form_data': request.POST,
+                        'categories': categories,
+                        'genres': genres,
+                        'couleurs': couleurs,
+                        'pointures': pointures
+                    })
             except ValueError:
                 messages.error(request, "Le prix unitaire doit être un nombre valide.")
-                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                return render(request, 'article/modifier.html', {
+                    'article': article, 
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
 
             # Valider la quantité
 
@@ -530,40 +630,175 @@ def modifier_article(request, id):
             
             article.save()
             
-            # Mettre à jour la variante principale
-            variante_principale = article.variantes.first()
-            if variante_principale and couleur_id and pointure_id:
-                variante_principale.couleur_id = couleur_id
-                variante_principale.pointure_id = pointure_id
-                variante_principale.prix_unitaire = prix_unitaire
-                variante_principale.prix_achat = article.prix_achat
-                variante_principale.prix_actuel = prix_unitaire
-                variante_principale.save()
-            elif couleur_id and pointure_id:
-                # Créer une nouvelle variante si elle n'existe pas
-                variante = VarianteArticle()
-                variante.article = article
-                variante.couleur_id = couleur_id
-                variante.pointure_id = pointure_id
-                variante.prix_unitaire = prix_unitaire
-                variante.prix_achat = article.prix_achat
-                variante.prix_actuel = prix_unitaire
-                variante.save()
-            else:
-                messages.warning(request, "Attention: Aucune variante (couleur/pointure) n'a été mise à jour pour cet article.")
+            # Traiter les mises à jour des variantes existantes
+            variantes_mises_a_jour = 0
+            for key, value in request.POST.items():
+                if key.startswith('variante_existante_') and key.endswith('_modifiee') and value == 'true':
+                    # Extraire l'ID de la variante
+                    variante_id = key.replace('variante_existante_', '').replace('_modifiee', '')
+                    try:
+                        variante_id = int(variante_id)
+                        # Récupérer la nouvelle quantité
+                        quantite_key = f'variante_existante_{variante_id}_quantite'
+                        nouvelle_quantite = request.POST.get(quantite_key, '0')
+                        
+                        # Mettre à jour la variante
+                        variante = VarianteArticle.objects.get(id=variante_id, article=article)
+                        ancienne_quantite = variante.qte_disponible
+                        variante.qte_disponible = int(nouvelle_quantite) if nouvelle_quantite else 0
+                        variante.save()
+                        
+                        variantes_mises_a_jour += 1
+                        couleur_nom = variante.couleur.nom if variante.couleur else "Aucune couleur"
+                        pointure_nom = variante.pointure.pointure if variante.pointure else "Aucune pointure"
+                        messages.success(request, f"Quantité mise à jour pour {couleur_nom} / {pointure_nom} : {ancienne_quantite} → {variante.qte_disponible}")
+                        
+                    except (ValueError, VarianteArticle.DoesNotExist) as e:
+                        messages.error(request, f"Erreur lors de la mise à jour de la variante {variante_id}: {str(e)}")
             
-            messages.success(request, f"L'article '{article.nom}' a été modifié avec succès.")
+            # Traiter les nouvelles variantes ajoutées via le modal
+            variantes_crees = 0
+            variantes_errors = []
+            
+            # Récupérer toutes les nouvelles variantes soumises
+            variantes_data = {}
+            for key, value in request.POST.items():
+                if key.startswith('variante_') and '_' in key and not key.startswith('variante_existante_'):
+                    parts = key.split('_')
+                    if len(parts) >= 4:
+                        variante_id = parts[1]
+                        field_type = parts[2]
+                        if variante_id not in variantes_data:
+                            variantes_data[variante_id] = {}
+                        variantes_data[variante_id][field_type] = value
+            
+            # Créer les nouvelles variantes
+            for variante_id, variante_info in variantes_data.items():
+                couleur_id_variante = variante_info.get('couleur', '')
+                pointure_id_variante = variante_info.get('pointure', '')
+                quantite = variante_info.get('quantite', '0')
+                reference_variante = variante_info.get('reference', '')
+                
+                # Vérifier qu'au moins une couleur ou une pointure est spécifiée
+                if not couleur_id_variante and not pointure_id_variante:
+                    variantes_errors.append(f"Variante {variante_id}: Au moins une couleur ou une pointure doit être spécifiée.")
+                    continue
+                
+                try:
+                    # Vérifier l'unicité de la combinaison
+                    if VarianteArticle.objects.filter(
+                        article=article,
+                        couleur_id=couleur_id_variante if couleur_id_variante else None,
+                        pointure_id=pointure_id_variante if pointure_id_variante else None
+                    ).exists():
+                        variantes_errors.append(f"Variante {variante_id}: Cette combinaison couleur/pointure existe déjà pour cet article.")
+                        continue
+                    
+                    # Créer la variante
+                    variante = VarianteArticle()
+                    variante.article = article
+                    variante.couleur_id = couleur_id_variante if couleur_id_variante else None
+                    variante.pointure_id = pointure_id_variante if pointure_id_variante else None
+                    variante.qte_disponible = int(quantite) if quantite else 0
+                    variante.prix_unitaire = prix_unitaire
+                    variante.prix_achat = article.prix_achat
+                    variante.prix_actuel = prix_unitaire
+                    variante.actif = True
+                    
+                    # Définir la référence de la variante
+                    if reference_variante:
+                        variante.reference_variante = reference_variante
+                    else:
+                        # Générer automatiquement la référence
+                        variante.reference_variante = variante.generer_reference_variante_automatique()
+                    variante.reference_variante = variante.generer_reference_variante_automatique()
+                    
+                    variante.save()
+                    variantes_crees += 1
+                    
+                    # Message de succès pour chaque variante créée
+                    couleur_nom = variante.couleur.nom if variante.couleur else "Aucune couleur"
+                    pointure_nom = variante.pointure.pointure if variante.pointure else "Aucune pointure"
+                    messages.success(request, f"Nouvelle variante créée : {couleur_nom} / {pointure_nom} - Référence: {variante.reference_variante}")
+                    
+                except Exception as e:
+                    variantes_errors.append(f"Variante {variante_id}: Erreur lors de la création - {str(e)}")
+            
+            # Afficher les erreurs s'il y en a
+            if variantes_errors:
+                for error in variantes_errors:
+                    messages.error(request, error)
+            
+            # Message de succès global
+            message_succes = f"L'article '{article.nom}' a été modifié avec succès."
+            if variantes_mises_a_jour > 0:
+                message_succes += f" {variantes_mises_a_jour} variante(s) mise(s) à jour."
+            if variantes_crees > 0:
+                message_succes += f" {variantes_crees} nouvelle(s) variante(s) créée(s)."
+            
+            # Si c'est une requête AJAX, retourner JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': message_succes,
+                    'redirect_url': reverse('article:detail', args=[article.id])
+                })
+                
+            messages.success(request, message_succes)
             return redirect('article:detail', id=article.id)
             
         except Exception as e:
             messages.error(request, f"Une erreur est survenue lors de la modification de l'article : {str(e)}")
-            return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+            
+            # Calculer les couleurs et pointures uniques pour le tableau croisé (même en cas d'erreur)
+            couleurs_uniques = []
+            pointures_uniques = []
+            
+            if article.variantes.exists():
+                couleurs_uniques = list(article.variantes.exclude(couleur__isnull=True).values_list('couleur__nom', flat=True).distinct().order_by('couleur__nom'))
+                pointures_uniques = list(article.variantes.exclude(pointure__isnull=True).values_list('pointure__pointure', flat=True).distinct().order_by('pointure__ordre', 'pointure__pointure'))
+                
+                if article.variantes.filter(couleur__isnull=True).exists():
+                    couleurs_uniques.append("Aucune couleur")
+                    
+                if article.variantes.filter(pointure__isnull=True).exists():
+                    pointures_uniques.append("Aucune pointure")
+            
+            return render(request, 'article/modifier.html', {
+        'article': article,
+                'form_data': request.POST,
+        'categories': categories,
+                'genres': genres,
+                'couleurs': couleurs,
+                'pointures': pointures,
+                'couleurs_uniques': couleurs_uniques,
+                'pointures_uniques': pointures_uniques,
+            })
     
+    # Calculer les couleurs et pointures uniques pour le tableau croisé
+    couleurs_uniques = []
+    pointures_uniques = []
+    
+    if article.variantes.exists():
+        couleurs_uniques = list(article.variantes.exclude(couleur__isnull=True).values_list('couleur__nom', flat=True).distinct().order_by('couleur__nom'))
+        pointures_uniques = list(article.variantes.exclude(pointure__isnull=True).values_list('pointure__pointure', flat=True).distinct().order_by('pointure__ordre', 'pointure__pointure'))
+        
+        # Ajouter "Aucune couleur" si des variantes n'ont pas de couleur
+        if article.variantes.filter(couleur__isnull=True).exists():
+            couleurs_uniques.append("Aucune couleur")
+            
+        # Ajouter "Aucune pointure" si des variantes n'ont pas de pointure
+        if article.variantes.filter(pointure__isnull=True).exists():
+            pointures_uniques.append("Aucune pointure")
+
     context = {
         'article': article,
         'categories': categories,
-        'genres': genres
-        
+        'genres': genres,
+        'couleurs': couleurs,
+        'pointures': pointures,
+        'couleurs_uniques': couleurs_uniques,
+        'pointures_uniques': pointures_uniques,
     }
     return render(request, 'article/modifier.html', context)
 
@@ -1313,3 +1548,133 @@ def liste_variantes(request):
         'end_range': end_range,
     }
     return render(request, 'article/Liste_variante_article.html', context)
+
+@login_required
+def creer_variantes_ajax(request):
+    """Créer des variantes via AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        article_id = data.get('article_id')
+        variantes_data = data.get('variantes', [])
+        
+        if not article_id:
+            return JsonResponse({'success': False, 'error': 'ID de l\'article manquant'})
+        
+        # Récupérer l'article
+        try:
+            article = Article.objects.get(id=article_id, actif=True)
+        except Article.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Article non trouvé'})
+        
+        variantes_crees = []
+        erreurs = []
+        
+        for variante_data in variantes_data:
+            couleur_id = variante_data.get('couleur_id')
+            pointure_id = variante_data.get('pointure_id')
+            quantite = variante_data.get('quantite', 0)
+            reference = variante_data.get('reference', '')
+            
+            # Validation
+            if not couleur_id and not pointure_id:
+                erreurs.append('Au moins une couleur ou une pointure doit être spécifiée')
+                continue
+            
+            # Vérifier l'unicité
+            if VarianteArticle.objects.filter(
+                article=article,
+                couleur_id=couleur_id if couleur_id else None,
+                pointure_id=pointure_id if pointure_id else None
+            ).exists():
+                erreurs.append('Cette combinaison couleur/pointure existe déjà')
+                continue
+            
+            try:
+                # Créer la variante
+                variante = VarianteArticle()
+                variante.article = article
+                variante.couleur_id = couleur_id if couleur_id else None
+                variante.pointure_id = pointure_id if pointure_id else None
+                variante.qte_disponible = int(quantite) if quantite else 0
+                
+                # Définir la référence
+                if reference:
+                    variante.reference_variante = reference
+                else:
+                    # Générer automatiquement
+                    variante.save()  # Sauvegarder d'abord pour avoir l'ID
+                    variante.reference_variante = variante.generer_reference_variante_automatique()
+                
+                variante.save()
+                
+                # Préparer les données de réponse
+                variante_info = {
+                    'id': variante.id,
+                    'couleur': variante.couleur.nom if variante.couleur else None,
+                    'pointure': variante.pointure.pointure if variante.pointure else None,
+                    'quantite': variante.qte_disponible,
+                    'reference': variante.reference_variante
+                }
+                
+                variantes_crees.append(variante_info)
+                
+            except Exception as e:
+                erreurs.append(f'Erreur lors de la création: {str(e)}')
+        
+        return JsonResponse({
+            'success': True,
+            'variantes_crees': variantes_crees,
+            'nombre_crees': len(variantes_crees),
+            'erreurs': erreurs
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Données JSON invalides'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Erreur serveur: {str(e)}'})
+
+@login_required
+def supprimer_variante(request, id):
+    """Supprimer une variante d'article"""
+    if request.method != 'POST':
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+        messages.error(request, 'Méthode non autorisée')
+        return redirect('article:liste')
+    
+    try:
+        variante = VarianteArticle.objects.get(id=id)
+        article = variante.article
+        
+        # Vérifier les permissions (optionnel)
+        # Vous pouvez ajouter des vérifications de permissions ici
+        
+        variante_info = f"{variante.couleur.nom if variante.couleur else 'Aucune couleur'} / {variante.pointure.pointure if variante.pointure else 'Aucune pointure'}"
+        variante.delete()
+        
+        # Si c'est une requête AJAX, retourner JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True, 
+                'message': f'Variante "{variante_info}" supprimée avec succès.',
+                'variante_id': id
+            }, content_type='application/json')
+        
+        # Sinon, rediriger normalement
+        messages.success(request, f'Variante "{variante_info}" supprimée avec succès.')
+        return redirect('article:modifier', id=article.id)
+        
+    except VarianteArticle.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Variante non trouvée.'}, content_type='application/json')
+        messages.error(request, 'Variante non trouvée.')
+        return redirect('article:liste')
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': f'Erreur lors de la suppression : {str(e)}'}, content_type='application/json')
+        messages.error(request, f'Erreur lors de la suppression : {str(e)}')
+        return redirect('article:liste')

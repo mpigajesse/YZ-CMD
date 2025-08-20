@@ -80,7 +80,7 @@ def liste_commandes(request):
 
     # Nouveau filtre pour les commandes synchronisées
     if sync_filter:
-        commandes = commandes.filter(origine='GSheet') # Ensure we only filter GSheet origin commands
+        commandes = commandes.filter(origine='SYNC') # Ensure we only filter synchronized commands
         if sync_filter == 'last_minute':
             commandes = commandes.filter(last_sync_date__gte=timezone.now() - timedelta(minutes=1))
         elif sync_filter == 'last_hour':

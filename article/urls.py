@@ -15,10 +15,11 @@ urlpatterns = [
 
     # Gestion des variantes d'articles
     path('variantes/', views.liste_variantes, name='liste_variantes'),
+    path('variantes/creer-ajax/', views.creer_variantes_ajax, name='creer_variantes_ajax'),
+    path('variantes/supprimer/<int:id>/', views.supprimer_variante, name='supprimer_variante'),
     #path('variantes/creer/', views.creer_variante, name='creer_variante'),
     #path('variantes/<int:id>/', views.detail_variante, name='detail_variante'),
     #path('variantes/modifier/<int:id>/', views.modifier_variante, name='modifier_variante'),
-    #path('variantes/supprimer/<int:id>/', views.supprimer_variante, name='supprimer_variante'),
     
     # Filtres par catégorie
     path('categorie/<str:categorie>/', views.articles_par_categorie, name='par_categorie'),
