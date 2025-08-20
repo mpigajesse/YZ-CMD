@@ -1,101 +1,209 @@
 {% extends 'composant_generale/Superpreparation/base.html' %}
 
-{% block title %}Commandes à Imprimer - YZ-CMD{% endblock %}
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="main-content transition-all duration-300" id="mainContent">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
          style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
-                <i class="fas fa-print mr-3"></i>
-                Commandes à Imprimer
+                <i class="fas fa-print mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
             </h1>
-            <p style="color: var(--preparation-border-accent);">Liste des commandes prêtes à être imprimées</p>
+            <p style="color: white;">{{ page_subtitle }}</p>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: var(--preparation-border-accent);">
+    <!-- Statistiques rapides -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Total des commandes -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-print text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">À Imprimer</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ stats.total_commandes }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Valeur totale -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur Totale</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.valeur_totale|floatformat:0 }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commandes urgentes -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110" style="color: var(--preparation-primary);">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Urgentes</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300" style="group-hover:color: var(--preparation-primary);">{{ stats.commandes_urgentes }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8 preparation-card" style="border-color: var(--preparation-border-accent);">
         
-        <div class="flex justify-between items-center mb-4 px-2">
-            <button id="printSelectedBtn" class="flex items-center px-4 py-2 rounded-lg font-medium text-white transition-colors bg-blue-600 hover:bg-blue-700">
-                <i class="fas fa-print mr-2"></i>
-                Imprimer sélectionnées
-            </button>
+        <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex-1">
+                <p class="text-gray-700 mb-2">
+                    Suivi en temps réel des commandes prêtes pour impression d'étiquettes.
+                </p>
+                {% if search_query %}
+                    <div class="flex items-center text-sm text-gray-600">
+                        <i class="fas fa-search mr-2"></i>
+                        <span>Résultats pour : "<strong>{{ search_query }}</strong>"</span>
+                        <a href="{% url 'Superpreparation:commandes_a_imprimer' %}" class="ml-2 text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-times-circle"></i> Effacer
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="flex gap-2">
+                <form method="GET" class="flex">
+                    <input type="text" name="search" value="{{ search_query }}" 
+                           placeholder="Rechercher par ID, nom, téléphone..." 
+                           class="block px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <button type="submit" class="inline-flex items-center px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-r-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
+            </div>
         </div>
 
         <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead style="background-color: var(--preparation-primary);">
                     <tr>
-                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                            <input type="checkbox" id="selectAll" class="rounded text-blue-600 focus:ring-blue-500">
-                        </th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Affectation</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Code-barres</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
                         <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
-                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    {% for commande in commandes %}
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                            <input type="checkbox" value="{{ commande.id }}" class="commande-checkbox rounded text-blue-600 focus:ring-blue-500" data-commande-id="{{ commande.id }}">
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" class="text-sm font-medium hover:underline" style="color: var(--preparation-primary);">
+                    {% if commandes %}
+                        {% for commande in commandes %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 {{ commande.id_yz }}
-                            </a>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:'-' }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900 font-medium"><i class="fas fa-phone mr-1"></i>{{ commande.client.numero_tel }}</div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
-                            <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ commande.etat_actuel.date_debut|date:"d/m/Y H:i" }}</div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
-                                <i class="fas fa-print mr-1"></i>
-                                À imprimer
-                            </span>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                            <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white" style="background-color: var(--preparation-primary);" title="Voir le panier">
-                                <i class="fas fa-shopping-cart mr-1"></i> 
-                                {{ commande.paniers.count }}
-                            </a>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                             <button onclick="printSingleLabel({{ commande.id }})" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white" style="background-color: #F59E0B; hover:background-color: #D97706;" title="Imprimer l'étiquette">
-                                <i class="fas fa-print mr-1"></i> Imprimer
-                            </button>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="11" class="text-center py-10 text-gray-500">
-                            Aucune commande à imprimer pour le moment.
-                        </td>
-                    </tr>
-                    {% endfor %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
+                            <!-- Colonne Client -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                                {% if commande.client.email %}
+                                <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Téléphone -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.client.numero_tel %}
+                                <div class="text-sm text-gray-900 font-medium">
+                                    <i class="fas fa-phone mr-1"></i>
+                                    {{ commande.client.numero_tel }}
+                                </div>
+                                {% else %}
+                                <div class="text-sm text-gray-500">Non renseigné</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville Client -->
+                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                {% if commande.ville_init and commande.ville_init != '' %}
+                                    <div style="color: var(--preparation-primary);" class="font-medium">{{ commande.ville_init }}</div>
+                                {% else %}
+                                    <div style="color: var(--preparation-primary);">Non spécifiée</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville & Région (ville de livraison) -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.ville %}
+                                    <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                                    <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non définie</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% with etat_actuel=commande.etat_actuel %}
+                                    {% if etat_actuel %}
+                                        <div class="text-sm text-gray-900">{{ etat_actuel.date_debut|date:"d/m/Y" }}</div>
+                                        <div class="text-xs text-gray-500">{{ etat_actuel.date_debut|date:"H:i" }}</div>
+                                    {% else %}
+                                        <div class="text-sm text-gray-500">Non définie</div>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.barcode_base64 %}
+                                    <img src="data:image/png;base64,{{ commande.barcode_base64 }}" alt="Code-barres" style="height: 30px;">
+                                {% else %}
+                                    <span class="text-xs text-gray-400">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    <i class="fas fa-print mr-1"></i>
+                                    À imprimer
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-center">
+                                <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" 
+                                   class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                   style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                   title="Voir le panier de cette commande">
+                                    <i class="fas fa-shopping-cart mr-1"></i> 
+                                    {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                <div class="flex flex-col items-center py-8">
+                                    <i class="fas fa-print text-4xl text-gray-300 mb-4"></i>
+                                    <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande à imprimer</h3>
+                                    <p class="text-gray-500">Toutes les commandes ont été imprimées ou sont en cours de préparation.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
@@ -106,39 +214,7 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const selectAllCheckbox = document.getElementById('selectAll');
-    const checkboxes = document.querySelectorAll('.commande-checkbox');
-    const printSelectedBtn = document.getElementById('printSelectedBtn');
-
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
-            });
-        });
-    }
-
-    if (printSelectedBtn) {
-        printSelectedBtn.addEventListener('click', function() {
-            const selectedIds = Array.from(checkboxes)
-                                     .filter(i => i.checked)
-                                     .map(i => i.value);
-            if (selectedIds.length === 0) {
-                Swal.fire('Aucune sélection', 'Veuillez sélectionner au moins une commande à imprimer.', 'warning');
-                return;
-            }
-            printLabels(selectedIds);
-        });
-    }
+    console.log("Page de suivi des commandes à imprimer chargée.");
 });
-
-function printSingleLabel(commandeId) {
-    printLabels([commandeId]);
-}
-
-function printLabels(ids) {
-    const url = `{% url 'Superpreparation:impression_etiquettes' %}?ids=${ids.join(',')}`;
-    window.open(url, '_blank', 'height=600,width=800');
-}
 </script>
 {% endblock %} 

@@ -23,8 +23,7 @@ urlpatterns = [
     path('changer-mot-de-passe/', views.changer_mot_de_passe_view, name='changer_mot_de_passe'),
     path('detail-prepa/<int:pk>/', views.detail_prepa, name='detail_prepa'),
     path('etiquettes/', views.etiquette_view, name='etiquette'),
-    path('impression-etiquettes/', views.impression_etiquettes_view, name='impression_etiquettes'),
-    path('impression-tickets-preparation/', views.imprimer_tickets_preparation, name='imprimer_tickets_preparation'),
+    # Impression supprimée (gérée par Gestion des étiquettes)
     path('modifier-commande/<int:commande_id>/', views.modifier_commande_prepa, name='modifier_commande'),
 
     path('api/commande/<int:commande_id>/produits/', views.api_commande_produits, name='api_commande_produits'),
@@ -59,8 +58,6 @@ urlpatterns = [
     # path('details-region/', views.details_region_view, name='details_region'),
     
     # === NOUVELLES URLs : EXPORTS CONSOLIDÉS ===
-    path('export/commandes-consolidees/csv/', views.export_commandes_consolidees_csv, name='export_commandes_consolidees_csv'),
-    path('export/commandes-consolidees/excel/', views.export_commandes_consolidees_excel, name='export_commandes_consolidees_excel'),
     path('export/region/<str:region_name>/csv/', views.export_region_consolidee_csv, name='export_region_consolidee_csv'),
     path('export/region/<str:region_name>/excel/', views.export_region_consolidee_excel, name='export_region_consolidee_excel'),
     path('export/ville/<int:ville_id>/csv/', views.export_ville_consolidee_csv, name='export_ville_consolidee_csv'),

@@ -31,7 +31,7 @@ from .decorators import superviseur_preparation_required, superviseur_only_requi
 
 @superviseur_preparation_required
 def home_view(request):
-    """Page d'accueil avec statistiques pour les opérateurs de préparation"""
+    """Tableau de bord de supervision avec métriques globales et suivi en temps réel"""
     try:
         operateur_profile = request.user.profil_operateur
     except Operateur.DoesNotExist:
@@ -52,27 +52,37 @@ def home_view(request):
         messages.error(request, f"État manquant dans le système: {str(e)}")
         return redirect('login')
 
-    # 1. Commandes à préparer (à imprimer et affectées à cet opérateur)
-    commandes_a_preparer = Commande.objects.filter(
+    # STATISTIQUES GLOBALES DE SUPERVISION
+    # 1. Commandes à imprimer (tous opérateurs)
+    commandes_a_imprimer = Commande.objects.filter(
         etats__enum_etat__libelle='En préparation',
-        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    # 2. Commandes à préparer (affectées mais pas encore commencées)
+    commandes_a_preparer = Commande.objects.filter(
+        etats__enum_etat__libelle='À imprimer',
         etats__date_fin__isnull=True
     ).distinct().count()
 
 
     
-    # 2. Commandes préparées aujourd'hui par cet opérateur
-    commandes_preparees = EtatCommande.objects.filter(
-        enum_etat__libelle='Préparée',
-        date_debut__date=today,
-        operateur=operateur_profile
+    # 3. Commandes livrées partiellement (supervision)
+    commandes_livrees_partiellement = Commande.objects.filter(
+        etats__enum_etat__libelle='Livrée Partiellement',
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    # 4. Commandes retournées (supervision)
+    commandes_retournees = Commande.objects.filter(
+        etats__enum_etat__libelle='Retournée',
+        etats__date_fin__isnull=True
     ).distinct().count()
 
-    # 3. Commandes en cours de préparation
+    # 5. Commandes en cours de préparation (tous opérateurs)
     commandes_en_cours = Commande.objects.filter(
         etats__enum_etat=etat_en_preparation,
-        etats__date_fin__isnull=True,
-        etats__operateur=operateur_profile
+        etats__date_fin__isnull=True
     ).distinct().count()
 
     # 4. Performance de l'opérateur aujourd'hui
@@ -136,28 +146,95 @@ def home_view(request):
         date_fin__isnull=False
     ).select_related('commande', 'commande__client').order_by('-date_fin')[:5]
 
-    # Préparer les statistiques
+    # STATISTIQUES GLOBALES ADDITIONNELLES
+    # Commandes confirmées aujourd'hui
+    commandes_confirmees_today = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée',
+        etats__date_debut__date=today
+    ).distinct().count()
+    
+    # Total global des commandes actives
+    total_commandes_actives = commandes_a_imprimer + commandes_en_cours + commandes_livrees_partiellement + commandes_retournees
+    
+    # Performance globale (toutes les préparations terminées aujourd'hui)
+    performance_globale_today = EtatCommande.objects.filter(
+        enum_etat=etat_en_preparation,
+        date_fin__date=today
+    ).count()
+    
+    # Valeur totale traitée aujourd'hui
+    valeur_totale_today = Commande.objects.filter(
+        etats__enum_etat=etat_en_preparation,
+        etats__date_fin__date=today
+    ).aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Taux de réussite (commandes terminées vs commandes reçues)
+    taux_reussite = 0
+    if commandes_confirmees_today > 0:
+        taux_reussite = round((performance_globale_today / commandes_confirmees_today) * 100, 1)
+    
+    # Alertes de supervision
+    alertes = []
+    if commandes_retournees > 0:
+        alertes.append({
+            'type': 'warning',
+            'icon': 'fas fa-exclamation-triangle',
+            'message': f'{commandes_retournees} commande(s) retournée(s) nécessite(nt) une attention',
+            'url': 'Superpreparation:commandes_retournees'
+        })
+    
+    if commandes_livrees_partiellement > 0:
+        alertes.append({
+            'type': 'info',
+            'icon': 'fas fa-info-circle',
+            'message': f'{commandes_livrees_partiellement} commande(s) livrée(s) partiellement',
+            'url': 'Superpreparation:commandes_livrees_partiellement'
+        })
+    
+    if commandes_a_imprimer > 10:
+        alertes.append({
+            'type': 'urgent',
+            'icon': 'fas fa-fire',
+            'message': f'{commandes_a_imprimer} commandes en attente d\'impression',
+            'url': 'Superpreparation:commandes_a_imprimer'
+        })
+    
+    # Préparer les statistiques de supervision
     stats = {
+        # Statistiques principales de supervision
+        'commandes_a_imprimer': commandes_a_imprimer,
         'commandes_a_preparer': commandes_a_preparer,
-        'commandes_preparees': commandes_preparees,
         'commandes_en_cours': commandes_en_cours,
-        'ma_performance': ma_performance,
-        # Ajout des nouvelles statistiques
+        'commandes_livrees_partiellement': commandes_livrees_partiellement,
+        'commandes_retournees': commandes_retournees,
+        'commandes_confirmees_today': commandes_confirmees_today,
+        'total_commandes_actives': total_commandes_actives,
+        
+        # Performance et KPIs
+        'performance_globale_today': performance_globale_today,
+        'ma_performance_today': ma_performance_today,
+        'taux_reussite': taux_reussite,
+        'valeur_totale_today': valeur_totale_today,
+        'valeur_preparees_today': valeur_preparees_today,
+        
+        # Données historiques
         'commandes_preparees_today': commandes_preparees_today,
         'commandes_preparees_week': commandes_preparees_week,
         'commandes_en_preparation': commandes_en_preparation,
-        'ma_performance_today': ma_performance_today,
-        'valeur_preparees_today': valeur_preparees_today,
+        
+        # Données détaillées
         'articles_populaires': articles_populaires,
-        'activite_recente': activite_recente
+        'activite_recente': activite_recente,
+        'alertes': alertes
     }
 
     context = {
-        'page_title': 'Tableau de Bord',
-        'page_subtitle': 'Interface Superviseur de Préparation',
+        'page_title': 'Centre de Supervision',
+        'page_subtitle': f'Tableau de bord global - {total_commandes_actives} commandes actives',
         'profile': operateur_profile,
         'stats': stats,
-        'total_commandes': commandes_a_preparer  # Ajout du total des commandes à préparer
+        'alertes': alertes,
+        'is_supervision': True
     }
     return render(request, 'composant_generale/Superpreparation/home.html', context)
 
@@ -701,7 +778,7 @@ def liste_prepa(request):
         total_affectees = stats_par_type['affectees_admin'] + stats_par_type['renvoyees_logistique'] + stats_par_type['livrees_partiellement']
     
     context = {
-        'page_title': 'Commandes à Préparer',
+        'page_title': 'commande reçu de la confirmation',
         'page_subtitle': f'Il y a {total_affectees} commande(s) en préparation',
         'commandes_affectees': commandes_affectees,
         'search_query': search_query,
@@ -719,7 +796,7 @@ def liste_prepa(request):
 
 @superviseur_preparation_required
 def commandes_a_imprimer(request):
-    """Affiche les commandes 'En préparation' disponibles pour impression d'étiquettes."""
+    """Page de suivi (lecture seule) des commandes à imprimer"""
     try:
         operateur_profile = request.user.profil_operateur
         # Autoriser superviseur ou équipe préparation
@@ -736,16 +813,40 @@ def commandes_a_imprimer(request):
         etats__date_fin__isnull=True
     ).select_related('client', 'ville', 'ville__region').prefetch_related('etats__operateur').order_by('-etats__date_debut').distinct()
 
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes = commandes.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query)
+        ).distinct()
+
+    # Statistiques
+    stats = {
+        'total_commandes': commandes.count(),
+        'commandes_urgentes': commandes.filter(
+            etats__date_debut__lt=timezone.now() - timedelta(days=1)
+        ).count(),
+        'valeur_totale': commandes.aggregate(total=Sum('total_cmd'))['total'] or 0
+    }
+
     context = {
         'commandes': commandes,
-        'page_title': 'Commandes à Imprimer',
-        'page_subtitle': f'{commandes.count()} commande(s) en préparation disponible(s) pour impression'
+        'search_query': search_query,
+        'stats': stats,
+        'page_title': 'Suivi - Commandes à Imprimer',
+        'page_subtitle': f'Suivi en temps réel de {commandes.count()} commande(s) prêtes pour impression',
+        'is_readonly': True,
+        'is_tracking_page': True
     }
     return render(request, 'Superpreparation/commandes_a_imprimer.html', context)
 
 @superviseur_preparation_required
 def commandes_en_preparation(request):
-    """Liste des commandes en cours de préparation pour les opérateurs de préparation"""
+    """Page de suivi (lecture seule) des commandes en préparation"""
     try:
         operateur_profile = request.user.profil_operateur
         
@@ -764,18 +865,42 @@ def commandes_en_preparation(request):
         etats__date_fin__isnull=True  # État actif (en cours)
     ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats__operateur').distinct()
 
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_en_preparation = commandes_en_preparation.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query)
+        ).distinct()
+
+    # Statistiques
+    stats = {
+        'total_commandes': commandes_en_preparation.count(),
+        'commandes_urgentes': commandes_en_preparation.filter(
+            etats__date_debut__lt=timezone.now() - timedelta(days=1)
+        ).count(),
+        'valeur_totale': commandes_en_preparation.aggregate(total=Sum('total_cmd'))['total'] or 0
+    }
+
     context = {
-        'page_title': 'Commandes en Préparation',
-        'page_subtitle': 'Interface superviseur de Préparation',
+        'page_title': 'Suivi - Commandes en Préparation',
+        'page_subtitle': f'Suivi en temps réel de {commandes_en_preparation.count()} commande(s) en cours de préparation',
         'profile': operateur_profile,
         'commandes': commandes_en_preparation,
-        'active_tab': 'en_preparation'
+        'search_query': search_query,
+        'stats': stats,
+        'active_tab': 'en_preparation',
+        'is_readonly': True,
+        'is_tracking_page': True
     }
     return render(request, 'Superpreparation/commandes_en_preparation.html', context)
 
 @superviseur_preparation_required
 def commandes_livrees_partiellement(request):
-    """Liste des commandes livrées partiellement renvoyées en préparation"""
+    """Page de suivi (lecture seule) des commandes livrées partiellement"""
     try:
         operateur_profile = request.user.profil_operateur
         
@@ -838,18 +963,20 @@ def commandes_livrees_partiellement(request):
                 commande.commande_renvoi_id_yz = commande.commande_renvoi.id_yz
 
     context = {
-        'page_title': 'Commandes Livrées Partiellement',
-        'page_subtitle': 'Interface superviseur de Préparation',
+        'page_title': 'Suivi - Commandes Livrées Partiellement',
+        'page_subtitle': f'Suivi en temps réel de {len(commandes_livrees_partiellement)} commande(s) livrées partiellement',
         'profile': operateur_profile,
         'commandes_livrees_partiellement': commandes_livrees_partiellement,
         'commandes_count': len(commandes_livrees_partiellement),
-        'active_tab': 'livrees_partiellement'
+        'active_tab': 'livrees_partiellement',
+        'is_readonly': True,
+        'is_tracking_page': True
     }
     return render(request, 'Superpreparation/commandes_livrees_partiellement.html', context)
 
 @superviseur_preparation_required
 def commandes_retournees(request):
-    """Liste des commandes retournées (état actuel 'Retournée') préparées initialement par l'opérateur courant"""
+    """Page de suivi (lecture seule) des commandes retournées"""
     try:
         operateur_profile = request.user.profil_operateur
         if not operateur_profile.is_preparation:
@@ -884,12 +1011,14 @@ def commandes_retournees(request):
             commande.operateur_retour = etat_retour.operateur
 
     context = {
-        'page_title': 'Commandes Retournées',
-        'page_subtitle': "Commandes renvoyées à la préparation (état 'Retournée')",
+        'page_title': 'Suivi - Commandes Retournées',
+        'page_subtitle': f'Suivi en temps réel de {len(commandes)} commande(s) retournées',
         'profile': operateur_profile,
         'commandes_retournees': commandes,
         'commandes_count': len(commandes),
         'active_tab': 'retournees',
+        'is_readonly': True,
+        'is_tracking_page': True
     }
     return render(request, 'Superpreparation/commandes_retournees.html', context)
 
@@ -1419,8 +1548,8 @@ def etiquette_view(request):
             if etat_preparee:
                 commande.date_preparation = etat_preparee.date_debut
 
-        page_title = 'Consultation des Commandes Préparées'
-        page_subtitle = f'Consultez vos {commandes_a_imprimer.count()} commande(s) préparée(s)'
+        page_title = 'Ticketage et Impression - Commandes Préparées'
+        page_subtitle = f'Générez et imprimez les tickets pour {commandes_a_imprimer.count()} commande(s) préparée(s)'
     
     # Générer les codes-barres
     code128 = barcode.get_barcode_class('code128')
@@ -1484,7 +1613,8 @@ def impression_etiquettes_view(request):
     context = {
         'commandes': commandes,
     }
-    return render(request, 'Superpreparation/impression_etiquettes.html', context)
+    # Fonction supprimée de l'interface superviseur: redirection vers gestion des étiquettes
+    return redirect('Superpreparation:etiquette')
 
 @superviseur_preparation_required
 def api_commande_produits(request, commande_id):
@@ -2569,34 +2699,14 @@ def imprimer_tickets_preparation(request):
     ).distinct()
 
     if not commandes.exists():
-        return HttpResponse("Aucune commande en préparation trouvée pour cet opérateur.", status=404)
+        messages.info(request, "L'impression des tickets est désactivée. Utilisez les outils de gestion.")
+        return redirect('Superpreparation:liste_prepa')
 
     # Génération du code-barres pour chaque commande (sans transition d'état)
     code128 = barcode.get_barcode_class('code128')
     
-    for commande in commandes:
-        # Générer le code-barres uniquement si pas déjà présent
-        if not hasattr(commande, 'barcode_base64') or not commande.barcode_base64:
-            barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
-            buffer = BytesIO()
-            barcode_instance.write(buffer, options={
-                'write_text': False, 
-                'module_height': 15.0, 
-                'module_width': 0.3
-            })
-            barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            commande.barcode_base64 = barcode_base64
-        
-        # Définir la date de préparation pour l'affichage (sans sauvegarder en DB)
-        if not hasattr(commande, 'date_preparation') or not commande.date_preparation:
-            commande.date_preparation = timezone.now()
-
-    context = {
-        'commandes': commandes,
-        'is_reprint': True,  # Indicateur pour différencier des impressions initiales
-    }
-    
-    return render(request, 'Superpreparation/tickets_preparation.html', context)
+    messages.info(request, "L'impression des tickets a été retirée de l'interface superviseur.")
+    return redirect('Superpreparation:liste_prepa')
 
 # === NOUVELLES FONCTIONNALITÉS : GESTION DE STOCK ===
 
@@ -2694,19 +2804,27 @@ def liste_articles(request):
         messages.error(request, "Profil opérateur non trouvé.")
         return redirect('login')
     
+    # Imports locaux pour les annotations
+    from django.db.models import Q, F, Sum, Count, Avg
+    from django.db.models.functions import Coalesce
+
     # Calcul des statistiques globales (avant tout filtrage)
-    articles_qs = Article.objects.all()
+    articles_qs = Article.objects.all().annotate(
+        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
+    )
     articles_total = articles_qs.count()
     articles_actifs = articles_qs.filter(actif=True).count()
     articles_inactifs = articles_qs.filter(actif=False).count()
-    articles_rupture = articles_qs.filter(qte_disponible__lte=0).count()
+    articles_rupture = articles_qs.filter(total_qte_disponible__lte=0).count()
     
     # Articles créés aujourd'hui
     today = timezone.now().date()
     articles_crees_aujourd_hui = articles_qs.filter(date_creation__date=today).count()
 
     # Récupération des articles pour la liste, filtrée
-    articles_list = Article.objects.all()
+    articles_list = Article.objects.all().annotate(
+        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
+    )
     
     # Filtres de recherche améliorés
     query = request.GET.get('q', '').strip()
@@ -2725,13 +2843,17 @@ def liste_articles(request):
             Q(nom__icontains=query) |
             Q(reference__icontains=query) |
             Q(description__icontains=query) |
-            Q(categorie__icontains=query) |
-            Q(couleur__icontains=query)
-        )
+            Q(categorie__nom__icontains=query) |
+            Q(variantes__couleur__nom__icontains=query) |
+            Q(variantes__pointure__pointure__icontains=query)
+        ).distinct()
     
-    # Filtre par catégorie
+    # Filtre par catégorie (ID ou nom)
     if categorie_filter:
-        articles_list = articles_list.filter(categorie__icontains=categorie_filter)
+        if categorie_filter.isdigit():
+            articles_list = articles_list.filter(categorie_id=int(categorie_filter))
+        else:
+            articles_list = articles_list.filter(categorie__nom__icontains=categorie_filter)
     
     # Filtre par statut
     if statut_filter:
@@ -2743,13 +2865,13 @@ def liste_articles(request):
     # Filtre par niveau de stock
     if stock_filter:
         if stock_filter == 'rupture':
-            articles_list = articles_list.filter(qte_disponible__lte=0)
+            articles_list = articles_list.filter(total_qte_disponible__lte=0)
         elif stock_filter == 'faible':
-            articles_list = articles_list.filter(qte_disponible__gt=0, qte_disponible__lte=10)
+            articles_list = articles_list.filter(total_qte_disponible__gt=0, total_qte_disponible__lte=10)
         elif stock_filter == 'normal':
-            articles_list = articles_list.filter(qte_disponible__gt=10, qte_disponible__lte=50)
+            articles_list = articles_list.filter(total_qte_disponible__gt=10, total_qte_disponible__lte=50)
         elif stock_filter == 'eleve':
-            articles_list = articles_list.filter(qte_disponible__gt=50)
+            articles_list = articles_list.filter(total_qte_disponible__gt=50)
     
     # Filtre par prix
     if prix_min:
@@ -2766,9 +2888,9 @@ def liste_articles(request):
         except (ValueError, TypeError):
             pass
     
-    # Filtre par couleur
+    # Filtre par couleur (via variantes)
     if couleur_filter:
-        articles_list = articles_list.filter(couleur__icontains=couleur_filter)
+        articles_list = articles_list.filter(variantes__couleur__nom__icontains=couleur_filter).distinct()
     
     # Filtre par phase
     if phase_filter:
@@ -2782,9 +2904,9 @@ def liste_articles(request):
     elif tri == 'prix_desc':
         articles_list = articles_list.order_by('-prix_unitaire')
     elif tri == 'stock_asc':
-        articles_list = articles_list.order_by('qte_disponible')
+        articles_list = articles_list.order_by('total_qte_disponible')
     elif tri == 'stock_desc':
-        articles_list = articles_list.order_by('-qte_disponible')
+        articles_list = articles_list.order_by('-total_qte_disponible')
     elif tri == 'date_creation':
         articles_list = articles_list.order_by('-date_creation')
     elif tri == 'reference':
@@ -2792,10 +2914,11 @@ def liste_articles(request):
     else:
         articles_list = articles_list.order_by('-date_creation')
     
-    # Récupération des valeurs uniques pour les filtres
-    categories_uniques = Article.objects.values_list('categorie', flat=True).distinct().exclude(categorie__isnull=True).exclude(categorie__exact='')
-    couleurs_uniques = Article.objects.values_list('couleur', flat=True).distinct().exclude(couleur__isnull=True).exclude(couleur__exact='')
-    phases_uniques = Article.objects.values_list('phase', flat=True).distinct().exclude(phase__isnull=True).exclude(phase__exact='')
+    # Récupération des valeurs uniques pour les filtres (éviter comparaisons FK avec '')
+    from article.models import Categorie, Couleur
+    categories_uniques = list(Categorie.objects.values_list('nom', flat=True).order_by('nom'))
+    couleurs_uniques = list(Couleur.objects.values_list('nom', flat=True).order_by('nom'))
+    phases_uniques = list(Article.objects.values_list('phase', flat=True).distinct())
 
     # Pagination
     paginator = Paginator(articles_list, 12)
@@ -4316,193 +4439,8 @@ def api_articles_commande_livree_partiellement(request, commande_id):
             'message': f'Erreur lors de la génération de la réponse: {str(e)}'
     })
 
-@superviseur_preparation_required
-def export_commandes_consolidees_csv(request):
-    """
-    Export CSV consolidé : chaque commande sur une seule ligne avec articles regroupés
-    """
-    try:
-        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
-    except Operateur.DoesNotExist:
-        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
-    
-    # Récupérer les filtres
-    region_name = request.GET.get('region')
-    ville_name = request.GET.get('ville')
-    
-    # Construire la requête de base - UNIQUEMENT les commandes PRÉPARÉES
-    commandes_query = Commande.objects.filter(
-        etats__enum_etat__libelle='Préparée',
-        etats__date_fin__isnull=True
-    ).select_related(
-        'client', 
-        'ville', 
-        'ville__region'
-    ).prefetch_related(
-        'paniers__article'
-    ).distinct()
-    
-    commandes = commandes_query.order_by('-date_cmd')
-    
-    # Créer la réponse CSV
-    response = HttpResponse(content_type='text/csv; charset=utf-8')
-    filename = f"commandes_consolidees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    
-    # Écrire l'en-tête BOM pour Excel
-    response.write('\ufeff')
-    
-    writer = csv.writer(response, delimiter=';')
-    
-    # En-têtes
-    headers = [
-        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
-        'Articles et Quantités', 'Prix Total (DH)', 'Adresse', 'État'
-    ]
-    writer.writerow(headers)
-    
-    # Traiter chaque commande
-    for commande in commandes:
-        # Construire la liste des articles avec quantités
-        articles_list = []
-        for panier in commande.paniers.all():
-            article_info = f"{panier.article.nom}"
-            if panier.article.couleur:
-                article_info += f" {panier.article.couleur}"
-            if panier.article.pointure:
-                article_info += f" {panier.article.pointure}"
-            if panier.quantite > 1:
-                article_info += f" x{panier.quantite}"
-            articles_list.append(article_info)
-        
-        # Joindre tous les articles avec des virgules
-        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
-        
-        # État actuel de la commande
-        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
-        
-        # Écrire la ligne
-        row = [
-            commande.id_yz or commande.num_cmd,
-            f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A",
-            commande.client.numero_tel if commande.client else "N/A",
-            commande.ville.nom if commande.ville else "N/A",
-            commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A",
-            articles_consolides,
-            f"{commande.total_cmd:.2f}" if commande.total_cmd else "0.00",
-            commande.adresse or "N/A",
-            etat_actuel
-        ]
-        writer.writerow(row)
-    
-    return response
 
 
-@superviseur_preparation_required
-def export_commandes_consolidees_excel(request):
-    """
-    Export Excel consolidé : chaque commande sur une seule ligne avec articles regroupés
-    """
-    try:
-        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
-    except Operateur.DoesNotExist:
-        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
-    
-    # Récupérer les filtres
-    region_name = request.GET.get('region')
-    ville_name = request.GET.get('ville')
-    
-    # Construire la requête de base - UNIQUEMENT les commandes PRÉPARÉES
-    commandes_query = Commande.objects.filter(
-        etats__enum_etat__libelle='Préparée',
-        etats__date_fin__isnull=True
-    ).select_related(
-        'client', 
-        'ville', 
-        'ville__region'
-    ).prefetch_related(
-        'paniers__article'
-    ).distinct()
-    
-    # Appliquer les filtres
-    if region_name:
-        commandes_query = commandes_query.filter(ville__region__nom_region=region_name)
-    if ville_name:
-        commandes_query = commandes_query.filter(ville__nom=ville_name)
-    
-    commandes = commandes_query.order_by('-date_cmd')
-    
-    # Créer le fichier Excel
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from openpyxl.utils import get_column_letter
-    
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Commandes Consolidées"
-    
-    # En-têtes
-    headers = [
-        'N° Commande', 'Client', 'Téléphone', 'Ville', 'Région', 
-        'Articles et Quantités', 'Prix Total (DH)', 'Adresse', 'État'
-    ]
-    
-    # Ajouter les en-têtes
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = Font(bold=True, color='FFFFFF')
-        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-        cell.alignment = Alignment(horizontal='center', vertical='center')
-    
-    # Traiter chaque commande
-    for row, commande in enumerate(commandes, 2):
-        # Construire la liste des articles avec quantités
-        articles_list = []
-        for panier in commande.paniers.all():
-            article_info = f"{panier.article.nom}"
-            if panier.article.couleur:
-                article_info += f" {panier.article.couleur}"
-            if panier.article.pointure:
-                article_info += f" {panier.article.pointure}"
-            if panier.quantite > 1:
-                article_info += f" x{panier.quantite}"
-            articles_list.append(article_info)
-        
-        # Joindre tous les articles avec des virgules
-        articles_consolides = ", ".join(articles_list) if articles_list else "Aucun article"
-        
-        # État actuel de la commande
-        etat_actuel = commande.etat_actuel.enum_etat.libelle if commande.etat_actuel else "Non défini"
-        
-        # Ajouter les données
-        ws.cell(row=row, column=1, value=commande.id_yz or commande.num_cmd)
-        ws.cell(row=row, column=2, value=f"{commande.client.prenom} {commande.client.nom}" if commande.client else "N/A")
-        ws.cell(row=row, column=3, value=commande.client.numero_tel if commande.client else "N/A")
-        ws.cell(row=row, column=4, value=commande.ville.nom if commande.ville else "N/A")
-        ws.cell(row=row, column=5, value=commande.ville.region.nom_region if commande.ville and commande.ville.region else "N/A")
-        ws.cell(row=row, column=6, value=articles_consolides)
-        ws.cell(row=row, column=7, value=float(commande.total_cmd) if commande.total_cmd else 0.00)
-        ws.cell(row=row, column=8, value=commande.adresse or "N/A")
-        ws.cell(row=row, column=9, value=etat_actuel)
-        
-        # Ajuster la hauteur de la ligne pour les articles
-        if len(articles_consolides) > 100:
-            ws.row_dimensions[row].height = 30
-    
-    # Ajuster la largeur des colonnes
-    column_widths = [15, 25, 15, 15, 15, 50, 15, 40, 15]
-    for col, width in enumerate(column_widths, 1):
-        ws.column_dimensions[get_column_letter(col)].width = width
-    
-    # Créer la réponse
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    filename = f"commandes_consolidees_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    
-    wb.save(response)
-    return response
 
 
 @superviseur_preparation_required
@@ -5143,8 +5081,8 @@ def commandes_confirmees(request):
         'confirmees_mois': confirmees_mois,
         'montant_total': montant_total,
         'operateurs_preparation': operateurs_preparation,
-        'page_title': 'Commandes Confirmées',
-        'page_subtitle': 'Liste des commandes validées prêtes pour la préparation',
+        'page_title': 'Suivi des Commandes Confirmées',
+        'page_subtitle': 'Suivi et gestion des commandes validées prêtes pour la préparation',
         'items_per_page': items_per_page,
         'start_range': start_range,
         'end_range': end_range,

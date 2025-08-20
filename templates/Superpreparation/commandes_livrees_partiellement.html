@@ -1,111 +1,101 @@
 {% extends 'composant_generale/Superpreparation/base.html' %}
 
-{% block title %}Commandes Livrées Partiellement - YZ-CMD{% endblock %}
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="main-content transition-all duration-300" id="mainContent">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
          style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
-                <i class="fas fa-exclamation-triangle mr-3"></i>
-                Commandes Livrées Partiellement
+                <i class="fas fa-truck mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
             </h1>
-            <p style="color: var(--preparation-border-accent);">Liste des commandes renvoyées en préparation après livraison partielle</p>
-        </div>
-        <div class="text-right">
-            <div class="text-4xl font-bold">{{ commandes_count }}</div>
-            <div class="text-sm opacity-90">Commandes</div>
+            <p style="color: white;">{{ page_subtitle }}</p>
         </div>
     </div>
 
-    <!-- Section explicative du processus -->
-    <div class="bg-white rounded-xl shadow-lg border p-6 mb-6" style="border-color: var(--preparation-border-accent);">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">Processus de Correction après Livraison Partielle</h3>
-            <button id="toggleProcessus" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
-                <i class="fas fa-eye mr-1"></i>Afficher
-            </button>
+    <!-- Statistiques rapides -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Total des commandes -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-600 transition-all duration-300 group-hover:from-yellow-500 group-hover:to-yellow-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-truck text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Livrées Partiellement</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-yellow-600">{{ stats.total_commandes }}</p>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div id="processusSection" class="hidden">
-            <div class="flex items-start space-x-4">
-                <div class="flex-shrink-0">
-                    <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: var(--preparation-primary);">
-                        <i class="fas fa-info-circle text-white text-xl"></i>
-                    </div>
-                </div>
-                <div class="flex-1">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Processus de Correction après Livraison Partielle</h3>
-                
-                <div class="bg-orange-50 border-l-4 border-orange-400 p-4 mb-4">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-exclamation-triangle text-orange-400"></i>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm text-orange-700">
-                                <strong>Attention :</strong> Ces commandes ont été livrées partiellement. Certains articles ont été livrés au client, d'autres ont été renvoyés pour correction.
-                            </p>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-medium text-gray-900 mb-2 flex items-center">
-                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
-                            Articles Livrés (Ne pas modifier)
-                        </h4>
-                        <ul class="text-sm text-gray-600 space-y-1 ml-6">
-                            <li>• Articles déjà livrés au client</li>
-                            <li>• Ne pas retirer du panier</li>
-                            <li>• Marquer comme "Livré" dans le détail</li>
-                        </ul>
+        <!-- Valeur totale -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-coins text-2xl"></i>
                     </div>
-                    
-                    <div>
-                        <h4 class="font-medium text-gray-900 mb-2 flex items-center">
-                            <i class="fas fa-tools text-orange-500 mr-2"></i>
-                            Articles à Corriger
-                        </h4>
-                        <ul class="text-sm text-gray-600 space-y-1 ml-6">
-                            <li>• Articles renvoyés pour correction</li>
-                            <li>• Vérifier la disponibilité en stock</li>
-                            <li>• Remplacer si nécessaire</li>
-                        </ul>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur Totale</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.valeur_totale|floatformat:0 }} DH</p>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 class="font-medium text-blue-900 mb-2 flex items-center">
-                        <i class="fas fa-list-ol text-blue-500 mr-2"></i>
-                        Étapes de Traitement
-                    </h4>
-                    <ol class="text-sm text-blue-800 space-y-2 ml-6">
-                        <li><strong>1.</strong> Cliquer sur "Traiter" pour ouvrir le détail de la commande</li>
-                        <li><strong>2.</strong> Identifier les articles livrés vs renvoyés</li>
-                        <li><strong>3.</strong> Vérifier la disponibilité des articles renvoyés</li>
-                        <li><strong>4.</strong> Corriger ou remplacer les articles problématiques</li>
-                        <li><strong>5.</strong> Marquer la commande comme "Prête" pour relivraison</li>
-                    </ol>
+        <!-- Commandes urgentes -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110" style="color: var(--preparation-primary);">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Urgentes</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300" style="group-hover:color: var(--preparation-primary);">{{ stats.commandes_urgentes }}</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: var(--preparation-border-accent);">
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8 preparation-card" style="border-color: var(--preparation-border-accent);">
         
-        <div class="flex justify-between items-center mb-4 px-2">
-            <div class="flex items-center space-x-4">
-                <span class="text-sm text-gray-600">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    Ces commandes ont été livrées partiellement et nécessitent une correction
-                </span>
+        <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex-1">
+                <p class="text-gray-700 mb-2">
+                    Suivi en temps réel des commandes actuellement livrées partiellement.
+                </p>
+                {% if search_query %}
+                    <div class="flex items-center text-sm text-gray-600">
+                        <i class="fas fa-search mr-2"></i>
+                        <span>Résultats pour : "<strong>{{ search_query }}</strong>"</span>
+                        <a href="{% url 'Superpreparation:commandes_livrees_partiellement' %}" class="ml-2 text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-times-circle"></i> Effacer
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="flex gap-2">
+                <form method="GET" class="flex">
+                    <input type="text" name="search" value="{{ search_query }}" 
+                           placeholder="Rechercher par ID, nom, téléphone..." 
+                           class="block px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <button type="submit" class="inline-flex items-center px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-r-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
             </div>
         </div>
-
+        
         <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead style="background-color: var(--preparation-primary);">
@@ -114,176 +104,108 @@
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Début</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Livraison Partielle</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Commentaire</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Articles</th>
-                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Code-barres</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    {% for commande in commandes_livrees_partiellement %}
-                    <tr class="hover:bg-orange-50 transition-colors border-l-4 border-orange-400">
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" class="text-sm font-medium hover:underline" style="color: var(--preparation-primary);">
+                    {% if commandes_livrees_partiellement %}
+                        {% for commande in commandes_livrees_partiellement %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 {{ commande.id_yz }}
-                            </a>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:'-' }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900 font-medium">
-                                <i class="fas fa-phone mr-1"></i>{{ commande.client.numero_tel }}
-                            </div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
-                            <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">
-                                {% if commande.date_livraison_partielle %}
-                                    {{ commande.date_livraison_partielle|date:"d/m/Y H:i" }}
-                                {% else %}
-                                    <span class="text-gray-400">-</span>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
+                            <!-- Colonne Client -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                                {% if commande.client.email %}
+                                <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
                                 {% endif %}
-                            </div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap">
-                            {% if commande.operateur_livraison %}
-                                <div class="text-sm text-gray-900">{{ commande.operateur_livraison.prenom }} {{ commande.operateur_livraison.nom }}</div>
-                                <div class="text-xs text-gray-500">{{ commande.operateur_livraison.email }}</div>
-                            {% else %}
-                                <div class="text-sm text-gray-400">-</div>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-4">
-                            <div class="text-sm text-gray-900 max-w-xs truncate" title="{{ commande.commentaire_livraison_partielle|default:'' }}">
-                                {% if commande.commentaire_livraison_partielle %}
-                                    {{ commande.commentaire_livraison_partielle|truncatechars:50 }}
+                            </td>
+                            <!-- Colonne Téléphone -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.client.numero_tel %}
+                                <div class="text-sm text-gray-900 font-medium">
+                                    <i class="fas fa-phone mr-1"></i>
+                                    {{ commande.client.numero_tel }}
+                                </div>
                                 {% else %}
-                                    <span class="text-gray-400">Aucun commentaire</span>
+                                <div class="text-sm text-gray-500">Non renseigné</div>
                                 {% endif %}
-                            </div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                            <button onclick="afficherArticlesCommande({{ commande.pk }})" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white" style="background-color: var(--preparation-primary);" title="Voir le détail des articles">
-                                <i class="fas fa-shopping-cart mr-1"></i> 
-                                {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
-                            </button>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                            <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors mr-2" title="Voir le détail de la commande">
-                                <i class="fas fa-eye mr-1"></i> Détail
-                            </a>
-                            {% if commande.commande_renvoi_id %}
-                                <a href="{% url 'Superpreparation:modifier_commande' commande.commande_renvoi_id %}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors" title="Traiter la commande - Cliquer pour corriger les articles renvoyés">
-                                    <i class="fas fa-tools mr-1"></i> Traiter
+                            </td>
+                            <!-- Colonne Ville Client -->
+                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                {% if commande.ville_init and commande.ville_init != '' %}
+                                    <div style="color: var(--preparation-primary);" class="font-medium">{{ commande.ville_init }}</div>
+                                {% else %}
+                                    <div style="color: var(--preparation-primary);">Non spécifiée</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville & Région (ville de livraison) -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.ville %}
+                                    <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                                    <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non définie</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% with etat_actuel=commande.etat_actuel %}
+                                    {% if etat_actuel %}
+                                        <div class="text-sm text-gray-900">{{ etat_actuel.date_debut|date:"d/m/Y" }}</div>
+                                        <div class="text-xs text-gray-500">{{ etat_actuel.date_debut|date:"H:i" }}</div>
+                                    {% else %}
+                                        <div class="text-sm text-gray-500">Non définie</div>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.barcode_base64 %}
+                                    <img src="data:image/png;base64,{{ commande.barcode_base64 }}" alt="Code-barres" style="height: 30px;">
+                                {% else %}
+                                    <span class="text-xs text-gray-400">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    <i class="fas fa-truck mr-1"></i>
+                                    Livrée partiellement
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-center">
+                                <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" 
+                                   class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                   style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                   title="Voir le panier de cette commande">
+                                    <i class="fas fa-shopping-cart mr-1"></i> 
+                                    {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
                                 </a>
-                            {% else %}
-                                <a href="{% url 'Superpreparation:modifier_commande' commande.pk %}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors" title="Traiter la commande - Cliquer pour corriger les articles renvoyés">
-                                    <i class="fas fa-tools mr-1"></i> Traiter
-                                </a>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="11" class="text-center py-10 text-gray-500">
-                            <div class="flex flex-col items-center">
-                                <i class="fas fa-check-circle text-4xl text-green-400 mb-4"></i>
-                                <p class="text-lg font-medium">Aucune commande livrée partiellement</p>
-                                <p class="text-sm text-gray-400">Toutes les commandes sont correctement livrées</p>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                <div class="flex flex-col items-center py-8">
+                                    <i class="fas fa-truck text-4xl text-gray-300 mb-4"></i>
+                                    <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande livrée partiellement</h3>
+                                    <p class="text-gray-500">Toutes les commandes ont été livrées complètement ou ne sont pas encore livrées.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
-        </div>
-    </div>
-</div>
-
-<!-- Modale pour afficher les détails des articles -->
-<div id="modalArticles" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-        <div class="mt-3">
-            <!-- En-tête de la modale -->
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center">
-                    <i class="fas fa-box-open text-2xl mr-3" style="color: var(--preparation-primary);"></i>
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900" id="modalTitle">Détails des Articles - Livraison Partielle</h3>
-                        <p class="text-sm text-gray-600" id="modalSubtitle">Commande <span id="modalCommandeId"></span></p>
-                    </div>
-                </div>
-                <button onclick="fermerModalArticles()" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-
-            <!-- Informations de livraison -->
-            <div class="grid md:grid-cols-2 gap-6 mb-6">
-                <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
-                    <div class="flex items-center">
-                        <i class="fas fa-info-circle text-blue-400 mr-2"></i>
-                        <div>
-                            <h4 class="font-medium text-blue-900">Informations de Livraison</h4>
-                            <p class="text-sm text-blue-700" id="modalDateLivraison"></p>
-                            <p class="text-sm text-blue-700" id="modalOperateur"></p>
-                            <p class="text-sm text-blue-700" id="modalTotalArticles"></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gray-50 border-l-4 border-gray-400 p-4 rounded">
-                    <div class="flex items-center">
-                        <i class="fas fa-comment text-gray-400 mr-2"></i>
-                        <div>
-                            <h4 class="font-medium text-gray-900">Commentaire</h4>
-                            <p class="text-sm text-gray-700" id="modalCommentaire"></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Articles livrés -->
-            <div class="mb-6">
-                <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <i class="fas fa-check-circle text-green-500 mr-2"></i>
-                    Articles Livrés Partiellement (<span id="countLivres">0</span>)
-                </h4>
-                <div id="articlesLivres" class="space-y-3">
-                    <!-- Les articles livrés seront ajoutés ici dynamiquement -->
-                </div>
-            </div>
-
-            <!-- Articles renvoyés -->
-            <div class="mb-6">
-                <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <i class="fas fa-undo text-orange-500 mr-2"></i>
-                    Articles Renvoyés (<span id="countRenvoyes">0</span>)
-                </h4>
-                <div id="articlesRenvoyes" class="space-y-3">
-                    <!-- Les articles renvoyés seront ajoutés ici dynamiquement -->
-                </div>
-            </div>
-
-            <!-- Boutons d'action -->
-            <div class="flex justify-end space-x-3 pt-4 border-t">
-                <button onclick="fermerModalArticles()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
-                    Fermer
-                </button>
-                <button onclick="allerAuDetail()" class="px-4 py-2 text-white rounded-md transition-colors" style="background-color: var(--preparation-primary);">
-                    <i class="fas fa-tools mr-2"></i>Traiter la Commande
-                </button>
-            </div>
         </div>
     </div>
 </div>
@@ -292,183 +214,8 @@
 
 {% block extra_js %}
 <script>
-let commandeActuelle = null;
-
-function afficherArticlesCommande(commandeId) {
-    commandeActuelle = commandeId;
-    
-    // Afficher la modale
-    document.getElementById('modalArticles').classList.remove('hidden');
-    
-    // URL de l'API
-    const apiUrl = `/operateur-preparation/api/commande/${commandeId}/articles-livree-partiellement/`;
-    console.log('Appel API vers:', apiUrl);
-    
-    // Charger les données des articles
-    fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin'
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                afficherDonneesArticles(data);
-            } else {
-                console.error('Erreur:', data.message);
-                alert('Erreur lors du chargement des articles: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            alert('Erreur de réseau: ' + error.message);
-        });
-}
-
-function afficherDonneesArticles(data) {
-    const commande = data.commande;
-    
-    // Mettre à jour les informations de la commande
-    document.getElementById('modalTitle').textContent = `Détails des Articles - Livraison Partielle`;
-    document.getElementById('modalCommandeId').textContent = commande.num_cmd || `YZ-${commande.id_yz}`;
-    
-    // Informations de livraison
-    if (commande.date_livraison_partielle) {
-        const date = new Date(commande.date_livraison_partielle);
-        document.getElementById('modalDateLivraison').textContent = `Date de livraison partielle : ${date.toLocaleDateString('fr-FR')} ${date.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}`;
-    }
-    
-    if (commande.operateur_livraison) {
-        document.getElementById('modalOperateur').textContent = `Opérateur : ${commande.operateur_livraison.nom}`;
-    }
-    
-    document.getElementById('modalTotalArticles').textContent = `Total articles : ${data.total_articles_livres + data.total_articles_renvoyes}`;
-    document.getElementById('modalCommentaire').textContent = commande.commentaire_livraison_partielle || 'Aucun commentaire';
-    
-    // Articles livrés
-    const articlesLivresContainer = document.getElementById('articlesLivres');
-    articlesLivresContainer.innerHTML = '';
-    
-    if (data.articles_livres.length > 0) {
-        data.articles_livres.forEach(article => {
-            const articleDiv = document.createElement('div');
-            articleDiv.className = 'bg-green-50 border border-green-200 rounded-lg p-4';
-            articleDiv.innerHTML = `
-                <div class="flex items-start space-x-3">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-check-circle text-green-600 text-lg mt-1"></i>
-                    </div>
-                    <div class="flex-1">
-                        <div class="font-medium text-gray-900">${article.nom}</div>
-                        <div class="text-sm text-gray-500">
-                            Réf: ${article.reference} | ${article.couleur} | ${article.pointure}<br>
-                            Livré ${article.quantite_livree}x | Prix: ${article.prix.toFixed(2)} DH<br>
-                            Sous-total: <span class="font-semibold text-green-600">${article.sous_total.toFixed(2)} DH</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            articlesLivresContainer.appendChild(articleDiv);
-        });
-    } else {
-        articlesLivresContainer.innerHTML = '<p class="text-gray-500 text-center py-4">Aucun article livré</p>';
-    }
-    
-    document.getElementById('countLivres').textContent = data.total_articles_livres;
-    
-    // Articles renvoyés
-    const articlesRenvoyesContainer = document.getElementById('articlesRenvoyes');
-    articlesRenvoyesContainer.innerHTML = '';
-    
-    if (data.articles_renvoyes.length > 0) {
-        data.articles_renvoyes.forEach(article => {
-            const badge = article.etat === 'defectueux'
-                ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 ml-2"><i class="fas fa-times-circle mr-1"></i>Défectueux</span>'
-                : '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 ml-2"><i class="fas fa-check-circle mr-1"></i>Bon</span>';
-            const articleDiv = document.createElement('div');
-            articleDiv.className = 'bg-orange-50 border border-orange-200 rounded-lg p-4';
-            articleDiv.innerHTML = `
-                <div class="flex items-start space-x-3">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-undo text-orange-600 text-lg mt-1"></i>
-                    </div>
-                    <div class="flex-1">
-                        <div class="font-medium text-gray-900">${article.nom} ${badge}</div>
-                        <div class="text-sm text-gray-500">
-                            Réf: ${article.reference} | ${article.couleur} | ${article.pointure}<br>
-                            Renvoyé ${article.quantite}x | Prix: ${article.prix.toFixed(2)} DH<br>
-                            Sous-total: <span class="font-semibold text-orange-600">${article.sous_total.toFixed(2)} DH</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            articlesRenvoyesContainer.appendChild(articleDiv);
-        });
-    } else {
-        articlesRenvoyesContainer.innerHTML = '<p class="text-gray-500 text-center py-4">Aucun article renvoyé</p>';
-    }
-    
-    document.getElementById('countRenvoyes').textContent = data.total_articles_renvoyes;
-}
-
-function fermerModalArticles() {
-    document.getElementById('modalArticles').classList.add('hidden');
-    commandeActuelle = null;
-}
-
-function allerAuDetail() {
-    if (commandeActuelle) {
-        window.location.href = `/operateur-preparation/detail-prepa/${commandeActuelle}/`;
-    }
-}
-
-// Fermer la modale en cliquant à l'extérieur
-document.getElementById('modalArticles').addEventListener('click', function(e) {
-    if (e.target === this) {
-        fermerModalArticles();
-    }
-});
-
 document.addEventListener('DOMContentLoaded', function() {
-    // Ajouter des tooltips pour les commentaires longs
-    const commentCells = document.querySelectorAll('td:nth-child(9) .truncate');
-    commentCells.forEach(cell => {
-        if (cell.title && cell.title !== cell.textContent.trim()) {
-            cell.style.cursor = 'help';
-        }
-    });
-
-    // Ajouter des tooltips pour les boutons d'action
-    const actionButtons = document.querySelectorAll('td:last-child a');
-    actionButtons.forEach(button => {
-        if (button.title) {
-            button.style.cursor = 'pointer';
-        }
-    });
-    
-    // Gestion du bouton d'affichage/masquage du processus
-    const toggleButton = document.getElementById('toggleProcessus');
-    const processusSection = document.getElementById('processusSection');
-    
-    if (toggleButton && processusSection) {
-        toggleButton.addEventListener('click', function() {
-            if (processusSection.classList.contains('hidden')) {
-                processusSection.classList.remove('hidden');
-                toggleButton.innerHTML = '<i class="fas fa-eye-slash mr-1"></i>Masquer';
-            } else {
-                processusSection.classList.add('hidden');
-                toggleButton.innerHTML = '<i class="fas fa-eye mr-1"></i>Afficher';
-            }
-        });
-    }
+    console.log("Page de suivi des commandes livrées partiellement chargée.");
 });
 </script>
-{% endblock %} 
+{% endblock %}

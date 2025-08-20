@@ -19,18 +19,19 @@ def create_etats_commande():
     
     print("🚀 Création des états de commande de base...")
     
-    # États de commande standards
+    # États de commande standards (alignés avec les libellés utilisés dans le projet)
     etats_de_base = [
         {'libelle': 'Non affectée', 'ordre': 1, 'couleur': '#6B7280'},
         {'libelle': 'Affectée', 'ordre': 2, 'couleur': '#3B82F6'},
         {'libelle': 'En cours de confirmation', 'ordre': 3, 'couleur': '#F59E0B'},
         {'libelle': 'Confirmée', 'ordre': 4, 'couleur': '#10B981'},
-        {'libelle': 'Doublon', 'ordre': 5, 'couleur': '#EF4444'},
-        {'libelle': 'Erronée', 'ordre': 6, 'couleur': '#F97316'},
-        {'libelle': 'Retournée', 'ordre': 7, 'couleur': '#EF4444'},
-        {'libelle': 'Livrée', 'ordre': 8, 'couleur': '#EF4444'},
-        {'libelle': 'En preparation', 'ordre': 9, 'couleur': '#EF4444'},
-        {'libelle': 'Preparée', 'ordre': 10, 'couleur': '#EF4444'},
+        {'libelle': 'Annulée', 'ordre': 5, 'couleur': '#EF4444'},
+        {'libelle': 'Doublon', 'ordre': 6, 'couleur': '#EF4444'},
+        {'libelle': 'Erronée', 'ordre': 7, 'couleur': '#F97316'},
+        {'libelle': 'Retour Confirmation', 'ordre': 8, 'couleur': '#8B5CF6'},
+        {'libelle': 'Livrée', 'ordre': 9, 'couleur': '#22C55E'},
+        {'libelle': 'En préparation', 'ordre': 10, 'couleur': '#06B6D4'},
+        {'libelle': 'Préparée', 'ordre': 11, 'couleur': '#14B8A6'},
     ]
     
     created_count = 0
