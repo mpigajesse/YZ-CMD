@@ -1,5 +1,6 @@
 from django.urls import path
-from . import views 
+from . import views
+from .barre_recherche_globale import views as search_views
 
 app_name = 'Superpreparation'
 
@@ -62,6 +63,11 @@ urlpatterns = [
     path('export/region/<str:region_name>/excel/', views.export_region_consolidee_excel, name='export_region_consolidee_excel'),
     path('export/ville/<int:ville_id>/csv/', views.export_ville_consolidee_csv, name='export_ville_consolidee_csv'),
     path('export/ville/<int:ville_id>/excel/', views.export_ville_consolidee_excel, name='export_ville_consolidee_excel'),
+
+    # === URLs RECHERCHE GLOBALE ===
+    path('recherche-globale/', search_views.global_search_view, name='global_search'),
+    path('api/recherche-globale/', search_views.global_search_api, name='global_search_api'),
+    path('api/suggestions-recherche/', search_views.search_suggestions_api, name='search_suggestions_api'),
 
 
 

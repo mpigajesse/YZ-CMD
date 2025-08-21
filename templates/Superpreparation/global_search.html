@@ -1,4 +1,4 @@
-{% extends 'composant_generale/operatPrepa/base.html' %}
+{% extends 'composant_generale/Superpreparation/base.html' %}
 {% load static %}
 
 {% block title %}Recherche Globale - Opérateur Préparation{% endblock %}
@@ -84,6 +84,13 @@
                         </div>
                         <span class="category-name">Commandes</span>
                         <div class="category-badge" id="commandesCount">0</div>
+                    </button>
+                    <button class="category-filter group" data-category="operateurs" data-name="Opérateurs">
+                        <div class="category-icon" style="background: linear-gradient(to right, #16a34a, #22c55e);">
+                            <i class="fas fa-users text-white"></i>
+                        </div>
+                        <span class="category-name">Opérateurs</span>
+                        <div class="category-badge" id="operateursCount">0</div>
                     </button>
                     <button class="category-filter group" data-category="articles" data-name="Articles">
                         <div class="category-icon" style="background: linear-gradient(to right, #9a6a4d, #b8804d);">
@@ -371,7 +378,7 @@ document.addEventListener('DOMContentLoaded', function() {
         showSearchLoader(true);
         showMessage('Recherche en cours...', true);
         
-        fetch(`{% url 'Prepacommande:global_search_api' %}?q=${encodeURIComponent(query)}&category=${currentCategory}`)
+        fetch(`{% url 'Superpreparation:global_search_api' %}?q=${encodeURIComponent(query)}&category=${currentCategory}`)
             .then(response => response.json())
             .then(data => {
                 const searchTime = Math.round(performance.now() - searchStartTime);
@@ -401,7 +408,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function resetStats() {
         const elements = [
             'totalResults', 'searchTime', 'categoriesFound', 'lastSearch',
-            'commandesCount', 'articlesCount', 'stockCount', 'regionsCount', 'villesCount'
+            'commandesCount', 'operateursCount', 'articlesCount', 'stockCount', 'regionsCount', 'villesCount'
         ];
         
         elements.forEach(id => {
@@ -424,9 +431,10 @@ document.addEventListener('DOMContentLoaded', function() {
         let html = '';
         
         // Compter les résultats et mettre à jour les badges
-        const categories = ['commandes', 'articles', 'stock', 'regions', 'villes', 'statistiques'];
+        const categories = ['commandes', 'operateurs', 'articles', 'stock', 'regions', 'villes', 'statistiques'];
         const categoryNames = {
             'commandes': 'Commandes',
+            'operateurs': 'Opérateurs',
             'articles': 'Articles',
             'stock': 'Stock',
             'regions': 'Régions',
@@ -538,6 +546,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function getCategoryColor(category) {
         const colors = {
             'commandes': 'preparation-primary',
+            'operateurs': 'bg-green-600',
             'articles': 'preparation-accent',
             'stock': 'preparation-light',
             'regions': 'preparation-dark',
@@ -550,6 +559,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function getCategoryIcon(category) {
         const icons = {
             'commandes': 'fas fa-shopping-cart',
+            'operateurs': 'fas fa-users',
             'articles': 'fas fa-box',
             'stock': 'fas fa-warehouse',
             'regions': 'fas fa-map-marker-alt',

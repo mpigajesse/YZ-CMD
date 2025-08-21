@@ -70,12 +70,12 @@
                         <p class="mt-1 text-md font-bold text-green-600">{{ article.prix_actuel|default:article.prix_unitaire|floatformat:2 }} DH</p>
                     </div>
                      <div>
-                        <label class="block text-sm font-medium text-gray-600">Couleur</label>
-                        <p class="mt-1 text-md text-gray-800">{{ article.couleur }}</p>
+                        <label class="block text-sm font-medium text-gray-600">Genre</label>
+                        <p class="mt-1 text-md text-gray-800">{{ article.genre.nom|default:"Non défini" }}</p>
                     </div>
                      <div>
-                        <label class="block text-sm font-medium text-gray-600">Pointure</label>
-                        <p class="mt-1 text-md text-gray-800">{{ article.pointure }}</p>
+                        <label class="block text-sm font-medium text-gray-600">Phase</label>
+                        <p class="mt-1 text-md text-gray-800">{{ article.get_phase_display }}</p>
                     </div>
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium text-gray-600">Niveau de stock</label>
@@ -128,6 +128,67 @@
                 </div>
             </div>
         </div>
+    </div>
+    
+    <!-- Section des variantes -->
+    <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-semibold mb-6 flex items-center text-gray-800">
+            <i class="fas fa-tags mr-3 text-indigo-500"></i> Variantes disponibles
+        </h2>
+        
+        {% if article.variantes.all %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Couleur</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pointure</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for variante in article.variantes.all %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ variante.couleur.nom|default:"Standard" }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ variante.pointure.pointure|default:"Unique" }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    {% if variante.qte_disponible > 10 %} bg-green-100 text-green-800
+                                    {% elif variante.qte_disponible > 0 %} bg-yellow-100 text-yellow-800
+                                    {% else %} bg-red-100 text-red-800 {% endif %}">
+                                    {{ variante.qte_disponible|intcomma }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    {% if variante.actif %} bg-green-100 text-green-800 {% else %} bg-red-100 text-red-800 {% endif %}">
+                                    {{ variante.actif|yesno:"Actif,Inactif" }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <a href="{% url 'Superpreparation:ajuster_stock' article.id %}?variante={{ variante.id }}" 
+                                   class="text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-edit mr-1"></i>Ajuster
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                <p>Aucune variante configurée pour cet article.</p>
+                <p class="text-sm mt-1">Créez des variantes pour gérer le stock par couleur et pointure.</p>
+            </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %} 

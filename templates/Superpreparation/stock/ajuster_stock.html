@@ -34,9 +34,30 @@
             <h3 class="text-lg font-bold text-gray-900">{{ article.nom }}</h3>
             <p class="text-sm text-gray-500 mb-4">Réf: {{ article.reference }}</p>
             
-            <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                <p class="font-medium text-gray-700">Stock actuel :</p>
+            <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg mb-4">
+                <p class="font-medium text-gray-700">Stock total :</p>
                 <p class="font-bold text-2xl text-blue-700">{{ article.qte_disponible|intcomma }}</p>
+            </div>
+            
+            <!-- Variantes disponibles -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-700 mb-3">Variantes disponibles :</h4>
+                {% if article.variantes.all %}
+                    <div class="space-y-2">
+                        {% for variante in article.variantes.all %}
+                            {% if variante.actif %}
+                            <div class="flex justify-between items-center p-2 bg-white rounded border">
+                                <span class="text-sm text-gray-600">
+                                    {{ variante.couleur.nom|default:"Standard" }} - {{ variante.pointure.pointure|default:"Unique" }}
+                                </span>
+                                <span class="font-medium text-gray-900">{{ variante.qte_disponible|intcomma }}</span>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-sm text-gray-500 italic">Aucune variante configurée</p>
+                {% endif %}
             </div>
         </div>
 
@@ -48,6 +69,11 @@
                 <div>
                     <label for="{{ form.type_mouvement.id_for_label }}" class="block text-sm font-medium text-gray-700">Type de mouvement</label>
                     {{ form.type_mouvement }}
+                </div>
+                <div>
+                    <label for="{{ form.variante.id_for_label }}" class="block text-sm font-medium text-gray-700">Variante (Optionnel)</label>
+                    {{ form.variante }}
+                    <p class="text-xs text-gray-500 mt-1">{{ form.variante.help_text }}</p>
                 </div>
                 <div>
                     <label for="{{ form.quantite.id_for_label }}" class="block text-sm font-medium text-gray-700">Quantité</label>

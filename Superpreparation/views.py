@@ -11,7 +11,7 @@ from django.db import transaction
 from django.core.paginator import Paginator
 
 import json
-from parametre.models import Operateur
+from parametre.models import Operateur, Ville
 from commande.models import Commande, EtatCommande, EnumEtatCmd, Operation, Panier
 from django.urls import reverse
 
@@ -2725,30 +2725,42 @@ def ajuster_stock(request, article_id):
     article = get_object_or_404(Article, pk=article_id)
     
     if request.method == 'POST':
-        form = AjusterStockForm(request.POST)
+        form = AjusterStockForm(request.POST, article=article)
         if form.is_valid():
             type_mouvement = form.cleaned_data['type_mouvement']
             quantite = form.cleaned_data['quantite']
             commentaire = form.cleaned_data['commentaire']
+            variante = form.cleaned_data.get('variante')
             
             try:
                 print(f"🔧 Ajustement stock - Article: {article.nom}, Type: {type_mouvement}, Quantité: {quantite}")
-                print(f"🔧 Stock avant ajustement: {article.qte_disponible}")
+                if variante:
+                    print(f"🔧 Variante sélectionnée: {variante.couleur.nom} - {variante.pointure.pointure} (Stock: {variante.qte_disponible})")
+                print(f"🔧 Stock total avant ajustement: {article.qte_disponible}")
                 
                 mouvement = creer_mouvement_stock(
                     article=article,
                     quantite=quantite,
                     type_mouvement=type_mouvement,
                     operateur=operateur_profile,
-                    commentaire=commentaire
+                    commentaire=commentaire,
+                    variante=variante
                 )
                 
                 # Recharger l'article pour voir le stock mis à jour
                 article.refresh_from_db()
-                print(f"✅ Stock après ajustement: {article.qte_disponible}")
+                print(f"✅ Stock total après ajustement: {article.qte_disponible}")
                 
                 if mouvement:
-                    messages.success(request, f"Le stock de l'article '{article.nom}' a été ajusté avec succès. Nouveau stock: {article.qte_disponible}")
+                    if variante:
+                        variante.refresh_from_db()
+                        messages.success(request, 
+                            f"Le stock de la variante '{variante.couleur.nom} - {variante.pointure.pointure}' "
+                            f"a été ajusté avec succès. Nouveau stock: {variante.qte_disponible}")
+                    else:
+                        messages.success(request, 
+                            f"Le stock de l'article '{article.nom}' a été ajusté avec succès. "
+                            f"Nouveau stock total: {article.qte_disponible}")
                 else:
                     messages.warning(request, "L'ajustement n'a pas pu être effectué.")
                     
@@ -2760,7 +2772,16 @@ def ajuster_stock(request, article_id):
                 messages.error(request, f"Une erreur est survenue lors de l'ajustement du stock : {e}")
 
     else:
-        form = AjusterStockForm()
+            form = AjusterStockForm(article=article)
+            
+            # Pré-sélectionner la variante si elle est passée en paramètre
+            variante_id = request.GET.get('variante')
+            if variante_id:
+                try:
+                    variante = VarianteArticle.objects.get(id=variante_id, article=article)
+                    form.fields['variante'].initial = variante
+                except VarianteArticle.DoesNotExist:
+                    pass
 
     mouvements_recents = article.mouvements.order_by('-date_mouvement')[:10]
 
@@ -3043,33 +3064,38 @@ def alertes_stock(request):
     SEUIL_STOCK_FAIBLE = 10
     SEUIL_A_COMMANDER = 20
     
-    # Récupération de tous les articles actifs
-    articles_actifs = Article.objects.filter(actif=True)
+    # Récupération de tous les articles actifs avec annotation du stock total
+    from django.db.models import Q, Sum
+    from django.db.models.functions import Coalesce
+    
+    articles_actifs = Article.objects.filter(actif=True).annotate(
+        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
+    )
     
     # Filtres par niveau d'alerte
     filtre_alerte = request.GET.get('filtre', 'tous')
     
     if filtre_alerte == 'rupture':
-        articles_alerte = articles_actifs.filter(qte_disponible__lte=SEUIL_RUPTURE)
+        articles_alerte = articles_actifs.filter(total_qte_disponible__lte=SEUIL_RUPTURE)
     elif filtre_alerte == 'faible':
         articles_alerte = articles_actifs.filter(
-            qte_disponible__gt=SEUIL_RUPTURE,
-            qte_disponible__lte=SEUIL_STOCK_FAIBLE
+            total_qte_disponible__gt=SEUIL_RUPTURE,
+            total_qte_disponible__lte=SEUIL_STOCK_FAIBLE
         )
     elif filtre_alerte == 'a_commander':
         articles_alerte = articles_actifs.filter(
-            qte_disponible__gt=SEUIL_STOCK_FAIBLE,
-            qte_disponible__lte=SEUIL_A_COMMANDER
+            total_qte_disponible__gt=SEUIL_STOCK_FAIBLE,
+            total_qte_disponible__lte=SEUIL_A_COMMANDER
         )
     else:
-        articles_alerte = articles_actifs.filter(qte_disponible__lte=SEUIL_A_COMMANDER)
+        articles_alerte = articles_actifs.filter(total_qte_disponible__lte=SEUIL_A_COMMANDER)
     
     # Tri des résultats
     tri = request.GET.get('tri', 'stock_asc')
     if tri == 'stock_asc':
-        articles_alerte = articles_alerte.order_by('qte_disponible')
+        articles_alerte = articles_alerte.order_by('total_qte_disponible')
     elif tri == 'stock_desc':
-        articles_alerte = articles_alerte.order_by('-qte_disponible')
+        articles_alerte = articles_alerte.order_by('-total_qte_disponible')
     elif tri == 'nom':
         articles_alerte = articles_alerte.order_by('nom')
     elif tri == 'reference':
@@ -3077,34 +3103,34 @@ def alertes_stock(request):
     elif tri == 'categorie':
         articles_alerte = articles_alerte.order_by('categorie')
     else:
-        articles_alerte = articles_alerte.order_by('qte_disponible')
+        articles_alerte = articles_alerte.order_by('total_qte_disponible')
     
     # Statistiques détaillées
     stats = {
         'total_articles': articles_actifs.count(),
-        'rupture_stock': articles_actifs.filter(qte_disponible__lte=SEUIL_RUPTURE).count(),
+        'rupture_stock': articles_actifs.filter(total_qte_disponible__lte=SEUIL_RUPTURE).count(),
         'stock_faible': articles_actifs.filter(
-            qte_disponible__gt=SEUIL_RUPTURE,
-            qte_disponible__lte=SEUIL_STOCK_FAIBLE
+            total_qte_disponible__gt=SEUIL_RUPTURE,
+            total_qte_disponible__lte=SEUIL_STOCK_FAIBLE
         ).count(),
         'a_commander': articles_actifs.filter(
-            qte_disponible__gt=SEUIL_STOCK_FAIBLE,
-            qte_disponible__lte=SEUIL_A_COMMANDER
+            total_qte_disponible__gt=SEUIL_STOCK_FAIBLE,
+            total_qte_disponible__lte=SEUIL_A_COMMANDER
         ).count(),
-        'stock_ok': articles_actifs.filter(qte_disponible__gt=SEUIL_A_COMMANDER).count(),
+        'stock_ok': articles_actifs.filter(total_qte_disponible__gt=SEUIL_A_COMMANDER).count(),
     }
     
     # Alertes critiques
-    alertes_critiques = articles_actifs.filter(qte_disponible__lte=SEUIL_RUPTURE).order_by('qte_disponible')[:5]
+    alertes_critiques = articles_actifs.filter(total_qte_disponible__lte=SEUIL_RUPTURE).order_by('total_qte_disponible')[:5]
     
     # Analyse par catégorie
     categories_alertes = articles_actifs.values('categorie').annotate(
         total=Count('id'),
-        rupture=Count('id', filter=Q(qte_disponible__lte=SEUIL_RUPTURE)),
-        faible=Count('id', filter=Q(qte_disponible__gt=SEUIL_RUPTURE, qte_disponible__lte=SEUIL_STOCK_FAIBLE)),
-        a_commander=Count('id', filter=Q(qte_disponible__gt=SEUIL_STOCK_FAIBLE, qte_disponible__lte=SEUIL_A_COMMANDER)),
-        stock_moyen=Avg('qte_disponible'),
-        valeur_stock=Sum('qte_disponible')
+        rupture=Count('id', filter=Q(total_qte_disponible__lte=SEUIL_RUPTURE)),
+        faible=Count('id', filter=Q(total_qte_disponible__gt=SEUIL_RUPTURE, total_qte_disponible__lte=SEUIL_STOCK_FAIBLE)),
+        a_commander=Count('id', filter=Q(total_qte_disponible__gt=SEUIL_STOCK_FAIBLE, total_qte_disponible__lte=SEUIL_A_COMMANDER)),
+        stock_moyen=Avg('total_qte_disponible'),
+        valeur_stock=Sum('total_qte_disponible')
     ).exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('-rupture', '-faible')
     
     # Historique des mouvements récents
@@ -3180,6 +3206,8 @@ def statistiques_stock(request):
         return redirect('login')
     
     from article.models import MouvementStock
+    from django.db.models import Q, F, Sum, Count, Avg
+    from django.db.models.functions import Coalesce
     
     # Paramètres de filtrage
     periode = int(request.GET.get('periode', 30))
@@ -3195,21 +3223,26 @@ def statistiques_stock(request):
     if categorie_filter:
         articles_qs = articles_qs.filter(categorie=categorie_filter)
     
+    # Articles avec annotation du stock total
+    articles_qs = articles_qs.annotate(
+        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
+    )
+    
     # Valeur totale du stock
     valeur_stock = articles_qs.aggregate(
-        valeur_totale=Sum(F('qte_disponible') * F('prix_unitaire'))
+        valeur_totale=Sum(F('total_qte_disponible') * F('prix_unitaire'))
     )['valeur_totale'] or 0
     
     # Nombre total d'articles en stock
-    articles_en_stock = articles_qs.filter(qte_disponible__gt=0).count()
+    articles_en_stock = articles_qs.filter(total_qte_disponible__gt=0).count()
     
     # Articles par niveau de stock
     stats_niveaux = articles_qs.aggregate(
         total_articles=Count('id'),
-        rupture=Count('id', filter=Q(qte_disponible=0)),
-        stock_faible=Count('id', filter=Q(qte_disponible__gt=0, qte_disponible__lte=10)),
-        stock_normal=Count('id', filter=Q(qte_disponible__gt=10, qte_disponible__lte=50)),
-        stock_eleve=Count('id', filter=Q(qte_disponible__gt=50))
+        rupture=Count('id', filter=Q(total_qte_disponible=0)),
+        stock_faible=Count('id', filter=Q(total_qte_disponible__gt=0, total_qte_disponible__lte=10)),
+        stock_normal=Count('id', filter=Q(total_qte_disponible__gt=10, total_qte_disponible__lte=50)),
+        stock_eleve=Count('id', filter=Q(total_qte_disponible__gt=50))
     )
     
     # Taux de rupture
@@ -3218,20 +3251,20 @@ def statistiques_stock(request):
     # Statistiques par catégorie
     stats_categories = articles_qs.values('categorie').annotate(
         total_articles=Count('id'),
-        stock_total=Sum('qte_disponible'),
-        valeur_totale=Sum(F('qte_disponible') * F('prix_unitaire')),
+        stock_total=Sum('total_qte_disponible'),
+        valeur_totale=Sum(F('total_qte_disponible') * F('prix_unitaire')),
         prix_moyen=Avg('prix_unitaire'),
-        stock_moyen=Avg('qte_disponible'),
-        articles_rupture=Count('id', filter=Q(qte_disponible=0)),
-        articles_faible=Count('id', filter=Q(qte_disponible__gt=0, qte_disponible__lte=10))
+        stock_moyen=Avg('total_qte_disponible'),
+        articles_rupture=Count('id', filter=Q(total_qte_disponible=0)),
+        articles_faible=Count('id', filter=Q(total_qte_disponible__gt=0, total_qte_disponible__lte=10))
     ).exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('-valeur_totale')
     
     # Top articles
     top_articles_valeur = articles_qs.annotate(
-        valeur_stock=F('qte_disponible') * F('prix_unitaire')
-    ).filter(qte_disponible__gt=0).order_by('-valeur_stock')[:10]
+        valeur_stock=F('total_qte_disponible') * F('prix_unitaire')
+    ).filter(total_qte_disponible__gt=0).order_by('-valeur_stock')[:10]
     
-    top_articles_quantite = articles_qs.filter(qte_disponible__gt=0).order_by('-qte_disponible')[:10]
+    top_articles_quantite = articles_qs.filter(total_qte_disponible__gt=0).order_by('-total_qte_disponible')[:10]
     
     # Mouvements de stock
     mouvements_periode = MouvementStock.objects.filter(
@@ -3252,7 +3285,7 @@ def statistiques_stock(request):
     for i in range(nb_semaines):
         date_fin = timezone.now() - timedelta(days=i*7)
         valeur_semaine = articles_qs.aggregate(
-            valeur=Sum(F('qte_disponible') * F('prix_unitaire'))
+            valeur=Sum(F('total_qte_disponible') * F('prix_unitaire'))
         )['valeur'] or 0
         
         evolution_donnees.append({

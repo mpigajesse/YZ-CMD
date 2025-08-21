@@ -68,6 +68,13 @@ class AjusterStockForm(forms.Form):
         choices=TYPE_MOUVEMENT_CHOICES,
         widget=forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'})
     )
+    variante = forms.ModelChoiceField(
+        queryset=VarianteArticle.objects.none(),
+        required=False,
+        empty_label="Mouvement global (toutes les variantes)",
+        widget=forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'}),
+        help_text="Sélectionnez une variante spécifique ou laissez vide pour un mouvement global"
+    )
     quantite = forms.IntegerField(
         min_value=1,
         widget=forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'placeholder': 'Ex: 10'})
@@ -75,4 +82,12 @@ class AjusterStockForm(forms.Form):
     commentaire = forms.CharField(
         widget=forms.Textarea(attrs={'class': 'w-full p-3 border rounded-lg', 'rows': 3, 'placeholder': 'Ex: Inventaire mensuel'}),
         required=False
-    ) 
+    )
+
+    def __init__(self, *args, **kwargs):
+        article = kwargs.pop('article', None)
+        super().__init__(*args, **kwargs)
+        if article:
+            self.fields['variante'].queryset = VarianteArticle.objects.filter(
+                article=article, actif=True
+            ).order_by('couleur__nom', 'pointure__pointure') 
