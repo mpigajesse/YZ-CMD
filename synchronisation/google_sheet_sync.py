@@ -447,6 +447,40 @@ class GoogleSheetSync:
             self._log(error_msg, "error")
             return False
     
+    def _update_operator_only(self, existing_commande, data):
+        """Met à jour seulement l'opérateur de l'état actuel sans créer de nouvel état"""
+        try:
+            operator_name = data.get('Opérateur', '')
+            if not operator_name:
+                return True  # Aucun opérateur spécifié
+            
+            # Récupérer l'opérateur
+            try:
+                operateur_obj = Operateur.objects.get(nom_complet__iexact=operator_name)
+            except Operateur.DoesNotExist:
+                self.errors.append(f"Opérateur non trouvé: {operator_name}")
+                return True  # Continuer même si l'opérateur n'est pas trouvé
+            
+            # Vérifier si l'opérateur a changé
+            etat_actuel = existing_commande.etat_actuel
+            if etat_actuel and etat_actuel.operateur != operateur_obj:
+                self._log(f"Mise à jour de l'opérateur pour commande {existing_commande.num_cmd}: {etat_actuel.operateur.nom_complet if etat_actuel.operateur else 'Aucun'} → {operateur_obj.nom_complet}")
+                
+                # Mettre à jour l'opérateur de l'état actuel
+                etat_actuel.operateur = operateur_obj
+                etat_actuel.save(update_fields=['operateur'])
+                
+                print(f"👤 Opérateur mis à jour pour commande {existing_commande.num_cmd}: {operateur_obj.nom_complet}")
+            else:
+                self._log(f"Opérateur inchangé pour commande {existing_commande.num_cmd}: {operateur_obj.nom_complet}")
+            
+            return True
+            
+        except Exception as e:
+            error_msg = f"Erreur lors de la mise à jour de l'opérateur pour {existing_commande.num_cmd}: {str(e)}"
+            self._log(error_msg, "error")
+            return False
+    
     def _update_command_status(self, existing_commande, data):
         """Met à jour le statut d'une commande existante"""
         try:
@@ -463,43 +497,71 @@ class GoogleSheetSync:
                     self.protected_orders_count += 1  # Incrémenter le compteur de protection
                     new_status_raw = current_status  # Garder le statut actuel
                 
-                # TOUJOURS créer/mettre à jour l'état, même si le statut est identique
-                # Récupérer l'opérateur si spécifié
-                operateur_obj = None
-                operator_name = data.get('Opérateur', '')
-                if operator_name:
-                    try:
-                        operateur_obj = Operateur.objects.get(nom_complet__iexact=operator_name)
-                    except Operateur.DoesNotExist:
-                        self.errors.append(f"Opérateur non trouvé: {operator_name}")
+                # VÉRIFIER SI LE STATUT A RÉELLEMENT CHANGÉ
+                if current_status == new_status_raw:
+                    self._log(f"Statut identique pour commande {existing_commande.num_cmd}: {current_status} - AUCUN NOUVEL ÉTAT CRÉÉ")
+                    print(f"📊 État inchangé pour commande existante ID YZ {existing_commande.id_yz}: {current_status}")
                     
-                # Créer l'état de commande
-                success = self._create_etat_commande(existing_commande, new_status_raw, operateur_obj)
-                
-                if current_status != new_status_raw:
-                    print(f"📊 État mis à jour pour commande existante ID YZ {existing_commande.id_yz}: {current_status} → {new_status_raw}")
+                    # Mettre à jour seulement l'opérateur si nécessaire (sans créer de nouvel état)
+                    self._update_operator_only(existing_commande, data)
+                    return True
                 else:
-                    self._log(f"Statut identique pour commande {existing_commande.num_cmd}: {current_status} - création/mise à jour de l'état forcée")
-                    print(f"📊 État maintenu pour commande existante ID YZ {existing_commande.id_yz}: {current_status}")
-                
-                return success
+                    # Le statut a changé - créer un nouvel état
+                    self._log(f"Statut différent pour commande {existing_commande.num_cmd}: {current_status} → {new_status_raw}")
+                    
+                    # Récupérer l'opérateur si spécifié
+                    operateur_obj = None
+                    operator_name = data.get('Opérateur', '')
+                    if operator_name:
+                        try:
+                            operateur_obj = Operateur.objects.get(nom_complet__iexact=operator_name)
+                        except Operateur.DoesNotExist:
+                            self.errors.append(f"Opérateur non trouvé: {operator_name}")
+                    
+                    # Créer l'état de commande
+                    success = self._create_etat_commande(existing_commande, new_status_raw, operateur_obj)
+                    
+                    if success:
+                        print(f"📊 État mis à jour pour commande existante ID YZ {existing_commande.id_yz}: {current_status} → {new_status_raw}")
+                    else:
+                        print(f"❌ Échec de mise à jour de l'état pour commande {existing_commande.num_cmd}")
+                    
+                    return success
             else:
                 # Statut non reconnu - utiliser le statut par défaut
                 self._log(f"Statut non reconnu pour commande {existing_commande.num_cmd} - utilisation du statut par défaut 'Non affectée'")
                 default_status = 'Non affectée'
                 
-                # Créer/mettre à jour l'état avec le statut par défaut
-                operateur_obj = None
-                operator_name = data.get('Opérateur', '')
-                if operator_name:
-                    try:
-                        operateur_obj = Operateur.objects.get(nom_complet__iexact=operator_name)
-                    except Operateur.DoesNotExist:
-                        self.errors.append(f"Opérateur non trouvé: {operator_name}")
+                # Vérifier si le statut par défaut est différent de l'actuel
+                current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'Non affectée'
                 
-                success = self._create_etat_commande(existing_commande, default_status, operateur_obj)
-                print(f"📊 État par défaut créé pour commande existante ID YZ {existing_commande.id_yz}: {default_status}")
-                return success
+                if current_status == default_status:
+                    self._log(f"Statut par défaut identique à l'actuel pour commande {existing_commande.num_cmd}: {default_status} - AUCUN NOUVEL ÉTAT CRÉÉ")
+                    print(f"📊 État par défaut inchangé pour commande existante ID YZ {existing_commande.id_yz}: {default_status}")
+                    
+                    # Mettre à jour seulement l'opérateur si nécessaire
+                    self._update_operator_only(existing_commande, data)
+                    return True
+                else:
+                    # Le statut par défaut est différent - créer un nouvel état
+                    self._log(f"Statut par défaut différent de l'actuel pour commande {existing_commande.num_cmd}: {current_status} → {default_status}")
+                    
+                    # Créer/mettre à jour l'état avec le statut par défaut
+                    operateur_obj = None
+                    operator_name = data.get('Opérateur', '')
+                    if operator_name:
+                        try:
+                            operateur_obj = Operateur.objects.get(nom_complet__iexact=operator_name)
+                        except Operateur.DoesNotExist:
+                            self.errors.append(f"Opérateur non trouvé: {operator_name}")
+                    
+                    success = self._create_etat_commande(existing_commande, default_status, operateur_obj)
+                    if success:
+                        print(f"📊 État par défaut créé pour commande existante ID YZ {existing_commande.id_yz}: {default_status}")
+                    else:
+                        print(f"❌ Échec de création de l'état par défaut pour commande {existing_commande.num_cmd}")
+                    
+                    return success
                 
         except Exception as e:
             error_msg = f"Erreur lors de la mise à jour du statut pour {existing_commande.num_cmd}: {str(e)}"
@@ -731,11 +793,43 @@ class GoogleSheetSync:
             from commande.models import EnumEtatCmd, EtatCommande
             from django.utils import timezone
             from django.db import connection
+            from datetime import timedelta
             
             self._log(f"🏗️ === CRÉATION ÉTAT COMMANDE ===")
             self._log(f"🎯 Commande: {commande.num_cmd} (ID YZ: {commande.id_yz})")
             self._log(f"🏷️ Statut demandé: '{status_libelle}'")
             self._log(f"👤 Opérateur: {operateur.nom_complet if operateur else 'Aucun'}")
+            
+            # VÉRIFIER S'IL EXISTE DÉJÀ UN ÉTAT RÉCENT AVEC LE MÊME STATUT
+            # Éviter de créer des doublons lors de resynchronisations fréquentes
+            recent_threshold = timezone.now() - timedelta(minutes=5)  # 5 minutes
+            
+            recent_etat = EtatCommande.objects.filter(
+                commande=commande,
+                enum_etat__libelle=status_libelle,
+                date_debut__gte=recent_threshold
+            ).order_by('-date_debut').first()
+            
+            if recent_etat:
+                self._log(f"⚠️ État récent trouvé avec le même statut '{status_libelle}' pour commande {commande.num_cmd}")
+                self._log(f"   📋 ID état existant: {recent_etat.id}")
+                self._log(f"   📋 Date début: {recent_etat.date_debut}")
+                self._log(f"   📋 Opérateur: {recent_etat.operateur.nom_complet if recent_etat.operateur else 'Aucun'}")
+                
+                # Mettre à jour seulement l'opérateur si nécessaire
+                if operateur and recent_etat.operateur != operateur:
+                    self._log(f"👤 Mise à jour de l'opérateur: {recent_etat.operateur.nom_complet if recent_etat.operateur else 'Aucun'} → {operateur.nom_complet}")
+                    recent_etat.operateur = operateur
+                    recent_etat.save(update_fields=['operateur'])
+                
+                # Mettre à jour le commentaire pour indiquer qu'il s'agit d'une resynchronisation
+                commentaire_actuel = recent_etat.commentaire or ""
+                if "resynchronisation" not in commentaire_actuel.lower():
+                    recent_etat.commentaire = f"{commentaire_actuel} (Resynchronisation Google Sheets)"
+                    recent_etat.save(update_fields=['commentaire'])
+                
+                self._log(f"✅ État existant réutilisé - aucun doublon créé")
+                return True
             
             # Terminer l'état actuel s'il existe
             etat_actuel = commande.etat_actuel
@@ -853,16 +947,65 @@ class GoogleSheetSync:
             self.errors.append(error_msg)
             return False
     
+    def force_sync_from_row(self, row_number):
+        """Force la synchronisation depuis une ligne spécifique"""
+        print(f"🔄 === FORCAGE SYNCHRONISATION DEPUIS LIGNE {row_number} ===")
+        print(f"📍 Avant: dernière ligne traitée = {self.sheet_config.last_processed_row}")
+        
+        if row_number < 0:
+            print(f"❌ ERREUR: Numéro de ligne invalide: {row_number}")
+            return False
+        
+        # Mettre à jour la dernière ligne traitée
+        self.sheet_config.last_processed_row = row_number - 1  # -1 car on veut commencer à la ligne row_number
+        self.sheet_config.save(update_fields=['last_processed_row'])
+        
+        print(f"✅ Synchronisation forcée depuis la ligne {row_number}")
+        print(f"📍 Dernière ligne traitée mise à jour: {self.sheet_config.last_processed_row}")
+        print(f"🔄 Prochaine synchronisation: traitement depuis la ligne {row_number}")
+        print(f"🔄 === FIN FORCAGE SYNCHRONISATION ===\n")
+        
+        return True
+    
+    def reset_incremental_sync(self):
+        """Réinitialise la synchronisation incrémentale pour forcer une synchronisation complète"""
+        print(f"🔄 === RÉINITIALISATION SYNCHRONISATION INCRÉMENTALE ===")
+        print(f"📍 Avant: dernière ligne traitée = {self.sheet_config.last_processed_row}")
+        
+        # Remettre à zéro la dernière ligne traitée
+        self.sheet_config.last_processed_row = 0
+        self.sheet_config.save(update_fields=['last_processed_row'])
+        
+        print(f"✅ Réinitialisation effectuée: dernière ligne traitée = 0")
+        print(f"🔄 Prochaine synchronisation: traitement de toutes les lignes")
+        print(f"🔄 === FIN RÉINITIALISATION ===\n")
+        
+        return True
+    
+    def get_incremental_status(self):
+        """Retourne le statut de la synchronisation incrémentale"""
+        return {
+            'last_processed_row': self.sheet_config.last_processed_row,
+            'next_sync_start_row': self.sheet_config.next_sync_start_row,
+            'total_rows_in_sheet': None,  # Sera mis à jour lors de la synchronisation
+            'rows_to_process_next': None,  # Sera mis à jour lors de la synchronisation
+        }
+    
     def sync(self):
-        """Synchronise les données depuis Google Sheets"""
-        print(f"🚀 === DÉBUT SYNCHRONISATION GOOGLE SHEETS ===")
+        """Synchronise les données depuis Google Sheets de manière incrémentale"""
+        print(f"🚀 === DÉBUT SYNCHRONISATION GOOGLE SHEETS INCRÉMENTALE ===")
         print(f"⏰ Heure de début: {timezone.now()}")
         print(f"👤 Déclenché par: {self.triggered_by}")
         print(f"🔧 Configuration: {self.sheet_config.name if hasattr(self.sheet_config, 'name') else 'Config inconnue'}")
         
+        # Récupérer la ligne de départ pour la synchronisation incrémentale
+        start_row = self.sheet_config.next_sync_start_row
+        print(f"📍 Synchronisation incrémentale: reprise depuis la ligne {start_row}")
+        
         # Marquer le début de la synchronisation
         self.start_time = timezone.now()
         self.execution_details['started_at'] = self.start_time.isoformat()
+        self.execution_details['incremental_start_row'] = start_row
         
         # S'assurer que tous les états de base existent
         print(f"🏗️ === INITIALISATION DES ÉTATS ===")
@@ -920,23 +1063,42 @@ class GoogleSheetSync:
             print(f"📊 Lignes de données: {len(rows)}")
             print(f"📊 Ligne d'en-têtes: 1")
             
+            # Vérifier si la synchronisation incrémentale est possible
+            if start_row > 1:
+                if start_row > len(all_data):
+                    print(f"⚠️ ATTENTION: La ligne de départ ({start_row}) dépasse le nombre total de lignes ({len(all_data)})")
+                    print(f"🔄 Réinitialisation de la synchronisation depuis le début")
+                    start_row = 1
+                    self.sheet_config.last_processed_row = 0
+                    self.sheet_config.save(update_fields=['last_processed_row'])
+                else:
+                    print(f"✅ Synchronisation incrémentale: traitement des lignes {start_row} à {len(all_data)}")
+            else:
+                print(f"🔄 Première synchronisation: traitement de toutes les lignes")
+            
+            # Filtrer les lignes à traiter selon la synchronisation incrémentale
+            rows_to_process = rows[start_row - 1:] if start_row > 1 else rows
+            print(f"📊 Lignes à traiter: {len(rows_to_process)} (sur {len(rows)} total)")
+            
             # Afficher les premiers en-têtes pour vérification
-            if rows:
-                print(f"🔍 Première ligne de données: {dict(zip(headers, rows[0]))}")
-                if len(rows) > 1:
-                    print(f"🔍 Deuxième ligne de données: {dict(zip(headers, rows[1]))}")
+            if rows_to_process:
+                print(f"🔍 Première ligne de données à traiter: {dict(zip(headers, rows_to_process[0]))}")
+                if len(rows_to_process) > 1:
+                    print(f"🔍 Deuxième ligne de données à traiter: {dict(zip(headers, rows_to_process[1]))}")
             
             # Enregistrer les statistiques
             self.total_rows = len(all_data)
             self.execution_details['headers'] = headers
             self.execution_details['total_rows'] = len(all_data)
             self.execution_details['data_rows'] = len(rows)
+            self.execution_details['rows_to_process'] = len(rows_to_process)
+            self.execution_details['incremental_start_row'] = start_row
             
             print(f"🚀 === DÉBUT TRAITEMENT LIGNES ===")
-            print(f"📈 Total lignes à traiter: {len(rows)}")
+            print(f"📈 Total lignes à traiter: {len(rows_to_process)}")
             
             # Traiter chaque ligne
-            for i, row in enumerate(rows, 2):  # Commencer à 2 car la ligne 1 contient les en-têtes
+            for i, row in enumerate(rows_to_process, start_row + 1):  # Commencer à start_row + 1 car start_row est 1-indexed
                 print(f"\n📝 === TRAITEMENT LIGNE {i} ===")
                 
                 # Vérifier si la ligne est vide
@@ -955,6 +1117,11 @@ class GoogleSheetSync:
                         print(f"✅ Ligne {i} traitée avec succès")
                         self._log(f"Ligne {i} traitée avec succès")
                         self.processed_rows += 1
+                        
+                        # Mettre à jour la dernière ligne traitée pour la synchronisation incrémentale
+                        self.sheet_config.last_processed_row = i
+                        self.sheet_config.save(update_fields=['last_processed_row'])
+                        print(f"📍 Dernière ligne traitée mise à jour: {i}")
                     else:
                         print(f"❌ Échec traitement ligne {i}")
                         self._log(f"Échec traitement ligne {i}")
@@ -976,8 +1143,9 @@ class GoogleSheetSync:
                 'processed_rows': self.processed_rows,
                 'skipped_rows': self.skipped_rows,
                 'records_imported': self.records_imported,
-                'success_rate': (self.processed_rows / len(rows) * 100) if rows else 0,
+                'success_rate': (self.processed_rows / len(rows_to_process) * 100) if rows_to_process else 0,
                 'errors_count': len(self.errors),
+                'final_processed_row': self.sheet_config.last_processed_row,
                 
                 # Nouvelles statistiques détaillées
                 'new_orders_created': self.new_orders_created,
@@ -1009,6 +1177,12 @@ class GoogleSheetSync:
             # Message par défaut si rien ne s'est passé
             if not notification_parts:
                 notification_parts.append("⚠️ Aucune donnée valide trouvée")
+            
+            # Ajouter l'information sur la synchronisation incrémentale
+            if start_row > 1:
+                notification_parts.append(f"📍 Synchronisation incrémentale: lignes {start_row} à {self.sheet_config.last_processed_row}")
+            else:
+                notification_parts.append(f"🔄 Synchronisation complète: toutes les lignes traitées")
             
             self.execution_details['sync_summary'] = " | ".join(notification_parts)
             

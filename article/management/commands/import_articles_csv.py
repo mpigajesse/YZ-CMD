@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -9,7 +10,7 @@ from parametre.models import Operateur
 
 
 class Command(BaseCommand):
-    help = 'Importe les articles depuis un fichier CSV avec leurs variantes'
+    help = 'Importe les articles depuis un fichier CSV avec leurs variantes selon la structure YOOZAK'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -62,7 +63,8 @@ class Command(BaseCommand):
             'MULES': 'MULES',
             'PACK': 'PACK_SAC',
             'BOTTE': 'BOTTE',
-            'ESCARPINS': 'ESCARPINS'
+            'ESCARPINS': 'ESCARPINS',
+            'SAC': 'PACK_SAC'  # Les sacs sont dans la catégorie PACK_SAC
         }
 
         # Mapping des genres du CSV vers les genres du modèle
@@ -156,42 +158,27 @@ class Command(BaseCommand):
                         else:
                             prix_unitaire = Decimal('0.00')
 
-                        # Traiter le prix de liquidation
+                        # Traiter le prix de liquidation (prix d'achat)
                         prix_liquidation = self._parse_price(row.get('PRIX LIQ 1', ''))
+
+                        # Traiter les prix upsell
+                        prix_upsell_2 = self._parse_price(row.get('PRIX UPSEL 2', ''))
+                        prix_upsell_3 = self._parse_price(row.get('PRIX UPSEL 3', ''))
+                        prix_upsell_4 = self._parse_price(row.get('PRIX UPSEL 4', ''))
+
+                        # Déterminer si c'est un article upsell
+                        is_upsell = prix_upsell_2 is not None or prix_upsell_3 is not None or prix_upsell_4 is not None
+
+                        # Extraire le numéro de modèle de la référence (ex: YZ478 -> 478)
+                        modele = self._extract_modele(reference)
 
                         # Traiter les pointures
                         pointures_str = row.get('POINTURE', '').strip()
-                        pointures = []
-                        if pointures_str:
-                            # Parser les pointures (ex: "37---41" ou "37-41" ou "37---40")
-                            if '---' in pointures_str:
-                                parts = pointures_str.split('---')
-                            elif '-' in pointures_str:
-                                parts = pointures_str.split('-')
-                            else:
-                                parts = [pointures_str]
-                            
-                            if len(parts) >= 2:
-                                try:
-                                    start = int(parts[0])
-                                    end = int(parts[1])
-                                    pointures = [str(i) for i in range(start, end + 1)]
-                                except (ValueError, IndexError):
-                                    pointures = [pointures_str]
-                            else:
-                                pointures = [pointures_str]
+                        pointures = self._parse_pointures(pointures_str)
 
                         # Traiter les couleurs
                         couleurs_str = row.get('COULEUR', '').strip()
-                        couleurs = []
-                        if couleurs_str:
-                            # Parser les couleurs (séparées par des tirets ou des virgules)
-                            if '-' in couleurs_str:
-                                couleurs = [c.strip() for c in couleurs_str.split('-') if c.strip()]
-                            elif ',' in couleurs_str:
-                                couleurs = [c.strip() for c in couleurs_str.split(',') if c.strip()]
-                            else:
-                                couleurs = [couleurs_str]
+                        couleurs = self._parse_couleurs(couleurs_str)
 
                         # Vérifier si l'article existe déjà
                         article_existant = None
@@ -230,8 +217,14 @@ class Command(BaseCommand):
                             article_existant.nom = nom
                             article_existant.prix_unitaire = prix_unitaire
                             article_existant.prix_actuel = prix_unitaire
-                            article_existant.categorie = categorie_obj  # Utiliser l'objet Categorie
+                            article_existant.categorie = categorie_obj
+                            article_existant.genre = genre_obj
                             article_existant.phase = phase
+                            article_existant.prix_achat = prix_liquidation if prix_liquidation else Decimal('0.00')
+                            article_existant.isUpsell = is_upsell
+                            article_existant.prix_upsell_2 = prix_upsell_2
+                            article_existant.prix_upsell_3 = prix_upsell_3
+                            article_existant.prix_upsell_4 = prix_upsell_4
                             article_existant.date_modification = timezone.now()
                             article_existant.save()
                             articles_updated += 1
@@ -244,13 +237,17 @@ class Command(BaseCommand):
                             article = Article.objects.create(
                                 nom=nom,
                                 reference=reference if reference else None,
+                                modele=modele,
                                 prix_unitaire=prix_unitaire,
                                 prix_achat=prix_liquidation if prix_liquidation else Decimal('0.00'),
                                 prix_actuel=prix_unitaire,
-                                categorie=categorie_obj,  # Utiliser l'objet Categorie
+                                categorie=categorie_obj,
+                                genre=genre_obj,
                                 phase=phase,
-                                # Les prix upsell ne sont plus utilisés pour l'instant
-                                isUpsell=False
+                                isUpsell=is_upsell,
+                                prix_upsell_2=prix_upsell_2,
+                                prix_upsell_3=prix_upsell_3,
+                                prix_upsell_4=prix_upsell_4
                             )
                             articles_created += 1
 
@@ -279,9 +276,6 @@ class Command(BaseCommand):
                                         couleur=couleur_obj,
                                         pointure=pointure_obj,
                                         qte_disponible=0,  # Valeur par défaut
-                                        prix_unitaire=prix_unitaire,
-                                        prix_achat=prix_liquidation if prix_liquidation else Decimal('0.00'),
-                                        prix_actuel=prix_unitaire,
                                         actif=True
                                     )
                                     
@@ -295,7 +289,7 @@ class Command(BaseCommand):
                         variantes_created += variantes_created_for_article
                         
                         # Afficher le progrès
-                        if articles_created % 10 == 0:
+                        if (articles_created + articles_updated) % 10 == 0:
                             self.stdout.write(f'Articles traités: {articles_created + articles_updated + articles_skipped}')
 
                     except Exception as e:
@@ -342,3 +336,59 @@ class Command(BaseCommand):
             return Decimal(clean_price)
         except (ValueError, TypeError):
             return None
+
+    def _extract_modele(self, reference):
+        """Extrait le numéro de modèle de la référence (ex: YZ478 -> 478)"""
+        if not reference:
+            return None
+        
+        # Chercher le pattern YZ suivi de chiffres
+        match = re.search(r'YZ(\d+)', reference.upper())
+        if match:
+            try:
+                return int(match.group(1))
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    def _parse_pointures(self, pointures_str):
+        """Parse les pointures depuis le CSV"""
+        if not pointures_str or pointures_str.strip() == '':
+            return []
+        
+        pointures = []
+        # Parser les pointures (ex: "37---41" ou "37-41" ou "37---40")
+        if '---' in pointures_str:
+            parts = pointures_str.split('---')
+        elif '-' in pointures_str:
+            parts = pointures_str.split('-')
+        else:
+            parts = [pointures_str]
+        
+        if len(parts) >= 2:
+            try:
+                start = int(parts[0])
+                end = int(parts[1])
+                pointures = [str(i) for i in range(start, end + 1)]
+            except (ValueError, IndexError):
+                pointures = [pointures_str]
+        else:
+            pointures = [pointures_str]
+        
+        return pointures
+
+    def _parse_couleurs(self, couleurs_str):
+        """Parse les couleurs depuis le CSV"""
+        if not couleurs_str or couleurs_str.strip() == '':
+            return []
+        
+        couleurs = []
+        # Parser les couleurs (séparées par des tirets ou des virgules)
+        if '-' in couleurs_str:
+            couleurs = [c.strip() for c in couleurs_str.split('-') if c.strip()]
+        elif ',' in couleurs_str:
+            couleurs = [c.strip() for c in couleurs_str.split(',') if c.strip()]
+        else:
+            couleurs = [couleurs_str]
+        
+        return couleurs
