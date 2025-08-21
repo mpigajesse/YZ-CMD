@@ -688,16 +688,13 @@ def update_article_prices(sender, instance, created, **kwargs):
 @receiver(post_save, sender=VarianteArticle)
 def update_article_total_qte(sender, instance, **kwargs):
     """Met à jour la quantité totale de l'article quand une variante est modifiée"""
-    if instance.article:
-        total_qte = instance.article.get_total_qte_disponible()
-        if instance.article.qte_disponible != total_qte:
-            instance.article.qte_disponible = total_qte
-            instance.article.save(update_fields=['qte_disponible'])
+    # La quantité disponible est calculée dynamiquement via la propriété
+    # Pas besoin de sauvegarder car c'est une propriété calculée
+    pass
 
 @receiver(post_delete, sender=VarianteArticle)
 def update_article_total_qte_on_delete(sender, instance, **kwargs):
     """Met à jour la quantité totale de l'article quand une variante est supprimée"""
-    if instance.article:
-        total_qte = instance.article.get_total_qte_disponible()
-        instance.article.qte_disponible = total_qte
-        instance.article.save(update_fields=['qte_disponible'])
+    # La quantité disponible est calculée dynamiquement via la propriété
+    # Pas besoin de sauvegarder car c'est une propriété calculée
+    pass

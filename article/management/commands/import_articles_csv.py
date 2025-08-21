@@ -1,7 +1,7 @@
 import csv
 import os
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -146,17 +146,9 @@ class Command(BaseCommand):
                         else:
                             phase = 'EN_COURS'  # Valeur par défaut
 
-                        # Traiter le prix unitaire
-                        prix_unitaire_str = row.get('PRIX UNITAIRE', '0').strip()
-                        if prix_unitaire_str and prix_unitaire_str != '0':
-                            # Nettoyer le prix (enlever "DH" et convertir en Decimal)
-                            prix_unitaire_str = prix_unitaire_str.replace('DH', '').replace(',', '.').strip()
-                            try:
-                                prix_unitaire = Decimal(prix_unitaire_str)
-                            except (ValueError, TypeError):
-                                prix_unitaire = Decimal('0.00')
-                        else:
-                            prix_unitaire = Decimal('0.00')
+                        # Traiter le prix unitaire (parser robuste)
+                        parsed_pu = self._parse_price(row.get('PRIX UNITAIRE', ''))
+                        prix_unitaire = parsed_pu if parsed_pu is not None else Decimal('0.00')
 
                         # Traiter le prix de liquidation (prix d'achat)
                         prix_liquidation = self._parse_price(row.get('PRIX LIQ 1', ''))
@@ -225,6 +217,11 @@ class Command(BaseCommand):
                             article_existant.prix_upsell_2 = prix_upsell_2
                             article_existant.prix_upsell_3 = prix_upsell_3
                             article_existant.prix_upsell_4 = prix_upsell_4
+                            # Mettre à jour modele uniquement si non conflictuel
+                            if modele is not None:
+                                # Si un autre article a déjà ce modele, ne pas l'écraser
+                                if not Article.objects.filter(modele=modele).exclude(pk=article_existant.pk).exists():
+                                    article_existant.modele = modele
                             article_existant.date_modification = timezone.now()
                             article_existant.save()
                             articles_updated += 1
@@ -234,10 +231,15 @@ class Command(BaseCommand):
                             
                         else:
                             # Création
+                            # Éviter les collisions sur le champ unique `modele`
+                            if modele is not None and Article.objects.filter(modele=modele).exists():
+                                modele_to_use = None
+                            else:
+                                modele_to_use = modele
                             article = Article.objects.create(
                                 nom=nom,
                                 reference=reference if reference else None,
-                                modele=modele,
+                                modele=modele_to_use,
                                 prix_unitaire=prix_unitaire,
                                 prix_achat=prix_liquidation if prix_liquidation else Decimal('0.00'),
                                 prix_actuel=prix_unitaire,
@@ -326,15 +328,32 @@ class Command(BaseCommand):
             )
 
     def _parse_price(self, price_str):
-        """Parse un prix depuis le CSV et le convertit en Decimal"""
-        if not price_str or price_str.strip() == '':
+        """Parse un prix depuis le CSV et le convertit en Decimal (robuste)."""
+        if price_str is None:
             return None
-        
+        s = str(price_str)
+        # Normaliser et nettoyer des artefacts courants
+        s = s.replace('\xa0', ' ').replace('DH', '').replace('DHS', '').replace('MAD', '')
+        s = s.strip()
+        if s == '' or s == '0':
+            return None
+        # Extraire la première occurrence numérique (ex: 1.234,56 -> 1.234,56)
+        match = re.search(r'[+-]?\d{1,3}(?:[\s\u00A0\.]\d{3})*(?:[\.,]\d+)?|[+-]?\d+(?:[\.,]\d+)?', s)
+        if not match:
+            return None
+        num = match.group(0)
+        # Retirer séparateurs de milliers (espace, NBSP, point) quand une virgule ou un point décimal est utilisé
+        num = num.replace('\u00A0', ' ').replace(' ', '')
+        # Si les deux séparateurs existent, on considère la dernière occurrence comme décimale
+        if ',' in num and '.' in num:
+            # Supposer format européen (1.234,56)
+            num = num.replace('.', '').replace(',', '.')
+        else:
+            # Un seul séparateur -> remplacer virgule par point
+            num = num.replace(',', '.')
         try:
-            # Nettoyer le prix (enlever "DH" et convertir la virgule en point)
-            clean_price = price_str.replace('DH', '').replace(',', '.').strip()
-            return Decimal(clean_price)
-        except (ValueError, TypeError):
+            return Decimal(num)
+        except (InvalidOperation, ValueError, TypeError):
             return None
 
     def _extract_modele(self, reference):

@@ -314,21 +314,30 @@ def confirmer_commande_ajax(request, commande_id):
                     })
                     print(f"❌ DEBUG: Stock insuffisant pour {article.nom}")
                 else:
-                    # Décrémenter le stock
+                    # Décrémenter le stock via mouvements sur variantes (pas d'écriture sur Article.qte_disponible)
                     ancien_stock = article.qte_disponible
-                    article.qte_disponible -= quantite_commandee
-                    article.save()
-                    
+                    from Superpreparation.utils import creer_mouvement_stock as creer_mouvement_stock_prepa
+                    creer_mouvement_stock_prepa(
+                        article=article,
+                        quantite=quantite_commandee,
+                        type_mouvement='ajustement_neg' if quantite_commandee > 0 else 'ajustement_pos',
+                        operateur=operateur,
+                        commande=commande,
+                        commentaire=f"Décrément lors de la confirmation commande {commande.id_yz}",
+                        variante=None,
+                    )
+                    nouveau_stock = article.qte_disponible  # Propriété calculée à partir des variantes
+
                     articles_decrémentes.append({
                         'article': article.nom,
                         'ancien_stock': ancien_stock,
-                        'nouveau_stock': article.qte_disponible,
+                        'nouveau_stock': nouveau_stock,
                         'quantite_decrémententée': quantite_commandee
                     })
                     
                     print(f"✅ DEBUG: Stock mis à jour pour {article.nom}")
                     print(f"   - Ancien stock: {ancien_stock}")
-                    print(f"   - Nouveau stock: {article.qte_disponible}")
+                    print(f"   - Nouveau stock: {nouveau_stock}")
             
             # Si il y a des problèmes de stock, annuler la transaction
             if stock_insuffisant:
@@ -354,7 +363,7 @@ def confirmer_commande_ajax(request, commande_id):
             etat_actuel.save()
             print(f"🔄 DEBUG: État actuel fermé: {etat_actuel.enum_etat.libelle}")
             
-            # Créer le nouvel état
+            # Créer le nouvel état Confirmée (historisation courte)
             nouvel_etat = EtatCommande.objects.create(
                 commande=commande,
                 enum_etat=enum_confirmee,
@@ -363,6 +372,25 @@ def confirmer_commande_ajax(request, commande_id):
                 commentaire=commentaire
             )
             print(f"✅ DEBUG: Nouvel état créé: Confirmée")
+
+            # Immédiatement basculer en file de préparation pour les superviseurs
+            try:
+                # Clore l'état Confirmée pour n'avoir qu'un état actif
+                nouvel_etat.date_fin = timezone.now()
+                nouvel_etat.save(update_fields=['date_fin'])
+
+                # Créer l'état "À imprimer" (état d'entrée pour la préparation)
+                enum_a_imprimer = EnumEtatCmd.objects.get(libelle='À imprimer')
+                EtatCommande.objects.create(
+                    commande=commande,
+                    enum_etat=enum_a_imprimer,
+                    # On n'assigne pas d'opérateur spécifique: visible à tous les superviseurs
+                    date_debut=timezone.now(),
+                    commentaire=f"Commande reçue de la confirmation par {operateur.nom_complet}"
+                )
+                print("📨 DEBUG: État 'À imprimer' créé pour file préparation (superviseurs)")
+            except EnumEtatCmd.DoesNotExist:
+                print("⚠️ DEBUG: État 'À imprimer' introuvable. La commande reste en 'Confirmée'.")
             
             # Log des articles décrémernts
             print(f"📊 DEBUG: Résumé de la décrémentation:")
@@ -2297,7 +2325,7 @@ def api_articles_disponibles(request):
                 'reference': article.reference or '',
                 'pointure': article.pointure or '',
                 'couleur': article.couleur or '',
-                'categorie': article.categorie or '',
+                'categorie': (str(article.categorie) if article.categorie else ''),
                 'prix_unitaire': float(article.prix_unitaire),
                 'prix_actuel': float(article.prix_actuel or article.prix_unitaire),
                 'prix_upsell_1': float(article.prix_upsell_1) if article.prix_upsell_1 else None,
