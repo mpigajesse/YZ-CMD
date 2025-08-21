@@ -58,10 +58,10 @@
 
     <!-- Date Confirmation -->
     <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
-        {% if commande.etat_actuel %}
+        {% if commande.etat_confirmation %}
             <div class="text-center">
-                <div class="font-medium text-gray-900">{{ commande.etat_actuel.date_creation|date:"d/m/Y" }}</div>
-                <div class="text-xs text-gray-500">{{ commande.etat_actuel.date_creation|date:"H:i" }}</div>
+                <div class="font-medium text-gray-900">{{ commande.etat_confirmation.date_debut|date:"d/m/Y" }}</div>
+                <div class="text-xs text-gray-500">{{ commande.etat_confirmation.date_debut|date:"H:i" }}</div>
             </div>
         {% else %}
             <span class="text-gray-400 italic">Non confirmée</span>
@@ -70,7 +70,17 @@
 
     <!-- Opérateur Confirmation -->
     <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
-        {% if commande.etat_actuel and commande.etat_actuel.operateur %}
+        {% if commande.etat_confirmation and commande.etat_confirmation.operateur %}
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background-color: #2e1b22;">
+                    <i class="fas fa-user text-white text-sm"></i>
+                </div>
+                <div>
+                    <div class="font-medium text-gray-900">{{ commande.etat_confirmation.operateur.nom }}</div>
+                    <div class="text-xs text-gray-500">{{ commande.etat_confirmation.operateur.type_operateur }}</div>
+                </div>
+            </div>
+        {% elif commande.etat_actuel and commande.etat_actuel.operateur %}
             <div class="flex items-center space-x-2">
                 <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background-color: #2e1b22;">
                     <i class="fas fa-user text-white text-sm"></i>

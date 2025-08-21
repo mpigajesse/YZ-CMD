@@ -492,14 +492,17 @@ def liste_prepa(request):
             
             commande.etat_precedent = etat_precedent
             
-            # Trouver l'état de confirmation (le premier état "Confirmée")
-            etat_confirmation = None
-            for etat in etats_commande:
-                if etat.enum_etat.libelle == 'Confirmée':
-                    etat_confirmation = etat
-                    break
-            
-            commande.etat_confirmation = etat_confirmation
+            # Trouver l'état de confirmation : priorité à l'opérateur de CONFIRMATION
+            etat_conf_op = commande.etats.filter(
+                enum_etat__libelle='Confirmée',
+                operateur__type_operateur='CONFIRMATION'
+            ).order_by('-date_debut').first()
+
+            if etat_conf_op:
+                commande.etat_confirmation = etat_conf_op
+            else:
+                etat_conf_any = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('date_debut').first()
+                commande.etat_confirmation = etat_conf_any
     
     # Si aucune commande trouvée avec la méthode stricte, essayer une approche plus large
     if isinstance(commandes_affectees, list):
@@ -540,14 +543,17 @@ def liste_prepa(request):
                 
                 commande.etat_precedent = etat_precedent
                 
-                # Trouver l'état de confirmation (le premier état "Confirmée")
-                etat_confirmation = None
-                for etat in etats_commande:
-                    if etat.enum_etat.libelle == 'Confirmée':
-                        etat_confirmation = etat
-                        break
-                
-                commande.etat_confirmation = etat_confirmation
+                # Trouver l'état de confirmation : priorité à l'opérateur de CONFIRMATION
+                etat_conf_op = commande.etats.filter(
+                    enum_etat__libelle='Confirmée',
+                    operateur__type_operateur='CONFIRMATION'
+                ).order_by('-date_debut').first()
+
+                if etat_conf_op:
+                    commande.etat_confirmation = etat_conf_op
+                else:
+                    etat_conf_any = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('date_debut').first()
+                    commande.etat_confirmation = etat_conf_any
     
     # Suppression du filtre 'nouvelles' car redondant avec l'affectation automatique
     # Suppression du filtre 'renvoyees_preparation' car non nécessaire
@@ -4972,8 +4978,7 @@ def commandes_confirmees(request):
     
     # Récupérer toutes les commandes confirmées
     commandes_confirmees = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True
+        etats__enum_etat__libelle='Confirmée'
     ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
     
     # Recherche
@@ -5048,21 +5053,18 @@ def commandes_confirmees(request):
     # Confirmées aujourd'hui
     confirmees_aujourd_hui = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
         etats__date_debut__date=today
     ).distinct().count()
     
     # Confirmées cette semaine
     confirmees_semaine = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
         etats__date_debut__date__gte=week_start
     ).distinct().count()
     
     # Confirmées ce mois
     confirmees_mois = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
         etats__date_debut__date__gte=month_start
     ).distinct().count()
     
@@ -5071,6 +5073,19 @@ def commandes_confirmees(request):
     
     # Montant total des commandes confirmées (utiliser les données non paginées)
     montant_total = commandes_non_paginees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Ajouter l'état de confirmation à chaque commande
+    for commande in page_obj:
+        etats_commande = list(commande.etats.all().order_by('date_debut'))
+        
+        # Trouver l'état de confirmation (le premier état "Confirmée")
+        etat_confirmation = None
+        for etat in etats_commande:
+            if etat.enum_etat.libelle == 'Confirmée':
+                etat_confirmation = etat
+                break
+        
+        commande.etat_confirmation = etat_confirmation
     
     # Récupérer les opérateurs de préparation actifs
     operateurs_preparation = Operateur.objects.filter(

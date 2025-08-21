@@ -2611,71 +2611,74 @@ def imprimer_tickets_preparation(request):
 
 # === NOUVELLES FONCTIONNALITÉS : GESTION DE STOCK ===
 
-@login_required
-def ajuster_stock(request, article_id):
-    """Ajuster le stock d'un article - Service de préparation"""
-    try:
-        operateur_profile = request.user.profil_operateur
-        if not operateur_profile.is_preparation:
-            messages.error(request, "Accès non autorisé.")
-            return redirect('login')
-    except Operateur.DoesNotExist:
-        messages.error(request, "Profil opérateur non trouvé.")
-        return redirect('login')
-    
-    article = get_object_or_404(Article, pk=article_id)
-    
-    if request.method == 'POST':
-        form = AjusterStockForm(request.POST)
-        if form.is_valid():
-            type_mouvement = form.cleaned_data['type_mouvement']
-            quantite = form.cleaned_data['quantite']
-            commentaire = form.cleaned_data['commentaire']
-            
-            try:
-                print(f"🔧 Ajustement stock - Article: {article.nom}, Type: {type_mouvement}, Quantité: {quantite}")
-                print(f"🔧 Stock avant ajustement: {article.qte_disponible}")
-                
-                mouvement = creer_mouvement_stock(
-                    article=article,
-                    quantite=quantite,
-                    type_mouvement=type_mouvement,
-                    operateur=operateur_profile,
-                    commentaire=commentaire
-                )
-                
-                # Recharger l'article pour voir le stock mis à jour
-                article.refresh_from_db()
-                print(f"✅ Stock après ajustement: {article.qte_disponible}")
-                
-                if mouvement:
-                    messages.success(request, f"Le stock de l'article '{article.nom}' a été ajusté avec succès. Nouveau stock: {article.qte_disponible}")
-                else:
-                    messages.warning(request, "L'ajustement n'a pas pu être effectué.")
-                    
-                return redirect('Prepacommande:detail_article', article_id=article.id)
-            except Exception as e:
-                print(f"❌ Erreur dans ajuster_stock: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                messages.error(request, f"Une erreur est survenue lors de l'ajustement du stock : {e}")
+# === FONCTION SUPPRIMÉE : GESTION DE STOCK DÉPLACÉE VERS ADMIN ===
+# @login_required
+# def ajuster_stock(request, article_id):
+#     """Ajuster le stock d'un article - Service de préparation"""
+#     try:
+#         operateur_profile = request.user.profil_operateur
+#         if not operateur_profile.is_preparation:
+#             messages.error(request, "Accès non autorisé.")
+#             return redirect('login')
+#     except Operateur.DoesNotExist:
+#         messages.error(request, "Profil opérateur non trouvé.")
+#         return redirect('login')
+#     
+#     article = get_object_or_404(Article, pk=article_id)
+#     
+#     if request.method == 'POST':
+#         form = AjusterStockForm(request.POST)
+#         if form.is_valid():
+#             type_mouvement = form.cleaned_data['type_mouvement']
+#             quantite = form.cleaned_data['quantite']
+#             commentaire = form.cleaned_data['commentaire']
+#             
+#             try:
+#                 print(f"🔧 Ajustement stock - Article: {article.nom}, Type: {type_mouvement}, Quantité: {quantite}")
+#                 print(f"🔧 Stock avant ajustement: {article.qte_disponible}")
+#                 
+#                 mouvement = creer_mouvement_stock(
+#                     article=article,
+#                     quantite=quantite,
+#                     type_mouvement=type_mouvement,
+#                     operateur=operateur_profile,
+#                     commentaire=commentaire
+#                 )
+#                 
+#                 # Recharger l'article pour voir le stock mis à jour
+#                 article.refresh_from_db()
+#                 print(f"✅ Stock après ajustement: {article.qte_disponible}")
+#                 
+#                 if mouvement:
+#                     messages.success(request, f"Le stock de l'article '{article.nom}' a été ajusté avec succès. Nouveau stock: {article.qte_disponible}")
+#                 else:
+#                     messages.warning(request, "L'ajustement n'a pas pu être effectué.")
+#                     
+#                 return redirect('Prepacommande:detail_article', article_id=article.id)
+#             except Exception as e:
+#                 print(f"❌ Erreur dans ajuster_stock: {str(e)}")
+#                 import traceback
+#                 traceback.print_exc()
+#                 messages.error(request, f"Une erreur est survenue lors de l'ajustement du stock : {e}")
+# 
+#     else:
+#         form = AjusterStockForm()
+# 
+#     mouvements_recents = article.mouvements.order_by('-date_mouvement')[:10]
+# 
+#     context = {
+#         'form': form,
+#         'article': article,
+#         'mouvements_recents': mouvements_recents,
+#         'page_title': f"Ajuster le Stock - {article.nom}",
+#     }
+#     return render(request, 'Prepacommande/stock/ajuster_stock.html', context)
+    pass
 
-    else:
-        form = AjusterStockForm()
-
-    mouvements_recents = article.mouvements.order_by('-date_mouvement')[:10]
-
-    context = {
-        'form': form,
-        'article': article,
-        'mouvements_recents': mouvements_recents,
-        'page_title': f"Ajuster le Stock - {article.nom}",
-    }
-    return render(request, 'Prepacommande/stock/ajuster_stock.html', context)
-
-@login_required
-def detail_article(request, article_id):
-    """Afficher les détails d'un article spécifique - Service de préparation"""
+# === FONCTION SUPPRIMÉE : GESTION DE STOCK DÉPLACÉE VERS ADMIN ===
+# @login_required
+# def detail_article(request, article_id):
+#     """Afficher les détails d'un article spécifique - Service de préparation"""
     article = get_object_or_404(Article, pk=article_id)
     
     # Calculer la valeur totale du stock
@@ -2693,9 +2696,10 @@ def detail_article(request, article_id):
     }
     return render(request, 'Prepacommande/stock/detail_article.html', context)
 
-@login_required
-def liste_articles(request):
-    """Afficher la liste des articles avec filtres et statistiques - Service de préparation"""
+# === FONCTION SUPPRIMÉE : GESTION DE STOCK DÉPLACÉE VERS ADMIN ===
+# @login_required
+# def liste_articles(request):
+#     """Afficher la liste des articles avec filtres et statistiques - Service de préparation"""
     try:
         operateur_profile = request.user.profil_operateur
         if not operateur_profile.is_preparation:
@@ -2840,9 +2844,10 @@ def liste_articles(request):
     }
     return render(request, 'Prepacommande/stock/liste_articles.html', context)
 
-@login_required
-def mouvements_stock(request):
-    """Vue pour afficher l'historique des mouvements de stock - Service de préparation"""
+# === FONCTION SUPPRIMÉE : GESTION DE STOCK DÉPLACÉE VERS ADMIN ===
+# @login_required
+# def mouvements_stock(request):
+#     """Vue pour afficher l'historique des mouvements de stock - Service de préparation"""
     try:
         operateur_profile = request.user.profil_operateur
         if not operateur_profile.is_preparation:
@@ -2912,9 +2917,10 @@ def mouvements_stock(request):
     }
     return render(request, 'Prepacommande/stock/mouvements_stock.html', context)
 
-@login_required
-def alertes_stock(request):
-    """Vue pour afficher les alertes de stock - Service de préparation"""
+# === FONCTION SUPPRIMÉE : GESTION DE STOCK DÉPLACÉE VERS ADMIN ===
+# @login_required
+# def alertes_stock(request):
+#     """Vue pour afficher les alertes de stock - Service de préparation"""
     try:
         operateur_profile = request.user.profil_operateur
         if not operateur_profile.is_preparation:
@@ -3055,9 +3061,10 @@ def alertes_stock(request):
     }
     return render(request, 'Prepacommande/stock/alertes_stock.html', context)
 
-@login_required
-def statistiques_stock(request):
-    """Vue pour afficher les statistiques de stock - Service de préparation"""
+# === FONCTION SUPPRIMÉE : GESTION DE STOCK DÉPLACÉE VERS ADMIN ===
+# @login_required
+# def statistiques_stock(request):
+#     """Vue pour afficher les statistiques de stock - Service de préparation"""
     try:
         operateur_profile = request.user.profil_operateur
         if not operateur_profile.is_preparation:
@@ -3212,9 +3219,10 @@ def statistiques_stock(request):
     }
     return render(request, 'Prepacommande/stock/statistiques_stock.html', context)
 
-@login_required
-def creer_article(request):
-    """Créer un nouvel article - Service de préparation"""
+# === FONCTION SUPPRIMÉE : GESTION DE STOCK DÉPLACÉE VERS ADMIN ===
+# @login_required
+# def creer_article(request):
+#     """Créer un nouvel article - Service de préparation"""
     try:
         operateur_profile = request.user.profil_operateur
         if not operateur_profile.is_preparation:
@@ -3271,9 +3279,10 @@ def creer_article(request):
     }
     return render(request, 'Prepacommande/stock/creer_article.html', context)
 
-@login_required
-def modifier_article(request, article_id):
-    """Modifier un article existant - Service de préparation"""
+# === FONCTION SUPPRIMÉE : GESTION DE STOCK DÉPLACÉE VERS ADMIN ===
+# @login_required
+# def modifier_article(request, article_id):
+#     """Modifier un article existant - Service de préparation"""
     try:
         operateur_profile = request.user.profil_operateur
         if not operateur_profile.is_preparation:

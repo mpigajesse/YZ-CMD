@@ -534,8 +534,7 @@ def commandes_confirmees(request):
         # Récupérer seulement les commandes confirmées par cet opérateur
         mes_commandes_confirmees = Commande.objects.filter(
             etats__enum_etat__libelle='Confirmée',
-            etats__date_fin__isnull=True,
-            etats__operateur=operateur  # Utiliser l'objet Operateur
+            etats__operateur=operateur  # Inclure même si l'état Confirmée est clôturé
         ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
         
 
