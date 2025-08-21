@@ -197,11 +197,13 @@ class Panier(models.Model):
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='paniers')
     quantite = models.IntegerField()
     sous_total = models.FloatField()
+    # Nouveau champ pour stocker l'ID de la variante sélectionnée
+    variante_id = models.IntegerField(blank=True, null=True, help_text="ID de la variante sélectionnée")
     
     class Meta:
         verbose_name = "Panier"
         verbose_name_plural = "Paniers"
-        unique_together = [['commande', 'article']]
+        unique_together = [['commande', 'article', 'variante_id']]
         constraints = [
             models.CheckConstraint(check=models.Q(quantite__gt=0), name='quantite_positive'),
             models.CheckConstraint(check=models.Q(sous_total__gte=0), name='sous_total_positif'),
@@ -209,6 +211,38 @@ class Panier(models.Model):
     
     def __str__(self):
         return f"{self.commande.num_cmd} - {self.article.nom} (x{self.quantite})"
+    
+    @property
+    def variante(self):
+        """Retourne la variante associée à ce panier, si elle existe"""
+        if self.variante_id:
+            from article.models import VarianteArticle
+            try:
+                return VarianteArticle.objects.get(id=self.variante_id)
+            except VarianteArticle.DoesNotExist:
+                return None
+        return None
+    
+    @property
+    def stock_disponible(self):
+        """Retourne le stock disponible de la variante ou de l'article"""
+        if self.variante:
+            return self.variante.qte_disponible
+        return self.article.qte_disponible
+    
+    @property
+    def couleur(self):
+        """Retourne la couleur de la variante ou de l'article"""
+        if self.variante and self.variante.couleur:
+            return self.variante.couleur.nom
+        return self.article.couleur
+    
+    @property
+    def pointure(self):
+        """Retourne la pointure de la variante ou de l'article"""
+        if self.variante and self.variante.pointure:
+            return self.variante.pointure.pointure
+        return self.article.pointure
 
 
 class EtatCommande(models.Model):

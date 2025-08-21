@@ -170,57 +170,60 @@
     {% if article.variantes.all %}
         <!-- Tableau croisé dynamique - Version simplifiée et claire -->
         <div class="overflow-x-auto">
-            <table class="w-full border-collapse border" style="border-color: #e6fffe;">
-                <thead>
-                    <tr class="bg-gray-50" style="border-color: #e6fffe;">
-                        <th class="p-3 text-left font-semibold border" style="color: #023535; border-color: #e6fffe;">Pointure / Couleur</th>
-                        {% for couleur in couleurs_uniques %}
-                            <th class="p-3 text-center font-semibold border" style="color: #023535; border-color: #e6fffe;">
-                                <div class="flex items-center justify-center">
-                                    <div class="w-4 h-4 rounded-full mr-2 border border-gray-300" style="background-color: #ccc;"></div>
-                                    <span>{{ couleur }}</span>
-                                </div>
-                            </th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for pointure in pointures_uniques %}
-                        <tr class="border-b hover:bg-gray-50 transition-colors" style="border-color: #e6fffe;">
-                            <td class="p-3 font-semibold border" style="border-color: #e6fffe; color: #023535;">
-                                {{ pointure }}
-                            </td>
-                            {% for couleur in couleurs_uniques %}
-                                <td class="p-3 text-center border" style="border-color: #e6fffe;">
-                                    {% for variante in article.variantes.all %}
-                                        {% if variante.pointure.pointure == pointure and variante.couleur.nom == couleur %}
-                                            {% if variante.qte_disponible > 0 %}
-                                                {% if variante.qte_disponible < 5 %}
-                                                    <span class="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
-                                                        {{ variante.qte_disponible }}
-                                                    </span>
-                                                {% else %}
-                                                    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                                                        {{ variante.qte_disponible }}
-                                                    </span>
-                                                {% endif %}
-                                            {% else %}
-                                                <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
-                                                    Rupture
-                                                </span>
-                                            {% endif %}
-                                        {% endif %}
-                                    {% empty %}
-                                        <span class="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-medium">
-                                            -
+<table class="w-full border-collapse border" style="border-color: #e6fffe;">
+    <thead>
+        <tr class="bg-gray-50" style="border-color: #e6fffe;">
+            <th class="p-3 text-left font-semibold border" style="color: #023535; border-color: #e6fffe;">
+                Couleur / Pointure
+            </th>
+            <!-- Colonnes = Pointures -->
+            {% for pointure in pointures_uniques %}
+                <th class="p-3 text-center font-semibold border" style="color: #023535; border-color: #e6fffe;">
+                    {{ pointure }}
+                </th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Lignes = Couleurs -->
+        {% for couleur in couleurs_uniques %}
+            <tr class="border-b hover:bg-gray-50 transition-colors" style="border-color: #e6fffe;">
+                <td class="p-3 font-semibold border flex items-center" style="border-color: #e6fffe; color: #023535;">
+                    <div class="w-4 h-4 rounded-full mr-2 border border-gray-300" style="background-color: #ccc;"></div>
+                    <span>{{ couleur }}</span>
+                </td>
+                {% for pointure in pointures_uniques %}
+                    <td class="p-3 text-center border" style="border-color: #e6fffe;">
+                        {% for variante in article.variantes.all %}
+                            {% if variante.couleur.nom == couleur and variante.pointure.pointure == pointure %}
+                                {% if variante.qte_disponible > 0 %}
+                                    {% if variante.qte_disponible < 5 %}
+                                        <span class="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
+                                            {{ variante.qte_disponible }}
                                         </span>
-                                    {% endfor %}
-                                </td>
-                            {% endfor %}
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                                    {% else %}
+                                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                                            {{ variante.qte_disponible }}
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+                                        Rupture
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+                        {% empty %}
+                            <span class="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-medium">
+                                -
+                            </span>
+                        {% endfor %}
+                    </td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
         </div>
 
         <!-- Légende des indicateurs -->

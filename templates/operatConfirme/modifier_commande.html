@@ -308,6 +308,8 @@
                         </div>
                     </div>
                     
+                   
+                    
                     <!-- Bouton de validation pour cette section -->
                     <!-- Bouton supprimé - Section informations-commande -->
                     <i class="fas fa-check-circle check-icon text-2xl float-right"></i>
@@ -549,12 +551,26 @@
                             <i class="fas fa-arrow-up mr-1"></i>Upsell Niveau {{ commande.compteur }}
                         </span>
                         {% endif %}
+                    {% if commande.produit_init %}
+                <div class="mt-4">
+                            <p class="block text-sm font-medium text-gray-700 mb-2">Produit Initial (Sheets)</p>
+                            <div class="w-full p-3 bg-blue-50 border border-blue-200 rounded-lg text-gray-700 whitespace-pre-line">
+                    {{ commande.produit_init }}
+                            </div>
+                    </div>
+                    {% endif %}
                         
                         </h3>
-                        <button type="button" onclick="ajouterNouvelArticle()" 
-                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all">
-                            <i class="fas fa-plus mr-2"></i>Ajouter un article
-                        </button>
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="ajouterNouvelArticle()" 
+                                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all">
+                                <i class="fas fa-plus mr-2"></i>Ajouter un article
+                            </button>
+                            <button type="button" onclick="ouvrirModalVariantesSansArticle()" 
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all">
+                                <i class="fas fa-th-list mr-2"></i>Sélectionner variante
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- Liste des articles existants -->
@@ -3145,8 +3161,6 @@ function chargerArticlesDisponibles() {
                                 <div class="text-xs text-gray-500">Réf: ${article.reference || '-'}</div>
                                 <div class="mt-1">${badgeHtml}</div>
                                 <div class="mt-1 flex flex-wrap gap-2 text-xs">
-                                    ${article.pointure ? `<span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class=\"fas fa-ruler-vertical mr-1\"></i>${article.pointure}</span>` : ''}
-                                    ${article.couleur ? `<span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full"><i class=\"fas fa-palette mr-1\"></i>${article.couleur}</span>` : ''}
                                     ${typeof article.categorie === 'string' ? `<span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full"><i class=\"fas fa-tag mr-1\"></i>${article.categorie}</span>` : ''}
                                 </div>
                             </div>
@@ -3344,29 +3358,40 @@ function changerQteLigne(button, delta) {
 function ajouterDepuisLigne(button) {
     try {
         const tr = button.closest('tr');
-        if (!tr) return;
-        const article = JSON.parse(tr.dataset.article || '{}');
-        const qtyInput = tr.querySelector('input[type="number"]');
-        const quantite = Math.max(1, parseInt(qtyInput?.value || '1'));
-
-        const hiddenSelect = document.getElementById('articleSelect');
-        if (!hiddenSelect) return;
-        hiddenSelect.value = article.id;
-        const qteInput = document.getElementById('quantiteInput');
-        if (qteInput) qteInput.value = String(quantite);
-
-        const opt = Array.from(hiddenSelect.options).find(o => String(o.value) === String(article.id));
-        if (opt) {
-            opt.dataset.article = JSON.stringify(article);
-            hiddenSelect.selectedIndex = opt.index;
+        if (!tr) {
+            console.error('❌ Impossible de trouver la ligne (tr)');
+            return;
         }
-
-        afficherInfosArticle(article);
-        isEditingArticle = false;
-        saveArticle();
+        
+        console.log('🔍 Élément tr trouvé:', tr);
+        console.log('📦 Dataset brut:', tr.dataset);
+        console.log('📋 Dataset.article:', tr.dataset.article);
+        
+        const article = JSON.parse(tr.dataset.article || '{}');
+        
+        console.log('🎯 Article parsé:', article);
+        console.log('🆔 ID de l\'article:', article.id);
+        console.log('🔑 Toutes les clés de l\'article:', Object.keys(article));
+        
+        // Vérifier différentes clés possibles pour l'ID
+        let articleId = article.id || article.article_id || article.pk;
+        console.log('🔍 ID résolu:', articleId);
+        
+        if (!articleId) {
+            console.error('❌ Aucun ID trouvé dans les données de l\'article');
+            console.error('📋 Données complètes:', article);
+            showToast('❌ Erreur: ID de l\'article manquant', 'error');
+            return;
+        }
+        
+        // Mettre à jour l'objet article avec l'ID résolu
+        article.id = articleId;
+        
+        // Ouvrir le modal de sélection des variantes
+        ouvrirModalVariantes(article);
     } catch (e) {
         console.error('❌ Erreur ajout depuis ligne:', e);
-        showToast('❌ Erreur lors de l\'ajout de l\'article', 'error');
+        showToast('❌ Erreur lors de l\'ouverture du modal de variantes', 'error');
     }
 }
 
@@ -3391,6 +3416,271 @@ function fermerModalAjouterArticle() {
         modal.style.display = 'none';
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+    }
+}
+
+// ===== Gestion du modal des variantes =====
+function ouvrirModalVariantes(article) {
+    try {
+        // Fermer le modal "Ajouter un article" s'il est ouvert
+        fermerModalAjouterArticle();
+        
+        // Mettre à jour les informations de l'article
+        document.getElementById('articleNom').textContent = article.nom || 'Article';
+        document.getElementById('articleReference').textContent = `Réf: ${article.reference || ''}`;
+        
+        // Charger les variantes de l'article
+        chargerVariantesArticle(article);
+        
+        // Afficher le modal
+        const modal = document.getElementById('variantModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    } catch (e) {
+        console.error('❌ Erreur ouverture modal variantes:', e);
+        showToast('❌ Erreur lors de l\'ouverture du modal', 'error');
+    }
+}
+
+function fermerModalVariantes() {
+    const modal = document.getElementById('variantModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+function chargerVariantesArticle(article) {
+    try {
+        const variantsList = document.getElementById('variantsList');
+        if (!variantsList) return;
+        
+        console.log('🔍 Chargement des variantes pour l\'article:', article);
+        
+        variantsList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Chargement des variantes...</div>';
+        
+        const url = `/operateur-confirme/get-article-variants/${article.id}/`;
+        console.log('📡 URL de requête:', url);
+        
+        // Faire une requête AJAX pour récupérer les variantes
+        fetch(url)
+            .then(response => {
+                console.log('📥 Réponse reçue:', response.status, response.statusText);
+                return response.json();
+            })
+            .then(data => {
+                console.log('📊 Données reçues:', data);
+                if (data.success && data.variants) {
+                    console.log(`✅ ${data.variants.length} variantes trouvées`);
+                    afficherVariantes(data.variants, article);
+                } else {
+                    console.log('❌ Aucune variante ou erreur:', data.error);
+                    variantsList.innerHTML = '<div class="text-center py-4 text-gray-500">Aucune variante disponible</div>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur chargement variantes:', error);
+                variantsList.innerHTML = '<div class="text-center py-4 text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>Erreur lors du chargement</div>';
+            });
+    } catch (e) {
+        console.error('❌ Erreur chargerVariantesArticle:', e);
+    }
+}
+
+function afficherVariantes(variants, article) {
+    const variantsList = document.getElementById('variantsList');
+    if (!variantsList) return;
+    
+    if (variants.length === 0) {
+        variantsList.innerHTML = '<div class="text-center py-4 text-gray-500">Aucune variante disponible</div>';
+        return;
+    }
+    
+    const variantsHtml = variants.map(variant => {
+        const stockClass = variant.stock > 0 ? 'text-green-600' : 'text-red-600';
+        const stockText = variant.stock > 0 ? `${variant.stock} en stock` : 'Rupture de stock';
+        const disabledClass = variant.stock <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-50 cursor-pointer';
+        
+        return `
+            <div class="border rounded-lg p-4 ${disabledClass}" onclick="${variant.stock > 0 ? `selectionnerVariante(${JSON.stringify(variant).replace(/"/g, '&quot;')}, ${JSON.stringify(article).replace(/"/g, '&quot;')})` : ''}">
+                <div class="flex justify-between items-center">
+                    <div class="flex-1">
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            ${variant.couleur ? `<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">Couleur: ${variant.couleur}</span>` : ''}
+                            ${variant.pointure ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">Pointure: ${variant.pointure}</span>` : ''}
+                            ${variant.taille ? `<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Taille: ${variant.taille}</span>` : ''}
+                        </div>
+                        <div class="text-lg font-semibold">${variant.prix_unitaire} DH</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm ${stockClass} font-medium">${stockText}</div>
+                        ${variant.stock > 0 ? '<button class="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm">Sélectionner</button>' : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    variantsList.innerHTML = variantsHtml;
+}
+
+function selectionnerVariante(variant, article) {
+    try {
+        console.log('🎯 Sélection de variante:', variant);
+        console.log('📋 Article parent:', article);
+        
+        // Fermer le modal des variantes
+        fermerModalVariantes();
+        
+        // Créer un article combiné avec les données de la variante
+        const articleAvecVariante = {
+            ...article,
+            // Garder l'ID de l'article principal pour le panier
+            id: article.id,
+            // Ajouter les caractéristiques de la variante
+            couleur: variant.couleur,
+            pointure: variant.pointure,
+            taille: variant.taille,
+            // Utiliser les prix et stock de la variante
+            prix_actuel: variant.prix_unitaire,
+            prix_unitaire: variant.prix_unitaire,
+            stock_disponible: variant.stock,
+            qte_disponible: variant.stock,
+            // Ajouter l'ID de la variante pour référence
+            variante_id: variant.id,
+            reference_variante: variant.reference_variante
+        };
+        
+        console.log('🔄 Article avec variante créé:', articleAvecVariante);
+        
+        // Utiliser la logique existante pour ajouter l'article
+        const hiddenSelect = document.getElementById('articleSelect');
+        if (!hiddenSelect) {
+            console.error('❌ articleSelect non trouvé');
+            return;
+        }
+        
+        // Utiliser l'ID de l'article principal, pas de la variante
+        hiddenSelect.value = article.id;
+        const qteInput = document.getElementById('quantiteInput');
+        if (qteInput) qteInput.value = '1';
+        
+        // Créer ou mettre à jour l'option dans le select avec l'ID de l'article principal
+        let opt = Array.from(hiddenSelect.options).find(o => String(o.value) === String(article.id));
+        if (!opt) {
+            opt = new Option('', article.id);
+            hiddenSelect.appendChild(opt);
+        }
+        opt.dataset.article = JSON.stringify(articleAvecVariante);
+        hiddenSelect.selectedIndex = opt.index;
+        
+        console.log('💾 Option créée/mise à jour dans le select');
+        
+        afficherInfosArticle(articleAvecVariante);
+        isEditingArticle = false;
+        
+        console.log('📞 Appel de saveArticle()');
+        saveArticle();
+        
+        showToast('✅ Variante ajoutée avec succès', 'success');
+    } catch (e) {
+        console.error('❌ Erreur sélection variante:', e);
+        showToast('❌ Erreur lors de la sélection de la variante', 'error');
+    }
+}
+
+function ouvrirModalVariantesSansArticle() {
+    try {
+        // Fermer le modal d'ajout d'article s'il est ouvert
+        fermerModalAjouterArticle();
+        
+        // Afficher le modal des variantes avec une interface de sélection d'article
+        document.getElementById('articleNom').textContent = 'Sélectionner un article';
+        document.getElementById('articleReference').textContent = 'Choisissez d\'abord un article pour voir ses variantes';
+        
+        // Vider la liste des variantes et afficher une interface de sélection d'articles
+        const variantsList = document.getElementById('variantsList');
+        if (variantsList) {
+            variantsList.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
+                    <h4 class="text-lg font-medium text-gray-700 mb-2">Rechercher un article</h4>
+                    <p class="text-gray-500 mb-4">Tapez le nom, référence ou caractéristiques de l'article</p>
+                    <input type="text" id="rechercheArticleVariantes" placeholder="Rechercher un article..." 
+                           class="w-full max-w-md mx-auto p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           oninput="rechercherArticlesPourVariantes(this.value)" />
+                    <div id="resultatsRechercheVariantes" class="mt-4">
+                        <!-- Les résultats apparaîtront ici -->
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Afficher le modal
+        const modal = document.getElementById('variantModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    } catch (e) {
+        console.error('❌ Erreur ouverture modal variantes sans article:', e);
+        showToast('❌ Erreur lors de l\'ouverture du modal', 'error');
+    }
+}
+
+function rechercherArticlesPourVariantes(terme) {
+    try {
+        if (!terme || terme.length < 2) {
+            document.getElementById('resultatsRechercheVariantes').innerHTML = '';
+            return;
+        }
+        
+        const resultatsDiv = document.getElementById('resultatsRechercheVariantes');
+        resultatsDiv.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Recherche en cours...</div>';
+        
+        // Utiliser la même API que pour la recherche normale d'articles
+        fetch(`/operateur-confirme/api/articles-disponibles/?q=${encodeURIComponent(terme)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.articles && data.articles.length > 0) {
+                    const articlesHtml = data.articles.slice(0, 5).map(article => `
+                        <div class="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer mb-3" onclick="ouvrirModalVariantes(${JSON.stringify(article).replace(/"/g, '&quot;')})">
+                            <div class="flex justify-between items-center">
+                                <div class="flex-1">
+                                    <h5 class="font-medium text-gray-900">${article.nom}</h5>
+                                    <p class="text-sm text-gray-600">Réf: ${article.reference || 'N/A'}</p>
+                                    <div class="flex gap-2 mt-2">
+                                        ${article.couleur ? `<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">${article.couleur}</span>` : ''}
+                                        ${article.pointure ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${article.pointure}</span>` : ''}
+                                        ${article.categorie ? `<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">${article.categorie}</span>` : ''}
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-semibold text-green-600">${article.prix_actuel} DH</div>
+                                    <button class="mt-2 px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm">
+                                        Voir variantes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    resultatsDiv.innerHTML = articlesHtml;
+                } else {
+                    resultatsDiv.innerHTML = '<div class="text-center py-4 text-gray-500">Aucun article trouvé</div>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur recherche articles:', error);
+                resultatsDiv.innerHTML = '<div class="text-center py-4 text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>Erreur lors de la recherche</div>';
+            });
+    } catch (e) {
+        console.error('❌ Erreur rechercherArticlesPourVariantes:', e);
     }
 }
 
@@ -3764,11 +4054,30 @@ function saveArticle() {
 
     let action = isEditingArticle ? 'update_article' : 'add_article';
     
+    // Récupérer les informations de variante depuis l'option sélectionnée
+    const selectedOption = select.options[select.selectedIndex];
+    let varianteId = null;
+    
+    if (selectedOption && selectedOption.dataset.article) {
+        try {
+            const articleData = JSON.parse(selectedOption.dataset.article);
+            varianteId = articleData.variante_id || null;
+            console.log('🎯 Variante ID récupérée:', varianteId);
+        } catch (e) {
+            console.warn('❌ Erreur parsing article data:', e);
+        }
+    }
+    
     let body = new URLSearchParams({
         'action': action,
         'article_id': articleId,
         'quantite': quantite,
     });
+    
+    // Ajouter l'ID de variante s'il existe
+    if (varianteId) {
+        body.append('variante_id', varianteId);
+    }
 
     if(isEditingArticle) {
         body.append('panier_id', currentArticleId); // currentArticleId est l'ID du *panier*
@@ -6225,6 +6534,39 @@ function modifierArticle(panierId) {
                     <i class="fas fa-check mr-2"></i>Compris !
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de sélection des variantes -->
+<div id="variantModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50" style="backdrop-filter: blur(8px); display: none;">
+    <div class="bg-white rounded-xl p-6 w-full max-w-4xl mx-4 shadow-2xl">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="fas fa-th-list text-blue-500 mr-3"></i>
+                <span>Sélectionner une variante</span>
+            </div>
+            <span class="text-gray-500 hover:text-gray-700 cursor-pointer transition-colors" onclick="fermerModalVariantes()">
+                <i class="fas fa-times text-xl"></i>
+            </span>
+        </h3>
+
+        <!-- Informations de l'article sélectionné -->
+        <div id="articleInfo" class="mb-4 p-4 bg-gray-50 rounded-lg">
+            <h4 id="articleNom" class="font-medium text-gray-900"></h4>
+            <p id="articleReference" class="text-sm text-gray-600"></p>
+        </div>
+
+        <!-- Liste des variantes -->
+        <div id="variantsList" class="space-y-3 max-h-96 overflow-y-auto">
+            <!-- Les variantes seront chargées dynamiquement ici -->
+        </div>
+
+        <div class="flex justify-end space-x-3 mt-6">
+            <button type="button" onclick="fermerModalVariantes()" 
+                    class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors">
+                Annuler
+            </button>
         </div>
     </div>
 </div>

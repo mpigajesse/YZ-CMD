@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/commande/<int:commande_id>/rafraichir-articles/', views.rafraichir_articles_section, name='api_rafraichir_articles'),
     path('api/recherche-client-tel/', views.api_recherche_client_tel, name='api_recherche_client_tel'),
     path('api/recherche-article-ref/', views.api_recherche_article_ref, name='api_recherche_article_ref'),
+    path('get-article-variants/<int:article_id>/', views.get_article_variants, name='get_article_variants'),
     
     # URLs pour la recherche globale
     path('recherche-globale/', search_views.global_search_view, name='global_search'),
