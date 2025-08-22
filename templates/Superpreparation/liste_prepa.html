@@ -710,8 +710,23 @@ let currentPage = 1;
 let currentFilter = 'affectees_admin';
 let currentSearch = '';
 
-// Fonction pour ouvrir/fermer le dropdown
-function toggleDropdown() {
+// Protection de la fonction toggleDropdown de la sidebar
+if (typeof window.toggleDropdown === 'undefined') {
+    console.warn('⚠️ Fonction toggleDropdown de la sidebar non trouvée, création d\'une version de secours');
+    window.toggleDropdown = function(id) {
+        const dropdown = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+        if (dropdown && icon) {
+            dropdown.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
+        }
+    };
+} else {
+    console.log('✅ Fonction toggleDropdown de la sidebar trouvée et préservée');
+}
+
+// Fonction pour ouvrir/fermer le dropdown de pagination (renommée pour éviter les conflits)
+function togglePaginationDropdown() {
     const dropdown = document.getElementById('dropdownOptions');
     const button = document.getElementById('dropdownButton');
     const chevron = button.querySelector('.fa-chevron-down');
@@ -777,7 +792,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (dropdownButton) {
         dropdownButton.addEventListener('click', function(e) {
             e.preventDefault();
-            toggleDropdown();
+            togglePaginationDropdown();
         });
     }
     
@@ -795,7 +810,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const dropdown = document.getElementById('customDropdown');
         if (dropdown && !dropdown.contains(e.target)) {
             if (isDropdownOpen) {
-                toggleDropdown();
+                togglePaginationDropdown();
             }
         }
     });
