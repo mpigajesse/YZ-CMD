@@ -729,26 +729,59 @@
                         </div>
                          
                         </div>
+                        <style>
+                        .filter-badge {
+                            transition: all 0.2s ease;
+                            border: 2px solid transparent;
+                        }
+                        .filter-badge:hover {
+                            transform: translateY(-1px);
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                        }
+                        .filter-badge.active {
+                            border-color: #3B82F6 !important;
+                            transform: scale(1.05) !important;
+                            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+                        }
+                        .filter-badge[style*="opacity: 0.5"] {
+                            pointer-events: none;
+                        }
+                        </style>
                         <div class="badge-legend flex justify-between gap-3 text-sm">
                             <span id="filter-all" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 rounded-full font-medium cursor-pointer filter-badge active whitespace-nowrap hover:bg-gray-200 transition-colors" 
                                   onclick="filtrerArticles('all')" title="Afficher tous les articles">
-                                🔍 TOUS
+                                <span class="flex items-center">
+                                    🔍 TOUS
+                                    <span id="count-all" class="ml-1 px-1.5 py-0.5 bg-gray-200 text-gray-800 rounded-full text-xs font-bold">0</span>
+                                </span>
                             </span>
                             <span id="filter-promo" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-red-100 text-red-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-red-200 transition-colors" 
                                   onclick="filtrerArticles('promo')" title="Filtrer les articles en promotion">
-                                🔥 PROMO
+                                <span class="flex items-center">
+                                    🔥 PROMO
+                                    <span id="count-promo" class="ml-1 px-1.5 py-0.5 bg-red-200 text-red-800 rounded-full text-xs font-bold">0</span>
+                                </span>
                             </span>
                             <span id="filter-liquidation" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-orange-100 text-orange-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-orange-200 transition-colors" 
                                   onclick="filtrerArticles('liquidation')" title="Filtrer les articles en liquidation">
-                                🏷️ LIQUIDATION
+                                <span class="flex items-center">
+                                    🏷️ LIQUIDATION
+                                    <span id="count-liquidation" class="ml-1 px-1.5 py-0.5 bg-orange-200 text-orange-800 rounded-full text-xs font-bold">0</span>
+                                </span>
                             </span>
                             <span id="filter-test" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-blue-200 transition-colors" 
                                   onclick="filtrerArticles('test')" title="Filtrer les articles en test">
-                                🧪 TEST
+                                <span class="flex items-center">
+                                    🧪 TEST
+                                    <span id="count-test" class="ml-1 px-1.5 py-0.5 bg-blue-200 text-blue-800 rounded-full text-xs font-bold">0</span>
+                                </span>
                             </span>
                             <span id="filter-upsell" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-green-100 text-green-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-green-200 transition-colors" 
                                   onclick="filtrerArticles('upsell')" title="Filtrer les articles upsell">
-                                ⬆️ UPSELL
+                                <span class="flex items-center">
+                                    ⬆️ UPSELL
+                                    <span id="count-upsell" class="ml-1 px-1.5 py-0.5 bg-green-200 text-green-800 rounded-full text-xs font-bold">0</span>
+                                </span>
                             </span>
                         </div>
                     </div>
@@ -5043,6 +5076,15 @@ document.addEventListener('DOMContentLoaded', function() {
 function filtrerArticles(typeFiltre) {
     console.log(`🔍 Filtrage des articles par type: ${typeFiltre}`);
     
+    // Vérifier si le filtre a des articles
+    const compteur = compterArticlesParType(typeFiltre);
+    
+    if (compteur === 0 && typeFiltre !== 'all') {
+        console.log(`⚠️ Aucun article de type ${typeFiltre}`);
+        showNotification(`⚠️ Aucun article de type ${typeFiltre.toUpperCase()} disponible`, 'warning', 3000);
+        return; // Ne pas appliquer le filtre s'il n'y a pas d'articles
+    }
+    
     filtreActuel = typeFiltre;
     
     // Mettre à jour l'état visuel des badges
@@ -5052,25 +5094,41 @@ function filtrerArticles(typeFiltre) {
     appliquerFiltreSelect(typeFiltre);
     
     // Afficher une notification
-    const compteur = compterArticlesParType(typeFiltre);
     const message = typeFiltre === 'all' ? 
         `🔍 Affichage de tous les articles (${compteur} total)` :
         `🔍 Filtrage par ${typeFiltre.toUpperCase()}: ${compteur} article(s) trouvé(s)`;
     
-    showNotification(message, 'info', 2000);
+    showNotification(message, 'success', 2000);
 }
 
 // Fonction pour mettre à jour l'état visuel des badges
 function mettreAJourBadgesActifs(typeActif) {
+    console.log(`🎨 Mise à jour des badges, actif: ${typeActif}`);
+    
     // Retirer la classe active de tous les badges
     document.querySelectorAll('.filter-badge').forEach(badge => {
         badge.classList.remove('active');
+        
+        // Retirer les styles personnalisés des badges inactifs
+        if (badge.id !== `filter-${typeActif}`) {
+            badge.style.backgroundColor = '';
+            badge.style.borderColor = '';
+            badge.style.transform = '';
+            badge.style.boxShadow = '';
+        }
     });
     
-    // Ajouter la classe active au badge sélectionné
+    // Ajouter la classe active et les styles au badge sélectionné
     const badgeActif = document.getElementById(`filter-${typeActif}`);
     if (badgeActif) {
         badgeActif.classList.add('active');
+        
+        // Ajouter des styles visuels pour montrer que c'est sélectionné
+        badgeActif.style.transform = 'scale(1.05)';
+        badgeActif.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        badgeActif.style.borderColor = '#3B82F6';
+        
+        console.log(`✅ Badge ${typeActif} activé`);
     }
 }
 
@@ -5279,23 +5337,26 @@ function compterArticlesParType(typeFiltre) {
 function mettreAJourCompteursFiltre() {
     const types = ['all', 'promo', 'liquidation', 'test', 'upsell'];
     
+    console.log('🔄 Mise à jour des compteurs de filtres');
+    
     types.forEach(type => {
-        const badge = document.getElementById(`filter-${type}`);
-        if (badge) {
+        const compteurElement = document.getElementById(`count-${type}`);
+        if (compteurElement) {
             const compteur = compterArticlesParType(type);
+            compteurElement.textContent = compteur;
             
-            // Supprimer l'ancien compteur s'il existe
-            const ancienCompteur = badge.querySelector('.article-count');
-            if (ancienCompteur) {
-                ancienCompteur.remove();
-            }
+            console.log(`📊 ${type.toUpperCase()}: ${compteur} articles`);
             
-            // Ajouter le nouveau compteur
-            if (compteur > 0) {
-                const compteurElement = document.createElement('span');
-                compteurElement.className = 'article-count';
-                compteurElement.textContent = compteur;
-                badge.appendChild(compteurElement);
+            // Changer l'opacité du badge si aucun article
+            const badge = document.getElementById(`filter-${type}`);
+            if (badge) {
+                if (compteur === 0) {
+                    badge.style.opacity = '0.5';
+                    badge.style.cursor = 'not-allowed';
+                } else {
+                    badge.style.opacity = '1';
+                    badge.style.cursor = 'pointer';
+                }
             }
         }
     });

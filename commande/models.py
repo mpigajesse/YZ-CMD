@@ -132,8 +132,22 @@ class Commande(models.Model):
     
     @property
     def etat_actuel(self):
-        """Retourne l'état actuel de la commande"""
-        return self.etats.filter(date_fin__isnull=True).first()
+        """
+        Retourne l'état actuel de la commande.
+        Priorité: Confirmée (si existe) > État ouvert > Dernier état fermé
+        """
+        # 1. Vérifier s'il y a un état "Confirmée" (priorité absolue pour l'affichage)
+        etat_confirmee = self.etats.filter(enum_etat__libelle='Confirmée').first()
+        if etat_confirmee:
+            return etat_confirmee
+            
+        # 2. Sinon, prendre l'état actuel ouvert (sans date_fin)
+        etat_ouvert = self.etats.filter(date_fin__isnull=True).first()
+        if etat_ouvert:
+            return etat_ouvert
+            
+        # 3. En dernier recours, prendre le dernier état fermé
+        return self.etats.order_by('-date_debut').first()
     
     @property
     def historique_etats(self):
