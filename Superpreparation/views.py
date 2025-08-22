@@ -21,7 +21,7 @@ from io import BytesIO
 import base64
 import csv
 
-from article.models import Article, MouvementStock
+from article.models import Article, MouvementStock, VarianteArticle
 from commande.models import Envoi
 from .forms import ArticleForm, AjusterStockForm
 from .utils import creer_mouvement_stock
@@ -467,6 +467,7 @@ def liste_prepa(request):
         'livrees_partiellement': 0,
         'retournees': 0,
         'affectees_admin': 0,
+        'affectees_moi': 0,
     }
     
     # Pour chaque commande, ajouter l'état précédent pour comprendre d'où elle vient
@@ -492,14 +493,17 @@ def liste_prepa(request):
             
             commande.etat_precedent = etat_precedent
             
-            # Trouver l'état de confirmation (le premier état "Confirmée")
-            etat_confirmation = None
-            for etat in etats_commande:
-                if etat.enum_etat.libelle == 'Confirmée':
-                    etat_confirmation = etat
-                    break
-            
-            commande.etat_confirmation = etat_confirmation
+            # Trouver l'état de confirmation : priorité à l'opérateur de CONFIRMATION
+            etat_conf_op = commande.etats.filter(
+                enum_etat__libelle='Confirmée',
+                operateur__type_operateur='CONFIRMATION'
+            ).order_by('-date_debut').first()
+
+            if etat_conf_op:
+                commande.etat_confirmation = etat_conf_op
+            else:
+                etat_conf_any = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('date_debut').first()
+                commande.etat_confirmation = etat_conf_any
     
     # Si aucune commande trouvée avec la méthode stricte, essayer une approche plus large
     if isinstance(commandes_affectees, list):
@@ -540,14 +544,17 @@ def liste_prepa(request):
                 
                 commande.etat_precedent = etat_precedent
                 
-                # Trouver l'état de confirmation (le premier état "Confirmée")
-                etat_confirmation = None
-                for etat in etats_commande:
-                    if etat.enum_etat.libelle == 'Confirmée':
-                        etat_confirmation = etat
-                        break
-                
-                commande.etat_confirmation = etat_confirmation
+                # Trouver l'état de confirmation : priorité à l'opérateur de CONFIRMATION
+                etat_conf_op = commande.etats.filter(
+                    enum_etat__libelle='Confirmée',
+                    operateur__type_operateur='CONFIRMATION'
+                ).order_by('-date_debut').first()
+
+                if etat_conf_op:
+                    commande.etat_confirmation = etat_conf_op
+                else:
+                    etat_conf_any = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('date_debut').first()
+                    commande.etat_confirmation = etat_conf_any
     
     # Suppression du filtre 'nouvelles' car redondant avec l'affectation automatique
     # Suppression du filtre 'renvoyees_preparation' car non nécessaire
@@ -617,7 +624,8 @@ def liste_prepa(request):
         'renvoyees_logistique': 0,
         'livrees_partiellement': 0,
         'retournees': 0,
-        'affectees_admin': 0
+        'affectees_admin': 0,
+        'affectees_moi': 0,
     }
     
     # Recalculer les statistiques pour tous les types
@@ -772,17 +780,48 @@ def liste_prepa(request):
     
     # Mettre à jour le compteur des commandes affectées par l'admin
     stats_par_type['affectees_admin'] = affectees_admin_count
+
+    # Compter les commandes affectées par le superviseur connecté
+    try:
+        superviseur_nom = operateur_profile.nom_complet
+    except Exception:
+        superviseur_nom = ''
+    if superviseur_nom:
+        stats_par_type['affectees_moi'] = Commande.objects.filter(
+            etats__enum_etat__libelle='En préparation',
+            etats__commentaire__icontains=f"Affectée à la préparation par {superviseur_nom}"
+        ).distinct().count()
     
     # Pour l'onglet "Toutes les commandes", le total doit être la somme des 3 autres onglets
     if filter_type == 'all':
-        total_affectees = stats_par_type['affectees_admin'] + stats_par_type['renvoyees_logistique'] + stats_par_type['livrees_partiellement']
+        total_affectees = (
+            stats_par_type['affectees_admin'] +
+            stats_par_type['affectees_moi'] +
+            stats_par_type['renvoyees_logistique'] +
+            stats_par_type['livrees_partiellement']
+        )
     
+    # ===== Pagination (par onglet) =====
+    items_per_page = request.GET.get('items_per_page', 10)
+    try:
+        items_per_page = int(items_per_page)
+        if items_per_page <= 0:
+            items_per_page = 10
+    except (ValueError, TypeError):
+        items_per_page = 10
+
+    from django.core.paginator import Paginator
+    paginator = Paginator(commandes_affectees if isinstance(commandes_affectees, list) or hasattr(commandes_affectees, '__iter__') else list(commandes_affectees), items_per_page)
+    page_number = request.GET.get('page', 1)
+    commandes_page = paginator.get_page(page_number)
+
     context = {
-        'page_title': 'commande reçu de la confirmation',
-        'page_subtitle': f'Il y a {total_affectees} commande(s) en préparation',
-        'commandes_affectees': commandes_affectees,
+        'page_title': 'Suivi Général - Préparation',
+        'page_subtitle': f'Vue d’ensemble des commandes en file de préparation ({total_affectees})',
+        'commandes_affectees': commandes_page,
         'search_query': search_query,
         'filter_type': filter_type,
+        'items_per_page': items_per_page,
         'stats': {
             'total_affectees': total_affectees,
             'valeur_totale': valeur_totale,
@@ -2499,133 +2538,569 @@ def modifier_commande_prepa(request, commande_id):
     return render(request, 'Superpreparation/modifier_commande.html', context)
 
 @superviseur_preparation_required
+def modifier_commande_superviseur(request, commande_id):
+    """Page de modification complète d'une commande pour les superviseurs de préparation"""
+    import json
+    from commande.models import Commande, Operation
+    from parametre.models import Ville
+    
+    try:
+        # Accepter PREPARATION et SUPERVISEUR_PREPARATION
+        operateur = Operateur.objects.get(user=request.user, actif=True)
+        if operateur.type_operateur not in ['PREPARATION', 'SUPERVISEUR_PREPARATION']:
+            messages.error(request, "Accès non autorisé. Réservé à l'équipe préparation.")
+            return redirect('Superpreparation:home')
+    except Operateur.DoesNotExist:
+        # Pas de profil: continuer (le décorateur a déjà validé l'accès via groupes)
+        operateur = None
+    
+    # Récupérer la commande avec ses relations
+    commande = get_object_or_404(Commande.objects.select_related('client', 'ville', 'ville__region'), id=commande_id)
+    
+    # Pour les superviseurs, on ne vérifie pas l'affectation spécifique
+    # Ils peuvent modifier toutes les commandes en préparation
+    
+    if request.method == 'POST':
+        try:
+            # ================ GESTION DES ACTIONS AJAX SPÉCIFIQUES ================
+            action = request.POST.get('action')
+            
+            if action == 'add_article':
+                # Ajouter un nouvel article immédiatement
+                from article.models import Article
+                from commande.models import Panier
+                
+                article_id = request.POST.get('article_id')
+                quantite = int(request.POST.get('quantite', 1))
+                
+                try:
+                    article = Article.objects.get(id=article_id)
+                    
+                    # Vérifier si l'article existe déjà dans la commande
+                    panier_existant = Panier.objects.filter(commande=commande, article=article).first()
+                    
+                    if panier_existant:
+                        # Si l'article existe déjà, mettre à jour la quantité
+                        panier_existant.quantite += quantite
+                        panier_existant.save()
+                        panier = panier_existant
+                        print(f"🔄 Article existant mis à jour: ID={article.id}, nouvelle quantité={panier.quantite}")
+                    else:
+                        # Si l'article n'existe pas, créer un nouveau panier
+                        panier = Panier.objects.create(
+                            commande=commande,
+                            article=article,
+                            quantite=quantite,
+                            sous_total=0  # Sera recalculé après
+                        )
+                        print(f"➕ Nouvel article ajouté: ID={article.id}, quantité={quantite}")
+                    
+                    # Recalculer le compteur après ajout (logique de confirmation)
+                    if article.isUpsell and hasattr(article, 'prix_upsell_1') and article.prix_upsell_1 is not None:
+                        # Compter la quantité totale d'articles upsell (après ajout)
+                        total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
+                            total=Sum('quantite')
+                        )['total'] or 0
+                        
+                        # Le compteur ne s'incrémente qu'à partir de 2 unités d'articles upsell
+                        # 0-1 unités upsell → compteur = 0
+                        # 2+ unités upsell → compteur = total_quantite_upsell - 1
+                        if total_quantite_upsell >= 2:
+                            commande.compteur = total_quantite_upsell - 1
+                        else:
+                            commande.compteur = 0
+                        
+                        commande.save()
+                        
+                        # Recalculer TOUS les articles de la commande avec le nouveau compteur
+                        commande.recalculer_totaux_upsell()
+                    else:
+                        # Pour les articles normaux, juste calculer le sous-total
+                        from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+                        prix_unitaire = get_prix_upsell_avec_compteur(article, commande.compteur)
+                        sous_total = prix_unitaire * panier.quantite
+                        panier.sous_total = float(sous_total)
+                        panier.save()
+                    
+                    # Recalculer le total de la commande avec frais de livraison
+                    total_articles = commande.paniers.aggregate(
+                        total=Sum('sous_total')
+                    )['total'] or 0
+                    frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+                    commande.total_cmd = float(total_articles) #+ float(frais_livraison)
+                    commande.save()
+                    
+                    # Calculer les statistiques upsell pour la réponse
+                    articles_upsell = commande.paniers.filter(article__isUpsell=True)
+                    total_quantite_upsell = articles_upsell.aggregate(
+                        total=Sum('quantite')
+                    )['total'] or 0
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Article {article.nom} ajouté avec succès',
+                        'article_id': article.id,
+                        'article_nom': article.nom,
+                        'quantite': panier.quantite,
+                        'sous_total': float(panier.sous_total),
+                        'compteur_upsell': commande.compteur,
+                        'total_quantite_upsell': total_quantite_upsell,
+                        'total_commande': float(commande.total_cmd),
+                        'frais_livraison': float(frais_livraison),
+                        'total_final': float(commande.total_cmd) + float(frais_livraison)
+                    })
+                    
+                except Article.DoesNotExist:
+                    return JsonResponse({'success': False, 'message': 'Article non trouvé'})
+                except Exception as e:
+                    print(f"❌ Erreur lors de l'ajout d'article: {e}")
+                    return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+            
+            elif action in ['modify_quantity', 'modifier_quantite_directe', 'update_article']:
+                # Modifier la quantité d'un article existant
+                from commande.models import Panier
+                
+                panier_id = request.POST.get('panier_id')
+                # Les différentes actions peuvent envoyer des noms différents
+                quantite_str = request.POST.get('nouvelle_quantite') or request.POST.get('quantite') or request.POST.get('new_quantity')
+                try:
+                    nouvelle_quantite = int(quantite_str) if quantite_str is not None else 1
+                except ValueError:
+                    nouvelle_quantite = 1
+                
+                try:
+                    panier = Panier.objects.get(id=panier_id, commande=commande)
+                    article = panier.article
+                    
+                    if nouvelle_quantite <= 0:
+                        # Supprimer l'article si quantité <= 0
+                        panier.delete()
+                        message = f'Article {article.nom} supprimé de la commande'
+                    else:
+                        # Mettre à jour la quantité
+                        panier.quantite = nouvelle_quantite
+                        
+                        # Recalculer le sous-total
+                        if article.isUpsell and hasattr(article, 'prix_upsell_1') and article.prix_upsell_1 is not None:
+                            # Recalculer le compteur upsell
+                            total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
+                                total=Sum('quantite')
+                            )['total'] or 0
+                            
+                            if total_quantite_upsell >= 2:
+                                commande.compteur = total_quantite_upsell - 1
+                            else:
+                                commande.compteur = 0
+                            
+                            commande.save()
+                            commande.recalculer_totaux_upsell()
+                        else:
+                            from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+                            prix_unitaire = get_prix_upsell_avec_compteur(article, commande.compteur)
+                            sous_total = prix_unitaire * panier.quantite
+                            panier.sous_total = float(sous_total)
+                            panier.save()
+                        
+                        message = f'Quantité de {article.nom} mise à jour: {nouvelle_quantite}'
+                    
+                    # Recalculer le total de la commande
+                    total_articles = commande.paniers.aggregate(
+                        total=Sum('sous_total')
+                    )['total'] or 0
+                    frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+                    commande.total_cmd = float(total_articles) #+ float(frais_livraison)
+                    commande.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': message,
+                        'sous_total': float(panier.sous_total) if nouvelle_quantite > 0 else 0,
+                        'compteur_upsell': commande.compteur,
+                        'total_commande': float(commande.total_cmd),
+                        'frais_livraison': float(frais_livraison),
+                        'total_final': float(commande.total_cmd) + float(frais_livraison)
+                    })
+                    
+                except Panier.DoesNotExist:
+                    return JsonResponse({'success': False, 'message': 'Article non trouvé dans la commande'})
+                except Exception as e:
+                    print(f"❌ Erreur lors de la modification de quantité: {e}")
+                    return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+            
+            elif action == 'delete_article':
+                # Supprimer un article de la commande
+                from commande.models import Panier
+                
+                panier_id = request.POST.get('panier_id')
+                
+                try:
+                    panier = Panier.objects.get(id=panier_id, commande=commande)
+                    article_nom = panier.article.nom
+                    panier.delete()
+                    
+                    # Recalculer le compteur upsell si nécessaire
+                    if panier.article.isUpsell:
+                        total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
+                            total=Sum('quantite')
+                        )['total'] or 0
+                        
+                        if total_quantite_upsell >= 2:
+                            commande.compteur = total_quantite_upsell - 1
+                        else:
+                            commande.compteur = 0
+                        
+                        commande.save()
+                        commande.recalculer_totaux_upsell()
+                    
+                    # Recalculer le total de la commande
+                    total_articles = commande.paniers.aggregate(
+                        total=Sum('sous_total')
+                    )['total'] or 0
+                    frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+                    commande.total_cmd = float(total_articles) #+ float(frais_livraison)
+                    commande.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Article {article_nom} supprimé avec succès',
+                        'compteur_upsell': commande.compteur,
+                        'total_commande': float(commande.total_cmd),
+                        'frais_livraison': float(frais_livraison),
+                        'total_final': float(commande.total_cmd) + float(frais_livraison)
+                    })
+                    
+                except Panier.DoesNotExist:
+                    return JsonResponse({'success': False, 'message': 'Article non trouvé dans la commande'})
+                except Exception as e:
+                    print(f"❌ Erreur lors de la suppression d'article: {e}")
+                    return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+            
+            else:
+                # Soumission du formulaire principal (pas d'action AJAX)
+                try:
+                    nouvelle_adresse = request.POST.get('adresse', '').strip()
+                    nouvelle_ville_id = request.POST.get('ville_id')
+
+                    if nouvelle_adresse:
+                        commande.adresse = nouvelle_adresse
+
+                    if nouvelle_ville_id:
+                        try:
+                            nouvelle_ville = Ville.objects.get(id=nouvelle_ville_id)
+                            commande.ville = nouvelle_ville
+                        except Ville.DoesNotExist:
+                            messages.error(request, "Ville sélectionnée non trouvée.")
+                            return redirect('Superpreparation:modifier_commande_superviseur', commande_id=commande.id)
+
+                    commande.save()
+
+                    # Journaliser l'opération
+                    Operation.objects.create(
+                        commande=commande,
+                        type_operation='MODIFICATION_PREPA',
+                        conclusion=request.POST.get('commentaire_operateur', "Modifications enregistrées par le superviseur."),
+                        operateur=operateur
+                    )
+
+                    messages.success(request, f"Les modifications de la commande {commande.id_yz} ont été enregistrées avec succès.")
+                    return redirect('Superpreparation:detail_prepa', pk=commande.id)
+                except Exception as e:
+                    messages.error(request, f"Erreur lors de l'enregistrement: {str(e)}")
+                    return redirect('Superpreparation:modifier_commande_superviseur', commande_id=commande.id)
+                
+        except Exception as e:
+            print(f"❌ Erreur générale dans modifier_commande_superviseur: {e}")
+            return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+    
+    # ================ AFFICHAGE DE LA PAGE (GET) ================
+    
+    # Récupérer les articles de la commande
+    paniers = commande.paniers.select_related('article').all()
+    
+    # Calculer le total des articles
+    total_articles = sum(panier.sous_total for panier in paniers)
+    
+    # Récupérer les informations de livraison
+    frais_livraison = commande.ville.frais_livraison if commande.ville else 0
+    
+    # Récupérer toutes les villes pour le formulaire
+    villes = Ville.objects.all().order_by('nom')
+    
+    # Vérifier si c'est une commande renvoyée
+    is_commande_renvoyee = False
+    commande_originale_obj = None
+    commande_renvoi_obj = None
+    etat_articles_renvoyes = None
+    articles_livres = []
+    articles_renvoyes = []
+    
+    # Vérifier si cette commande est un renvoi
+    if hasattr(commande, 'commande_renvoi') and commande.commande_renvoi:
+        is_commande_renvoyee = True
+        commande_originale_obj = commande.commande_renvoi
+        commande_renvoi_obj = commande
+        
+        # Récupérer l'état des articles renvoyés
+        try:
+            etat_articles_renvoyes = Operation.objects.filter(
+                commande=commande_originale_obj,
+                enum_etat__libelle='Livrée partiellement'
+            ).first()
+            
+            if etat_articles_renvoyes:
+                # Récupérer les articles livrés et renvoyés
+                articles_livres = etat_articles_renvoyes.articles_livres.all() if hasattr(etat_articles_renvoyes, 'articles_livres') else []
+                articles_renvoyes = etat_articles_renvoyes.articles_renvoyes.all() if hasattr(etat_articles_renvoyes, 'articles_renvoyes') else []
+        except Exception as e:
+            print(f"⚠️ Erreur lors de la récupération des articles renvoyés: {e}")
+    
+    # Préparer le contexte
+    context = {
+        'commande': commande,
+        'paniers': paniers,
+        'total_articles': total_articles,
+        'operateur': operateur,
+        'is_commande_renvoyee': is_commande_renvoyee,
+        'articles_livres': articles_livres,
+        'articles_renvoyes': articles_renvoyes,
+        # Variables de debug/informations supplémentaires
+        'commande_originale': commande_originale_obj,
+        'commande_renvoi': commande_renvoi_obj,
+        'etat_articles_renvoyes': etat_articles_renvoyes,
+        # Informations de livraison
+        'frais_livraison': float(frais_livraison),
+        'villes': villes,
+        # 'articles_renvoyes_map': articles_renvoyes_map, # Retiré car plus nécessaire
+    }
+    return render(request, 'Superpreparation/modifier_commande_superviseur.html', context)
+
+@superviseur_preparation_required
+def diagnostiquer_compteur(request, commande_id):
+    """Diagnostiquer et corriger le compteur upsell pour une commande (vue superviseur)."""
+    from commande.models import Commande
+    try:
+        commande = get_object_or_404(Commande, id=commande_id)
+
+        # Tous les paniers upsell
+        articles_upsell_qs = commande.paniers.filter(article__isUpsell=True)
+        compteur_actuel = commande.compteur or 0
+
+        total_quantite_upsell = articles_upsell_qs.aggregate(total=Sum('quantite'))['total'] or 0
+
+        # Nouvelle logique: 0-1 => 0, 2+ => total - 1
+        compteur_correct = total_quantite_upsell - 1 if total_quantite_upsell >= 2 else 0
+
+        if compteur_actuel != compteur_correct:
+            commande.compteur = compteur_correct
+            commande.save()
+            # Recalcul des totaux
+            commande.recalculer_totaux_upsell()
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Compteur corrigé de {compteur_actuel} vers {compteur_correct}',
+                'ancien_compteur': compteur_actuel,
+                'nouveau_compteur': compteur_correct,
+                'total_commande': float(commande.total_cmd),
+                'articles_upsell': articles_upsell_qs.count(),
+                'quantite_totale_upsell': total_quantite_upsell,
+            })
+
+        # Rien à corriger, retourner un diagnostic détaillé
+        return JsonResponse({
+            'success': True,
+            'message': 'Compteur déjà correct',
+            'compteur': compteur_actuel,
+            'articles_upsell': articles_upsell_qs.count(),
+            'quantite_totale_upsell': total_quantite_upsell,
+            'total_commande': float(commande.total_cmd),
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@superviseur_preparation_required
 def api_articles_disponibles_prepa(request):
     """API pour récupérer les articles disponibles pour les opérateurs de préparation"""
     from article.models import Article
     
     try:
-        # Vérifier que l'utilisateur est un opérateur de préparation
-        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+        # Accepter PREPARATION, SUPERVISEUR_PREPARATION et ADMIN
+        operateur = Operateur.objects.get(user=request.user, actif=True)
+        if operateur.type_operateur not in ['PREPARATION', 'SUPERVISEUR_PREPARATION', 'ADMIN']:
+            return JsonResponse({'success': False, 'message': 'Accès non autorisé'}, status=403)
     except Operateur.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
+        # Pas de profil: continuer (le décorateur a déjà validé l'accès via groupes)
+        operateur = None
     
-    search_query = request.GET.get('search', '')
-    filter_type = request.GET.get('filter', 'tous')
-    
-    # Récupérer les articles actifs
-    articles = Article.objects.filter(actif=True)
-    
-    # Appliquer les filtres selon le type
-    if filter_type == 'disponible':
-        articles = articles.filter(qte_disponible__gt=0)
-    elif filter_type == 'upsell':
-        articles = articles.filter(isUpsell=True)
-    elif filter_type == 'liquidation':
-        articles = articles.filter(phase='LIQUIDATION')
-    elif filter_type == 'test':
-        articles = articles.filter(phase='EN_TEST')
-    
-    
-    # Recherche textuelle
-    if search_query:
-        articles = articles.filter(
-            Q(nom__icontains=search_query) |
-            Q(reference__icontains=search_query) |
-            Q(couleur__icontains=search_query) |
-            Q(pointure__icontains=search_query) |
-            Q(description__icontains=search_query)
-        )
-    
-    # Compter les articles par type pour les statistiques
-    stats = {
-        'tous': Article.objects.filter(actif=True).count(),
-        'disponible': Article.objects.filter(actif=True, qte_disponible__gt=0).count(),
-        'upsell': Article.objects.filter(actif=True, isUpsell=True).count(),
-        'liquidation': Article.objects.filter(actif=True, phase='LIQUIDATION').count(),
-        'test': Article.objects.filter(actif=True, phase='EN_TEST').count(),
-    }
-    
-    # Compter les articles en promotion en utilisant une approche différente
-    # Chercher les articles qui ont un prix actuel différent du prix unitaire
-    articles_promo_count = Article.objects.filter(
-        actif=True,
-        prix_actuel__lt=F('prix_unitaire')
-    ).count()
-    stats['promo'] = articles_promo_count
-    
-    # Filtrer les articles en promotion si nécessaire
-    if filter_type == 'promo':
-        articles = articles.filter(prix_actuel__lt=F('prix_unitaire'))
-    
-    # Limiter les résultats
-    articles = articles[:50]
-    
-    articles_data = []
-    for article in articles:
-        # Prix à afficher (prix actuel si différent du prix unitaire)
-        prix_affichage = float(article.prix_actuel or article.prix_unitaire)
-        prix_original = float(article.prix_unitaire)
-        has_reduction = prix_affichage < prix_original
+    try:
+        search_query = request.GET.get('search', '')
+        filter_type = request.GET.get('filter', 'tous')
         
-        # Déterminer le type d'article pour l'affichage
-        article_type = 'normal'
-        type_icon = 'fas fa-box'
-        type_color = 'text-gray-600'
+        # Récupérer les articles actifs
+        articles = Article.objects.filter(actif=True)
         
-        if article.isUpsell:
-            article_type = 'upsell'
-            type_icon = 'fas fa-arrow-up'
-            type_color = 'text-purple-600'
-        elif article.phase == 'LIQUIDATION':
-            article_type = 'liquidation'
-            type_icon = 'fas fa-money-bill-wave'
-            type_color = 'text-red-600'
-        elif article.phase == 'EN_TEST':
-            article_type = 'test'
-            type_icon = 'fas fa-flask'
-            type_color = 'text-yellow-600'
+        # Appliquer les filtres selon le type
+        if filter_type == 'disponible':
+            articles = articles.filter(qte_disponible__gt=0)
+        elif filter_type == 'upsell':
+            articles = articles.filter(isUpsell=True)
+        elif filter_type == 'liquidation':
+            articles = articles.filter(phase='LIQUIDATION')
+        elif filter_type == 'test':
+            articles = articles.filter(phase='EN_TEST')
         
-        # Vérifier si l'article est en promotion (prix actuel < prix unitaire)
-        if has_reduction:
-            article_type = 'promo'
-            type_icon = 'fas fa-fire'
-            type_color = 'text-orange-600'
+        # Recherche textuelle
+        if search_query:
+            articles = articles.filter(
+                Q(nom__icontains=search_query) |
+                Q(reference__icontains=search_query) |
+                Q(couleur__icontains=search_query) |
+                Q(pointure__icontains=search_query) |
+                Q(description__icontains=search_query)
+            )
         
-        articles_data.append({
-            'id': article.id,
-            'nom': article.nom,
-            'reference': article.reference or '',
-            'couleur': article.couleur,
-            'pointure': article.pointure,
-            'description': article.description or '',
-            'prix': prix_affichage,
-            'prix_original': prix_original,
-            'has_reduction': has_reduction,
-            'reduction_pourcentage': round(((prix_original - prix_affichage) / prix_original) * 100, 0) if has_reduction else 0,
-            'qte_disponible': article.qte_disponible,
-            'article_type': article_type,
-            'type_icon': type_icon,
-            'type_color': type_color,
-            'phase': article.phase,
-            'isUpsell': article.isUpsell,
-            'display_text': f"{article.nom} - {article.couleur} - {article.pointure} ({prix_affichage} DH)"
-        })
-    
-    return JsonResponse({
-        'success': True,
-        'articles': articles_data,
-        'stats': stats,
-        'filter_applied': filter_type
-    })
+        # Filtrer les articles en promotion si nécessaire (approche plus sûre)
+        if filter_type == 'promo':
+            # Filtrer les articles qui ont un prix actuel inférieur au prix unitaire
+            articles = articles.filter(
+                prix_actuel__isnull=False,
+                prix_actuel__lt=F('prix_unitaire')
+            )
+        
+        # Limiter les résultats
+        articles = articles[:50]
+        
+        articles_data = []
+        for article in articles:
+            # Mettre à jour le prix actuel si nécessaire
+            if article.prix_actuel is None:
+                article.prix_actuel = article.prix_unitaire
+                article.save(update_fields=['prix_actuel'])
+            
+            # Récupérer les variantes disponibles
+            variantes_disponibles = article.variantes.filter(actif=True, qte_disponible__gt=0)
+            
+            # Si pas de variantes, créer une entrée avec les propriétés de compatibilité
+            if not variantes_disponibles.exists():
+                # Propriétés de compatibilité du modèle Article
+                stock = article.qte_disponible
+                couleur = article.couleur
+                pointure = article.pointure
+                
+                if stock > 0:
+                    articles_data.append({
+                        'id': article.id,
+                        'nom': article.nom,
+                        'reference': article.reference or '',
+                        'couleur': couleur or '',
+                        'pointure': pointure or '',
+                        'description': article.description or '',
+                        'prix_unitaire': float(article.prix_unitaire),
+                        'prix_actuel': float(article.prix_actuel or article.prix_unitaire),
+                        'qte_disponible': stock,
+                        'isUpsell': bool(article.isUpsell),
+                        'phase': article.phase or 'NORMAL',
+                        'has_promo_active': article.has_promo_active,
+                        'image_url': article.image.url if article.image else article.image_url,
+                        'categorie': str(article.categorie) if article.categorie else '',
+                        'genre': str(article.genre) if article.genre else '',
+                        'modele': article.modele_complet(),
+                        'variantes_count': 0,
+                        'is_variante': False,
+                        'variante_id': None,
+                        # Propriétés pour compatibilité avec le template
+                        'prix': float(article.prix_actuel or article.prix_unitaire),
+                        'prix_original': float(article.prix_unitaire),
+                        'has_reduction': article.has_promo_active,
+                        'reduction_pourcentage': round(((float(article.prix_unitaire) - float(article.prix_actuel or article.prix_unitaire)) / float(article.prix_unitaire)) * 100, 0) if article.has_promo_active else 0,
+                        'article_type': 'normal',
+                        'type_icon': 'fas fa-box',
+                        'type_color': 'text-gray-600',
+                        'display_text': f"{article.nom} - {couleur or ''} - {pointure or ''} ({float(article.prix_actuel or article.prix_unitaire):.2f} DH)"
+                    })
+            else:
+                # Créer une entrée pour chaque variante disponible
+                for variante in variantes_disponibles:
+                    # Déterminer le type d'article pour l'affichage
+                    article_type = 'normal'
+                    type_icon = 'fas fa-box'
+                    type_color = 'text-gray-600'
+                    
+                    if article.isUpsell:
+                        article_type = 'upsell'
+                        type_icon = 'fas fa-arrow-up'
+                        type_color = 'text-purple-600'
+                    elif article.phase == 'LIQUIDATION':
+                        article_type = 'liquidation'
+                        type_icon = 'fas fa-money-bill-wave'
+                        type_color = 'text-red-600'
+                    elif article.phase == 'EN_TEST':
+                        article_type = 'test'
+                        type_icon = 'fas fa-flask'
+                        type_color = 'text-yellow-600'
+                    
+                    # Vérifier si l'article est en promotion
+                    if article.has_promo_active:
+                        article_type = 'promo'
+                        type_icon = 'fas fa-fire'
+                        type_color = 'text-orange-600'
+                    
+                    articles_data.append({
+                        'id': article.id,
+                        'nom': article.nom,
+                        'reference': article.reference or '',
+                        'couleur': variante.couleur.nom if variante.couleur else '',
+                        'pointure': variante.pointure.pointure if variante.pointure else '',
+                        'description': article.description or '',
+                        'prix_unitaire': float(article.prix_unitaire),
+                        'prix_actuel': float(article.prix_actuel or article.prix_unitaire),
+                        'qte_disponible': variante.qte_disponible,
+                        'isUpsell': bool(article.isUpsell),
+                        'phase': article.phase or 'NORMAL',
+                        'has_promo_active': article.has_promo_active,
+                        'image_url': article.image.url if article.image else article.image_url,
+                        'categorie': str(article.categorie) if article.categorie else '',
+                        'genre': str(article.genre) if article.genre else '',
+                        'modele': article.modele_complet(),
+                        'variantes_count': variantes_disponibles.count(),
+                        'is_variante': True,
+                        'variante_id': variante.id,
+                        'reference_variante': variante.reference_variante,
+                        # Propriétés pour compatibilité avec le template
+                        'prix': float(article.prix_actuel or article.prix_unitaire),
+                        'prix_original': float(article.prix_unitaire),
+                        'has_reduction': article.has_promo_active,
+                        'reduction_pourcentage': round(((float(article.prix_unitaire) - float(article.prix_actuel or article.prix_unitaire)) / float(article.prix_unitaire)) * 100, 0) if article.has_promo_active else 0,
+                        'article_type': article_type,
+                        'type_icon': type_icon,
+                        'type_color': type_color,
+                        'display_text': f"{article.nom} - {variante.couleur.nom if variante.couleur else ''} - {variante.pointure.pointure if variante.pointure else ''} ({float(article.prix_actuel or article.prix_unitaire):.2f} DH)"
+                    })
+        
+        # Retourner directement le tableau d'articles comme dans l'interface de confirmation
+        return JsonResponse(articles_data, safe=False)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()  # This will print to the server console
+        return JsonResponse({
+            'success': False,
+            'message': 'Erreur interne du serveur lors du chargement des articles.',
+            'details': str(e)
+        }, status=500)
 
 @superviseur_preparation_required
 def api_panier_commande_prepa(request, commande_id):
     """API pour récupérer le panier d'une commande pour les opérateurs de préparation"""
     try:
-        # Vérifier que l'utilisateur est un opérateur de préparation
-        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+        # Accepter PREPARATION et SUPERVISEUR_PREPARATION
+        operateur = Operateur.objects.get(user=request.user, actif=True)
+        if operateur.type_operateur not in ['PREPARATION', 'SUPERVISEUR_PREPARATION']:
+            return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
     except Operateur.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Accès non autorisé'})
+        # Pas de profil: continuer (le décorateur a déjà validé l'accès via groupes)
+        operateur = None
     
     # Récupérer la commande
     try:
@@ -2633,12 +3108,21 @@ def api_panier_commande_prepa(request, commande_id):
     except Commande.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Commande non trouvée'})
     
-    # Vérifier que la commande est affectée à cet opérateur
-    etat_preparation = commande.etats.filter(
-        Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation'),
-        operateur=operateur,
-        date_fin__isnull=True
-    ).first()
+    # Pour les superviseurs, on ne vérifie pas l'affectation spécifique
+    # Ils peuvent accéder à toutes les commandes en préparation
+    if operateur and operateur.type_operateur == 'SUPERVISEUR_PREPARATION':
+        # Vérifier seulement que la commande est en préparation
+        etat_preparation = commande.etats.filter(
+            Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation'),
+            date_fin__isnull=True
+        ).first()
+    else:
+        # Pour les opérateurs normaux, vérifier l'affectation spécifique
+        etat_preparation = commande.etats.filter(
+            Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation'),
+            operateur=operateur,
+            date_fin__isnull=True
+        ).first()
     
     if not etat_preparation:
         return JsonResponse({'success': False, 'message': 'Commande non affectée'})
@@ -2650,22 +3134,28 @@ def api_panier_commande_prepa(request, commande_id):
     for panier in paniers:
         paniers_data.append({
             'id': panier.id,
-            'article_id': panier.article.id,
-            'article_nom': panier.article.nom,
-            'article_reference': panier.article.reference or '',
-            'article_couleur': panier.article.couleur,
-            'article_pointure': panier.article.pointure,
+            'nom': panier.article.nom,
+            'reference': panier.article.reference or '',
+            'couleur': panier.article.couleur,
+            'pointure': panier.article.pointure,
             'quantite': panier.quantite,
             'prix_unitaire': float(panier.article.prix_unitaire),
             'sous_total': float(panier.sous_total),
-            'display_text': f"{panier.article.nom} - {panier.article.couleur} - {panier.article.pointure}"
         })
+    
+    # Calculer les totaux
+    total_articles = sum(p.quantite for p in paniers)
+    total_final = sum(float(p.sous_total) for p in paniers)
     
     return JsonResponse({
         'success': True,
-        'paniers': paniers_data,
-        'total_commande': float(commande.total_cmd),
-        'nb_articles': len(paniers_data)
+        'articles': paniers_data,  # Changer 'paniers' en 'articles'
+        'commande': {  # Ajouter l'objet commande attendu par le JS
+            'id_yz': commande.id_yz,
+            'client_nom': f"{commande.client.nom} {commande.client.prenom}",
+            'total_articles': total_articles,
+            'total_final': total_final,
+        }
     })
 
 @superviseur_preparation_required
@@ -3839,19 +4329,36 @@ def rafraichir_articles_commande_prepa(request, commande_id):
     print(f"🔄 Rafraîchissement des articles pour la commande {commande_id}")
     
     try:
-        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+        operateur = Operateur.objects.get(user=request.user, actif=True)
+        
+        # Vérifier le type d'opérateur
+        if operateur.type_operateur not in ['SUPERVISEUR_PREPARATION', 'PREPARATION', 'ADMIN']:
+            return JsonResponse({'error': 'Accès non autorisé.'}, status=403)
+            
     except Operateur.DoesNotExist:
-        return JsonResponse({'error': 'Profil d\'opérateur de préparation non trouvé.'}, status=403)
+        # Fallback si pas de profil: autoriser selon groupes Django
+        if not request.user.groups.filter(name__in=['superviseur', 'operateur_preparation']).exists():
+            return JsonResponse({'error': 'Profil d\'opérateur de préparation non trouvé.'}, status=403)
+        operateur = None
     
     try:
         commande = Commande.objects.get(id=commande_id)
         
-        # Vérifier que la commande est affectée à cet opérateur
-        etat_preparation = commande.etats.filter(
-            operateur=operateur,
-            enum_etat__libelle__in=['En préparation', 'À imprimer'],
-            date_fin__isnull=True
-        ).first()
+        # Pour les superviseurs, on ne vérifie pas l'affectation spécifique
+        # Ils peuvent accéder à toutes les commandes en préparation
+        if operateur and operateur.type_operateur == 'SUPERVISEUR_PREPARATION':
+            # Vérifier seulement que la commande est en préparation
+            etat_preparation = commande.etats.filter(
+                enum_etat__libelle__in=['En préparation', 'À imprimer'],
+                date_fin__isnull=True
+            ).first()
+        else:
+            # Pour les opérateurs normaux, vérifier l'affectation spécifique
+            etat_preparation = commande.etats.filter(
+                operateur=operateur,
+                enum_etat__libelle__in=['En préparation', 'À imprimer'],
+                date_fin__isnull=True
+            ).first()
         
         if not etat_preparation:
             return JsonResponse({'error': 'Cette commande ne vous est pas affectée.'}, status=403)
@@ -4972,8 +5479,7 @@ def commandes_confirmees(request):
     
     # Récupérer toutes les commandes confirmées
     commandes_confirmees = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True
+        etats__enum_etat__libelle='Confirmée'
     ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
     
     # Recherche
@@ -4994,6 +5500,9 @@ def commandes_confirmees(request):
     
     # Créer une copie des données non paginées pour les statistiques AVANT la pagination
     commandes_non_paginees = commandes_confirmees
+    
+    # Conserver le total original pour les statistiques
+    total_confirmees_original = commandes_confirmees.count()
     
     # Paramètres de pagination flexible
     items_per_page = request.GET.get('items_per_page', 25)
@@ -5038,7 +5547,7 @@ def commandes_confirmees(request):
             
             paginator = Paginator(commandes_confirmees, items_per_page)
             page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
+            page_obj = paginator.get_page(page_number)
     
     # Statistiques
     today = timezone.now().date()
@@ -5048,21 +5557,18 @@ def commandes_confirmees(request):
     # Confirmées aujourd'hui
     confirmees_aujourd_hui = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
         etats__date_debut__date=today
     ).distinct().count()
     
     # Confirmées cette semaine
     confirmees_semaine = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
         etats__date_debut__date__gte=week_start
     ).distinct().count()
     
     # Confirmées ce mois
     confirmees_mois = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
         etats__date_debut__date__gte=month_start
     ).distinct().count()
     
@@ -5071,6 +5577,19 @@ def commandes_confirmees(request):
     
     # Montant total des commandes confirmées (utiliser les données non paginées)
     montant_total = commandes_non_paginees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Ajouter l'état de confirmation à chaque commande
+    for commande in page_obj:
+        etats_commande = list(commande.etats.all().order_by('date_debut'))
+        
+        # Trouver l'état de confirmation (le premier état "Confirmée")
+        etat_confirmation = None
+        for etat in etats_commande:
+            if etat.enum_etat.libelle == 'Confirmée':
+                etat_confirmation = etat
+                break
+        
+        commande.etat_confirmation = etat_confirmation
     
     # Récupérer les opérateurs de préparation actifs
     operateurs_preparation = Operateur.objects.filter(
@@ -5102,7 +5621,7 @@ def commandes_confirmees(request):
             'html_table_body': html_table_body,
             'html_pagination': html_pagination,
             'html_pagination_info': html_pagination_info,
-            'total_count': commandes_confirmees.count()
+            'total_count': total_confirmees
         })
     
     context = {

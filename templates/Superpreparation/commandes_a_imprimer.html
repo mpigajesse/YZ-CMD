@@ -183,13 +183,14 @@
                                 </span>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap text-center">
-                                <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" 
+                                <button type="button"
+                                   onclick="openPanierModal({{ commande.id }})"
                                    class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
                                    style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
                                    title="Voir le panier de cette commande">
                                     <i class="fas fa-shopping-cart mr-1"></i> 
                                     {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
-                                </a>
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -208,11 +209,157 @@
             </table>
         </div>
     </div>
+
+    <!-- Modal panier (style admin) -->
+    <div id="panierModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closePanierModal()"></div>
+  <div class="relative z-10 max-w-3xl mx-auto mt-20 bg-white rounded-xl shadow-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b">
+      <h3 class="text-2xl font-bold">Détails du panier</h3>
+      <button class="text-gray-500 hover:text-gray-700" onclick="closePanierModal()"><i class="fas fa-times text-xl"></i></button>
+    </div>
+    <div class="m-6 p-4 rounded-lg border bg-blue-50">
+      <div class="flex items-center justify-between">
+        <div>
+          <div id="panierCmdId" class="font-semibold text-blue-800">Commande</div>
+          <div class="text-sm text-blue-700">Client: <span id="panierClient"></span></div>
+        </div>
+        <div class="text-right">
+          <div id="panierCount" class="text-blue-700 font-semibold"></div>
+          <div class="text-sm text-blue-700">Total: <span id="panierTotalEntete"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 pb-4">
+      <div id="panierEmpty" class="text-center py-12 text-gray-500 hidden">
+        <i class="fas fa-shopping-basket text-4xl mb-3"></i>
+        <div class="text-lg font-semibold">Panier vide</div>
+        <div class="text-sm">Cette commande ne contient aucun article.</div>
+      </div>
+      <div id="panierItems" class="space-y-2"></div>
+    </div>
+    <div class="px-6 py-4 bg-gray-50 border-t">
+      <div class="flex items-center justify-between text-sm mb-2">
+        <div class="text-gray-600">Sous-total articles:</div>
+        <div id="panierSousTotal" class="text-gray-900">0.00 DH</div>
+      </div>
+      <div class="flex items-center justify-between font-bold text-lg">
+        <div>Total commande:</div>
+        <div id="panierTotalFinal" class="text-green-600">0.00 DH</div>
+      </div>
+            </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+function formatMoney(v) { try { return parseFloat(v).toFixed(2) + ' DH'; } catch(e) { return '0.00 DH'; } }
+
+function openPanierModal(commandeId) {
+    console.log('Ouverture du panier pour la commande:', commandeId);
+    const url = `/Superpreparation/api/commande/${commandeId}/panier/`;
+    console.log('URL appelée:', url);
+    
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+      .then(r => {
+        console.log('Réponse reçue:', r.status, r.statusText);
+        if (!r.ok) {
+          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+        }
+        return r.json();
+      })
+      .then(data => {
+        console.log('Données reçues:', data);
+        console.log('data.success:', data.success);
+        console.log('data.error:', data.error);
+        console.log('data.articles:', data.articles);
+        console.log('data.commande:', data.commande);
+        if (!data || data.error || data.success === false) {
+            console.log('Erreur détectée:', data?.error || data?.message || 'Impossible de charger le panier');
+            return showToast(data?.error || data?.message || 'Impossible de charger le panier', 'error');
+        }
+        const cmd = data.commande || {};
+        const articles = data.articles || [];
+
+        // Entête
+        document.getElementById('panierCmdId').textContent = 'Commande ' + (cmd.id_yz || '');
+        document.getElementById('panierClient').textContent = cmd.client_nom || '';
+        document.getElementById('panierCount').textContent = (cmd.total_articles || 0) + ' article' + ((cmd.total_articles||0)>1?'s':'');
+        document.getElementById('panierTotalEntete').textContent = formatMoney(cmd.total_final || 0);
+
+        // Liste
+        const list = document.getElementById('panierItems');
+        list.innerHTML = '';
+        if (articles.length === 0) {
+            document.getElementById('panierEmpty').classList.remove('hidden');
+        } else {
+            document.getElementById('panierEmpty').classList.add('hidden');
+            articles.forEach(a => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between py-2 border-b last:border-b-0';
+                row.innerHTML = `
+                    <div>
+                        <div class="text-sm font-medium text-gray-800">${a.nom || ''}</div>
+                        <div class="text-xs text-gray-500">Ref: ${a.reference || 'N/A'} · PU: ${formatMoney(a.prix_unitaire || 0)}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm text-gray-700">${a.quantite || 0} × ${parseFloat(a.prix_unitaire||0).toFixed(2)}</div>
+                        <div class="text-sm font-semibold text-gray-900">${formatMoney(a.sous_total || 0)}</div>
+                    </div>`;
+                list.appendChild(row);
+            });
+        }
+
+        // Totaux
+        document.getElementById('panierSousTotal').textContent = formatMoney(cmd.total_montant || cmd.total_articles_montant || 0);
+        document.getElementById('panierTotalFinal').textContent = formatMoney(cmd.total_final || 0);
+
+        console.log('Tentative d\'ouverture de la modal...');
+        const modal = document.getElementById('panierModal');
+        console.log('Modal element trouvé:', modal);
+        console.log('Modal classes avant:', modal.className);
+        modal.classList.remove('hidden');
+        console.log('Modal classes après:', modal.className);
+        console.log('Modal visible:', !modal.classList.contains('hidden'));
+      })
+      .catch(() => showToast('Erreur réseau', 'error'));
+}
+
+function closePanierModal() { 
+    document.getElementById('panierModal').classList.add('hidden'); 
+}
+
+// Fonction pour afficher les notifications toast
+function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all transform translate-x-full opacity-0 max-w-sm`;
+    
+    if (type === 'success') {
+        toast.classList.add('bg-green-500', 'text-white');
+    } else if (type === 'error') {
+        toast.classList.add('bg-red-500', 'text-white');
+    } else {
+        toast.classList.add('bg-gray-800', 'text-white');
+    }
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // Animer l'entrée
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+        toast.classList.add('translate-x-0', 'opacity-100');
+    }, 100);
+    
+    // Animer la sortie
+    setTimeout(() => {
+        toast.classList.remove('translate-x-0', 'opacity-100');
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 500);
+    }, duration);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log("Page de suivi des commandes à imprimer chargée.");
 });

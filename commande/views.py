@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q, Sum, Count
 from django.db import models, transaction
 from django.core.paginator import Paginator
@@ -2125,8 +2126,7 @@ def commandes_confirmees(request):
     
     # Récupérer toutes les commandes confirmées
     commandes_confirmees = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True
+        etats__enum_etat__libelle='Confirmée'
     ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
     
     # Recherche
@@ -2201,21 +2201,18 @@ def commandes_confirmees(request):
     # Confirmées aujourd'hui
     confirmees_aujourd_hui = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
         etats__date_debut__date=today
     ).distinct().count()
     
     # Confirmées cette semaine
     confirmees_semaine = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
         etats__date_debut__date__gte=week_start
     ).distinct().count()
     
     # Confirmées ce mois
     confirmees_mois = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
         etats__date_debut__date__gte=month_start
     ).distinct().count()
     
@@ -2224,6 +2221,21 @@ def commandes_confirmees(request):
     
     # Montant total des commandes confirmées (utiliser les données non paginées)
     montant_total = commandes_non_paginees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Ajouter l'état de confirmation à chaque commande
+    for commande in page_obj:
+        # Priorité: état Confirmée porté par un opérateur de type CONFIRMATION
+        etat_conf_op = commande.etats.filter(
+            enum_etat__libelle='Confirmée',
+            operateur__type_operateur='CONFIRMATION'
+        ).order_by('-date_debut').first()
+
+        if etat_conf_op:
+            commande.etat_confirmation = etat_conf_op
+        else:
+            # Fallback: n'importe quel état Confirmée (le plus ancien pour refléter l'action originale)
+            etat_conf_any = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('date_debut').first()
+            commande.etat_confirmation = etat_conf_any
     
     # Récupérer les opérateurs de préparation actifs
     operateurs_preparation = Operateur.objects.filter(
@@ -2719,12 +2731,15 @@ def affecter_livraison_multiple(request):
 
 @require_POST
 @login_required
+@csrf_exempt
 def affecter_preparation_multiple(request):
     """Affecte plusieurs commandes confirmées à un opérateur de préparation."""
     try:
-        # Vérifier que l'utilisateur est admin
+        # Vérifier que l'utilisateur est Admin ou Superviseur préparation
         try:
-            operateur_admin = Operateur.objects.get(user=request.user, type_operateur='ADMIN')
+            operateur_admin = Operateur.objects.get(user=request.user)
+            if operateur_admin.type_operateur not in ['ADMIN', 'SUPERVISEUR_PREPARATION']:
+                return JsonResponse({'success': False, 'message': 'Accès non autorisé.'})
         except Operateur.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'Accès non autorisé.'})
         
@@ -2759,24 +2774,62 @@ def affecter_preparation_multiple(request):
             commandes_a_traiter = Commande.objects.filter(id__in=commandes_ids)
             for commande in commandes_a_traiter:
                 try:
-                    # Vérifier que la commande est confirmée
+                    # Si la commande est Confirmée (même si l'état est déjà clos) OU déjà en file de prépa, on permet l'affectation
                     etat_actuel = commande.etat_actuel
-                    if not etat_actuel or etat_actuel.enum_etat.libelle != 'Confirmée':
+                    etat_confirm = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('-date_debut').first()
+                    if not etat_confirm:
                         commandes_erreurs_yz.append(f"{commande.id_yz} (non confirmée)")
                         continue
 
-                    # Terminer l'état actuel (Confirmée)
-                    etat_actuel.terminer_etat(operateur=operateur_admin)
+                    # Si l'état actuel est Confirmée, le clore; sinon, si déjà À imprimer/En préparation, on ne clôture pas
+                    if etat_actuel and etat_actuel.enum_etat.libelle == 'Confirmée':
+                        # Ne pas écraser l'opérateur de confirmation
+                        etat_actuel.terminer_etat()
                     
-                    # Créer le nouvel état "En préparation"
-                    from .models import EtatCommande
-                    EtatCommande.objects.create(
-                        commande=commande,
-                        enum_etat=etat_preparation,
-                        operateur=operateur_preparation,
-                        commentaire=f"Affectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
-                        date_debut=timezone.now()
-                    )
+                    # Gestion réaffectation propre
+                    etat_a_imprimer_actif = commande.etats.filter(
+                        enum_etat__libelle='À imprimer', date_fin__isnull=True
+                    ).first()
+                    etat_en_prep_actif = commande.etats.filter(
+                        enum_etat__libelle='En préparation', date_fin__isnull=True
+                    ).first()
+
+                    # Si déjà en préparation
+                    if etat_en_prep_actif:
+                        # Même opérateur => idempotent, rien à faire
+                        if etat_en_prep_actif.operateur and etat_en_prep_actif.operateur_id == operateur_preparation.id:
+                            pass
+                        else:
+                            # Clore l'état en cours puis créer un nouvel état pour le nouvel opérateur
+                            try:
+                                etat_en_prep_actif.terminer_etat()
+                            except Exception:
+                                etat_en_prep_actif.date_fin = timezone.now()
+                                etat_en_prep_actif.save(update_fields=['date_fin'])
+                            from .models import EtatCommande
+                            EtatCommande.objects.create(
+                                commande=commande,
+                                enum_etat=etat_preparation,
+                                operateur=operateur_preparation,
+                                commentaire=f"Réaffectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
+                                date_debut=timezone.now()
+                            )
+                    else:
+                        # Pas encore en préparation: clore À imprimer si actif, puis créer En préparation
+                        if etat_a_imprimer_actif:
+                            try:
+                                etat_a_imprimer_actif.terminer_etat()
+                            except Exception:
+                                etat_a_imprimer_actif.date_fin = timezone.now()
+                                etat_a_imprimer_actif.save(update_fields=['date_fin'])
+                        from .models import EtatCommande
+                        EtatCommande.objects.create(
+                            commande=commande,
+                            enum_etat=etat_preparation,
+                            operateur=operateur_preparation,
+                            commentaire=f"Affectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
+                            date_debut=timezone.now()
+                        )
                     
                     commandes_affectees_yz.append(commande.id_yz)
                 except Exception as e:

@@ -27,21 +27,66 @@
         }
 
         /* --- Sidebar --- */
-        #sidebar { width: 256px; }
+        #sidebar { 
+            width: 256px; 
+            transition: width 0.3s ease, transform 0.3s ease;
+            overflow-y: auto;
+        }
 
         /* Comportement sur grand écran */
         @media (min-width: 1024px) {
-            body.sidebar-collapsed #sidebar { width: 0; }
+            body.sidebar-open #sidebar { 
+                width: 256px; 
+                transform: translateX(0);
+            }
+            body.sidebar-collapsed #sidebar { 
+                width: 0; 
+                transform: translateX(-100%);
+            }
         }
 
         /* Comportement sur petit écran (overlay) */
         @media (max-width: 1023.98px) {
-            #sidebar { position: absolute; height: 100%; z-index: 100; }
-            body.sidebar-collapsed #sidebar { transform: translateX(-100%); }
-            body.sidebar-open #sidebar { transform: translateX(0); }
+            #sidebar { 
+                position: absolute; 
+                height: 100%; 
+                z-index: 100; 
+                width: 256px;
+            }
+            body.sidebar-collapsed #sidebar { 
+                transform: translateX(-100%); 
+            }
+            body.sidebar-open #sidebar { 
+                transform: translateX(0); 
+            }
             
-            #content-overlay { display: none; position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 99; }
-            body.sidebar-open #content-overlay { display: block; }
+            #content-overlay { 
+                display: none; 
+                position: fixed; 
+                inset: 0; 
+                background-color: rgba(0, 0, 0, 0.5); 
+                z-index: 99; 
+            }
+            body.sidebar-open #content-overlay { 
+                display: block; 
+            }
+        }
+
+        /* Gestion des barres de défilement */
+        body {
+            overflow: hidden;
+        }
+
+        /* Container principal */
+        .relative.flex.h-screen.overflow-x-hidden {
+            overflow: hidden;
+        }
+
+        /* Main content avec une seule barre de défilement */
+        main.flex-1.overflow-x-hidden.overflow-y-auto {
+            overflow-x: hidden;
+            overflow-y: auto;
+            height: calc(100vh - 80px); /* Hauteur calculée moins le header */
         }
 
         /* Notifications SweetAlert2 personnalisées - avec haute spécificité */
@@ -77,7 +122,7 @@
         {% include 'composant_generale/Superpreparation/sidebar.html' %}
         
         <!-- Main Content -->
-        <div class="flex-1 flex flex-col overflow-y-auto">
+        <div class="flex-1 flex flex-col">
             <!-- Header -->
             {% include 'composant_generale/Superpreparation/header.html' %}
             
@@ -137,10 +182,13 @@
             }
         }
 
+        // Initialisation de l'état de la sidebar
         if (window.innerWidth <= 1023) {
             body.classList.add('sidebar-collapsed');
+            body.classList.remove('sidebar-open');
         } else {
             body.classList.add('sidebar-open');
+            body.classList.remove('sidebar-collapsed');
         }
 
         if (menuToggle) {
@@ -169,7 +217,7 @@
         window.addEventListener('resize', () => {
             if (window.innerWidth > 1023) {
                 body.classList.add('sidebar-open');
-                body.classList.remove('sidebar-open');
+                body.classList.remove('sidebar-collapsed');
             } else {
                 body.classList.add('sidebar-collapsed');
                 body.classList.remove('sidebar-open');

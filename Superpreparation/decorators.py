@@ -18,8 +18,8 @@ def superviseur_preparation_required(view_func):
         try:
             operateur = Operateur.objects.get(user=request.user, actif=True)
             
-            # Autoriser les superviseurs et les opérateurs de préparation
-            if operateur.type_operateur in ['SUPERVISEUR_PREPARATION', 'PREPARATION']:
+            # Autoriser les superviseurs, les opérateurs de préparation et ADMIN
+            if operateur.type_operateur in ['SUPERVISEUR_PREPARATION', 'PREPARATION', 'ADMIN']:
                 return view_func(request, *args, **kwargs)
             else:
                 messages.error(request, "Accès non autorisé. Seuls les superviseurs et opérateurs de préparation peuvent accéder à cette page.")
@@ -75,8 +75,8 @@ def preparation_team_required(view_func):
         try:
             operateur = Operateur.objects.get(user=request.user, actif=True)
             
-            # Autoriser les superviseurs et les opérateurs de préparation
-            if operateur.type_operateur in ['SUPERVISEUR_PREPARATION', 'PREPARATION']:
+            # Autoriser les superviseurs, les opérateurs de préparation et ADMIN
+            if operateur.type_operateur in ['SUPERVISEUR_PREPARATION', 'PREPARATION', 'ADMIN']:
                 return view_func(request, *args, **kwargs)
             else:
                 messages.error(request, "Accès non autorisé. Seuls les membres de l'équipe de préparation peuvent accéder à cette page.")

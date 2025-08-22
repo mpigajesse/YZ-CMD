@@ -82,6 +82,10 @@ class UserTypeValidationMiddleware:
         )
         self.universal_allowed_exact_paths = (
             # Ajoutez ici des chemins exacts si nécessaire, par exemple une page d'accueil publique
+            '/commande/affecter-preparation-multiple/',
+            '/commande/affecter-preparation-multiple',
+            '/commande/affecter-livraison-multiple/',
+            '/commande/affecter-livraison-multiple',
         )
 
     def __call__(self, request):
