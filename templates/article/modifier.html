@@ -330,113 +330,92 @@
                                 </h4>
                             </div>
                             
-                            <!-- Tableau des variantes -->
+                            <!-- Tableau croisé pointures/couleurs -->
                             <div class="overflow-x-auto">
-                                <table class="variantes-table w-full">
-                                    <thead>
-                                        <tr class="bg-gray-50">
-                                            <th class="p-4 text-left font-semibold border-b" style="color: #023535; border-color: #e6fffe;">
-                                                <i class="fas fa-shoe-prints mr-2 text-[#66cccc]"></i>
-                                                Pointure
-                                            </th>
-                                            <th class="p-4 text-center font-semibold border-b" style="color: #023535; border-color: #e6fffe;">
-                                                <i class="fas fa-palette mr-2 text-[#66cccc]"></i>
-                                                Couleur
-                                            </th>
-                                            <th class="p-4 text-center font-semibold border-b" style="color: #023535; border-color: #e6fffe;">
-                                                <i class="fas fa-boxes mr-2 text-[#66cccc]"></i>
-                                                Stock
-                                            </th>
-                                            <th class="p-4 text-center font-semibold border-b" style="color: #023535; border-color: #e6fffe;">
-                                                <i class="fas fa-barcode mr-2 text-[#66cccc]"></i>
-                                                Référence
-                                            </th>
-                                            <th class="p-4 text-center font-semibold border-b" style="color: #023535; border-color: #e6fffe;">
-                                                <i class="fas fa-cog mr-2 text-[#66cccc]"></i>
-                                                Actions
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for variante in article.variantes.all %}
-                                        <tr class="border-b hover:bg-gray-50 transition-all duration-200" style="border-color: #e6fffe;" data-variante-id="{{ variante.id }}">
-                                            <!-- Pointure -->
-                                            <td class="p-4">
-                                                <span class="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium">
-                                                    {{ variante.pointure.pointure|default:"N/A" }}
-                                                </span>
-                                            </td>
-                                            
-                                            <!-- Couleur -->
-                                            <td class="p-4 text-center">
-                                                <div class="flex items-center justify-center">
-                                                    <div class="w-4 h-4 rounded-full mr-2 border border-gray-300" style="background-color: #66cccc;"></div>
-                                                    <span class="text-sm font-medium">{{ variante.couleur.nom|default:"Aucune couleur" }}</span>
-                                                </div>
-                                            </td>
-                                            
-                                            <!-- Stock -->
-                                            <td class="p-4 text-center">
-                                                <div class="flex flex-col items-center space-y-2">
-                                                    <!-- Indicateur de statut -->
-                                                    {% if variante.qte_disponible > 0 %}
-                                                        {% if variante.qte_disponible < 5 %}
-                                                            <span class="status-badge bg-orange-100 text-orange-800">
-                                                                <i class="fas fa-exclamation-triangle mr-1"></i>Stock faible
-                                                            </span>
-                                                        {% else %}
-                                                            <span class="status-badge bg-green-100 text-green-800">
-                                                                <i class="fas fa-check-circle mr-1"></i>En stock
-                                                            </span>
-                                                        {% endif %}
-                                                    {% else %}
-                                                        <span class="status-badge bg-red-100 text-red-800">
-                                                            <i class="fas fa-times-circle mr-1"></i>Rupture
-                                                        </span>
-                                                    {% endif %}
-                                                    
-                                                    <!-- Champ de modification de quantité -->
-                                                    <div class="flex items-center space-x-2">
-                                                        <input type="number" 
-                                                               id="quantite_{{ variante.id }}" 
-                                                               name="variante_existante_{{ variante.id }}_quantite" 
-                                                               value="{{ variante.qte_disponible }}" 
-                                                               min="0" 
-                                                               class="quantite-input w-20 px-3 py-2 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-[#66cccc] focus:border-transparent"
-                                                               onchange="marquerVarianteModifiee({{ variante.id }})"
-                                                               title="Modifier la quantité">
-                                                        <span class="text-sm text-gray-500 font-medium">pcs</span>
+                                {% if tableau_matrice %}
+                                    <table class="variantes-table w-full border-collapse">
+                                        <thead>
+                                            <tr class="bg-gray-50">
+                                                <!-- En-tête pour la colonne des pointures -->
+                                                <th class="p-3 text-center font-semibold border" style="color: #023535; border-color: #d1d5db; background: #66cccc; color: white;">
+                                                    <i class="fas fa-shoe-prints mr-2"></i>
+                                                    Pointure
+                                                </th>
+                                                <!-- En-têtes des couleurs -->
+                                                {% for couleur in couleurs_uniques %}
+                                                <th class="p-3 text-center font-semibold border min-w-24" style="border-color: #d1d5db; background: #66cccc; color: white;">
+                                                    <div class="flex flex-col items-center space-y-1">
+                                                        <i class="fas fa-palette text-sm"></i>
+                                                        <span class="text-sm font-medium">{{ couleur }}</span>
                                                     </div>
-                                                    
-                                                    <!-- Indicateur de modification -->
-                                                    <span id="status_{{ variante.id }}" class="status-modification text-xs text-orange-600 font-medium hidden">
-                                                        <i class="fas fa-edit"></i> Modifiée
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            
-                                            <!-- Référence -->
-                                            <td class="p-4 text-center">
-                                                <div class="reference-badge" title="{{ variante.reference_variante|default:'Référence non générée' }}">
-                                                    {{ variante.reference_variante|default:"N/A"|truncatechars:15 }}
-                                                </div>
-                                            </td>
-                                            
-                                            <!-- Actions -->
-                                            <td class="p-4 text-center">
-                                                <button type="button" onclick="supprimerVarianteExistante({{ variante.id }})" 
-                                                        class="text-red-500 hover:text-red-700 p-3 rounded-full hover:bg-red-50 transition-all duration-200 shadow-sm hover:shadow-md"
-                                                        title="Supprimer {{ variante.couleur.nom|default:'Aucune couleur' }} / {{ variante.pointure.pointure|default:'Aucune pointure' }}">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
+                                                </th>
+                                                {% endfor %}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for ligne in tableau_matrice %}
+                                            <tr class="hover:bg-gray-50 transition-all duration-200">
+                                                <!-- Colonne Pointure -->
+                                                <td class="p-3 text-center font-semibold border" style="border-color: #d1d5db; background: #66cccc; color: white;">
+                                                    {{ ligne.pointure }}
+                                                </td>
                                                 
-                                                <!-- Champ caché pour marquer la variante comme modifiée -->
-                                                <input type="hidden" id="modifiee_{{ variante.id }}" name="variante_existante_{{ variante.id }}_modifiee" value="false">
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
+                                                <!-- Colonnes pour chaque couleur -->
+                                                {% for cellule in ligne.cellules %}
+                                                    {% if cellule.existe %}
+                                                        <td class="p-2 text-center border" style="border-color: #d1d5db;" data-variante-id="{{ cellule.id }}">
+                                                            <div class="flex flex-col items-center space-y-1">
+                                                                <!-- Indicateur de statut -->
+                                                                {% if cellule.status == 'normal' %}
+                                                                    <span class="inline-block w-3 h-3 rounded-full bg-green-500" title="En stock"></span>
+                                                                {% elif cellule.status == 'faible' %}
+                                                                    <span class="inline-block w-3 h-3 rounded-full bg-orange-500" title="Stock faible"></span>
+                                                                {% else %}
+                                                                    <span class="inline-block w-3 h-3 rounded-full bg-red-500" title="Rupture"></span>
+                                                                {% endif %}
+                                                                
+                                                                <!-- Champ de quantité -->
+                                                                <input type="number" 
+                                                                       id="quantite_{{ cellule.id }}" 
+                                                                       name="variante_existante_{{ cellule.id }}_quantite" 
+                                                                       value="{{ cellule.stock }}" 
+                                                                       min="0" 
+                                                                       class="quantite-input w-16 px-2 py-1 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-[#66cccc] focus:border-transparent"
+                                                                       onchange="marquerVarianteModifiee({{ cellule.id }})"
+                                                                       title="Modifier la quantité">
+                                                                <span class="text-xs text-gray-500">pcs</span>
+                                                                
+                                                                <!-- Référence de la variante -->
+                                                                <div class="text-xs text-gray-400 font-mono mt-1" title="Référence: {{ cellule.reference|default:'N/A' }}">
+                                                                    {{ cellule.reference|default:"N/A"|truncatechars:12 }}
+                                                                </div>
+                                                                
+                                                                <!-- Indicateur de modification -->
+                                                                <span id="status_{{ cellule.id }}" class="status-modification text-xs text-orange-600 font-medium hidden">
+                                                                    <i class="fas fa-edit"></i>
+                                                                </span>
+                                                            </div>
+                                                            <!-- Champ caché pour marquer la variante comme modifiée -->
+                                                            <input type="hidden" id="modifiee_{{ cellule.id }}" name="variante_existante_{{ cellule.id }}_modifiee" value="false">
+                                                        </td>
+                                                    {% else %}
+                                                        <!-- Cellule vide -->
+                                                        <td class="p-2 text-center border bg-gray-50" style="border-color: #d1d5db;">
+                                                            <div class="flex flex-col items-center space-y-1">
+                                                                <span class="text-gray-400 text-xs">-</span>
+                                                            </div>
+                                                        </td>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% else %}
+                                    <div class="text-center py-8">
+                                        <p class="text-gray-500">Aucune variante disponible</p>
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
 

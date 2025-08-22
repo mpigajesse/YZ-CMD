@@ -775,21 +775,43 @@ def modifier_article(request, id):
                 'pointures_uniques': pointures_uniques,
             })
     
-    # Calculer les couleurs et pointures uniques pour le tableau croisé
+    # Préparer les données pour le tableau croisé (matrice complète)
+    variantes = article.variantes.all()
     couleurs_uniques = []
     pointures_uniques = []
+    tableau_matrice = []
     
-    if article.variantes.exists():
-        couleurs_uniques = list(article.variantes.exclude(couleur__isnull=True).values_list('couleur__nom', flat=True).distinct().order_by('couleur__nom'))
-        pointures_uniques = list(article.variantes.exclude(pointure__isnull=True).values_list('pointure__pointure', flat=True).distinct().order_by('pointure__ordre', 'pointure__pointure'))
+    if variantes.exists():
+        # Récupérer toutes les pointures et couleurs uniques
+        pointures_uniques = sorted(set(v.pointure.pointure for v in variantes if v.pointure), key=lambda x: int(x) if x.isdigit() else float('inf'))
+        couleurs_uniques = sorted(set(v.couleur.nom for v in variantes if v.couleur))
         
-        # Ajouter "Aucune couleur" si des variantes n'ont pas de couleur
-        if article.variantes.filter(couleur__isnull=True).exists():
-            couleurs_uniques.append("Aucune couleur")
+        # Créer une matrice complète ligne par ligne
+        for pointure in pointures_uniques:
+            ligne = {
+                'pointure': pointure,
+                'cellules': []
+            }
             
-        # Ajouter "Aucune pointure" si des variantes n'ont pas de pointure
-        if article.variantes.filter(pointure__isnull=True).exists():
-            pointures_uniques.append("Aucune pointure")
+            for couleur in couleurs_uniques:
+                # Chercher la variante correspondante
+                variante = variantes.filter(pointure__pointure=pointure, couleur__nom=couleur).first()
+                if variante:
+                    ligne['cellules'].append({
+                        'existe': True,
+                        'id': variante.id,
+                        'couleur': couleur,
+                        'stock': variante.qte_disponible,
+                        'reference': variante.reference_variante,
+                        'status': 'normal' if variante.qte_disponible >= 5 else 'faible' if variante.qte_disponible > 0 else 'rupture'
+                    })
+                else:
+                    ligne['cellules'].append({
+                        'existe': False,
+                        'couleur': couleur
+                    })
+            
+            tableau_matrice.append(ligne)
 
     context = {
         'article': article,
@@ -799,6 +821,7 @@ def modifier_article(request, id):
         'pointures': pointures,
         'couleurs_uniques': couleurs_uniques,
         'pointures_uniques': pointures_uniques,
+        'tableau_matrice': tableau_matrice,
     }
     return render(request, 'article/modifier.html', context)
 
