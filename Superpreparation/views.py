@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 from django.core.paginator import Paginator
-from django.core.cache import cache
 
 import json
 from parametre.models import Operateur, Ville
@@ -1105,7 +1104,7 @@ def traiter_commande_retournee_api(request, commande_id):
                 # Ne pas changer l'état de la commande, elle reste "Retournée"
                 # Seulement réincrémenter le stock si les produits sont en bon état
                 if etat_stock == 'bon':
-                    for panier in commande.paniers.select_related('article__categorie', 'article__genre', 'variante__couleur', 'variante__pointure').all():
+                    for panier in commande.paniers.all():
                         article = panier.article
                         quantite = panier.quantite
                         
@@ -1385,7 +1384,7 @@ def detail_prepa(request, pk):
                 })
         # Si la commande actuelle est la commande originale livrée partiellement et qu'une commande de renvoi existe (Cas 1)
         elif commande_renvoi:
-            for panier_renvoi in commande_renvoi.paniers.select_related('article__categorie', 'article__genre').all():
+            for panier_renvoi in commande_renvoi.paniers.all():
                 etat = etat_articles_renvoyes.get(panier_renvoi.article.id, 'bon')
                 articles_renvoyes.append({
                     'article': panier_renvoi.article,
@@ -1405,7 +1404,7 @@ def detail_prepa(request, pk):
                 details = json.loads(operation_livraison_partielle_for_livres.conclusion)
                 if 'articles_livres' in details:
                     for article_livre in details['articles_livres']:
-                        article = Article.objects.select_related('categorie', 'genre').filter(id=article_livre.get('article_id')).first()
+                        article = Article.objects.filter(id=article_livre.get('article_id')).first()
                         if article:
                             articles_livres.append({
                                 'article': article,
@@ -1678,7 +1677,7 @@ def api_commande_produits(request, commande_id):
         commande = Commande.objects.get(id=commande_id)
         
         # Récupérer tous les produits de la commande
-        paniers = commande.paniers.select_related('article__categorie', 'article__genre', 'variante__couleur', 'variante__pointure').all()
+        paniers = commande.paniers.all().select_related('article')
         
         # Construire la liste des produits
         produits_list = []
@@ -1753,7 +1752,7 @@ def modifier_commande_prepa(request, commande_id):
                 quantite = int(request.POST.get('quantite', 1))
                 
                 try:
-                    article = Article.objects.select_related('categorie', 'genre').get(id=article_id)
+                    article = Article.objects.get(id=article_id)
                     
                     # Vérifier si l'article existe déjà dans la commande
                     panier_existant = Panier.objects.filter(commande=commande, article=article).first()
@@ -1880,7 +1879,7 @@ def modifier_commande_prepa(request, commande_id):
                     ancien_panier.delete()
                     
                     # Créer le nouveau panier
-                    nouvel_article = Article.objects.select_related('categorie', 'genre').get(id=nouvel_article_id)
+                    nouvel_article = Article.objects.get(id=nouvel_article_id)
                     
                     # Recalculer le compteur après remplacement (logique de confirmation)
                     total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
@@ -2458,7 +2457,7 @@ def modifier_commande_prepa(request, commande_id):
             # Populer articles_livres à partir de la conclusion de l'opération de livraison partielle
             if 'articles_livres' in details:
                 for article_livre in details['articles_livres']:
-                    article_obj = Article.objects.select_related('categorie', 'genre').filter(id=article_livre.get('article_id')).first()
+                    article_obj = Article.objects.filter(id=article_livre.get('article_id')).first()
                     if article_obj:
                         articles_livres.append({
                             'article': article_obj,
@@ -2588,7 +2587,7 @@ def modifier_commande_superviseur(request, commande_id):
                 quantite = int(request.POST.get('quantite', 1))
                 
                 try:
-                    article = Article.objects.select_related('categorie', 'genre').get(id=article_id)
+                    article = Article.objects.get(id=article_id)
                     
                     # Vérifier si l'article existe déjà dans la commande
                     panier_existant = Panier.objects.filter(commande=commande, article=article).first()
@@ -2935,7 +2934,7 @@ def diagnostiquer_compteur(request, commande_id):
 
 @superviseur_preparation_required
 def api_articles_disponibles_prepa(request):
-    """API pour récupérer les articles disponibles pour les opérateurs de préparation - Optimisé avec cache"""
+    """API pour récupérer les articles disponibles pour les opérateurs de préparation"""
     from article.models import Article
     
     try:
@@ -2951,20 +2950,8 @@ def api_articles_disponibles_prepa(request):
         search_query = request.GET.get('search', '')
         filter_type = request.GET.get('filter', 'tous')
         
-        # TODO: Réactiver le cache une fois que les optimisations de base fonctionnent
-        # cache_key = f"articles_prepa_{filter_type}_{hash(search_query)}_{timezone.now().hour}"
-        # if not search_query and filter_type in ['tous', 'disponible', 'upsell']:
-        #     cached_result = cache.get(cache_key)
-        #     if cached_result:
-        #         return JsonResponse(cached_result)
-        
-        # Récupérer les articles actifs avec optimisations
-        articles = Article.objects.filter(actif=True).select_related(
-            'categorie', 'genre'
-        ).prefetch_related(
-            'variantes__couleur',
-            'variantes__pointure'
-        )
+        # Récupérer les articles actifs
+        articles = Article.objects.filter(actif=True)
         
         # Appliquer les filtres selon le type
         if filter_type == 'disponible':
@@ -3004,15 +2991,15 @@ def api_articles_disponibles_prepa(request):
                 article.prix_actuel = article.prix_unitaire
                 article.save(update_fields=['prix_actuel'])
             
-            # Récupérer toutes les variantes actives (déjà préchargées)
+            # Récupérer toutes les variantes actives (inclut celles en rupture)
             variantes_actives = article.variantes.filter(actif=True)
             
             # Si pas de variantes, créer une entrée avec les propriétés de compatibilité
             if not variantes_actives.exists():
                 # Propriétés de compatibilité du modèle Article
-                stock = getattr(article, 'qte_disponible', 0)
-                couleur = ''  # Article n'a pas de couleur directe
-                pointure = ''  # Article n'a pas de pointure directe
+                stock = article.qte_disponible
+                couleur = article.couleur
+                pointure = article.pointure
                 
                 if stock > 0:
                     articles_data.append({
@@ -3116,13 +3103,8 @@ def api_articles_disponibles_prepa(request):
                         'display_text': f"{article.nom} - {variante.couleur.nom if variante.couleur else ''} - {variante.pointure.pointure if variante.pointure else ''} ({float(article.prix_actuel or article.prix_unitaire):.2f} DH)"
                     })
         
-        # TODO: Réactiver le cache une fois que les optimisations de base fonctionnent
-        response_data = articles_data
-        # if not search_query and filter_type in ['tous', 'disponible', 'upsell']:
-        #     cache.set(cache_key, response_data, 900)  # 15 minutes
-        
         # Retourner directement le tableau d'articles comme dans l'interface de confirmation
-        return JsonResponse(response_data, safe=False)
+        return JsonResponse(articles_data, safe=False)
         
     except Exception as e:
         import traceback
@@ -3384,8 +3366,8 @@ def liste_articles(request):
     from django.db.models import Q, F, Sum, Count, Avg
     from django.db.models.functions import Coalesce
 
-    # Calcul des statistiques globales (avant tout filtrage) - Optimisé
-    articles_qs = Article.objects.select_related('categorie', 'genre').annotate(
+    # Calcul des statistiques globales (avant tout filtrage)
+    articles_qs = Article.objects.all().annotate(
         total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
     )
     articles_total = articles_qs.count()
@@ -3397,13 +3379,8 @@ def liste_articles(request):
     today = timezone.now().date()
     articles_crees_aujourd_hui = articles_qs.filter(date_creation__date=today).count()
 
-    # Récupération des articles pour la liste, filtrée - Optimisé
-    articles_list = Article.objects.select_related(
-        'categorie', 'genre'
-    ).prefetch_related(
-        'variantes__couleur',
-        'variantes__pointure'
-    ).annotate(
+    # Récupération des articles pour la liste, filtrée
+    articles_list = Article.objects.all().annotate(
         total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
     )
     
@@ -3628,12 +3605,7 @@ def alertes_stock(request):
     from django.db.models import Q, Sum
     from django.db.models.functions import Coalesce
     
-    articles_actifs = Article.objects.filter(actif=True).select_related(
-        'categorie', 'genre'
-    ).prefetch_related(
-        'variantes__couleur',
-        'variantes__pointure'
-    ).annotate(
+    articles_actifs = Article.objects.filter(actif=True).annotate(
         total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
     )
     
@@ -3782,7 +3754,7 @@ def statistiques_stock(request):
     date_debut = timezone.now() - timedelta(days=periode)
     
     # Articles de base
-    articles_qs = Article.objects.filter(actif=True).select_related('categorie', 'genre')
+    articles_qs = Article.objects.filter(actif=True)
     
     # Filtrage par catégorie si spécifié
     if categorie_filter:
@@ -3899,7 +3871,7 @@ def statistiques_stock(request):
         'values': [float((art.qte_disponible or 0) * (art.prix_unitaire or 0)) for art in top_articles_valeur[:5]]
     }
     
-    categories_disponibles = Article.objects.filter(actif=True).select_related('categorie').values_list('categorie', flat=True).distinct().exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('categorie')
+    categories_disponibles = Article.objects.filter(actif=True).values_list('categorie', flat=True).distinct().exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('categorie')
     
     context = {
         'page_title': 'Statistiques Stock',
@@ -4609,12 +4581,12 @@ def ajouter_article_commande_prepa(request, commande_id):
             if not article_id or quantite <= 0:
                 return JsonResponse({'error': 'Données invalides'}, status=400)
 
-            article = Article.objects.select_related('categorie', 'genre').get(id=article_id)
+            article = Article.objects.get(id=article_id)
             variante_obj = None
             if variante_id:
                 try:
                     from article.models import VarianteArticle
-                    variante_obj = VarianteArticle.objects.select_related('couleur', 'pointure').get(id=int(variante_id), article=article)
+                    variante_obj = VarianteArticle.objects.get(id=int(variante_id), article=article)
                     print("[AJOUT VARIANTE] variante trouvée:", {
                         'id': variante_obj.id,
                         'couleur': getattr(getattr(variante_obj, 'couleur', None), 'nom', None),
@@ -5028,7 +5000,7 @@ def api_articles_commande_livree_partiellement(request, commande_id):
                 except Exception:
                     pass
             if commande_renvoi:
-                for panier_renvoi in commande_renvoi.paniers.select_related('article__categorie', 'article__genre').all():
+                for panier_renvoi in commande_renvoi.paniers.all():
                     etat = etat_articles_renvoyes.get(panier_renvoi.article.id, 'bon')
                     articles_renvoyes.append({
                         'article_id': panier_renvoi.article.id,
