@@ -1434,12 +1434,22 @@ def modifier_commande(request, commande_id):
                 
                 article_id = request.POST.get('article_id')
                 quantite = int(request.POST.get('quantite', 1))
+                variante_id = request.POST.get('variante_id')  # Nouveau paramètre
+                
+                print(f"📦 Ajout article: ID={article_id}, Qté={quantite}, Variante={variante_id}")
                 
                 try:
                     article = Article.objects.get(id=article_id)
                     
-                    # Vérifier si l'article existe déjà dans la commande
-                    panier_existant = Panier.objects.filter(commande=commande, article=article).first()
+                    # Convertir variante_id en entier ou None
+                    variante_id_int = int(variante_id) if variante_id and variante_id != 'null' and variante_id != '' else None
+                    
+                    # Vérifier si l'article avec cette variante existe déjà dans la commande
+                    panier_existant = Panier.objects.filter(
+                        commande=commande, 
+                        article=article, 
+                        variante_id=variante_id_int
+                    ).first()
                     
                     if panier_existant:
                         # Si l'article existe déjà, mettre à jour la quantité
@@ -1453,7 +1463,8 @@ def modifier_commande(request, commande_id):
                             commande=commande,
                             article=article,
                             quantite=quantite,
-                            sous_total=0  # Sera recalculé après
+                            sous_total=0,  # Sera recalculé après
+                            variante_id=variante_id_int  # Ajouter l'ID de la variante
                         )
                         print(f"➕ Nouvel article ajouté: ID={article.id}, quantité={quantite}")
                     
@@ -2906,5 +2917,86 @@ def api_recherche_article_ref(request):
         })
 
 # Vues liées aux notifications supprimées (test_modal, centre_notifications)
+
+@login_required
+def get_article_variants(request, article_id):
+    """
+    Récupère toutes les variantes disponibles d'un article donné
+    """
+    try:
+        from article.models import Article, VarianteArticle
+        
+        print(f"🔍 Recherche des variantes pour l'article ID: {article_id} (type: {type(article_id)})")
+        
+        # D'abord, vérifier si l'article existe (avec ou sans le filtre actif=True)
+        try:
+            article_test = Article.objects.get(id=article_id)
+            print(f"📋 Article trouvé mais actif={article_test.actif}")
+        except Article.DoesNotExist:
+            print(f"❌ Aucun article trouvé avec l'ID {article_id}")
+            # Lister quelques articles pour debug
+            articles_existants = Article.objects.all()[:5]
+            print("📚 Articles existants (premiers 5):")
+            for art in articles_existants:
+                print(f"   - ID: {art.id}, Nom: {art.nom}, Actif: {art.actif}")
+        
+        # Vérifier que l'article existe ET est actif
+        article = get_object_or_404(Article, id=article_id, actif=True)
+        print(f"✅ Article trouvé: {article.nom}")
+        
+        # Récupérer toutes les variantes actives de cet article
+        variantes = VarianteArticle.objects.filter(
+            article=article,
+            actif=True
+        ).select_related('couleur', 'pointure').order_by('couleur__nom', 'pointure__ordre')
+        
+        print(f"📊 Nombre de variantes trouvées: {variantes.count()}")
+        
+        # Construire la liste des variantes avec leurs informations
+        variants_data = []
+        for variante in variantes:
+            print(f"🔸 Variante: {variante.id} - Couleur: {variante.couleur} - Pointure: {variante.pointure} - Stock: {variante.qte_disponible}")
+            
+            variant_info = {
+                'id': variante.id,
+                'couleur': variante.couleur.nom if variante.couleur else None,
+                'pointure': variante.pointure.pointure if variante.pointure else None,
+                'taille': None,  # À adapter selon votre modèle si vous avez des tailles
+                'stock': variante.qte_disponible,
+                'prix_unitaire': float(variante.prix_unitaire),
+                'prix_actuel': float(variante.prix_actuel),
+                'reference_variante': variante.reference_variante,
+                'est_disponible': variante.est_disponible
+            }
+            variants_data.append(variant_info)
+        
+        response_data = {
+            'success': True,
+            'variants': variants_data,
+            'article': {
+                'id': article.id,
+                'nom': article.nom,
+                'reference': article.reference
+            }
+        }
+        
+        print(f"📤 Réponse envoyée: {len(variants_data)} variantes")
+        return JsonResponse(response_data)
+        
+    except Article.DoesNotExist:
+        print(f"❌ Article {article_id} non trouvé")
+        return JsonResponse({
+            'success': False,
+            'error': 'Article non trouvé'
+        }, status=404)
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Erreur dans get_article_variants: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': 'Erreur lors de la récupération des variantes'
+        }, status=500)
 
 

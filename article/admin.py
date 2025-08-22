@@ -1,6 +1,8 @@
 from django.contrib import admin
 from .models import Article, Promotion, Categorie, Genre, Pointure, Couleur, VarianteArticle, MouvementStock
 from django.db.models import Sum, Q
+from django.contrib import messages
+from django.http import HttpResponseRedirect
 
 @admin.register(Categorie)
 class CategorieAdmin(admin.ModelAdmin):
@@ -137,8 +139,8 @@ class VarianteArticleAdmin(admin.ModelAdmin):
 class ArticleAdmin(admin.ModelAdmin):
     list_display = ('id', 'reference', 'nom', 'genre', 'categorie', 'prix_unitaire', 'prix_achat', 'prix_actuel', 'phase', 'actif', 'est_disponible', 'isUpsell')
     list_filter = ('categorie', 'phase', 'actif', 'date_creation', 'isUpsell','genre')
-    search_fields = ('nom', 'reference', 'categorie')
-    ordering = ('nom', 'categorie')
+    search_fields = ('nom', 'reference', 'categorie__nom')
+    ordering = ('nom', 'categorie__nom')
     list_editable = ('prix_unitaire', 'prix_achat', 'actif', 'phase', 'isUpsell')
     readonly_fields = ('date_creation', 'date_modification')
     
@@ -166,6 +168,16 @@ class ArticleAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+    
+    def changelist_view(self, request, extra_context=None):
+        """Rend la vue de liste plus robuste après des purges de données.
+        Si un POST tente de modifier des lignes qui n'existent plus, on rafraîchit.
+        """
+        try:
+            return super().changelist_view(request, extra_context)
+        except Article.DoesNotExist:
+            messages.warning(request, "La liste était obsolète après une suppression. Rafraîchie.")
+            return HttpResponseRedirect(request.path)
     
     def est_disponible(self, obj):
         return obj.est_disponible

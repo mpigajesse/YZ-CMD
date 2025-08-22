@@ -2124,7 +2124,8 @@ def commandes_confirmees(request):
     from django.utils import timezone
     from datetime import datetime, timedelta
     
-    # Récupérer toutes les commandes confirmées
+    # Récupérer toutes les commandes confirmées (qui ont eu l'état "Confirmée" dans leur historique)
+    # Note: On ne filtre pas sur l'état actuel car l'état "Confirmée" est fermé après confirmation
     commandes_confirmees = Commande.objects.filter(
         etats__enum_etat__libelle='Confirmée'
     ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()

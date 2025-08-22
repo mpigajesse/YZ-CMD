@@ -154,12 +154,16 @@ class Command(BaseCommand):
                         prix_liquidation = self._parse_price(row.get('PRIX LIQ 1', ''))
 
                         # Traiter les prix upsell
+                        prix_upsell_1 = self._parse_price(row.get('PRIX UPSEL 1', '')) # Au cas où il y en aurait un
                         prix_upsell_2 = self._parse_price(row.get('PRIX UPSEL 2', ''))
                         prix_upsell_3 = self._parse_price(row.get('PRIX UPSEL 3', ''))
                         prix_upsell_4 = self._parse_price(row.get('PRIX UPSEL 4', ''))
 
                         # Déterminer si c'est un article upsell
-                        is_upsell = prix_upsell_2 is not None or prix_upsell_3 is not None or prix_upsell_4 is not None
+                        is_upsell = (prix_upsell_1 is not None or 
+                                   prix_upsell_2 is not None or 
+                                   prix_upsell_3 is not None or 
+                                   prix_upsell_4 is not None)
 
                         # Extraire le numéro de modèle de la référence (ex: YZ478 -> 478)
                         modele = self._extract_modele(reference)
@@ -214,6 +218,7 @@ class Command(BaseCommand):
                             article_existant.phase = phase
                             article_existant.prix_achat = prix_liquidation if prix_liquidation else Decimal('0.00')
                             article_existant.isUpsell = is_upsell
+                            article_existant.prix_upsell_1 = prix_upsell_1
                             article_existant.prix_upsell_2 = prix_upsell_2
                             article_existant.prix_upsell_3 = prix_upsell_3
                             article_existant.prix_upsell_4 = prix_upsell_4
@@ -247,6 +252,7 @@ class Command(BaseCommand):
                                 genre=genre_obj,
                                 phase=phase,
                                 isUpsell=is_upsell,
+                                prix_upsell_1=prix_upsell_1,
                                 prix_upsell_2=prix_upsell_2,
                                 prix_upsell_3=prix_upsell_3,
                                 prix_upsell_4=prix_upsell_4
@@ -357,17 +363,26 @@ class Command(BaseCommand):
             return None
 
     def _extract_modele(self, reference):
-        """Extrait le numéro de modèle de la référence (ex: YZ478 -> 478)"""
+        """Extrait le numéro de modèle de la référence (ex: YZ478 -> 478, CHAUSS FEMYZ900 -> 900)"""
         if not reference:
             return None
         
-        # Chercher le pattern YZ suivi de chiffres
-        match = re.search(r'YZ(\d+)', reference.upper())
+        # Nettoyer la référence en retirant les espaces
+        reference_clean = str(reference).replace(' ', '').upper()
+        
+        # Chercher le pattern YZ suivi de chiffres (même si collé à d'autres lettres)
+        match = re.search(r'YZ(\d+)', reference_clean)
         if match:
             try:
-                return int(match.group(1))
+                modele_num = int(match.group(1))
+                self.stdout.write(f'Modèle extrait: {reference} -> {modele_num}')
+                return modele_num
             except (ValueError, TypeError):
+                self.stdout.write(f'Erreur extraction modèle: {reference}')
                 return None
+        
+        # Si pas de pattern YZ trouvé
+        self.stdout.write(f'Aucun modèle trouvé dans: {reference}')
         return None
 
     def _parse_pointures(self, pointures_str):
@@ -398,16 +413,31 @@ class Command(BaseCommand):
 
     def _parse_couleurs(self, couleurs_str):
         """Parse les couleurs depuis le CSV"""
-        if not couleurs_str or couleurs_str.strip() == '':
-            return []
+        if not couleurs_str or couleurs_str.strip() == '' or couleurs_str.strip() == '--':
+            return ['Standard']  # Couleur par défaut si aucune spécifiée
         
         couleurs = []
-        # Parser les couleurs (séparées par des tirets ou des virgules)
-        if '-' in couleurs_str:
-            couleurs = [c.strip() for c in couleurs_str.split('-') if c.strip()]
-        elif ',' in couleurs_str:
-            couleurs = [c.strip() for c in couleurs_str.split(',') if c.strip()]
-        else:
-            couleurs = [couleurs_str]
+        # Nettoyer la chaîne (retirer les retours à la ligne et espaces en trop)
+        couleurs_clean = str(couleurs_str).replace('\n', ' ').replace('\r', ' ')
+        couleurs_clean = re.sub(r'\s+', ' ', couleurs_clean).strip()
         
-        return couleurs
+        # Parser les couleurs (séparées par des tirets ou des virgules)
+        if '-' in couleurs_clean:
+            couleurs = [c.strip() for c in couleurs_clean.split('-') if c.strip() and c.strip() != '']
+        elif ',' in couleurs_clean:
+            couleurs = [c.strip() for c in couleurs_clean.split(',') if c.strip() and c.strip() != '']
+        else:
+            couleurs = [couleurs_clean.strip()]
+        
+        # Nettoyer chaque couleur et filtrer les vides
+        couleurs_finales = []
+        for couleur in couleurs:
+            couleur_clean = couleur.strip()
+            if couleur_clean and couleur_clean != '--' and len(couleur_clean) > 0:
+                couleurs_finales.append(couleur_clean.title())  # Première lettre en majuscule
+        
+        # Si aucune couleur valide trouvée, retourner une couleur par défaut
+        if not couleurs_finales:
+            couleurs_finales = ['Standard']
+            
+        return couleurs_finales

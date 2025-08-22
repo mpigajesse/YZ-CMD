@@ -132,8 +132,22 @@ class Commande(models.Model):
     
     @property
     def etat_actuel(self):
-        """Retourne l'état actuel de la commande"""
-        return self.etats.filter(date_fin__isnull=True).first()
+        """
+        Retourne l'état actuel de la commande.
+        Priorité: Confirmée (si existe) > État ouvert > Dernier état fermé
+        """
+        # 1. Vérifier s'il y a un état "Confirmée" (priorité absolue pour l'affichage)
+        etat_confirmee = self.etats.filter(enum_etat__libelle='Confirmée').first()
+        if etat_confirmee:
+            return etat_confirmee
+            
+        # 2. Sinon, prendre l'état actuel ouvert (sans date_fin)
+        etat_ouvert = self.etats.filter(date_fin__isnull=True).first()
+        if etat_ouvert:
+            return etat_ouvert
+            
+        # 3. En dernier recours, prendre le dernier état fermé
+        return self.etats.order_by('-date_debut').first()
     
     @property
     def historique_etats(self):
@@ -198,11 +212,13 @@ class Panier(models.Model):
     variante = models.ForeignKey(VarianteArticle, on_delete=models.SET_NULL, null=True, blank=True, related_name='paniers')
     quantite = models.IntegerField()
     sous_total = models.FloatField()
+    # Nouveau champ pour stocker l'ID de la variante sélectionnée
+    variante_id = models.IntegerField(blank=True, null=True, help_text="ID de la variante sélectionnée")
     
     class Meta:
         verbose_name = "Panier"
         verbose_name_plural = "Paniers"
-        unique_together = [['commande', 'article', 'variante']]
+        unique_together = [['commande', 'article', 'variante_id']]
         constraints = [
             models.CheckConstraint(check=models.Q(quantite__gt=0), name='quantite_positive'),
             models.CheckConstraint(check=models.Q(sous_total__gte=0), name='sous_total_positif'),
@@ -210,6 +226,38 @@ class Panier(models.Model):
     
     def __str__(self):
         return f"{self.commande.num_cmd} - {self.article.nom} (x{self.quantite})"
+    
+    @property
+    def variante(self):
+        """Retourne la variante associée à ce panier, si elle existe"""
+        if self.variante_id:
+            from article.models import VarianteArticle
+            try:
+                return VarianteArticle.objects.get(id=self.variante_id)
+            except VarianteArticle.DoesNotExist:
+                return None
+        return None
+    
+    @property
+    def stock_disponible(self):
+        """Retourne le stock disponible de la variante ou de l'article"""
+        if self.variante:
+            return self.variante.qte_disponible
+        return self.article.qte_disponible
+    
+    @property
+    def couleur(self):
+        """Retourne la couleur de la variante ou de l'article"""
+        if self.variante and self.variante.couleur:
+            return self.variante.couleur.nom
+        return self.article.couleur
+    
+    @property
+    def pointure(self):
+        """Retourne la pointure de la variante ou de l'article"""
+        if self.variante and self.variante.pointure:
+            return self.variante.pointure.pointure
+        return self.article.pointure
 
 
 class EtatCommande(models.Model):
