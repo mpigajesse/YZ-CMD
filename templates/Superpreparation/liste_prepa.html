@@ -139,20 +139,58 @@
                 </form>
 
                 <!-- Sélecteur éléments par page -->
-                <form method="GET" class="flex items-center ml-4">
+                <form method="GET" class="flex items-center ml-6">
                     {% if search_query %}
                         <input type="hidden" name="search" value="{{ search_query }}">
                     {% endif %}
                     {% if filter_type != 'all' %}
                         <input type="hidden" name="filter" value="{{ filter_type }}">
                     {% endif %}
-                    <label for="itemsPerPage" class="mr-2 text-sm text-gray-600">Éléments/page:</label>
-                    <select id="itemsPerPage" name="items_per_page" onchange="this.form.submit()" class="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                        <option value="10" {% if items_per_page|default:10 == 10 %}selected{% endif %}>10</option>
-                        <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
-                        <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
-                        <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
-                    </select>
+                    
+                    <!-- Container moderne pour le sélecteur -->
+                    <div class="flex items-center bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-2 hover:shadow-md transition-all duration-300 group">
+                        <!-- Icône -->
+                        <div class="mr-3 p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all duration-300">
+                            <i class="fas fa-list-ol text-blue-600 text-sm"></i>
+                        </div>
+                        
+                        <!-- Label stylisé -->
+                        <label for="itemsPerPage" class="mr-3 text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-300">
+                            Éléments/page
+                        </label>
+                        
+                        <!-- Séparateur -->
+                        <div class="w-px h-6 bg-gray-300 mx-2"></div>
+                        
+                        <!-- Select stylisé (caché) -->
+                        <select id="itemsPerPage" name="items_per_page" onchange="this.form.submit()" 
+                                class="hidden">
+                            <option value="10" {% if items_per_page|default:10 == 10 %}selected{% endif %}>10</option>
+                            <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                            <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                            <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                        </select>
+                        
+                        <!-- Dropdown personnalisé -->
+                        <div id="customDropdown" class="relative">
+                            <!-- Bouton d'affichage avec crochet intégré -->
+                            <button type="button" id="dropdownButton" 
+                                    class="px-3 py-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-300 cursor-pointer flex items-center gap-2 hover:bg-blue-50 rounded-lg px-3 py-2 transition-all duration-300">
+                                <span id="selectedValue">10</span>
+                                <i class="fas fa-chevron-down text-xs transition-transform duration-300"></i>
+                            </button>
+                            
+                            <!-- Liste des options -->
+                            <div id="dropdownOptions" class="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible transform scale-95 -translate-y-2 transition-all duration-200 z-50 min-w-[80px]">
+                                <div class="py-1">
+                                    <div class="option-item px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 hover:text-blue-700 transition-colors duration-150" data-value="10">10</div>
+                                    <div class="option-item px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 hover:text-blue-700 transition-colors duration-150" data-value="25">25</div>
+                                    <div class="option-item px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 hover:text-blue-700 transition-colors duration-150" data-value="50">50</div>
+                                    <div class="option-item px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 hover:text-blue-700 transition-colors duration-150" data-value="100">100</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>
@@ -588,7 +626,178 @@ function showToast(message, type = 'info', duration = 3000) {
         <div>Total commande:</div>
         <div id="panierTotalFinal" class="text-green-600">0.00 DH</div>
       </div>
+            </div>
     </div>
-  </div>
 </div>
+
+<!-- CSS personnalisé pour le sélecteur -->
+<style>
+    /* Stylisation du select */
+    #itemsPerPage {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: none;
+    }
+    
+    /* Stylisation des options */
+    #itemsPerPage option {
+        background-color: white;
+        color: #374151;
+        padding: 8px 12px;
+        font-weight: 500;
+    }
+    
+    #itemsPerPage option:hover {
+        background-color: #f3f4f6;
+    }
+    
+    #itemsPerPage option:checked {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+        font-weight: 600;
+    }
+    
+    /* Animation pour le container */
+    .group:hover .fa-chevron-down {
+        transform: translateY(1px);
+        transition: transform 0.2s ease;
+    }
+    
+    /* Stylisation du crochet cliquable */
+    .group .fa-chevron-down {
+        transition: all 0.2s ease;
+    }
+    
+    /* Effet de clic sur le crochet */
+    .group div[onclick]:active .fa-chevron-down {
+        transform: translateY(2px) scale(0.95);
+        color: #1d4ed8;
+    }
+    
+    /* Hover effect sur le crochet */
+    .group div[onclick]:hover .fa-chevron-down {
+        transform: translateY(1px);
+        color: #1d4ed8;
+    }
+    
+    /* Focus states améliorés */
+    #itemsPerPage:focus {
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .group {
+            padding: 0.5rem 0.75rem;
+        }
+        
+        .group label {
+            font-size: 0.75rem;
+        }
+        
+        .group select {
+            font-size: 0.75rem;
+        }
+    }
+</style>
+
+<!-- JavaScript pour le dropdown personnalisé -->
+<script>
+// Variables globales
+let isDropdownOpen = false;
+
+// Fonction pour ouvrir/fermer le dropdown
+function toggleDropdown() {
+    const dropdown = document.getElementById('dropdownOptions');
+    const button = document.getElementById('dropdownButton');
+    const chevron = button.querySelector('.fa-chevron-down');
+    
+    if (isDropdownOpen) {
+        // Fermer le dropdown
+        dropdown.classList.remove('opacity-100', 'visible', 'scale-100', 'translate-y-0');
+        dropdown.classList.add('opacity-0', 'invisible', 'scale-95', '-translate-y-2');
+        isDropdownOpen = false;
+        button.classList.remove('text-blue-700');
+        button.classList.add('text-blue-600');
+        
+        // Animation du crochet (retour à la normale)
+        if (chevron) {
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    } else {
+        // Ouvrir le dropdown
+        dropdown.classList.remove('opacity-0', 'invisible', 'scale-95', '-translate-y-2');
+        dropdown.classList.add('opacity-100', 'visible', 'scale-100', 'translate-y-0');
+        isDropdownOpen = true;
+        button.classList.remove('text-blue-600');
+        button.classList.add('text-blue-700');
+        
+        // Animation du crochet (rotation)
+        if (chevron) {
+            chevron.style.transform = 'rotate(180deg)';
+        }
+    }
+}
+
+// Fonction pour sélectionner une option
+function selectOption(value) {
+    const selectedValue = document.getElementById('selectedValue');
+    const hiddenSelect = document.getElementById('itemsPerPage');
+    
+    // Mettre à jour l'affichage
+    selectedValue.textContent = value;
+    
+    // Mettre à jour le select caché
+    hiddenSelect.value = value;
+    
+    // Fermer le dropdown
+    toggleDropdown();
+    
+    // Soumettre le formulaire
+    hiddenSelect.form.submit();
+}
+
+// Initialisation quand le DOM est chargé
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 Configuration du dropdown personnalisé...');
+    
+    // Initialiser la valeur sélectionnée
+    const hiddenSelect = document.getElementById('itemsPerPage');
+    const selectedValue = document.getElementById('selectedValue');
+    if (hiddenSelect && selectedValue) {
+        selectedValue.textContent = hiddenSelect.value;
+    }
+    
+    // Configurer le bouton du dropdown
+    const dropdownButton = document.getElementById('dropdownButton');
+    if (dropdownButton) {
+        dropdownButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            toggleDropdown();
+        });
+    }
+    
+    // Configurer les options
+    const options = document.querySelectorAll('.option-item');
+    options.forEach(option => {
+        option.addEventListener('click', function() {
+            const value = this.getAttribute('data-value');
+            selectOption(value);
+        });
+    });
+    
+    // Fermer le dropdown si on clique ailleurs
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('customDropdown');
+        if (dropdown && !dropdown.contains(e.target)) {
+            if (isDropdownOpen) {
+                toggleDropdown();
+            }
+        }
+    });
+    
+    console.log('✅ Dropdown personnalisé configuré');
+});
+</script>
 {% endblock %} 
