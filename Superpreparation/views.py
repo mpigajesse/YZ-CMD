@@ -3134,22 +3134,28 @@ def api_panier_commande_prepa(request, commande_id):
     for panier in paniers:
         paniers_data.append({
             'id': panier.id,
-            'article_id': panier.article.id,
-            'article_nom': panier.article.nom,
-            'article_reference': panier.article.reference or '',
-            'article_couleur': panier.article.couleur,
-            'article_pointure': panier.article.pointure,
+            'nom': panier.article.nom,
+            'reference': panier.article.reference or '',
+            'couleur': panier.article.couleur,
+            'pointure': panier.article.pointure,
             'quantite': panier.quantite,
             'prix_unitaire': float(panier.article.prix_unitaire),
             'sous_total': float(panier.sous_total),
-            'display_text': f"{panier.article.nom} - {panier.article.couleur} - {panier.article.pointure}"
         })
+    
+    # Calculer les totaux
+    total_articles = sum(p.quantite for p in paniers)
+    total_final = sum(float(p.sous_total) for p in paniers)
     
     return JsonResponse({
         'success': True,
-        'paniers': paniers_data,
-        'total_commande': float(commande.total_cmd),
-        'nb_articles': len(paniers_data)
+        'articles': paniers_data,  # Changer 'paniers' en 'articles'
+        'commande': {  # Ajouter l'objet commande attendu par le JS
+            'id_yz': commande.id_yz,
+            'client_nom': f"{commande.client.nom} {commande.client.prenom}",
+            'total_articles': total_articles,
+            'total_final': total_final,
+        }
     })
 
 @superviseur_preparation_required
@@ -5495,6 +5501,9 @@ def commandes_confirmees(request):
     # Créer une copie des données non paginées pour les statistiques AVANT la pagination
     commandes_non_paginees = commandes_confirmees
     
+    # Conserver le total original pour les statistiques
+    total_confirmees_original = commandes_confirmees.count()
+    
     # Paramètres de pagination flexible
     items_per_page = request.GET.get('items_per_page', 25)
     start_range = request.GET.get('start_range')
@@ -5538,7 +5547,7 @@ def commandes_confirmees(request):
             
             paginator = Paginator(commandes_confirmees, items_per_page)
             page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
+            page_obj = paginator.get_page(page_number)
     
     # Statistiques
     today = timezone.now().date()
@@ -5612,7 +5621,7 @@ def commandes_confirmees(request):
             'html_table_body': html_table_body,
             'html_pagination': html_pagination,
             'html_pagination_info': html_pagination_info,
-            'total_count': commandes_confirmees.count()
+            'total_count': total_confirmees
         })
     
     context = {
