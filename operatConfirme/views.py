@@ -327,7 +327,7 @@ def confirmer_commande_ajax(request, commande_id):
                         variante=None,
                     )
                     nouveau_stock = article.qte_disponible  # Propriété calculée à partir des variantes
-
+                    
                     articles_decrémentes.append({
                         'article': article.nom,
                         'ancien_stock': ancien_stock,
