@@ -2081,7 +2081,15 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // Fonction globale pour sélectionner un article
-    window.selectionnerArticle = function(articleId, articleName) {
+    window.selectionnerArticle = function(articleId, articleName, varianteId) {
+        // Enregistrer immédiatement la variante venant du bouton de la carte
+        try {
+            if (typeof varianteId !== 'undefined' && varianteId !== null) {
+                window._varianteSelection = window._varianteSelection || {};
+                window._varianteSelection[articleId] = parseInt(varianteId);
+                console.log('✅ Variante sélectionnée', { articleId, varianteId: window._varianteSelection[articleId] });
+            }
+        } catch(e) { console.warn('⚠️ Impossible de mémoriser la variante', e); }
         const quantiteInput = document.getElementById(`qte-article-${articleId}`);
         if (!quantiteInput) {
             console.error(`❌ Input de quantité non trouvé pour l'article ${articleId}`);
@@ -2098,6 +2106,18 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             return;
         }
+        
+        // Si l'article possède des variantes, exiger une sélection
+        try {
+            const data = (window.articlesDisponibles || []).find(a => a.id === articleId);
+            const hasVar = data && Array.isArray(data.variantes_all) && data.variantes_all.length > 0;
+            const selectedVar = window._varianteSelection && window._varianteSelection[articleId];
+            console.log('🔎 Vérification variantes', { hasVar, selectedVar });
+            if (hasVar && !selectedVar) {
+                showNotificationToast('Veuillez sélectionner une variante (couleur/pointure) avant d\'ajouter.', 'warning');
+                return;
+            }
+        } catch(e) { console.warn('⚠️ Erreur détection variantes', e); }
         
         // Vérifier que la quantité ne dépasse pas le stock disponible
         const maxStock = parseInt(quantiteInput.getAttribute('max')) || 99;
@@ -2980,7 +3000,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="text-xs font-medium text-gray-600">Qté:</span>
                         <div class="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
                             <button type="button" 
-                                    onclick="if(typeof window.modifierQuantiteArticle === 'function') { window.modifierQuantiteArticle(${article.id}, -1); } else { console.error('Fonction modifierQuantiteArticle non accessible'); }" 
                                     class="quantity-control w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold text-sm transition-all duration-200 flex items-center justify-center hover:scale-105 active:scale-95"
                                     data-article-id="${article.id}" data-action="decrease">
                                 <i class="fas fa-minus text-xs"></i>
@@ -2990,7 +3009,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                    value="1" min="1" max="${article.qte_disponible}" 
                                    ${article.qte_disponible <= 0 ? 'disabled' : ''}>
                             <button type="button" 
-                                    onclick="if(typeof window.modifierQuantiteArticle === 'function') { window.modifierQuantiteArticle(${article.id}, 1); } else { console.error('Fonction modifierQuantiteArticle non accessible'); }" 
                                     class="quantity-control w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold text-sm transition-all duration-200 flex items-center justify-center hover:scale-105 active:scale-95"
                                     data-article-id="${article.id}" data-action="increase">
                                 <i class="fas fa-plus text-xs"></i>
@@ -3009,7 +3027,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <!-- Bouton d'ajout -->
                     <button type="button" 
                             class="add-button bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg ${article.qte_disponible <= 0 ? 'opacity-50 cursor-not-allowed' : ''}" 
-                            onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')" 
+                            onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}', ${article.is_variante ? (article.variante_id || 'null') : 'null'})" 
                             ${article.qte_disponible <= 0 ? 'disabled' : ''}>
                         <div class="flex items-center gap-2">
                             <i class="fas fa-shopping-cart text-sm"></i>
@@ -3036,18 +3054,29 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function ajouterArticleAuPanier(articleId, quantite) {
-        console.log('🔄 Ajout d\'article au panier:', { articleId, quantite });
+        console.log('🔄 Ajout d\'article au panier:', { articleId, quantite, variante_id: window._varianteSelection ? window._varianteSelection[articleId] : undefined });
         
         const formData = new FormData();
         formData.append('action', 'add_article');
         formData.append('article_id', articleId);
         formData.append('quantite', quantite);
+        // Inclure la variante sélectionnée si disponible
+        if (window._varianteSelection && window._varianteSelection[articleId]) {
+            console.log('📦 Envoi variante_id:', window._varianteSelection[articleId]);
+            formData.append('variante_id', window._varianteSelection[articleId]);
+        } else {
+            console.log('⚠️ Aucune variante_id jointe');
+        }
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
         
-        fetch(`{% url 'Superpreparation:modifier_commande_superviseur' commande.id %}`, { method: 'POST', body: formData })
-            .then(res => res.json())
+        fetch(`{% url 'Superpreparation:ajouter_article_commande_prepa' commande.id %}`, { method: 'POST', body: formData })
+            .then(res => {
+                console.log('🌐 Réponse HTTP:', res.status, res.statusText);
+                return res.json();
+            })
             .then(data => {
+                console.log('📥 Réponse JSON ajout:', data);
                 debugDatabaseInteraction('ajouter_article', data);
                 if (data.success) {
                     console.log('✅ Article ajouté avec succès:', data);
@@ -3146,35 +3175,102 @@ document.addEventListener('DOMContentLoaded', function() {
     if (searchInput) {
         let searchTimeout;
         
+        // Moteur de recherche intelligent (client-only)
+        const normalize = (s) => (s || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+        const tokenize = (s) => normalize(s).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+        const fieldWeights = {
+            nom: 3.0,
+            reference: 2.5,
+            reference_variante: 2.2,
+            couleur: 1.8,
+            pointure: 1.6,
+            categorie: 1.2,
+            genre: 1.0
+        };
+        function buildIndex(list) {
+            window._articlesIndex = list.map(a => {
+                const entry = {
+                    id: a.id,
+                    tokens: new Set(),
+                    raw: a
+                };
+                const fields = [
+                    a.nom,
+                    a.reference,
+                    a.couleur,
+                    a.pointure,
+                    a.categorie,
+                    a.genre,
+                    a.reference_variante
+                ];
+                const variantRefs = Array.isArray(a.variantes_all) ? a.variantes_all.map(v => [v.reference_variante, v.couleur, v.pointure]).flat() : [];
+                fields.concat(variantRefs).forEach(val => tokenize(val || '').forEach(t => entry.tokens.add(t)));
+                return entry;
+            });
+        }
+        function stringScore(qTok, token) {
+            if (token.startsWith(qTok)) return 1.0; // prefix match
+            if (token.includes(qTok)) return 0.75;  // substring
+            // fuzzy: sous-séquence
+            let i = 0; for (const ch of token) { if (ch === qTok[i]) i++; if (i === qTok.length) break; }
+            if (i === qTok.length) return 0.5;
+            return 0;
+        }
+        function scoreArticle(article, query) {
+            const qTokens = tokenize(query);
+            if (qTokens.length === 0) return 0;
+            let score = 0;
+            const fields = {
+                nom: article.nom,
+                reference: article.reference,
+                reference_variante: article.reference_variante,
+                couleur: article.couleur,
+                pointure: article.pointure,
+                categorie: article.categorie,
+                genre: article.genre
+            };
+            // Ajouter les variantes
+            if (Array.isArray(article.variantes_all)) {
+                article.variantes_all.forEach(v => {
+                    fields.reference_variante = (fields.reference_variante ? fields.reference_variante + ' ' : '') + (v.reference_variante || '');
+                    fields.couleur = (fields.couleur ? fields.couleur + ' ' : '') + ((v.couleur && v.couleur.nom) || v.couleur || '');
+                    fields.pointure = (fields.pointure ? fields.pointure + ' ' : '') + ((v.pointure && v.pointure.pointure) || v.pointure || '');
+                });
+            }
+            for (const [field, value] of Object.entries(fields)) {
+                const tokens = tokenize(value || '');
+                if (tokens.length === 0) continue;
+                let local = 0;
+                for (const q of qTokens) {
+                    let best = 0;
+                    for (const t of tokens) best = Math.max(best, stringScore(q, t));
+                    local += best;
+                }
+                score += local * (fieldWeights[field] || 1.0);
+            }
+            return score;
+        }
+        function smartFilter(list, query) {
+            if (!window._articlesIndex || window._articlesIndex.length !== list.length) buildIndex(list);
+            const results = list.map(a => ({ a, s: scoreArticle(a, query) }))
+                                .filter(x => x.s > 0)
+                                .sort((x, y) => y.s - x.s)
+                                .map(x => x.a);
+            return results;
+        }
         searchInput.addEventListener('input', function() {
-            const query = this.value.toLowerCase();
-            
-            // Effacer le timeout précédent
+            const query = this.value;
             clearTimeout(searchTimeout);
-            
-            // Ajouter un délai pour éviter trop de filtrage pendant la frappe
             searchTimeout = setTimeout(() => {
-                if (query.length === 0) {
-                    // Si la recherche est vide, afficher tous les articles
+                if (!query || query.trim().length === 0) {
                     afficherArticles(articlesDisponibles);
+                    afficherResultatsRecherche('', articlesDisponibles.length);
                     return;
                 }
-                
-            const filtered = articlesDisponibles.filter(article =>
-                article.nom.toLowerCase().includes(query) ||
-                (article.reference && article.reference.toLowerCase().includes(query)) ||
-                (article.couleur && article.couleur.toLowerCase().includes(query)) ||
-                    (article.pointure && article.pointure.toLowerCase().includes(query)) ||
-                    (article.categorie && article.categorie.toLowerCase().includes(query)) ||
-                    (article.genre && article.genre.toLowerCase().includes(query))
-            );
-                
-                // Afficher les résultats avec animation
-            afficherArticles(filtered);
-                
-                // Afficher le nombre de résultats trouvés
+                const filtered = smartFilter(articlesDisponibles, query);
+                afficherArticles(filtered);
                 afficherResultatsRecherche(query, filtered.length);
-            }, 300);
+            }, 200);
         });
         
         // Ajouter des suggestions de recherche
@@ -3903,6 +3999,112 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.classList.remove('flex');
         }
     };
+
+    // Surcouche pour trier les variantes par stock disponible avant affichage
+    const _afficherArticlesOriginal = typeof afficherArticles === 'function' ? afficherArticles : null;
+    if (_afficherArticlesOriginal) {
+        afficherArticles = function(articles) {
+            try {
+                const prepared = (articles || []).map(a => {
+                    const variants = Array.isArray(a.variantes_all) ? a.variantes_all.slice() : [];
+                    variants.sort((va, vb) => {
+                        const aHas = (va.qte_disponible || 0) > 0 ? 1 : 0;
+                        const bHas = (vb.qte_disponible || 0) > 0 ? 1 : 0;
+                        if (aHas !== bHas) return bHas - aHas; // disponibles d'abord
+                        return (vb.qte_disponible || 0) - (va.qte_disponible || 0); // puis décroissant
+                    });
+                    a.variantes_all = variants;
+                    return a;
+                });
+                _afficherArticlesOriginal(prepared);
+                setTimeout(configurerEventListenersQuantite, 50);
+            } catch (e) {
+                console.warn('Tri variantes ignoré (erreur mineure):', e);
+                _afficherArticlesOriginal(articles);
+            }
+        }
+    }
+
+    // Améliorer la limite de quantité: désactiver/activer les boutons +/- selon min/max
+    function _majEtatsBoutonsQuantite(articleId) {
+        const input = document.getElementById(`qte-article-${articleId}`);
+        if (!input) return;
+        const min = parseInt(input.getAttribute('min')) || 1;
+        const max = parseInt(input.getAttribute('max')) || 999999;
+        const val = parseInt(input.value) || min;
+        const dec = document.querySelector(`[data-article-id="${articleId}"][data-action="decrease"]`);
+        const inc = document.querySelector(`[data-article-id="${articleId}"][data-action="increase"]`);
+        if (dec) dec.disabled = val <= min;
+        if (inc) inc.disabled = val >= max;
+    }
+
+    // Étendre la fonction existante pour prendre en compte le max dynamique
+    const _modifierQuantiteArticleOrig = window.modifierQuantiteArticle;
+    window.modifierQuantiteArticle = function(articleId, delta) {
+        if (typeof _modifierQuantiteArticleOrig === 'function') {
+            _modifierQuantiteArticleOrig(articleId, delta);
+        } else {
+            const input = document.getElementById(`qte-article-${articleId}`);
+            if (!input) return;
+            const min = parseInt(input.getAttribute('min')) || 1;
+            const max = parseInt(input.getAttribute('max')) || 999999;
+            const cur = parseInt(input.value) || min;
+            const next = Math.min(Math.max(cur + delta, min), max);
+            input.value = next;
+        }
+        _majEtatsBoutonsQuantite(articleId);
+    };
+
+    // Lors de la sélection d'une variante, caler le max de quantité et badges visuels
+    const _selectionnerArticleOrig = window.selectionnerArticle;
+    window.selectionnerArticle = function(articleId, articleName, varianteId) {
+        try {
+            // mémoriser la variante
+            if (typeof varianteId !== 'undefined' && varianteId !== null) {
+                window._varianteSelection = window._varianteSelection || {};
+                window._varianteSelection[articleId] = parseInt(varianteId);
+            }
+            // si on connaît la variante dans la carte, récupérer son stock pour limiter
+            if (window._articlesCache && window._articlesCache[articleId]) {
+                const art = window._articlesCache[articleId];
+                const list = Array.isArray(art.variantes_all) ? art.variantes_all : [];
+                const vId = window._varianteSelection ? window._varianteSelection[articleId] : null;
+                const found = list.find(v => parseInt(v.id) === parseInt(vId));
+                if (found) {
+                    const input = document.getElementById(`qte-article-${articleId}`);
+                    if (input) {
+                        input.setAttribute('max', Math.max(0, parseInt(found.qte_disponible || 0)));
+                        if (parseInt(input.value) > parseInt(input.getAttribute('max'))) {
+                            input.value = input.getAttribute('max') || '1';
+                        }
+                        _majEtatsBoutonsQuantite(articleId);
+                    }
+                }
+            }
+        } catch (e) { console.warn('sélection variante: max non appliqué', e); }
+        if (typeof _selectionnerArticleOrig === 'function') {
+            return _selectionnerArticleOrig(articleId, articleName, varianteId);
+        }
+    };
+
+    // Enrichir le rendu des cartes variantes avec badges (si le rendu existe)
+    window._renderBadgeVariante = function(qte) {
+        if (!qte || qte <= 0) {
+            return '<span class="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">Rupture</span>';
+        }
+        if (qte <= 5) {
+            return '<span class="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">Faible stock</span>';
+        }
+        return '';
+    };
+
+    // Après affichage, recalculer l'état des boutons
+    document.addEventListener('input', function(e){
+        if (e.target && e.target.id && e.target.id.startsWith('qte-article-')) {
+            const id = e.target.id.replace('qte-article-', '');
+            _majEtatsBoutonsQuantite(id);
+        }
+    });
 });
 </script>
 {% endblock %} 

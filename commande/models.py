@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from client.models import Client
-from article.models import Article
+from article.models import Article, VarianteArticle
 from parametre.models import Ville, Operateur
 
 # Create your models here.
@@ -195,13 +195,14 @@ class Commande(models.Model):
 class Panier(models.Model):
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='paniers')
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='paniers')
+    variante = models.ForeignKey(VarianteArticle, on_delete=models.SET_NULL, null=True, blank=True, related_name='paniers')
     quantite = models.IntegerField()
     sous_total = models.FloatField()
     
     class Meta:
         verbose_name = "Panier"
         verbose_name_plural = "Paniers"
-        unique_together = [['commande', 'article']]
+        unique_together = [['commande', 'article', 'variante']]
         constraints = [
             models.CheckConstraint(check=models.Q(quantite__gt=0), name='quantite_positive'),
             models.CheckConstraint(check=models.Q(sous_total__gte=0), name='sous_total_positif'),

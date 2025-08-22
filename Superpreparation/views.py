@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 from django.core.paginator import Paginator
+from django.core.cache import cache
 
 import json
 from parametre.models import Operateur, Ville
@@ -1104,7 +1105,7 @@ def traiter_commande_retournee_api(request, commande_id):
                 # Ne pas changer l'état de la commande, elle reste "Retournée"
                 # Seulement réincrémenter le stock si les produits sont en bon état
                 if etat_stock == 'bon':
-                    for panier in commande.paniers.all():
+                    for panier in commande.paniers.select_related('article__categorie', 'article__genre', 'variante__couleur', 'variante__pointure').all():
                         article = panier.article
                         quantite = panier.quantite
                         
@@ -1237,7 +1238,7 @@ def detail_prepa(request, pk):
         commande = Commande.objects.select_related(
             'client', 'ville', 'ville__region'
         ).prefetch_related(
-            'paniers__article', 'etats__enum_etat', 'etats__operateur'
+            'paniers__article', 'paniers__variante', 'etats__enum_etat', 'etats__operateur'
         ).get(id=pk)
     except Commande.DoesNotExist:
         messages.error(request, "La commande demandée n'existe pas.")
@@ -1250,7 +1251,7 @@ def detail_prepa(request, pk):
     ).first()
 
     # Récupérer les paniers (articles) de la commande
-    paniers = commande.paniers.all().select_related('article')
+    paniers = commande.paniers.all().select_related('article', 'variante', 'variante__couleur', 'variante__pointure')
     
     # Initialiser les variables pour les cas de livraison partielle/renvoi
     articles_livres = []
@@ -1265,6 +1266,19 @@ def detail_prepa(request, pk):
     for panier in paniers:
         panier.prix_unitaire = panier.sous_total / panier.quantite if panier.quantite > 0 else 0
         panier.total_ligne = panier.sous_total
+        # Préparer affichage variante (couleur/pointure)
+        try:
+            panier.couleur_display = (
+                panier.variante.couleur.nom if getattr(panier, 'variante', None) and getattr(panier.variante, 'couleur', None) else getattr(panier.article, 'couleur', '')
+            )
+        except Exception:
+            panier.couleur_display = getattr(panier.article, 'couleur', '')
+        try:
+            panier.pointure_display = (
+                panier.variante.pointure.pointure if getattr(panier, 'variante', None) and getattr(panier.variante, 'pointure', None) else getattr(panier.article, 'pointure', '')
+            )
+        except Exception:
+            panier.pointure_display = getattr(panier.article, 'pointure', '')
         image_url = None
         try:
             # Protéger l'accès à .url si aucun fichier n'est associé
@@ -1371,7 +1385,7 @@ def detail_prepa(request, pk):
                 })
         # Si la commande actuelle est la commande originale livrée partiellement et qu'une commande de renvoi existe (Cas 1)
         elif commande_renvoi:
-            for panier_renvoi in commande_renvoi.paniers.all():
+            for panier_renvoi in commande_renvoi.paniers.select_related('article__categorie', 'article__genre').all():
                 etat = etat_articles_renvoyes.get(panier_renvoi.article.id, 'bon')
                 articles_renvoyes.append({
                     'article': panier_renvoi.article,
@@ -1391,7 +1405,7 @@ def detail_prepa(request, pk):
                 details = json.loads(operation_livraison_partielle_for_livres.conclusion)
                 if 'articles_livres' in details:
                     for article_livre in details['articles_livres']:
-                        article = Article.objects.filter(id=article_livre.get('article_id')).first()
+                        article = Article.objects.select_related('categorie', 'genre').filter(id=article_livre.get('article_id')).first()
                         if article:
                             articles_livres.append({
                                 'article': article,
@@ -1664,7 +1678,7 @@ def api_commande_produits(request, commande_id):
         commande = Commande.objects.get(id=commande_id)
         
         # Récupérer tous les produits de la commande
-        paniers = commande.paniers.all().select_related('article')
+        paniers = commande.paniers.select_related('article__categorie', 'article__genre', 'variante__couleur', 'variante__pointure').all()
         
         # Construire la liste des produits
         produits_list = []
@@ -1739,7 +1753,7 @@ def modifier_commande_prepa(request, commande_id):
                 quantite = int(request.POST.get('quantite', 1))
                 
                 try:
-                    article = Article.objects.get(id=article_id)
+                    article = Article.objects.select_related('categorie', 'genre').get(id=article_id)
                     
                     # Vérifier si l'article existe déjà dans la commande
                     panier_existant = Panier.objects.filter(commande=commande, article=article).first()
@@ -1866,7 +1880,7 @@ def modifier_commande_prepa(request, commande_id):
                     ancien_panier.delete()
                     
                     # Créer le nouveau panier
-                    nouvel_article = Article.objects.get(id=nouvel_article_id)
+                    nouvel_article = Article.objects.select_related('categorie', 'genre').get(id=nouvel_article_id)
                     
                     # Recalculer le compteur après remplacement (logique de confirmation)
                     total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
@@ -2444,7 +2458,7 @@ def modifier_commande_prepa(request, commande_id):
             # Populer articles_livres à partir de la conclusion de l'opération de livraison partielle
             if 'articles_livres' in details:
                 for article_livre in details['articles_livres']:
-                    article_obj = Article.objects.filter(id=article_livre.get('article_id')).first()
+                    article_obj = Article.objects.select_related('categorie', 'genre').filter(id=article_livre.get('article_id')).first()
                     if article_obj:
                         articles_livres.append({
                             'article': article_obj,
@@ -2574,7 +2588,7 @@ def modifier_commande_superviseur(request, commande_id):
                 quantite = int(request.POST.get('quantite', 1))
                 
                 try:
-                    article = Article.objects.get(id=article_id)
+                    article = Article.objects.select_related('categorie', 'genre').get(id=article_id)
                     
                     # Vérifier si l'article existe déjà dans la commande
                     panier_existant = Panier.objects.filter(commande=commande, article=article).first()
@@ -2921,7 +2935,7 @@ def diagnostiquer_compteur(request, commande_id):
 
 @superviseur_preparation_required
 def api_articles_disponibles_prepa(request):
-    """API pour récupérer les articles disponibles pour les opérateurs de préparation"""
+    """API pour récupérer les articles disponibles pour les opérateurs de préparation - Optimisé avec cache"""
     from article.models import Article
     
     try:
@@ -2937,8 +2951,20 @@ def api_articles_disponibles_prepa(request):
         search_query = request.GET.get('search', '')
         filter_type = request.GET.get('filter', 'tous')
         
-        # Récupérer les articles actifs
-        articles = Article.objects.filter(actif=True)
+        # TODO: Réactiver le cache une fois que les optimisations de base fonctionnent
+        # cache_key = f"articles_prepa_{filter_type}_{hash(search_query)}_{timezone.now().hour}"
+        # if not search_query and filter_type in ['tous', 'disponible', 'upsell']:
+        #     cached_result = cache.get(cache_key)
+        #     if cached_result:
+        #         return JsonResponse(cached_result)
+        
+        # Récupérer les articles actifs avec optimisations
+        articles = Article.objects.filter(actif=True).select_related(
+            'categorie', 'genre'
+        ).prefetch_related(
+            'variantes__couleur',
+            'variantes__pointure'
+        )
         
         # Appliquer les filtres selon le type
         if filter_type == 'disponible':
@@ -2978,15 +3004,15 @@ def api_articles_disponibles_prepa(request):
                 article.prix_actuel = article.prix_unitaire
                 article.save(update_fields=['prix_actuel'])
             
-            # Récupérer les variantes disponibles
-            variantes_disponibles = article.variantes.filter(actif=True, qte_disponible__gt=0)
+            # Récupérer toutes les variantes actives (déjà préchargées)
+            variantes_actives = article.variantes.filter(actif=True)
             
             # Si pas de variantes, créer une entrée avec les propriétés de compatibilité
-            if not variantes_disponibles.exists():
+            if not variantes_actives.exists():
                 # Propriétés de compatibilité du modèle Article
-                stock = article.qte_disponible
-                couleur = article.couleur
-                pointure = article.pointure
+                stock = getattr(article, 'qte_disponible', 0)
+                couleur = ''  # Article n'a pas de couleur directe
+                pointure = ''  # Article n'a pas de pointure directe
                 
                 if stock > 0:
                     articles_data.append({
@@ -3020,8 +3046,19 @@ def api_articles_disponibles_prepa(request):
                         'display_text': f"{article.nom} - {couleur or ''} - {pointure or ''} ({float(article.prix_actuel or article.prix_unitaire):.2f} DH)"
                     })
             else:
-                # Créer une entrée pour chaque variante disponible
-                for variante in variantes_disponibles:
+                # Préparer la liste complète des variantes pour affichage (y compris rupture)
+                variantes_list = []
+                for v in variantes_actives:
+                    variantes_list.append({
+                        'id': v.id,
+                        'couleur': v.couleur.nom if v.couleur else '',
+                        'pointure': v.pointure.pointure if v.pointure else '',
+                        'qte_disponible': v.qte_disponible,
+                        'reference_variante': v.reference_variante,
+                    })
+
+                # Créer une entrée pour chaque variante (même celles en rupture)
+                for variante in variantes_actives:
                     # Déterminer le type d'article pour l'affichage
                     article_type = 'normal'
                     type_icon = 'fas fa-box'
@@ -3063,10 +3100,11 @@ def api_articles_disponibles_prepa(request):
                         'categorie': str(article.categorie) if article.categorie else '',
                         'genre': str(article.genre) if article.genre else '',
                         'modele': article.modele_complet(),
-                        'variantes_count': variantes_disponibles.count(),
+                        'variantes_count': variantes_actives.count(),
                         'is_variante': True,
                         'variante_id': variante.id,
                         'reference_variante': variante.reference_variante,
+                        'variantes_all': variantes_list,
                         # Propriétés pour compatibilité avec le template
                         'prix': float(article.prix_actuel or article.prix_unitaire),
                         'prix_original': float(article.prix_unitaire),
@@ -3078,8 +3116,13 @@ def api_articles_disponibles_prepa(request):
                         'display_text': f"{article.nom} - {variante.couleur.nom if variante.couleur else ''} - {variante.pointure.pointure if variante.pointure else ''} ({float(article.prix_actuel or article.prix_unitaire):.2f} DH)"
                     })
         
+        # TODO: Réactiver le cache une fois que les optimisations de base fonctionnent
+        response_data = articles_data
+        # if not search_query and filter_type in ['tous', 'disponible', 'upsell']:
+        #     cache.set(cache_key, response_data, 900)  # 15 minutes
+        
         # Retourner directement le tableau d'articles comme dans l'interface de confirmation
-        return JsonResponse(articles_data, safe=False)
+        return JsonResponse(response_data, safe=False)
         
     except Exception as e:
         import traceback
@@ -3129,33 +3172,55 @@ def api_panier_commande_prepa(request, commande_id):
     
     # Récupérer les paniers
     paniers = commande.paniers.all().select_related('article')
-    
-    paniers_data = []
+
+    # Construire le format "articles" attendu par le front (compatibilité)
+    articles = []
+    total_articles_montant = 0.0
     for panier in paniers:
-        paniers_data.append({
+        prix_unitaire = float(panier.article.prix_unitaire) if panier.article and panier.article.prix_unitaire is not None else 0.0
+        sous_total = float(panier.sous_total) if panier.sous_total is not None else round(prix_unitaire * (panier.quantite or 0), 2)
+        total_articles_montant += sous_total
+        articles.append({
             'id': panier.id,
-            'nom': panier.article.nom,
-            'reference': panier.article.reference or '',
-            'couleur': panier.article.couleur,
-            'pointure': panier.article.pointure,
-            'quantite': panier.quantite,
-            'prix_unitaire': float(panier.article.prix_unitaire),
-            'sous_total': float(panier.sous_total),
+            'article_id': getattr(panier.article, 'id', None),
+            'nom': getattr(panier.article, 'nom', ''),
+            'reference': getattr(panier.article, 'reference', '') or '',
+            'couleur': getattr(panier.article, 'couleur', ''),
+            'pointure': getattr(panier.article, 'pointure', ''),
+            'quantite': panier.quantite or 0,
+            'prix_unitaire': prix_unitaire,
+            'sous_total': sous_total,
         })
-    
-    # Calculer les totaux
-    total_articles = sum(p.quantite for p in paniers)
-    total_final = sum(float(p.sous_total) for p in paniers)
-    
+
+    # Objet commande attendu par le front
+    client_nom = ''
+    try:
+        if commande.client:
+            prenom = getattr(commande.client, 'prenom', '') or ''
+            nom = getattr(commande.client, 'nom', '') or ''
+            client_nom = (prenom + ' ' + nom).strip()
+    except Exception:
+        client_nom = ''
+
+    commande_payload = {
+        'id': commande.id,
+        'id_yz': getattr(commande, 'id_yz', ''),
+        'client_nom': client_nom,
+        'total_articles': len(articles),
+        'total_montant': round(total_articles_montant, 2),
+        'total_final': float(commande.total_cmd) if getattr(commande, 'total_cmd', None) is not None else round(total_articles_montant, 2),
+    }
+
+    # Réponse incluant les deux formats (nouveau et legacy) pour compatibilité
     return JsonResponse({
         'success': True,
-        'articles': paniers_data,  # Changer 'paniers' en 'articles'
-        'commande': {  # Ajouter l'objet commande attendu par le JS
-            'id_yz': commande.id_yz,
-            'client_nom': f"{commande.client.nom} {commande.client.prenom}",
-            'total_articles': total_articles,
-            'total_final': total_final,
-        }
+        # Nouveau format utilisé par le front de Suivi Général
+        'commande': commande_payload,
+        'articles': articles,
+        # Legacy (au cas où)
+        'paniers': articles,
+        'total_commande': commande_payload['total_final'],
+        'nb_articles': len(articles),
     })
 
 @superviseur_preparation_required
@@ -3319,8 +3384,8 @@ def liste_articles(request):
     from django.db.models import Q, F, Sum, Count, Avg
     from django.db.models.functions import Coalesce
 
-    # Calcul des statistiques globales (avant tout filtrage)
-    articles_qs = Article.objects.all().annotate(
+    # Calcul des statistiques globales (avant tout filtrage) - Optimisé
+    articles_qs = Article.objects.select_related('categorie', 'genre').annotate(
         total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
     )
     articles_total = articles_qs.count()
@@ -3332,8 +3397,13 @@ def liste_articles(request):
     today = timezone.now().date()
     articles_crees_aujourd_hui = articles_qs.filter(date_creation__date=today).count()
 
-    # Récupération des articles pour la liste, filtrée
-    articles_list = Article.objects.all().annotate(
+    # Récupération des articles pour la liste, filtrée - Optimisé
+    articles_list = Article.objects.select_related(
+        'categorie', 'genre'
+    ).prefetch_related(
+        'variantes__couleur',
+        'variantes__pointure'
+    ).annotate(
         total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
     )
     
@@ -3558,7 +3628,12 @@ def alertes_stock(request):
     from django.db.models import Q, Sum
     from django.db.models.functions import Coalesce
     
-    articles_actifs = Article.objects.filter(actif=True).annotate(
+    articles_actifs = Article.objects.filter(actif=True).select_related(
+        'categorie', 'genre'
+    ).prefetch_related(
+        'variantes__couleur',
+        'variantes__pointure'
+    ).annotate(
         total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
     )
     
@@ -3707,7 +3782,7 @@ def statistiques_stock(request):
     date_debut = timezone.now() - timedelta(days=periode)
     
     # Articles de base
-    articles_qs = Article.objects.filter(actif=True)
+    articles_qs = Article.objects.filter(actif=True).select_related('categorie', 'genre')
     
     # Filtrage par catégorie si spécifié
     if categorie_filter:
@@ -3824,7 +3899,7 @@ def statistiques_stock(request):
         'values': [float((art.qte_disponible or 0) * (art.prix_unitaire or 0)) for art in top_articles_valeur[:5]]
     }
     
-    categories_disponibles = Article.objects.filter(actif=True).values_list('categorie', flat=True).distinct().exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('categorie')
+    categories_disponibles = Article.objects.filter(actif=True).select_related('categorie').values_list('categorie', flat=True).distinct().exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('categorie')
     
     context = {
         'page_title': 'Statistiques Stock',
@@ -4413,6 +4488,9 @@ def rafraichir_articles_commande_prepa(request, commande_id):
                             </div>
                             <div class="text-sm text-gray-500">
                                 Réf: {panier.article.reference or 'N/A'}
+                                {f" · Réf variante: {getattr(panier.variante, 'reference', '')}" if hasattr(panier, 'variante') and getattr(panier, 'variante', None) and getattr(panier.variante, 'reference', None) else ''}
+                                {f" · Couleur: {getattr(getattr(panier.variante,'couleur', None),'nom','')}" if hasattr(panier, 'variante') and getattr(panier, 'variante', None) and getattr(panier.variante, 'couleur', None) else ''}
+                                {f" · Pointure: {getattr(getattr(panier.variante,'pointure', None),'pointure','')}" if hasattr(panier, 'variante') and getattr(panier, 'variante', None) and getattr(panier.variante, 'pointure', None) else ''}
                             </div>
                         </div>
                     </div>
@@ -4487,7 +4565,10 @@ def ajouter_article_commande_prepa(request, commande_id):
         return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
     
     try:
-        operateur = Operateur.objects.get(user=request.user, type_operateur='PREPARATION')
+        # Autoriser PREPARATION et SUPERVISEUR_PREPARATION
+        operateur = Operateur.objects.get(user=request.user, actif=True)
+        if operateur.type_operateur not in ['PREPARATION', 'SUPERVISEUR_PREPARATION']:
+            return JsonResponse({'error': "Accès réservé à l'équipe préparation"}, status=403)
     except Operateur.DoesNotExist:
         return JsonResponse({'error': 'Profil d\'opérateur non trouvé.'}, status=403)
     
@@ -4495,49 +4576,99 @@ def ajouter_article_commande_prepa(request, commande_id):
         with transaction.atomic():
             commande = Commande.objects.select_for_update().get(id=commande_id)
             
-            # Vérifier que la commande est bien en préparation pour cet opérateur
-            etat_preparation = commande.etats.filter(
-                operateur=operateur,
-                enum_etat__libelle__in=['En préparation', 'À imprimer'],
-                date_fin__isnull=True
-            ).first()
+            # Vérifier que la commande est en préparation
+            if operateur.type_operateur == 'SUPERVISEUR_PREPARATION':
+                # Le superviseur peut agir sur toute commande en cours (sans contrainte d'affectation)
+                etat_preparation = commande.etats.filter(
+                    enum_etat__libelle__in=['En préparation', 'À imprimer'],
+                    date_fin__isnull=True
+                ).first()
+            else:
+                # Opérateur préparation: seulement sur les commandes qui lui sont affectées
+                etat_preparation = commande.etats.filter(
+                    operateur=operateur,
+                    enum_etat__libelle__in=['En préparation', 'À imprimer'],
+                    date_fin__isnull=True
+                ).first()
             
             if not etat_preparation:
                 return JsonResponse({'error': 'Cette commande n\'est pas en préparation pour vous.'}, status=403)
             
             article_id = request.POST.get('article_id')
             quantite = int(request.POST.get('quantite', 1))
+            variante_id = request.POST.get('variante_id')
+
+            print("[AJOUT VARIANTE] entrée:", {
+                'commande_id': commande_id,
+                'operateur': getattr(operateur, 'id', None),
+                'article_id': article_id,
+                'quantite': quantite,
+                'variante_id': variante_id,
+            })
             
             if not article_id or quantite <= 0:
                 return JsonResponse({'error': 'Données invalides'}, status=400)
 
-            article = Article.objects.get(id=article_id)
+            article = Article.objects.select_related('categorie', 'genre').get(id=article_id)
+            variante_obj = None
+            if variante_id:
+                try:
+                    from article.models import VarianteArticle
+                    variante_obj = VarianteArticle.objects.select_related('couleur', 'pointure').get(id=int(variante_id), article=article)
+                    print("[AJOUT VARIANTE] variante trouvée:", {
+                        'id': variante_obj.id,
+                        'couleur': getattr(getattr(variante_obj, 'couleur', None), 'nom', None),
+                        'pointure': getattr(getattr(variante_obj, 'pointure', None), 'pointure', None),
+                        'qte_disponible_avant': variante_obj.qte_disponible,
+                    })
+                except Exception:
+                    variante_obj = None
+                    print("[AJOUT VARIANTE] variante introuvable ou invalide", variante_id)
             
             # Décrémenter le stock et créer un mouvement
+            print("[AJOUT VARIANTE] création mouvement stock", {
+                'article': article.id,
+                'quantite': quantite,
+                'type': 'sortie',
+                'variante': getattr(variante_obj, 'id', None),
+            })
             creer_mouvement_stock(
                 article=article, quantite=quantite, type_mouvement='sortie',
                 commande=commande, operateur=operateur,
-                commentaire=f'Ajout article pendant préparation cmd {commande.id_yz}'
+                commentaire=f'Ajout article pendant préparation cmd {commande.id_yz}',
+                variante=variante_obj
             )
             
             # Vérifier si l'article existe déjà dans la commande
-            panier_existant = Panier.objects.filter(commande=commande, article=article).first()
+            filtre_panier = {'commande': commande, 'article': article}
+            if hasattr(Panier, 'variante'):
+                filtre_panier['variante'] = variante_obj
+            panier_existant = Panier.objects.filter(**filtre_panier).first()
+            print("[AJOUT VARIANTE] filtre panier:", {
+                'commande': commande.id,
+                'article': article.id,
+                'variante': getattr(variante_obj, 'id', None),
+                'existant': getattr(panier_existant, 'id', None)
+            })
             
             if panier_existant:
                 # Si l'article existe déjà, mettre à jour la quantité
                 panier_existant.quantite += quantite
                 panier_existant.save()
                 panier = panier_existant
-                print(f"🔄 Article existant mis à jour: ID={article.id}, nouvelle quantité={panier.quantite}")
+                print(f"[AJOUT VARIANTE] 🔄 panier existant {panier.id} mis à jour, nouvelle_quantite={panier.quantite}")
             else:
                 # Si l'article n'existe pas, créer un nouveau panier
-                panier = Panier.objects.create(
-                    commande=commande,
-                    article=article,
-                    quantite=quantite,
-                    sous_total=0  # Sera recalculé après
-                )
-                print(f"➕ Nouvel article ajouté: ID={article.id}, quantité={quantite}")
+                create_kwargs = {
+                    'commande': commande,
+                    'article': article,
+                    'quantite': quantite,
+                    'sous_total': 0,
+                }
+                if hasattr(Panier, 'variante'):
+                    create_kwargs['variante'] = variante_obj
+                panier = Panier.objects.create(**create_kwargs)
+                print(f"[AJOUT VARIANTE] ➕ nouveau panier créé id={panier.id}, article={article.id}, variante={getattr(variante_obj,'id',None)}, quantite={quantite}")
             
             # Recalculer le compteur après ajout (logique de confirmation)
             if article.isUpsell and hasattr(article, 'prix_upsell_1') and article.prix_upsell_1 is not None:
@@ -4569,6 +4700,11 @@ def ajouter_article_commande_prepa(request, commande_id):
             # Recalculer le total
             commande.total_cmd = sum(p.sous_total for p in commande.paniers.all())
             commande.save()
+            print("[AJOUT VARIANTE] totaux mis à jour:", {
+                'commande_id': commande.id,
+                'total_cmd': commande.total_cmd,
+                'articles_count': commande.paniers.count(),
+            })
             
             # Calculer les statistiques upsell
             articles_upsell = commande.paniers.filter(article__isUpsell=True)
@@ -4585,9 +4721,9 @@ def ajouter_article_commande_prepa(request, commande_id):
                 'article_id': article.id,
                 'nom': article.nom,
                 'reference': article.reference,
-                'couleur_fr': article.couleur or '',
-                'couleur_ar': article.couleur or '',
-                'pointure': article.pointure or '',
+                'couleur_fr': (variante_obj.couleur.nom if variante_obj and variante_obj.couleur else (article.couleur or '')),
+                'couleur_ar': (variante_obj.couleur.nom if variante_obj and variante_obj.couleur else (article.couleur or '')),
+                'pointure': (variante_obj.pointure.pointure if variante_obj and variante_obj.pointure else (article.pointure or '')),
                 'quantite': panier.quantite,
                 'prix': panier.sous_total / panier.quantite,  # Prix unitaire
                 'sous_total': panier.sous_total,
@@ -4892,7 +5028,7 @@ def api_articles_commande_livree_partiellement(request, commande_id):
                 except Exception:
                     pass
             if commande_renvoi:
-                for panier_renvoi in commande_renvoi.paniers.all():
+                for panier_renvoi in commande_renvoi.paniers.select_related('article__categorie', 'article__genre').all():
                     etat = etat_articles_renvoyes.get(panier_renvoi.article.id, 'bon')
                     articles_renvoyes.append({
                         'article_id': panier_renvoi.article.id,
@@ -5501,9 +5637,6 @@ def commandes_confirmees(request):
     # Créer une copie des données non paginées pour les statistiques AVANT la pagination
     commandes_non_paginees = commandes_confirmees
     
-    # Conserver le total original pour les statistiques
-    total_confirmees_original = commandes_confirmees.count()
-    
     # Paramètres de pagination flexible
     items_per_page = request.GET.get('items_per_page', 25)
     start_range = request.GET.get('start_range')
@@ -5547,7 +5680,7 @@ def commandes_confirmees(request):
             
             paginator = Paginator(commandes_confirmees, items_per_page)
             page_number = request.GET.get('page', 1)
-            page_obj = paginator.get_page(page_number)
+    page_obj = paginator.get_page(page_number)
     
     # Statistiques
     today = timezone.now().date()
@@ -5621,7 +5754,7 @@ def commandes_confirmees(request):
             'html_table_body': html_table_body,
             'html_pagination': html_pagination,
             'html_pagination_info': html_pagination_info,
-            'total_count': total_confirmees
+            'total_count': commandes_confirmees.count()
         })
     
     context = {
