@@ -21,7 +21,7 @@ from io import BytesIO
 import base64
 import csv
 
-from article.models import Article, MouvementStock
+from article.models import Article, MouvementStock, VarianteArticle
 from commande.models import Envoi
 from .forms import ArticleForm, AjusterStockForm
 from .utils import creer_mouvement_stock
