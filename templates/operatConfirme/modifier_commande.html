@@ -4572,6 +4572,10 @@ function parseArticleData(dataArticleAttr, panierId) {
         // Corriger les nombres avec virgules (format français) vers points (format JSON)
         cleanedData = cleanedData.replace(/(\d+),(\d+)/g, '$1.$2');
         
+        // Corriger les guillemets en trop autour des valeurs booléennes
+        cleanedData = cleanedData.replace(/: false"/g, ': false')
+                                .replace(/: true"/g, ': true');
+        
         const articleData = JSON.parse(cleanedData);
         
         // Valider que les données essentielles sont présentes
