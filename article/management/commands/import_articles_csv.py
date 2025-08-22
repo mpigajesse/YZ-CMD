@@ -28,11 +28,23 @@ class Command(BaseCommand):
             action='store_true',
             help='Met à jour les articles existants au lieu de les ignorer'
         )
+        parser.add_argument(
+            '--verbose-colors',
+            action='store_true',
+            help='Affiche la normalisation des couleurs pendant l\'importation'
+        )
+        parser.add_argument(
+            '--regenerate-references',
+            action='store_true',
+            help='Force la régénération des références même si elles existent déjà'
+        )
 
     def handle(self, *args, **options):
         csv_file = options['csv_file']
         dry_run = options['dry_run']
         update_existing = options['update_existing']
+        verbose_colors = options['verbose_colors']
+        regenerate_references = options['regenerate_references']
 
         if not os.path.exists(csv_file):
             self.stdout.write(
@@ -175,6 +187,10 @@ class Command(BaseCommand):
                         # Traiter les couleurs
                         couleurs_str = row.get('COULEUR', '').strip()
                         couleurs = self._parse_couleurs(couleurs_str)
+                        
+                        # Afficher les couleurs normalisées pour le suivi (si option activée)
+                        if verbose_colors and couleurs_str and couleurs_str != '':
+                            self.stdout.write(f'Couleurs CSV: "{couleurs_str}" -> Normalisées: {couleurs}')
 
                         # Vérifier si l'article existe déjà
                         article_existant = None
@@ -229,6 +245,19 @@ class Command(BaseCommand):
                                     article_existant.modele = modele
                             article_existant.date_modification = timezone.now()
                             article_existant.save()
+                            
+                            # Générer automatiquement la référence si elle n'est pas définie ou si régénération forcée
+                            if (not article_existant.reference or regenerate_references) and article_existant.categorie and article_existant.genre and article_existant.modele:
+                                reference_auto = article_existant.generer_reference_automatique()
+                                if reference_auto:
+                                    ancienne_ref = article_existant.reference
+                                    article_existant.reference = reference_auto
+                                    article_existant.save()
+                                    if ancienne_ref and regenerate_references:
+                                        self.stdout.write(f'Référence régénérée: {ancienne_ref} -> {reference_auto}')
+                                    else:
+                                        self.stdout.write(f'Référence générée automatiquement (mise à jour): {reference_auto}')
+                            
                             articles_updated += 1
                             
                             # Supprimer les anciennes variantes pour les recréer
@@ -257,6 +286,19 @@ class Command(BaseCommand):
                                 prix_upsell_3=prix_upsell_3,
                                 prix_upsell_4=prix_upsell_4
                             )
+                            
+                            # Générer automatiquement la référence si elle n'est pas définie ou si régénération forcée
+                            if (not article.reference or regenerate_references) and article.categorie and article.genre and article.modele:
+                                reference_auto = article.generer_reference_automatique()
+                                if reference_auto:
+                                    ancienne_ref = article.reference
+                                    article.reference = reference_auto
+                                    article.save()
+                                    if ancienne_ref and regenerate_references:
+                                        self.stdout.write(f'Référence régénérée: {ancienne_ref} -> {reference_auto}')
+                                    else:
+                                        self.stdout.write(f'Référence générée automatiquement: {reference_auto}')
+                            
                             articles_created += 1
 
                         # Créer les variantes pour toutes les combinaisons couleur/pointure
@@ -286,6 +328,14 @@ class Command(BaseCommand):
                                         qte_disponible=0,  # Valeur par défaut
                                         actif=True
                                     )
+                                    
+                                    # Générer automatiquement la référence de la variante
+                                    reference_variante_auto = variante.generer_reference_variante_automatique()
+                                    if reference_variante_auto:
+                                        variante.reference_variante = reference_variante_auto
+                                        variante.save()
+                                        if verbose_colors:
+                                            self.stdout.write(f'Référence variante générée: {reference_variante_auto}')
                                     
                                     variantes_created_for_article += 1
                                     
@@ -412,32 +462,102 @@ class Command(BaseCommand):
         return pointures
 
     def _parse_couleurs(self, couleurs_str):
-        """Parse les couleurs depuis le CSV"""
+        """Parse les couleurs depuis le CSV avec normalisation de la casse"""
         if not couleurs_str or couleurs_str.strip() == '' or couleurs_str.strip() == '--':
             return ['Standard']  # Couleur par défaut si aucune spécifiée
+        
+        # Mapping des couleurs communes pour normaliser la casse
+        couleur_mapping = {
+            'NOIR': 'Noir',
+            'BLANC': 'Blanc',
+            'ROUGE': 'Rouge',
+            'BLEU': 'Bleu',
+            'VERT': 'Vert',
+            'JAUNE': 'Jaune',
+            'ROSE': 'Rose',
+            'VIOLET': 'Violet',
+            'ORANGE': 'Orange',
+            'GRIS': 'Gris',
+            'MARRON': 'Marron',
+            'BEIGE': 'Beige',
+            'CAMEL': 'Camel',
+            'BRONZE': 'Bronze',
+            'DORE': 'Doré',
+            'ARGENT': 'Argent',
+            'GOLD': 'Doré',
+            'SILVER': 'Argent',
+            'NAVY': 'Bleu Marine',
+            'NUDE': 'Nude',
+            'KAKI': 'Kaki',
+            'TURQUOISE': 'Turquoise',
+            'FUCHSIA': 'Fuchsia',
+            'LIME': 'Lime',
+            'CORAIL': 'Corail',
+            'SAUMON': 'Saumon',
+            'BORDEAUX': 'Bordeaux',
+            'PRUNE': 'Prune',
+            'TAUPE': 'Taupe',
+            'ECRU': 'Ecru',
+            'IVOIRE': 'Ivoire',
+            'CREME': 'Crème',
+            'MULTICOLORE': 'Multicolore',
+            'LEOPARD': 'Léopard',
+            'ZEBRE': 'Zèbre',
+            'PYTHON': 'Python',
+            'CROCO': 'Croco',
+            'METAL': 'Métallisé',
+            'METALLISE': 'Métallisé',
+            'BRILLANT': 'Brillant',
+            'MAT': 'Mat',
+            'SATINE': 'Satiné',
+            'BLEU JEANS': 'Bleu Jeans',
+            'BLEU JEAN': 'Bleu Jeans',
+            'BLANC GRIS': 'Blanc Gris',
+            'GRENAT': 'Grenat',
+            'COGNAC': 'Cognac'
+        }
         
         couleurs = []
         # Nettoyer la chaîne (retirer les retours à la ligne et espaces en trop)
         couleurs_clean = str(couleurs_str).replace('\n', ' ').replace('\r', ' ')
         couleurs_clean = re.sub(r'\s+', ' ', couleurs_clean).strip()
         
-        # Parser les couleurs (séparées par des tirets ou des virgules)
-        if '-' in couleurs_clean:
-            couleurs = [c.strip() for c in couleurs_clean.split('-') if c.strip() and c.strip() != '']
-        elif ',' in couleurs_clean:
-            couleurs = [c.strip() for c in couleurs_clean.split(',') if c.strip() and c.strip() != '']
-        else:
-            couleurs = [couleurs_clean.strip()]
+        # Parser les couleurs (séparées par des tirets, virgules, slashes ou pipes)
+        separateurs = ['-', ',', '/', '|', ';']
+        couleurs_brutes = [couleurs_clean]
         
-        # Nettoyer chaque couleur et filtrer les vides
+        for sep in separateurs:
+            if sep in couleurs_clean:
+                couleurs_brutes = [c.strip() for c in couleurs_clean.split(sep) if c.strip() and c.strip() != '']
+                break
+        
+        # Nettoyer chaque couleur et normaliser la casse
         couleurs_finales = []
-        for couleur in couleurs:
-            couleur_clean = couleur.strip()
+        for couleur in couleurs_brutes:
+            couleur_clean = couleur.strip().upper()
             if couleur_clean and couleur_clean != '--' and len(couleur_clean) > 0:
-                couleurs_finales.append(couleur_clean.title())  # Première lettre en majuscule
+                # Vérifier si la couleur existe dans le mapping
+                if couleur_clean in couleur_mapping:
+                    couleur_normalisee = couleur_mapping[couleur_clean]
+                else:
+                    # Si pas dans le mapping, utiliser la forme title (première lettre majuscule)
+                    couleur_normalisee = couleur.strip().title()
+                    # Correction pour les mots composés
+                    couleur_normalisee = couleur_normalisee.replace(' De ', ' de ')
+                    couleur_normalisee = couleur_normalisee.replace(' Du ', ' du ')
+                    couleur_normalisee = couleur_normalisee.replace(' Le ', ' le ')
+                    couleur_normalisee = couleur_normalisee.replace(' La ', ' la ')
+                
+                couleurs_finales.append(couleur_normalisee)
         
         # Si aucune couleur valide trouvée, retourner une couleur par défaut
         if not couleurs_finales:
             couleurs_finales = ['Standard']
+        
+        # Supprimer les doublons tout en préservant l'ordre
+        couleurs_uniques = []
+        for couleur in couleurs_finales:
+            if couleur not in couleurs_uniques:
+                couleurs_uniques.append(couleur)
             
-        return couleurs_finales
+        return couleurs_uniques
