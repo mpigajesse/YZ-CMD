@@ -566,7 +566,10 @@
                                     class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all">
                                 <i class="fas fa-plus mr-2"></i>Ajouter un article
                             </button>
-                      
+                            <button type="button" onclick="ouvrirModalVariantesSansArticle()" 
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all">
+                                <i class="fas fa-th-list mr-2"></i>Sélectionner variante
+                            </button>
                         </div>
                     </div>
                     
@@ -726,59 +729,26 @@
                         </div>
                          
                         </div>
-                        <style>
-                        .filter-badge {
-                            transition: all 0.2s ease;
-                            border: 2px solid transparent;
-                        }
-                        .filter-badge:hover {
-                            transform: translateY(-1px);
-                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                        }
-                        .filter-badge.active {
-                            border-color: #3B82F6 !important;
-                            transform: scale(1.05) !important;
-                            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
-                        }
-                        .filter-badge[style*="opacity: 0.5"] {
-                            pointer-events: none;
-                        }
-                        </style>
                         <div class="badge-legend flex justify-between gap-3 text-sm">
                             <span id="filter-all" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 rounded-full font-medium cursor-pointer filter-badge active whitespace-nowrap hover:bg-gray-200 transition-colors" 
                                   onclick="filtrerArticles('all')" title="Afficher tous les articles">
-                                <span class="flex items-center">
-                                    🔍 TOUS
-                                    <span id="count-all" class="ml-1 px-1.5 py-0.5 bg-gray-200 text-gray-800 rounded-full text-xs font-bold">0</span>
-                                </span>
+                                🔍 TOUS
                             </span>
                             <span id="filter-promo" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-red-100 text-red-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-red-200 transition-colors" 
                                   onclick="filtrerArticles('promo')" title="Filtrer les articles en promotion">
-                                <span class="flex items-center">
-                                    🔥 PROMO
-                                    <span id="count-promo" class="ml-1 px-1.5 py-0.5 bg-red-200 text-red-800 rounded-full text-xs font-bold">0</span>
-                                </span>
+                                🔥 PROMO
                             </span>
                             <span id="filter-liquidation" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-orange-100 text-orange-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-orange-200 transition-colors" 
                                   onclick="filtrerArticles('liquidation')" title="Filtrer les articles en liquidation">
-                                <span class="flex items-center">
-                                    🏷️ LIQUIDATION
-                                    <span id="count-liquidation" class="ml-1 px-1.5 py-0.5 bg-orange-200 text-orange-800 rounded-full text-xs font-bold">0</span>
-                                </span>
+                                🏷️ LIQUIDATION
                             </span>
                             <span id="filter-test" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-blue-200 transition-colors" 
                                   onclick="filtrerArticles('test')" title="Filtrer les articles en test">
-                                <span class="flex items-center">
-                                    🧪 TEST
-                                    <span id="count-test" class="ml-1 px-1.5 py-0.5 bg-blue-200 text-blue-800 rounded-full text-xs font-bold">0</span>
-                                </span>
+                                🧪 TEST
                             </span>
                             <span id="filter-upsell" class="flex-1 inline-flex items-center justify-center px-4 py-2 bg-green-100 text-green-700 rounded-full font-medium cursor-pointer filter-badge whitespace-nowrap hover:bg-green-200 transition-colors" 
                                   onclick="filtrerArticles('upsell')" title="Filtrer les articles upsell">
-                                <span class="flex items-center">
-                                    ⬆️ UPSELL
-                                    <span id="count-upsell" class="ml-1 px-1.5 py-0.5 bg-green-200 text-green-800 rounded-full text-xs font-bold">0</span>
-                                </span>
+                                ⬆️ UPSELL
                             </span>
                         </div>
                     </div>
@@ -3388,34 +3358,8 @@ function changerQteLigne(button, delta) {
 function ajouterDepuisLigne(button) {
     try {
         const tr = button.closest('tr');
-        if (!tr) {
-            console.error('❌ Impossible de trouver la ligne (tr)');
-            return;
-        }
-        
-        console.log('🔍 Élément tr trouvé:', tr);
-        console.log('📦 Dataset brut:', tr.dataset);
-        console.log('📋 Dataset.article:', tr.dataset.article);
-        
+        if (!tr) return;
         const article = JSON.parse(tr.dataset.article || '{}');
-        
-        console.log('🎯 Article parsé:', article);
-        console.log('🆔 ID de l\'article:', article.id);
-        console.log('🔑 Toutes les clés de l\'article:', Object.keys(article));
-        
-        // Vérifier différentes clés possibles pour l'ID
-        let articleId = article.id || article.article_id || article.pk;
-        console.log('🔍 ID résolu:', articleId);
-        
-        if (!articleId) {
-            console.error('❌ Aucun ID trouvé dans les données de l\'article');
-            console.error('📋 Données complètes:', article);
-            showToast('❌ Erreur: ID de l\'article manquant', 'error');
-            return;
-        }
-        
-        // Mettre à jour l'objet article avec l'ID résolu
-        article.id = articleId;
         
         // Ouvrir le modal de sélection des variantes
         ouvrirModalVariantes(article);
@@ -3452,6 +3396,15 @@ function fermerModalAjouterArticle() {
 // ===== Gestion du modal des variantes =====
 function ouvrirModalVariantes(article) {
     try {
+        console.log('🎯 Ouverture modal variantes pour article:', article);
+        
+        // Vérifier que l'article a un ID valide
+        if (!article || !article.id) {
+            console.error('❌ Article invalide ou sans ID:', article);
+            showToast('❌ Erreur: Article invalide', 'error');
+            return;
+        }
+        
         // Fermer le modal "Ajouter un article" s'il est ouvert
         fermerModalAjouterArticle();
         
@@ -3490,6 +3443,13 @@ function chargerVariantesArticle(article) {
         if (!variantsList) return;
         
         console.log('🔍 Chargement des variantes pour l\'article:', article);
+        console.log('🔍 ID de l\'article:', article.id, 'Type:', typeof article.id);
+        
+        if (!article.id) {
+            console.error('❌ ID d\'article manquant');
+            variantsList.innerHTML = '<div class="text-center py-4 text-red-500">❌ ID d\'article manquant</div>';
+            return;
+        }
         
         variantsList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Chargement des variantes...</div>';
         
@@ -3560,60 +3520,40 @@ function afficherVariantes(variants, article) {
 
 function selectionnerVariante(variant, article) {
     try {
-        console.log('🎯 Sélection de variante:', variant);
-        console.log('📋 Article parent:', article);
-        
         // Fermer le modal des variantes
         fermerModalVariantes();
         
         // Créer un article combiné avec les données de la variante
         const articleAvecVariante = {
             ...article,
-            // Garder l'ID de l'article principal pour le panier
-            id: article.id,
-            // Ajouter les caractéristiques de la variante
-            couleur: variant.couleur,
-            pointure: variant.pointure,
-            taille: variant.taille,
-            // Utiliser les prix et stock de la variante
+            ...variant,
+            id: variant.id,
+            article_id: article.id,  // ID de l'article parent
+            variante_id: variant.id, // ID de la variante
             prix_actuel: variant.prix_unitaire,
             prix_unitaire: variant.prix_unitaire,
-            stock_disponible: variant.stock,
-            qte_disponible: variant.stock,
-            // Ajouter l'ID de la variante pour référence
-            variante_id: variant.id,
-            reference_variante: variant.reference_variante
+            stock_disponible: variant.stock
         };
-        
-        console.log('🔄 Article avec variante créé:', articleAvecVariante);
         
         // Utiliser la logique existante pour ajouter l'article
         const hiddenSelect = document.getElementById('articleSelect');
-        if (!hiddenSelect) {
-            console.error('❌ articleSelect non trouvé');
-            return;
-        }
+        if (!hiddenSelect) return;
         
-        // Utiliser l'ID de l'article principal, pas de la variante
-        hiddenSelect.value = article.id;
+        hiddenSelect.value = variant.id;
         const qteInput = document.getElementById('quantiteInput');
         if (qteInput) qteInput.value = '1';
         
-        // Créer ou mettre à jour l'option dans le select avec l'ID de l'article principal
-        let opt = Array.from(hiddenSelect.options).find(o => String(o.value) === String(article.id));
+        // Créer ou mettre à jour l'option dans le select
+        let opt = Array.from(hiddenSelect.options).find(o => String(o.value) === String(variant.id));
         if (!opt) {
-            opt = new Option('', article.id);
+            opt = new Option('', variant.id);
             hiddenSelect.appendChild(opt);
         }
         opt.dataset.article = JSON.stringify(articleAvecVariante);
         hiddenSelect.selectedIndex = opt.index;
         
-        console.log('💾 Option créée/mise à jour dans le select');
-        
         afficherInfosArticle(articleAvecVariante);
         isEditingArticle = false;
-        
-        console.log('📞 Appel de saveArticle()');
         saveArticle();
         
         showToast('✅ Variante ajoutée avec succès', 'success');
@@ -3623,7 +3563,45 @@ function selectionnerVariante(variant, article) {
     }
 }
 
-
+function ouvrirModalVariantesSansArticle() {
+    try {
+        // Fermer le modal d'ajout d'article s'il est ouvert
+        fermerModalAjouterArticle();
+        
+        // Afficher le modal des variantes avec une interface de sélection d'article
+        document.getElementById('articleNom').textContent = 'Sélectionner un article';
+        document.getElementById('articleReference').textContent = 'Choisissez d\'abord un article pour voir ses variantes';
+        
+        // Vider la liste des variantes et afficher une interface de sélection d'articles
+        const variantsList = document.getElementById('variantsList');
+        if (variantsList) {
+            variantsList.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
+                    <h4 class="text-lg font-medium text-gray-700 mb-2">Rechercher un article</h4>
+                    <p class="text-gray-500 mb-4">Tapez le nom, référence ou caractéristiques de l'article</p>
+                    <input type="text" id="rechercheArticleVariantes" placeholder="Rechercher un article..." 
+                           class="w-full max-w-md mx-auto p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           oninput="rechercherArticlesPourVariantes(this.value)" />
+                    <div id="resultatsRechercheVariantes" class="mt-4">
+                        <!-- Les résultats apparaîtront ici -->
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Afficher le modal
+        const modal = document.getElementById('variantModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    } catch (e) {
+        console.error('❌ Erreur ouverture modal variantes sans article:', e);
+        showToast('❌ Erreur lors de l\'ouverture du modal', 'error');
+    }
+}
 
 function rechercherArticlesPourVariantes(terme) {
     try {
@@ -3636,7 +3614,7 @@ function rechercherArticlesPourVariantes(terme) {
         resultatsDiv.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Recherche en cours...</div>';
         
         // Utiliser la même API que pour la recherche normale d'articles
-        fetch(`/operateur-confirme/api/articles-disponibles/?q=${encodeURIComponent(terme)}`)
+        fetch(`/operatConfirme/api/articles-disponibles/?q=${encodeURIComponent(terme)}`)
             .then(response => response.json())
             .then(data => {
                 if (data.articles && data.articles.length > 0) {
@@ -4046,19 +4024,9 @@ function saveArticle() {
 
     let action = isEditingArticle ? 'update_article' : 'add_article';
     
-    // Récupérer les informations de variante depuis l'option sélectionnée
+    // Récupérer les données de l'article sélectionné pour voir s'il y a une variante
     const selectedOption = select.options[select.selectedIndex];
-    let varianteId = null;
-    
-    if (selectedOption && selectedOption.dataset.article) {
-        try {
-            const articleData = JSON.parse(selectedOption.dataset.article);
-            varianteId = articleData.variante_id || null;
-            console.log('🎯 Variante ID récupérée:', varianteId);
-        } catch (e) {
-            console.warn('❌ Erreur parsing article data:', e);
-        }
-    }
+    const articleData = selectedOption ? JSON.parse(selectedOption.dataset.article || '{}') : {};
     
     let body = new URLSearchParams({
         'action': action,
@@ -4066,9 +4034,9 @@ function saveArticle() {
         'quantite': quantite,
     });
     
-    // Ajouter l'ID de variante s'il existe
-    if (varianteId) {
-        body.append('variante_id', varianteId);
+    // Si c'est une variante, ajouter l'ID de la variante
+    if (articleData.variante_id) {
+        body.append('variante_id', articleData.variante_id);
     }
 
     if(isEditingArticle) {
@@ -4313,7 +4281,7 @@ function mettreAJourPrixUnitaires(nouveauCompteur) {
         
         const articleData = parseArticleData(dataArticleAttr, panierId);
         
-        if (articleData) {
+        if (articleData && !articleData.error) {
             // Calculer le nouveau prix selon le compteur
             const prixInfo = calculerPrixAvecPhaseInfo(articleData, nouveauCompteur);
             
@@ -4381,7 +4349,7 @@ function recalculerTousLesSousTotaux() {
         
         const articleData = parseArticleData(dataArticleAttr, panierId);
         
-        if (articleData) {
+        if (articleData && !articleData.error) {
             // Récupérer le compteur actuel
             const compteurActuel = parseInt(document.getElementById('compteur-upsell-header').textContent.replace('Niveau ', '')) || 0;
             
@@ -4486,7 +4454,7 @@ function testerJSONArticles() {
         
         const articleData = parseArticleData(dataArticleAttr, panierId);
         
-        if (articleData) {
+        if (articleData && !articleData.error) {
             validCount++;
             console.log('✅ JSON valide:', articleData);
         } else {
@@ -4520,21 +4488,40 @@ function testerSousTotaux() {
 // Fonction utilitaire pour valider et parser le JSON des articles
 function parseArticleData(dataArticleAttr, panierId) {
     try {
-        // Nettoyer les données JSON si nécessaire
-        let cleanedData = dataArticleAttr;
+        if (!dataArticleAttr || dataArticleAttr.trim() === '') {
+            throw new Error('Données JSON vides ou manquantes');
+        }
+        
+        // Nettoyer les données JSON de manière plus robuste
+        let cleanedData = dataArticleAttr.trim();
+        
+        console.log(`🔍 Article ${panierId} - JSON brut (premiers 100 chars):`, cleanedData.substring(0, 100));
         
         // Remplacer les caractères problématiques
         cleanedData = cleanedData.replace(/\n/g, '\\n')
                                 .replace(/\r/g, '\\r')
                                 .replace(/\t/g, '\\t');
         
-        // Corriger les nombres avec virgules (format français) vers points (format JSON)
-        cleanedData = cleanedData.replace(/(\d+),(\d+)/g, '$1.$2');
+        // Méthode de nettoyage complète et systématique
+        // 1. D'abord gérer les séquences d'échappement
+        cleanedData = cleanedData.replace(/\\u002D/g, '-');
         
-        // Corriger les guillemets en trop autour des valeurs booléennes
-        cleanedData = cleanedData.replace(/: false"/g, ': false')
-                                .replace(/: true"/g, ': true');
+        // 2. Corriger les nombres avec virgules vers points (avec ou sans guillemets)
+        cleanedData = cleanedData.replace(/:\s*(\d+),(\d+)"/g, ': $1.$2');
+        cleanedData = cleanedData.replace(/:\s*(\d+),(\d+)/g, ': $1.$2');
         
+        // 3. Supprimer les guillemets en trop après les valeurs booléennes et numériques
+        cleanedData = cleanedData.replace(/:\s*false"\s*([,}])/g, ': false$1');
+        cleanedData = cleanedData.replace(/:\s*true"\s*([,}])/g, ': true$1');
+        cleanedData = cleanedData.replace(/:\s*(\d+(?:\.\d+)?)\"\s*([,}])/g, ': $1$2');
+        
+        // 4. Nettoyer les espaces autour des séparateurs
+        cleanedData = cleanedData.replace(/\s*:\s*/g, ': ');
+        cleanedData = cleanedData.replace(/\s*,\s*/g, ', ');
+        
+        console.log(`🔧 Article ${panierId} - JSON nettoyé (premiers 150 chars):`, cleanedData.substring(0, 150));
+        
+        // Tentative de parsing
         const articleData = JSON.parse(cleanedData);
         
         // Valider que les données essentielles sont présentes
@@ -4553,8 +4540,17 @@ function parseArticleData(dataArticleAttr, panierId) {
         return articleData;
     } catch (error) {
         console.error(`❌ Erreur de parsing JSON pour l'article ${panierId}:`, error);
-        console.error('Données JSON problématiques:', dataArticleAttr);
-        return null;
+        console.error('Données JSON problématiques (premiers 200 chars):', dataArticleAttr ? dataArticleAttr.substring(0, 200) : 'undefined');
+        
+        // Retourner un objet article minimal pour éviter les erreurs en cascade
+        return {
+            id: panierId,
+            nom: 'Article endommagé',
+            prix_actuel: 0,
+            prix_unitaire: 0,
+            error: true,
+            errorMessage: error.message
+        };
     }
 }
 
@@ -5039,15 +5035,6 @@ document.addEventListener('DOMContentLoaded', function() {
 function filtrerArticles(typeFiltre) {
     console.log(`🔍 Filtrage des articles par type: ${typeFiltre}`);
     
-    // Vérifier si le filtre a des articles
-    const compteur = compterArticlesParType(typeFiltre);
-    
-    if (compteur === 0 && typeFiltre !== 'all') {
-        console.log(`⚠️ Aucun article de type ${typeFiltre}`);
-        showNotification(`⚠️ Aucun article de type ${typeFiltre.toUpperCase()} disponible`, 'warning', 3000);
-        return; // Ne pas appliquer le filtre s'il n'y a pas d'articles
-    }
-    
     filtreActuel = typeFiltre;
     
     // Mettre à jour l'état visuel des badges
@@ -5057,41 +5044,25 @@ function filtrerArticles(typeFiltre) {
     appliquerFiltreSelect(typeFiltre);
     
     // Afficher une notification
+    const compteur = compterArticlesParType(typeFiltre);
     const message = typeFiltre === 'all' ? 
         `🔍 Affichage de tous les articles (${compteur} total)` :
         `🔍 Filtrage par ${typeFiltre.toUpperCase()}: ${compteur} article(s) trouvé(s)`;
     
-    showNotification(message, 'success', 2000);
+    showNotification(message, 'info', 2000);
 }
 
 // Fonction pour mettre à jour l'état visuel des badges
 function mettreAJourBadgesActifs(typeActif) {
-    console.log(`🎨 Mise à jour des badges, actif: ${typeActif}`);
-    
     // Retirer la classe active de tous les badges
     document.querySelectorAll('.filter-badge').forEach(badge => {
         badge.classList.remove('active');
-        
-        // Retirer les styles personnalisés des badges inactifs
-        if (badge.id !== `filter-${typeActif}`) {
-            badge.style.backgroundColor = '';
-            badge.style.borderColor = '';
-            badge.style.transform = '';
-            badge.style.boxShadow = '';
-        }
     });
     
-    // Ajouter la classe active et les styles au badge sélectionné
+    // Ajouter la classe active au badge sélectionné
     const badgeActif = document.getElementById(`filter-${typeActif}`);
     if (badgeActif) {
         badgeActif.classList.add('active');
-        
-        // Ajouter des styles visuels pour montrer que c'est sélectionné
-        badgeActif.style.transform = 'scale(1.05)';
-        badgeActif.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-        badgeActif.style.borderColor = '#3B82F6';
-        
-        console.log(`✅ Badge ${typeActif} activé`);
     }
 }
 
@@ -5300,26 +5271,23 @@ function compterArticlesParType(typeFiltre) {
 function mettreAJourCompteursFiltre() {
     const types = ['all', 'promo', 'liquidation', 'test', 'upsell'];
     
-    console.log('🔄 Mise à jour des compteurs de filtres');
-    
     types.forEach(type => {
-        const compteurElement = document.getElementById(`count-${type}`);
-        if (compteurElement) {
+        const badge = document.getElementById(`filter-${type}`);
+        if (badge) {
             const compteur = compterArticlesParType(type);
-            compteurElement.textContent = compteur;
             
-            console.log(`📊 ${type.toUpperCase()}: ${compteur} articles`);
+            // Supprimer l'ancien compteur s'il existe
+            const ancienCompteur = badge.querySelector('.article-count');
+            if (ancienCompteur) {
+                ancienCompteur.remove();
+            }
             
-            // Changer l'opacité du badge si aucun article
-            const badge = document.getElementById(`filter-${type}`);
-            if (badge) {
-                if (compteur === 0) {
-                    badge.style.opacity = '0.5';
-                    badge.style.cursor = 'not-allowed';
-                } else {
-                    badge.style.opacity = '1';
-                    badge.style.cursor = 'pointer';
-                }
+            // Ajouter le nouveau compteur
+            if (compteur > 0) {
+                const compteurElement = document.createElement('span');
+                compteurElement.className = 'article-count';
+                compteurElement.textContent = compteur;
+                badge.appendChild(compteurElement);
             }
         }
     });

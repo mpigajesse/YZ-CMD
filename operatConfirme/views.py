@@ -1429,7 +1429,7 @@ def modifier_commande(request, commande_id):
             
             if action == 'add_article':
                 # Ajouter un nouvel article immédiatement
-                from article.models import Article
+                from article.models import Article, VarianteArticle
                 from commande.models import Panier
                 
                 article_id = request.POST.get('article_id')
@@ -1439,10 +1439,27 @@ def modifier_commande(request, commande_id):
                 print(f"📦 Ajout article: ID={article_id}, Qté={quantite}, Variante={variante_id}")
                 
                 try:
-                    article = Article.objects.get(id=article_id)
+                    # D'abord, essayer de trouver l'article directement
+                    article = None
+                    variante_id_int = None
                     
-                    # Convertir variante_id en entier ou None
-                    variante_id_int = int(variante_id) if variante_id and variante_id != 'null' and variante_id != '' else None
+                    try:
+                        article = Article.objects.get(id=article_id, actif=True)
+                        # Convertir variante_id en entier ou None
+                        variante_id_int = int(variante_id) if variante_id and variante_id != 'null' and variante_id != '' else None
+                        print(f"✅ Article trouvé directement: {article.nom}")
+                    except Article.DoesNotExist:
+                        # Si pas trouvé comme Article, peut-être que c'est l'ID d'une variante
+                        try:
+                            variante = VarianteArticle.objects.get(id=article_id, actif=True)
+                            article = variante.article
+                            variante_id_int = variante.id
+                            print(f"✅ Variante trouvée: {variante} -> Article: {article.nom}")
+                        except VarianteArticle.DoesNotExist:
+                            raise Article.DoesNotExist(f"Ni article ni variante trouvé avec l'ID {article_id}")
+                    
+                    if not article or not article.actif:
+                        raise Article.DoesNotExist(f"Article inactif ou introuvable")
                     
                                         # Vérifier si l'article avec cette variante existe déjà dans la commande
                     if variante_id_int:
@@ -1530,10 +1547,10 @@ def modifier_commande(request, commande_id):
                         'new_quantity': panier.quantite
                     })
                     
-                except Article.DoesNotExist:
+                except Article.DoesNotExist as e:
                     return JsonResponse({
                         'success': False,
-                        'error': 'Article non trouvé'
+                        'error': f'Article ou variante avec l\'ID {article_id} non trouvé ou désactivé. {str(e)}'
                     })
                 except Exception as e:
                     return JsonResponse({
@@ -1683,7 +1700,7 @@ def modifier_commande(request, commande_id):
                 except Panier.DoesNotExist:
                     return JsonResponse({
                         'success': False,
-                        'error': 'Article non trouvé'
+                        'error': f'Article avec l\'ID panier {panier_id} non trouvé dans cette commande'
                     })
                 except Exception as e:
                     return JsonResponse({
@@ -1766,7 +1783,7 @@ def modifier_commande(request, commande_id):
                 except Panier.DoesNotExist:
                     return JsonResponse({
                         'success': False,
-                        'error': 'Article non trouvé'
+                        'error': f'Article avec l\'ID panier {panier_id} non trouvé dans cette commande'
                     })
                 except Exception as e:
                     return JsonResponse({
@@ -2854,7 +2871,7 @@ def api_recherche_article_ref(request):
             except Article.DoesNotExist:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Article non trouvé'
+                    'error': f'Article avec l\'ID {article_id} non trouvé ou désactivé'
                 })
         
         # Cas 2: Recherche par référence exacte
@@ -2882,7 +2899,7 @@ def api_recherche_article_ref(request):
             else:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Article non trouvé'
+                    'error': f'Article avec la référence "{reference}" non trouvé ou désactivé'
                 })
         
         # Cas 3: Recherche par texte (pour creer_commande.html)
@@ -2941,21 +2958,26 @@ def get_article_variants(request, article_id):
         
         print(f"🔍 Recherche des variantes pour l'article ID: {article_id} (type: {type(article_id)})")
         
-        # D'abord, vérifier si l'article existe (avec ou sans le filtre actif=True)
+        # Vérifier si l'article existe et s'il est actif
         try:
-            article_test = Article.objects.get(id=article_id)
-            print(f"📋 Article trouvé mais actif={article_test.actif}")
+            article = Article.objects.get(id=article_id)
+            print(f"📋 Article trouvé: {article.nom} (actif: {article.actif})")
+            
+            if not article.actif:
+                print(f"⚠️ Article {article_id} existe mais est inactif")
+                return JsonResponse({
+                    'success': False,
+                    'error': f'L\'article "{article.nom}" (ID: {article_id}) est désactivé'
+                }, status=404)
+                
         except Article.DoesNotExist:
             print(f"❌ Aucun article trouvé avec l'ID {article_id}")
-            # Lister quelques articles pour debug
-            articles_existants = Article.objects.all()[:5]
-            print("📚 Articles existants (premiers 5):")
-            for art in articles_existants:
-                print(f"   - ID: {art.id}, Nom: {art.nom}, Actif: {art.actif}")
-        
-        # Vérifier que l'article existe ET est actif
-        article = get_object_or_404(Article, id=article_id, actif=True)
-        print(f"✅ Article trouvé: {article.nom}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Aucun article trouvé avec l\'ID {article_id}'
+            }, status=404)
+            
+        print(f"✅ Article actif trouvé: {article.nom}")
         
         # Récupérer toutes les variantes actives de cet article
         variantes = VarianteArticle.objects.filter(
@@ -2995,13 +3017,6 @@ def get_article_variants(request, article_id):
         
         print(f"📤 Réponse envoyée: {len(variants_data)} variantes")
         return JsonResponse(response_data)
-        
-    except Article.DoesNotExist:
-        print(f"❌ Article {article_id} non trouvé")
-        return JsonResponse({
-            'success': False,
-            'error': 'Article non trouvé'
-        }, status=404)
         
     except Exception as e:
         import traceback
