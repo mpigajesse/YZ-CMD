@@ -481,11 +481,20 @@
             </button>
             
             <!-- Bouton Imprimer Étiquettes Articles -->
-            <button onclick="imprimerEtiquettesArticles()" 
-                    class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors h-10">
-                <i class="fas fa-tags mr-2"></i>
-                Imprimer Étiquettes Articles
-            </button>
+            <div class="relative inline-flex items-center">
+                <button onclick="imprimerEtiquettesArticles()" 
+                        class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors h-10">
+                    <i class="fas fa-tags mr-2"></i>
+                    Imprimer Étiquettes Articles
+                </button>
+                
+                <!-- Icône d'information avec modal -->
+                <div class="relative ml-1">
+                    <button onclick="ouvrirModalInfo()" class="text-green-600 hover:text-green-700 transition-colors">
+                        <i class="fas fa-info-circle text-sm"></i>
+                    </button>
+                </div>
+            </div>
                 
             <!-- Barre de recherche intelligente -->
             <div class="relative ml-auto">
@@ -765,6 +774,187 @@
     </div>
 </div>
 
+<!-- Modal d'information pour l'impression des étiquettes d'articles -->
+<div id="modalInfo" class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-10 mx-auto p-0 border-0 w-11/12 md:w-5/6 lg:w-4/5 xl:w-3/4 shadow-2xl rounded-xl bg-white">
+        <!-- En-tête du modal -->
+        <div class="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 rounded-t-xl">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white bg-opacity-20 p-2 rounded-lg">
+                        <i class="fas fa-info-circle text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold">Guide d'impression des étiquettes d'articles</h3>
+                        <p class="text-green-100 text-sm mt-1">Comment fonctionne l'impression des étiquettes</p>
+                    </div>
+                </div>
+                <button onclick="fermerModalInfo()" class="text-white hover:text-green-200 transition-colors duration-200 p-2 rounded-full hover:bg-white hover:bg-opacity-20">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Corps du modal en disposition horizontale -->
+        <div class="p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Colonne gauche -->
+                <div class="space-y-6">
+                    <!-- Introduction -->
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-lightbulb text-green-600 text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h4 class="text-green-800 font-semibold text-base">🎯 Objectif</h4>
+                                <p class="text-green-700 text-sm mt-1">
+                                    Le bouton <strong>"Imprimer Étiquettes Articles"</strong> génère des étiquettes professionnelles 
+                                    pour tous les articles de toutes les commandes visibles, optimisées pour l'impression et la traçabilité.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Processus détaillé -->
+                    <div class="space-y-3">
+                        <h4 class="text-gray-800 font-semibold text-lg flex items-center">
+                            <i class="fas fa-cogs text-blue-600 mr-2"></i>
+                            Processus d'impression
+                        </h4>
+                        
+                        <!-- Étape 1 -->
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                            <div class="flex-shrink-0 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">1</div>
+                            <div>
+                                <h5 class="font-medium text-blue-800">Collecte des données</h5>
+                                <p class="text-blue-700 text-sm">Récupère automatiquement tous les articles de toutes les commandes visibles dans le tableau</p>
+                            </div>
+                        </div>
+
+                        <!-- Étape 2 -->
+                        <div class="flex items-start space-x-3 p-3 bg-purple-50 border-l-4 border-purple-400 rounded">
+                            <div class="flex-shrink-0 bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">2</div>
+                            <div>
+                                <h5 class="font-medium text-purple-800">Génération des étiquettes</h5>
+                                <p class="text-purple-700 text-sm">Crée <strong>une étiquette par article</strong> (pas par commande) avec toutes les informations nécessaires</p>
+                            </div>
+                        </div>
+
+                        <!-- Étape 3 -->
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                            <div class="flex-shrink-0 bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">3</div>
+                            <div>
+                                <h5 class="font-medium text-green-800">Impression unifiée</h5>
+                                <p class="text-green-700 text-sm">Toutes les étiquettes s'impriment <strong>instantanément</strong> dans un seul PDF optimisé pour format A4</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Colonne droite -->
+                <div class="space-y-6">
+                    <!-- Exemple concret -->
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-calculator text-yellow-600 text-lg"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h4 class="text-yellow-800 font-semibold">📊 Exemple concret</h4>
+                                <div class="text-yellow-700 text-sm mt-2 space-y-1">
+                                    <p><strong>4 commandes visibles</strong> × <strong>2 articles chacune</strong> = <strong>8 étiquettes</strong> au total</p>
+                                    <p>Chaque étiquette contient :</p>
+                                    <ul class="list-disc list-inside ml-4 space-y-1">
+                                        <li>Référence de l'article et variante</li>
+                                        <li>Numéro de commande et nom du client</li>
+                                        <li>Date de génération et numéro de l'article</li>
+                                        <li>Logo et informations de contact Yoozak</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Avantages -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="text-gray-800 font-semibold mb-3 flex items-center">
+                            <i class="fas fa-star text-yellow-500 mr-2"></i>
+                            Avantages
+                        </h4>
+                        <div class="grid grid-cols-1 gap-2 text-sm">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Traçabilité complète par article</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Format A4 optimisé</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Impression instantanée</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Design professionnel</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Informations complètes</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Gestion automatique des pages</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informations techniques -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 class="text-blue-800 font-semibold mb-3 flex items-center">
+                            <i class="fas fa-cog text-blue-600 mr-2"></i>
+                            Informations techniques
+                        </h4>
+                        <div class="space-y-2 text-sm text-blue-700">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-file-pdf text-blue-500"></i>
+                                <span>Format de sortie : PDF optimisé A4</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-print text-blue-500"></i>
+                                <span>Impression : Toutes les étiquettes en une fois</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-tags text-blue-500"></i>
+                                <span>Étiquettes : 60mm × 40mm par article</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-database text-blue-500"></i>
+                                <span>Source : Données réelles des commandes</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pied du modal -->
+        <div class="bg-gray-50 px-6 py-4 rounded-b-xl border-t border-gray-200">
+            <div class="flex justify-between items-center">
+                <div class="text-xs text-gray-500">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Cette fonction est parfaite pour la préparation et l'étiquetage des commandes
+                </div>
+                <button onclick="fermerModalInfo()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium">
+                    <i class="fas fa-check mr-1"></i>
+                    Compris
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -773,4 +963,64 @@
 <script src="{% static 'js/etiquettage/impress_Codes-barres_Articles.js' %}"></script>
 <script src="{% static 'js/etiquettage/smart-search.js' %}"></script>
 <script src="{% static 'js/etiquettage/print-article-labels.js' %}"></script>
+
+<script>
+// Fonctions pour gérer le modal d'information
+function ouvrirModalInfo() {
+    const modal = document.getElementById('modalInfo');
+    if (modal) {
+        modal.classList.remove('hidden');
+        // Animation d'ouverture
+        setTimeout(() => {
+            const container = modal.querySelector('.relative');
+            if (container) {
+                container.style.transform = 'scale(1) translateY(0)';
+                container.style.opacity = '1';
+            }
+        }, 10);
+    }
+}
+
+function fermerModalInfo() {
+    const modal = document.getElementById('modalInfo');
+    if (modal) {
+        const container = modal.querySelector('.relative');
+        if (container) {
+            container.style.transform = 'scale(0.95) translateY(-20px)';
+            container.style.opacity = '0';
+        }
+        // Fermer après l'animation
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 200);
+    }
+}
+
+// Fermer le modal en cliquant en dehors
+document.getElementById('modalInfo')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        fermerModalInfo();
+    }
+});
+
+// Fermer le modal avec la touche Échap
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('modalInfo');
+        if (modal && !modal.classList.contains('hidden')) {
+            fermerModalInfo();
+        }
+    }
+});
+
+// Style d'animation pour le modal
+document.addEventListener('DOMContentLoaded', function() {
+    const modalContainer = document.querySelector('#modalInfo .relative');
+    if (modalContainer) {
+        modalContainer.style.transition = 'all 0.3s ease';
+        modalContainer.style.transform = 'scale(0.95) translateY(-20px)';
+        modalContainer.style.opacity = '0';
+    }
+});
+</script>
 {% endblock %}
