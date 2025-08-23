@@ -1,0 +1,464 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-check-circle mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: white;">{{ page_subtitle }}</p>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Total des commandes préparées -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Préparées</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.total_preparees }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Préparées aujourd'hui -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-calendar-check text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Aujourd'hui</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ stats.preparees_today }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Valeur totale -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-purple-100 to-purple-200 text-purple-600 transition-all duration-300 group-hover:from-purple-500 group-hover:to-purple-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur Totale</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-purple-600">{{ stats.valeur_totale|floatformat:0 }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8 preparation-card" style="border-color: var(--preparation-border-accent);">
+        <!-- Barre de recherche et filtres -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <!-- Recherche -->
+            <div class="flex-1">
+                <form method="GET" class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                    <input type="text" 
+                           name="search" 
+                           value="{{ search_query }}"
+                           placeholder="Rechercher par ID, numéro, client..."
+                           class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </form>
+            </div>
+            
+            <!-- Filtres -->
+            <div class="flex items-center space-x-2">
+                <select name="items_per_page" 
+                        onchange="this.form.submit()" 
+                        class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                    <option value="10" {% if items_per_page == 10 %}selected{% endif %}>10 par page</option>
+                    <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25 par page</option>
+                    <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50 par page</option>
+                    <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100 par page</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead style="background-color: var(--preparation-primary);">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Préparation</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Préparée par</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Articles</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% if commandes_preparees %}
+                        {% for commande in commandes_preparees %}
+                        <tr class="hover:bg-gray-50 transition-colors duration-200">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ commande.id_yz }}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
+                            <!-- Colonne Client -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                                {% if commande.client.email %}
+                                <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Téléphone -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.client.numero_tel %}
+                                <div class="text-sm text-gray-900 font-medium">
+                                    <i class="fas fa-phone mr-1"></i>
+                                    {{ commande.client.numero_tel }}
+                                </div>
+                                {% else %}
+                                <div class="text-sm text-gray-500">Non renseigné</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville & Région -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.ville %}
+                                    <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                                    <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non définie</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Date Préparation -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% for etat in commande.etats.all %}
+                                    {% if etat.enum_etat.libelle == 'Préparée' and not etat.date_fin %}
+                                        <div class="text-sm text-gray-900">{{ etat.date_debut|date:"d/m/Y" }}</div>
+                                        <div class="text-xs text-gray-500">{{ etat.date_debut|date:"H:i" }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <!-- Colonne Préparée par -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% for etat in commande.etats.all %}
+                                    {% if etat.enum_etat.libelle == 'Préparée' and not etat.date_fin %}
+                                        <div class="text-sm font-medium text-gray-900">{{ etat.operateur.prenom }} {{ etat.operateur.nom }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <!-- Colonne Total -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                            </td>
+                            <!-- Colonne État -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    Préparée
+                                </span>
+                            </td>
+                            <!-- Colonne Articles -->
+                            <td class="px-4 py-4 whitespace-nowrap text-center" style="min-width: 96px;">
+                                <div class="flex items-center justify-center space-x-2">
+                                    <!-- Panier (icône + compteur) -->
+                                    <button type="button"
+                                       onclick="openPanierModal({{ commande.id }})"
+                                       class="inline-flex items-center px-2.5 py-1 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                       style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                       title="Voir le panier">
+                                        <i class="fas fa-shopping-cart text-sm mr-1"></i>
+                                        <span class="text-xs">{{ commande.paniers.count }}</span>
+                                    </button>
+                                </div>
+                            </td>
+                            <!-- Colonne Actions -->
+                            <td class="px-4 py-4 whitespace-nowrap text-center" style="min-width: 120px;">
+                                <div class="flex items-center justify-center space-x-2">
+                                    <!-- Détails -->
+                                    <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}"
+                                       class="inline-flex items-center justify-center w-9 h-9 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                       style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                       title="Voir la commande" aria-label="Détails">
+                                        <i class="fas fa-eye text-sm"></i>
+                                    </a>
+                                    
+                                    <!-- Modifier -->
+                                    <a href="{% url 'Superpreparation:modifier_commande_superviseur' commande.pk %}"
+                                       class="inline-flex items-center justify-center w-9 h-9 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                       style="background-color: #d97706; hover:background-color: #b45309;"
+                                       title="Modifier la commande" aria-label="Modifier">
+                                        <i class="fas fa-edit text-sm"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="11" class="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                <div class="flex flex-col items-center py-8">
+                                    <i class="fas fa-check-circle text-4xl text-green-300 mb-4"></i>
+                                    <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande préparée</h3>
+                                    <p class="text-gray-500">Aucune commande n'a encore été finalisée.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if commandes_preparees.has_other_pages %}
+        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6">
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if commandes_preparees.has_previous %}
+                    <a href="?page={{ commandes_preparees.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" 
+                       class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Précédent
+                    </a>
+                {% endif %}
+                {% if commandes_preparees.has_next %}
+                    <a href="?page={{ commandes_preparees.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" 
+                       class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Suivant
+                    </a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Affichage de <span class="font-medium">{{ commandes_preparees.start_index }}</span> à <span class="font-medium">{{ commandes_preparees.end_index }}</span> 
+                        sur <span class="font-medium">{{ commandes_preparees.paginator.count }}</span> résultats
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        {% if commandes_preparees.has_previous %}
+                            <a href="?page={{ commandes_preparees.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" 
+                               class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                <span class="sr-only">Précédent</span>
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        {% endif %}
+                        
+                        {% for num in commandes_preparees.paginator.page_range %}
+                            {% if commandes_preparees.number == num %}
+                                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium text-white" style="background-color: var(--preparation-primary);">
+                                    {{ num }}
+                                </span>
+                            {% elif num > commandes_preparees.number|add:'-3' and num < commandes_preparees.number|add:'3' %}
+                                <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" 
+                                   class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                    {{ num }}
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if commandes_preparees.has_next %}
+                            <a href="?page={{ commandes_preparees.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" 
+                               class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                <span class="sr-only">Suivant</span>
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Panier -->
+<div id="panierModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <!-- En-tête du modal -->
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                    <i class="fas fa-shopping-cart mr-2" style="color: var(--preparation-primary);"></i>
+                    Détails du Panier
+                </h3>
+                <button onclick="closePanierModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Contenu du modal -->
+            <div id="panierContent" class="max-h-96 overflow-y-auto">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+            
+            <!-- Boutons d'action -->
+            <div class="flex justify-end mt-4 pt-4 border-t border-gray-200">
+                <button onclick="closePanierModal()" 
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-submit du formulaire de pagination
+    document.querySelector('select[name="items_per_page"]').addEventListener('change', function() {
+        const form = document.createElement('form');
+        form.method = 'GET';
+        
+        // Ajouter les paramètres existants
+        const urlParams = new URLSearchParams(window.location.search);
+        for (const [key, value] of urlParams) {
+            if (key !== 'items_per_page' && key !== 'page') {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = value;
+                form.appendChild(input);
+            }
+        }
+        
+        // Ajouter le nouveau items_per_page
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'items_per_page';
+        input.value = this.value;
+        form.appendChild(input);
+        
+        document.body.appendChild(form);
+        form.submit();
+    });
+
+    // Fonctions pour le modal du panier
+    function openPanierModal(commandeId) {
+        const modal = document.getElementById('panierModal');
+        const content = document.getElementById('panierContent');
+        
+        // Afficher le modal
+        modal.classList.remove('hidden');
+        
+        // Charger le contenu du panier
+        fetch(`/Superpreparation/api/commande/${commandeId}/panier/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+            .then(r => r.json())
+            .then(data => {
+                if (!data || data.error || data.success === false) {
+                    content.innerHTML = '<p class="text-red-600">' + (data?.error || data?.message || 'Impossible de charger le panier') + '</p>';
+                    return;
+                }
+                
+                const cmd = data.commande || {};
+                const articles = data.articles || [];
+
+                // Construire le HTML du panier
+                let htmlContent = `
+                    <div class="space-y-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-medium text-gray-900 mb-2">Commande ${cmd.id_yz || ''}</h4>
+                            <p class="text-sm text-gray-600">Client: ${cmd.client_nom || ''}</p>
+                        </div>
+                        <div class="space-y-3">
+                `;
+
+                if (articles.length === 0) {
+                    htmlContent += `
+                        <div class="text-center py-8">
+                            <i class="fas fa-shopping-cart text-4xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500">Aucun article dans le panier</p>
+                        </div>
+                    `;
+                } else {
+                    articles.forEach(a => {
+                        htmlContent += `
+                            <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="flex-1">
+                                        <h5 class="font-medium text-gray-900">${a.nom || ''}</h5>
+                                        <p class="text-sm text-gray-600">Réf: ${a.reference || 'N/A'}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-lg font-bold text-green-600">${parseFloat(a.prix_unitaire || 0).toFixed(2)} DH</span>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span class="text-gray-500">Quantité:</span>
+                                        <span class="font-medium text-gray-900 ml-1">${a.quantite || 0}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-500">Sous-total:</span>
+                                        <span class="font-medium text-green-600 ml-1">${parseFloat(a.sous_total || 0).toFixed(2)} DH</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                htmlContent += `
+                        </div>
+                        <div class="border-t border-gray-200 pt-4">
+                            <div class="flex justify-between items-center">
+                                <div class="text-lg font-medium text-gray-900">
+                                    Total (${cmd.total_articles || 0} article${(cmd.total_articles || 0) > 1 ? 's' : ''}):
+                                </div>
+                                <div class="text-2xl font-bold text-green-600">
+                                    ${parseFloat(cmd.total_final || 0).toFixed(2)} DH
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                content.innerHTML = htmlContent;
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                content.innerHTML = '<p class="text-red-600">Erreur réseau lors du chargement du panier.</p>';
+            });
+    }
+
+    function closePanierModal() {
+        const modal = document.getElementById('panierModal');
+        modal.classList.add('hidden');
+    }
+
+    // Fermer le modal en cliquant à l'extérieur
+    document.getElementById('panierModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePanierModal();
+        }
+    });
+
+    // Fermer le modal avec la touche Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closePanierModal();
+        }
+    });
+</script>
+{% endblock %}

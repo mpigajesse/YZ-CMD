@@ -834,6 +834,77 @@ def liste_prepa(request):
     return render(request, 'Superpreparation/liste_prepa.html', context)
 
 @superviseur_preparation_required
+def commandes_preparees(request):
+    """Liste des commandes préparées (état final) pour les superviseurs"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        
+        # Autoriser superviseur ou équipe préparation
+        if not (operateur_profile.is_preparation or operateur_profile.is_superviseur_preparation):
+            messages.error(request, "Accès non autorisé. Réservé à l'équipe préparation.")
+            return redirect('Superpreparation:home')
+            
+    except Operateur.DoesNotExist:
+        messages.error(request, "Votre profil opérateur n'existe pas.")
+        return redirect('login')
+
+    # Récupérer les commandes dans l'état "Préparée" (état final)
+    commandes_preparees = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True  # État actif
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_preparees = commandes_preparees.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query)
+        ).distinct()
+
+    # Statistiques
+    total_preparees = commandes_preparees.count()
+    valeur_totale = commandes_preparees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Commandes préparées aujourd'hui
+    today = timezone.now().date()
+    preparees_today = commandes_preparees.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_debut__date=today
+    ).count()
+
+    # Pagination
+    items_per_page = request.GET.get('items_per_page', 10)
+    try:
+        items_per_page = int(items_per_page)
+        if items_per_page <= 0:
+            items_per_page = 10
+    except (ValueError, TypeError):
+        items_per_page = 10
+
+    paginator = Paginator(commandes_preparees, items_per_page)
+    page_number = request.GET.get('page', 1)
+    commandes_page = paginator.get_page(page_number)
+
+    context = {
+        'page_title': 'Commandes Préparées',
+        'page_subtitle': f'Commandes finalisées et prêtes pour livraison ({total_preparees})',
+        'commandes_preparees': commandes_page,
+        'search_query': search_query,
+        'items_per_page': items_per_page,
+        'stats': {
+            'total_preparees': total_preparees,
+            'valeur_totale': valeur_totale,
+            'preparees_today': preparees_today,
+        },
+        'operateur_profile': operateur_profile,
+    }
+    return render(request, 'Superpreparation/commandes_preparees.html', context)
+
+@superviseur_preparation_required
 def commandes_a_imprimer(request):
     """Page de suivi (lecture seule) des commandes à imprimer"""
     try:
@@ -3295,15 +3366,15 @@ def api_panier_commande_prepa(request, commande_id):
     # Pour les superviseurs, on ne vérifie pas l'affectation spécifique
     # Ils peuvent accéder à toutes les commandes en préparation
     if operateur and operateur.type_operateur == 'SUPERVISEUR_PREPARATION':
-        # Vérifier seulement que la commande est en préparation
+        # Vérifier seulement que la commande est en préparation (incluant les états finaux)
         etat_preparation = commande.etats.filter(
-            Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation'),
+            Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation') | Q(enum_etat__libelle='Collectée') | Q(enum_etat__libelle='Emballée') | Q(enum_etat__libelle='Préparée'),
             date_fin__isnull=True
         ).first()
     else:
         # Pour les opérateurs normaux, vérifier l'affectation spécifique
         etat_preparation = commande.etats.filter(
-            Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation'),
+            Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation') | Q(enum_etat__libelle='Collectée') | Q(enum_etat__libelle='Emballée') | Q(enum_etat__libelle='Préparée'),
             operateur=operateur,
             date_fin__isnull=True
         ).first()
@@ -3397,31 +3468,170 @@ def api_finaliser_commande(request, commande_id):
             etat_actuel.operateur = operateur_profile
             etat_actuel.save()
             
-            # Créer le nouvel état 'Validée'
-            etat_validee, created = EnumEtatCmd.objects.get_or_create(libelle='Validée')
+            # Créer le nouvel état 'Préparée' (final)
+            etat_preparee, created = EnumEtatCmd.objects.get_or_create(libelle='Préparée')
             EtatCommande.objects.create(
                 commande=commande,
-                enum_etat=etat_validee,
+                enum_etat=etat_preparee,
                 operateur=operateur_profile
             )
             
             # Log de l'opération
             Operation.objects.create(
                 commande=commande,
-                type_operation='PREPARATION_VALIDEE',
+                type_operation='PREPARATION_TERMINEE',
                 operateur=operateur_profile,
-                conclusion=f"Commande validée par {operateur_profile.nom_complet} (via API)."
+                conclusion=f"Commande préparée par {operateur_profile.nom_complet} (via API)."
             )
         
         return JsonResponse({
             'success': True,
-            'message': f'La commande {commande.id_yz} a été validée avec succès.'
+            'message': f'La commande {commande.id_yz} a été préparée avec succès.'
         })
         
     except Exception as e:
         return JsonResponse({
             'success': False,
             'message': f'Erreur lors de la finalisation: {str(e)}'
+        }, status=500)
+
+@superviseur_preparation_required
+def api_panier_commande(request, commande_id):
+    """API pour récupérer le contenu du panier d'une commande (pour le modal)"""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not (operateur_profile.is_preparation or operateur_profile.is_superviseur_preparation):
+            return JsonResponse({'success': False, 'message': 'Accès non autorisé'}, status=403)
+    except Operateur.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Profil opérateur non trouvé'}, status=403)
+    
+    try:
+        commande = Commande.objects.get(id=commande_id)
+    except Commande.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Commande non trouvée'}, status=404)
+    
+    try:
+        # Récupérer les articles du panier
+        paniers = commande.paniers.all().select_related('article')
+        
+        if not paniers.exists():
+            html_content = '''
+                <div class="text-center py-8">
+                    <i class="fas fa-shopping-cart text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">Aucun article dans le panier</p>
+                </div>
+            '''
+            return JsonResponse({
+                'success': True,
+                'html': html_content
+            })
+        
+        # Construire le HTML du panier
+        html_content = '''
+            <div class="space-y-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 mb-2">Commande #''' + str(commande.id_yz) + '''</h4>
+                    <p class="text-sm text-gray-600">Client: ''' + (commande.client.prenom + ' ' + commande.client.nom if commande.client else 'Non défini') + '''</p>
+                </div>
+                <div class="space-y-3">
+        '''
+        
+        total_articles = 0
+        total_montant = 0
+        
+        for panier in paniers:
+            article = panier.article
+            quantite = panier.quantite or 0
+            prix = getattr(article, 'prix', 0) or 0
+            sous_total = quantite * prix
+            
+            total_articles += quantite
+            total_montant += sous_total
+            
+            # Informations de l'article
+            nom_article = getattr(article, 'nom', 'Article sans nom') or 'Article sans nom'
+            reference = getattr(article, 'reference', '') or ''
+            couleur = getattr(article, 'couleur', '') or ''
+            pointure = getattr(article, 'pointure', '') or ''
+            
+            html_content += '''
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1">
+                            <h5 class="font-medium text-gray-900">''' + nom_article + '''</h5>
+                            <p class="text-sm text-gray-600">Réf: ''' + reference + '''</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-bold text-green-600">''' + str(prix) + ''' DH</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">Quantité:</span>
+                            <span class="font-medium text-gray-900 ml-1">''' + str(quantite) + '''</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Sous-total:</span>
+                            <span class="font-medium text-green-600 ml-1">''' + str(sous_total) + ''' DH</span>
+                        </div>
+            '''
+            
+            # Ajouter couleur et pointure si disponibles
+            if couleur or pointure:
+                html_content += '''
+                        <div class="col-span-2 flex space-x-4">
+                '''
+                if couleur:
+                    html_content += '''
+                            <div>
+                                <span class="text-gray-500">Couleur:</span>
+                                <span class="font-medium text-gray-900 ml-1">''' + couleur + '''</span>
+                            </div>
+                    '''
+                if pointure:
+                    html_content += '''
+                            <div>
+                                <span class="text-gray-500">Pointure:</span>
+                                <span class="font-medium text-gray-900 ml-1">''' + pointure + '''</span>
+                            </div>
+                    '''
+                html_content += '''
+                        </div>
+                '''
+            
+            html_content += '''
+                    </div>
+                </div>
+            '''
+        
+        # Ajouter le total
+        html_content += '''
+                </div>
+                <div class="border-t border-gray-200 pt-4">
+                    <div class="flex justify-between items-center">
+                        <div class="text-lg font-medium text-gray-900">
+                            Total (''' + str(total_articles) + ''' article''' + ('s' if total_articles > 1 else '') + '''):
+                        </div>
+                        <div class="text-2xl font-bold text-green-600">
+                            ''' + str(round(total_montant, 2)) + ''' DH
+                        </div>
+                    </div>
+                </div>
+            </div>
+        '''
+        
+        return JsonResponse({
+            'success': True,
+            'html': html_content
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors du chargement du panier: {str(e)}'
         }, status=500)
 
 @superviseur_preparation_required
