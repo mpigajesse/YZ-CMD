@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.core import serializers
 from django.http import JsonResponse, HttpResponse # Import HttpResponse for partial rendering
 import json
-from .models import Commande, Panier, EnumEtatCmd
+from .models import Commande, Panier, EnumEtatCmd, Operation
 from client.models import Client
 from parametre.models import Ville, Operateur, Region # Import Region
 from article.models import Article
@@ -2573,9 +2573,9 @@ def affecter_preparation(request, commande_id):
     """Affecter une commande à un opérateur de préparation."""
     if request.method == 'POST':
         try:
-            # Vérifier que l'utilisateur est admin
+            # Vérifier que l'utilisateur est admin ou superviseur
             try:
-                operateur_admin = Operateur.objects.get(user=request.user, type_operateur='ADMIN')
+                operateur_admin = Operateur.objects.get(user=request.user, type_operateur__in=['ADMIN', 'SUPERVISEUR_PREPARATION'])
             except Operateur.DoesNotExist:
                 return JsonResponse({'success': False, 'message': 'Accès non autorisé.'})
             
@@ -2619,6 +2619,24 @@ def affecter_preparation(request, commande_id):
                     commentaire=f"Affectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
                     date_debut=timezone.now()
                 )
+                
+                # Créer une opération d'affectation selon le type d'opérateur
+                if operateur_admin.type_operateur == 'SUPERVISEUR_PREPARATION':
+                    # Créer une opération d'affectation par supervision
+                    Operation.objects.create(
+                        commande=commande,
+                        type_operation='AFFECTATION_SUPERVISION',
+                        operateur=operateur_admin,
+                        conclusion=f"Commande affectée à {operateur_preparation.nom_complet} par le superviseur de préparation. {commentaire}".strip()
+                    )
+                else:
+                    # Créer une opération d'affectation par admin
+                    Operation.objects.create(
+                        commande=commande,
+                        type_operation='AFFECTATION_ADMIN',
+                        operateur=operateur_admin,
+                        conclusion=f"Commande affectée à {operateur_preparation.nom_complet} par l'administrateur. {commentaire}".strip()
+                    )
                 
                 return JsonResponse({
                     'success': True, 
@@ -2830,6 +2848,24 @@ def affecter_preparation_multiple(request):
                             operateur=operateur_preparation,
                             commentaire=f"Affectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
                             date_debut=timezone.now()
+                        )
+                    
+                    # Créer une opération d'affectation selon le type d'opérateur
+                    if operateur_admin.type_operateur == 'SUPERVISEUR_PREPARATION':
+                        # Créer une opération d'affectation par supervision
+                        Operation.objects.create(
+                            commande=commande,
+                            type_operation='AFFECTATION_SUPERVISION',
+                            operateur=operateur_admin,
+                            conclusion=f"Commande affectée à {operateur_preparation.nom_complet} par le superviseur de préparation. {commentaire}".strip()
+                        )
+                    else:
+                        # Créer une opération d'affectation par admin
+                        Operation.objects.create(
+                            commande=commande,
+                            type_operation='AFFECTATION_ADMIN',
+                            operateur=operateur_admin,
+                            conclusion=f"Commande affectée à {operateur_preparation.nom_complet} par l'administrateur. {commentaire}".strip()
                         )
                     
                     commandes_affectees_yz.append(commande.id_yz)

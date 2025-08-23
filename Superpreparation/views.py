@@ -817,7 +817,7 @@ def liste_prepa(request):
 
     context = {
         'page_title': 'Suivi Général - Préparation',
-        'page_subtitle': f'Vue d’ensemble des commandes en file de préparation ({total_affectees})',
+        'page_subtitle': f'Vue d\'ensemble des commandes en file de préparation ({total_affectees})',
         'commandes_affectees': commandes_page,
         'search_query': search_query,
         'filter_type': filter_type,
@@ -936,6 +936,60 @@ def commandes_en_preparation(request):
         'is_tracking_page': True
     }
     return render(request, 'Superpreparation/commandes_en_preparation.html', context)
+
+@superviseur_preparation_required
+def commandes_emballees(request):
+    """Page de suivi des commandes emballées qui attendent la finalisation par le superviseur"""
+    try:
+        operateur_profile = request.user.profil_operateur
+        
+        # Autoriser superviseur ou équipe préparation
+        if not (operateur_profile.is_preparation or operateur_profile.is_superviseur_preparation):
+            messages.error(request, "Accès non autorisé. Réservé à l'équipe préparation.")
+            return redirect('Superpreparation:home')
+            
+    except Operateur.DoesNotExist:
+        messages.error(request, "Votre profil opérateur n'existe pas.")
+        return redirect('Superpreparation:home')
+
+    # Récupérer TOUTES les commandes emballées qui attendent la finalisation
+    commandes_emballees = Commande.objects.filter(
+        etats__enum_etat__libelle='Emballée',
+        etats__date_fin__isnull=True  # État actif (en cours)
+    ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats__operateur').distinct()
+
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        commandes_emballees = commandes_emballees.filter(
+            Q(id_yz__icontains=search_query) |
+            Q(num_cmd__icontains=search_query) |
+            Q(client__nom__icontains=search_query) |
+            Q(client__prenom__icontains=search_query) |
+            Q(client__numero_tel__icontains=search_query)
+        ).distinct()
+
+    # Statistiques
+    stats = {
+        'total_commandes': commandes_emballees.count(),
+        'commandes_urgentes': commandes_emballees.filter(
+            etats__date_debut__lt=timezone.now() - timedelta(hours=2)  # Urgent si emballée depuis plus de 2h
+        ).count(),
+        'valeur_totale': commandes_emballees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    }
+
+    context = {
+        'page_title': 'Suivi - Commandes Emballées',
+        'page_subtitle': f'Suivi en temps réel de {commandes_emballees.count()} commande(s) emballées en attente de finalisation',
+        'profile': operateur_profile,
+        'commandes': commandes_emballees,
+        'search_query': search_query,
+        'stats': stats,
+        'active_tab': 'emballees',
+        'is_readonly': False,  # Les superviseurs peuvent finaliser
+        'is_tracking_page': True
+    }
+    return render(request, 'Superpreparation/commandes_emballees.html', context)
 
 @superviseur_preparation_required
 def commandes_livrees_partiellement(request):
@@ -3309,6 +3363,66 @@ def api_panier_commande_prepa(request, commande_id):
         'total_commande': commande_payload['total_final'],
         'nb_articles': len(articles),
     })
+
+@superviseur_preparation_required
+def api_finaliser_commande(request, commande_id):
+    """API pour finaliser une commande depuis la liste (pour les superviseurs)"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not (operateur_profile.is_preparation or operateur_profile.is_superviseur_preparation):
+            return JsonResponse({'success': False, 'message': 'Accès non autorisé'}, status=403)
+    except Operateur.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Profil opérateur non trouvé'}, status=403)
+    
+    try:
+        commande = Commande.objects.get(id=commande_id)
+    except Commande.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Commande non trouvée'}, status=404)
+    
+    # Vérifier que la commande est emballée (prête pour finalisation)
+    etat_actuel = commande.etat_actuel
+    if not etat_actuel or etat_actuel.enum_etat.libelle != 'Emballée':
+        return JsonResponse({
+            'success': False, 
+            'message': f'La commande n\'est pas emballée (état actuel: {etat_actuel.enum_etat.libelle if etat_actuel else "Aucun"})'
+        }, status=400)
+    
+    try:
+        with transaction.atomic():
+            # Marquer l'état 'Emballée' comme terminé
+            etat_actuel.date_fin = timezone.now()
+            etat_actuel.operateur = operateur_profile
+            etat_actuel.save()
+            
+            # Créer le nouvel état 'Validée'
+            etat_validee, created = EnumEtatCmd.objects.get_or_create(libelle='Validée')
+            EtatCommande.objects.create(
+                commande=commande,
+                enum_etat=etat_validee,
+                operateur=operateur_profile
+            )
+            
+            # Log de l'opération
+            Operation.objects.create(
+                commande=commande,
+                type_operation='PREPARATION_VALIDEE',
+                operateur=operateur_profile,
+                conclusion=f"Commande validée par {operateur_profile.nom_complet} (via API)."
+            )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'La commande {commande.id_yz} a été validée avec succès.'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la finalisation: {str(e)}'
+        }, status=500)
 
 @superviseur_preparation_required
 def imprimer_tickets_preparation(request):

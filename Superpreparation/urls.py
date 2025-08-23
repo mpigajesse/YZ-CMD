@@ -13,6 +13,7 @@ urlpatterns = [
     path('liste-prepa/', views.liste_prepa, name='liste_prepa'),
     path('commandes-a-imprimer/', views.commandes_a_imprimer, name='commandes_a_imprimer'),
     path('commandes-en-preparation/', views.commandes_en_preparation, name='commandes_en_preparation'),
+    path('commandes-emballees/', views.commandes_emballees, name='commandes_emballees'),
 
 
    
@@ -36,6 +37,7 @@ urlpatterns = [
     # path('api/commande/<int:commande_id>/changer-etat/', views.api_changer_etat_preparation, name='api_changer_etat_preparation'), # Supprimée - plus nécessaire
     path('api/articles-disponibles-prepa/', views.api_articles_disponibles_prepa, name='api_articles_disponibles_prepa'),
     path('api/commande/<int:commande_id>/panier/', views.api_panier_commande_prepa, name='api_panier_commande'),
+    path('api/commande/<int:commande_id>/finaliser/', views.api_finaliser_commande, name='api_finaliser_commande'),
     path('api/commande/<int:commande_id>/panier-livraison/', views.api_panier_commande_livraison, name='api_panier_commande_livraison'),
     path('api/commande/<int:commande_id>/articles-livree-partiellement/', views.api_articles_commande_livree_partiellement, name='api_articles_commande_livree_partiellement'),
     path('api/traiter-commande-retournee/<int:commande_id>/', views.traiter_commande_retournee_api, name='traiter_commande_retournee_api'),

@@ -1,5 +1,17 @@
 {% for commande in page_obj %}
-<tr class="hover:bg-gray-50 transition-colors border-b border-gray-200">
+<tr class="hover:bg-gray-50 transition-colors border-b border-gray-200 commande-row" 
+    data-id-yz="{{ commande.id_yz }}"
+    data-num-cmd="{{ commande.num_cmd|default:'' }}"
+    data-client="{{ commande.client.nom }} {{ commande.client.prenom }}"
+    data-phone="{{ commande.client.numero_tel|default:'' }}"
+    data-email="{{ commande.client.email|default:'' }}"
+    data-ville-client="{{ commande.ville_init|default:'' }}"
+    data-ville-region="{% if commande.ville %}{{ commande.ville.nom }} {{ commande.ville.region.nom }}{% endif %}"
+    data-adresse="{% if commande.client.adresse %}{{ commande.client.adresse }}{% endif %}"
+    data-date-confirmation="{% if commande.etat_confirmation %}{{ commande.etat_confirmation.date_debut|date:'d/m/Y' }}{% endif %}"
+    data-total="{{ commande.total_cmd }}"
+    data-etat="Confirmée"
+    data-operateur="{% if commande.etat_confirmation.operateur %}{{ commande.etat_confirmation.operateur.nom }} {{ commande.etat_confirmation.operateur.prenom }}{% elif commande.etat_actuel.operateur %}{{ commande.etat_actuel.operateur.nom }} {{ commande.etat_actuel.operateur.prenom }}{% endif %}">
 
     <!-- Checkbox de sélection -->
     <td class="px-4 py-4 whitespace-nowrap text-center">

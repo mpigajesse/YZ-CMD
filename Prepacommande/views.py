@@ -188,7 +188,7 @@ def liste_prepa(request):
         # Filtrer les commandes qui ont été livrées partiellement et sont maintenant en préparation
         commandes_affectees = []
         commandes_base = Commande.objects.filter(
-            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation') | Q(etats__enum_etat__libelle='Collectée') | Q(etats__enum_etat__libelle='Emballée'),
             etats__operateur=operateur_profile,
             etats__date_fin__isnull=True
         ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
@@ -199,7 +199,7 @@ def liste_prepa(request):
             
             # Trouver l'état actuel de préparation
             for etat in etats_commande:
-                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
                     etat_prepa_actuel = etat
                     break
             
@@ -219,19 +219,32 @@ def liste_prepa(request):
         # Pour les commandes renvoyées par la logistique, ne pas exclure les états problématiques
         # car on veut inclure les commandes avec opération de renvoi même si elles ont des états ultérieurs
         commandes_affectees = Commande.objects.filter(
-            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation') | Q(etats__enum_etat__libelle='Collectée') | Q(etats__enum_etat__libelle='Emballée'),
             etats__operateur=operateur_profile,
             etats__date_fin__isnull=True  # État actif (en cours)
         ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
     elif filter_type == 'retournees':
         # Obsolète: rediriger vers la page dédiée
         return redirect('Prepacommande:commandes_retournees')
-    elif filter_type == 'affectees_admin':
-        # Filtrer les commandes affectées directement par l'admin
-        # Inclure les commandes en "À imprimer" ET "En préparation"
+    elif filter_type == 'collectees':
+        # Filtrer les commandes collectées (état "Collectée")
+        commandes_affectees = Commande.objects.filter(
+            etats__enum_etat__libelle='Collectée',
+            etats__operateur=operateur_profile,
+            etats__date_fin__isnull=True  # État actif (en cours)
+        ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+    elif filter_type == 'emballees':
+        # Filtrer les commandes emballées (état "Emballée")
+        commandes_affectees = Commande.objects.filter(
+            etats__enum_etat__libelle='Emballée',
+            etats__operateur=operateur_profile,
+            etats__date_fin__isnull=True  # État actif (en cours)
+        ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+    elif filter_type == 'affectees_supervision':
+        # Filtrer les commandes affectées par les superviseurs de préparation
         commandes_affectees = []
         commandes_base = Commande.objects.filter(
-            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation') | Q(etats__enum_etat__libelle='Collectée') | Q(etats__enum_etat__libelle='Emballée'),
             etats__operateur=operateur_profile,
             etats__date_fin__isnull=True
         ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
@@ -242,7 +255,7 @@ def liste_prepa(request):
             
             # Trouver l'état actuel de préparation
             for etat in etats_commande:
-                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
                     etat_prepa_actuel = etat
                     break
             
@@ -288,12 +301,21 @@ def liste_prepa(request):
                             break
                 
                 if not has_return_from_delivery:
-                    commandes_affectees.append(commande)
-    else:  # filter_type == 'all'
-        # Pour "Toutes les commandes", afficher toutes les commandes des 3 autres onglets
+                    # Vérifier si la commande a été affectée par un superviseur
+                    # Chercher les opérations d'affectation par supervision
+                    operation_affectation_supervision = Operation.objects.filter(
+                        commande=commande,
+                        type_operation__in=['AFFECTATION_SUPERVISION', 'REAFFECTATION_SUPERVISION']
+                    ).first()
+                    
+                    if operation_affectation_supervision:
+                        commandes_affectees.append(commande)
+    elif filter_type == 'affectees_admin':
+        # Filtrer les commandes affectées directement par l'admin
+        # Inclure les commandes en "À imprimer" ET "En préparation"
         commandes_affectees = []
         commandes_base = Commande.objects.filter(
-            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation') | Q(etats__enum_etat__libelle='Collectée') | Q(etats__enum_etat__libelle='Emballée'),
             etats__operateur=operateur_profile,
             etats__date_fin__isnull=True
         ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
@@ -304,7 +326,83 @@ def liste_prepa(request):
             
             # Trouver l'état actuel de préparation
             for etat in etats_commande:
-                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
+                    etat_prepa_actuel = etat
+                    break
+            
+            if etat_prepa_actuel:
+                # Vérifier s'il y a des états ultérieurs problématiques
+                a_etats_ultérieurs_problematiques = False
+                for etat in etats_commande:
+                    if (etat.date_debut > etat_prepa_actuel.date_debut and 
+                        etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
+                        a_etats_ultérieurs_problematiques = True
+                        break
+                
+                if a_etats_ultérieurs_problematiques:
+                    continue
+                
+                # Vérifier les opérations de renvoi
+                operation_renvoi = Operation.objects.filter(
+                    commande=commande,
+                    type_operation='RENVOI_PREPARATION'
+                ).first()
+                
+                if operation_renvoi:
+                    continue  # Exclure les commandes renvoyées par logistique
+                
+                # Vérifier si c'est une commande de renvoi créée lors d'une livraison partielle
+                if commande.num_cmd and commande.num_cmd.startswith('RENVOI-'):
+                    # Chercher la commande originale
+                    num_cmd_original = commande.num_cmd.replace('RENVOI-', '')
+                    commande_originale = Commande.objects.filter(
+                        num_cmd=num_cmd_original,
+                        etats__enum_etat__libelle='Livrée Partiellement'
+                    ).first()
+                    
+                    if commande_originale:
+                        continue  # Exclure les commandes de renvoi livraison partielle
+                
+                # Vérifier l'historique pour renvoi depuis livraison
+                has_return_from_delivery = False
+                for etat in reversed(etats_commande):
+                    if etat.date_fin and etat.date_fin < etat_prepa_actuel.date_debut:
+                        if etat.enum_etat.libelle in ['En cours de livraison', 'Livrée Partiellement']:
+                            has_return_from_delivery = True
+                            break
+                
+                if not has_return_from_delivery:
+                    # Vérifier si la commande a été affectée par un superviseur
+                    # Si oui, l'exclure de cette liste (affectees_admin)
+                    operation_affectation_supervision = Operation.objects.filter(
+                        commande=commande,
+                        type_operation__in=['AFFECTATION_SUPERVISION', 'REAFFECTATION_SUPERVISION']
+                    ).first()
+                    
+                    # Vérifier si la commande a été affectée par un admin
+                    operation_affectation_admin = Operation.objects.filter(
+                        commande=commande,
+                        type_operation__in=['AFFECTATION_ADMIN', 'REAFFECTATION_ADMIN']
+                    ).first()
+                    
+                    if not operation_affectation_supervision and operation_affectation_admin:
+                        commandes_affectees.append(commande)
+    else:  # filter_type == 'all'
+        # Pour "Toutes les commandes", afficher toutes les commandes des 5 autres onglets
+        commandes_affectees = []
+        commandes_base = Commande.objects.filter(
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation') | Q(etats__enum_etat__libelle='Collectée') | Q(etats__enum_etat__libelle='Emballée'),
+            etats__operateur=operateur_profile,
+            etats__date_fin__isnull=True
+        ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
+        
+        for commande in commandes_base:
+            etats_commande = commande.etats.all().order_by('date_debut')
+            etat_prepa_actuel = None
+            
+            # Trouver l'état actuel de préparation
+            for etat in etats_commande:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
                     etat_prepa_actuel = etat
                     break
             
@@ -336,7 +434,7 @@ def liste_prepa(request):
             
             # Trouver l'état actuel (En préparation)
             for etat in etats_commande:
-                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
                     etat_actuel = etat
                     break
             
@@ -400,10 +498,10 @@ def liste_prepa(request):
         # Récupérer tous les états de la commande dans l'ordre chronologique
         etats_commande = commande.etats.all().order_by('date_debut')
         
-        # Trouver l'état actuel (À imprimer ou En préparation)
+        # Trouver l'état actuel (À imprimer, En préparation, Collectée, ou Emballée)
         etat_actuel = None
         for etat in etats_commande:
-            if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+            if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
                 etat_actuel = etat
                 break
         
@@ -412,7 +510,7 @@ def liste_prepa(request):
             etat_precedent = None
             for etat in reversed(etats_commande):
                 if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
-                    if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
+                    if etat.enum_etat.libelle not in ['À imprimer', 'En préparation', 'Collectée', 'Emballée']:
                         etat_precedent = etat
                         break
             
@@ -437,7 +535,7 @@ def liste_prepa(request):
         # Chercher toutes les commandes qui ont été affectées à cet opérateur pour la préparation
         # et qui n'ont pas encore d'état "Préparée" ou "En cours de livraison"
         commandes_affectees = Commande.objects.filter(
-            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation') | Q(etats__enum_etat__libelle='Collectée') | Q(etats__enum_etat__libelle='Emballée'),
             etats__operateur=operateur_profile
         ).exclude(
             # Exclure les commandes qui ont déjà un état ultérieur actif
@@ -449,10 +547,10 @@ def liste_prepa(request):
             # Récupérer tous les états de la commande dans l'ordre chronologique
             etats_commande = commande.etats.all().order_by('date_debut')
             
-            # Trouver l'état actuel (À imprimer ou En préparation)
+            # Trouver l'état actuel (À imprimer, En préparation, Collectée, ou Emballée)
             etat_actuel = None
             for etat in etats_commande:
-                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
                     etat_actuel = etat
                     break
             
@@ -461,7 +559,7 @@ def liste_prepa(request):
                 etat_precedent = None
                 for etat in reversed(etats_commande):
                     if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
-                        if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
+                        if etat.enum_etat.libelle not in ['À imprimer', 'En préparation', 'Collectée', 'Emballée']:
                             etat_precedent = etat
                             break
                 
@@ -544,13 +642,16 @@ def liste_prepa(request):
         'renvoyees_logistique': 0,
         'livrees_partiellement': 0,
         'retournees': 0,
-        'affectees_admin': 0
+        'affectees_admin': 0,
+        'collectees': 0,
+        'emballees': 0,
+        'affectees_supervision': 0
     }
     
     # Recalculer les statistiques pour tous les types
     # D'abord, récupérer toutes les commandes affectées à cet opérateur (sans filtre)
     toutes_commandes = Commande.objects.filter(
-        Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+        Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation') | Q(etats__enum_etat__libelle='Collectée') | Q(etats__enum_etat__libelle='Emballée'),
         etats__operateur=operateur_profile,
         etats__date_fin__isnull=True  # État actif (en cours)
     ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
@@ -585,7 +686,7 @@ def liste_prepa(request):
         
         # Trouver l'état actuel
         for etat in etats_commande:
-            if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+            if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
                 etat_actuel = etat
                 break
         
@@ -669,7 +770,7 @@ def liste_prepa(request):
         
         # Trouver l'état actuel
         for etat in etats_commande:
-            if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+            if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
                 etat_actuel = etat
                 break
         
@@ -697,14 +798,130 @@ def liste_prepa(request):
                         break
             
             if not has_return_from_delivery:
-                affectees_admin_count += 1
+                # Vérifier si la commande a été affectée par un superviseur
+                # Si oui, l'exclure de cette liste (affectees_admin)
+                operation_affectation_supervision = Operation.objects.filter(
+                    commande=cmd,
+                    type_operation__in=['AFFECTATION_SUPERVISION', 'REAFFECTATION_SUPERVISION']
+                ).first()
+                
+                # Vérifier si la commande a été affectée par un admin
+                operation_affectation_admin = Operation.objects.filter(
+                    commande=cmd,
+                    type_operation__in=['AFFECTATION_ADMIN', 'REAFFECTATION_ADMIN']
+                ).first()
+                
+                if not operation_affectation_supervision and operation_affectation_admin:
+                    affectees_admin_count += 1
     
     # Mettre à jour le compteur des commandes affectées par l'admin
     stats_par_type['affectees_admin'] = affectees_admin_count
     
-    # Pour l'onglet "Toutes les commandes", le total doit être la somme des 3 autres onglets
+    # Calculer les statistiques pour les commandes collectées et emballées
+    commandes_collectees = Commande.objects.filter(
+        etats__enum_etat__libelle='Collectée',
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True  # État actif (en cours)
+    ).distinct().count()
+    
+    commandes_emballees = Commande.objects.filter(
+        etats__enum_etat__libelle='Emballée',
+        etats__operateur=operateur_profile,
+        etats__date_fin__isnull=True  # État actif (en cours)
+    ).distinct().count()
+    
+    stats_par_type['collectees'] = commandes_collectees
+    stats_par_type['emballees'] = commandes_emballees
+    
+    # Calculer les statistiques pour les commandes affectées par supervision
+    commandes_affectees_supervision = 0
+    for cmd in toutes_commandes:
+        # Vérifier si c'est une commande renvoyée par la logistique
+        operation_renvoi = Operation.objects.filter(
+            commande=cmd,
+            type_operation='RENVOI_PREPARATION'
+        ).first()
+        
+        if operation_renvoi:
+            continue  # Déjà comptée dans renvoyees_logistique
+        
+        # Vérifier si c'est une commande de renvoi créée lors d'une livraison partielle
+        if cmd.num_cmd and cmd.num_cmd.startswith('RENVOI-'):
+            # Chercher la commande originale
+            num_cmd_original = cmd.num_cmd.replace('RENVOI-', '')
+            commande_originale = Commande.objects.filter(
+                num_cmd=num_cmd_original,
+                etats__enum_etat__libelle='Livrée Partiellement'
+            ).first()
+            
+            if commande_originale:
+                continue  # Déjà comptée dans livrees_partiellement
+        
+        # Vérifier l'historique des états
+        etats_commande = cmd.etats.all().order_by('date_debut')
+        etat_actuel = None
+        
+        # Trouver l'état actuel
+        for etat in etats_commande:
+            if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée'] and not etat.date_fin:
+                etat_actuel = etat
+                break
+        
+        if etat_actuel:
+            # Vérifier s'il y a des états ultérieurs problématiques
+            a_etats_ultérieurs_problematiques = False
+            for etat in etats_commande:
+                if (etat.date_debut > etat_actuel.date_debut and 
+                    etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
+                    a_etats_ultérieurs_problematiques = True
+                    break
+            
+            if a_etats_ultérieurs_problematiques:
+                continue
+            
+            # Vérifier l'historique pour renvoi depuis livraison
+            has_return_from_delivery = False
+            for etat in reversed(etats_commande):
+                if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
+                    if etat.enum_etat.libelle == 'En cours de livraison':
+                        has_return_from_delivery = True
+                        break
+                    elif etat.enum_etat.libelle == 'Livrée Partiellement':
+                        has_return_from_delivery = True
+                        break
+            
+            if not has_return_from_delivery:
+                # Vérifier si la commande a été affectée par un superviseur
+                operation_affectation_supervision = Operation.objects.filter(
+                    commande=cmd,
+                    type_operation__in=['AFFECTATION_SUPERVISION', 'REAFFECTATION_SUPERVISION']
+                ).first()
+                
+                if operation_affectation_supervision:
+                    commandes_affectees_supervision += 1
+    
+    stats_par_type['affectees_supervision'] = commandes_affectees_supervision
+    
+    # Pour l'onglet "Toutes les commandes", le total doit être la somme des 6 autres onglets
     if filter_type == 'all':
-        total_affectees = stats_par_type['affectees_admin'] + stats_par_type['renvoyees_logistique'] + stats_par_type['livrees_partiellement']
+        total_affectees = (stats_par_type['affectees_admin'] + 
+                          stats_par_type['renvoyees_logistique'] + 
+                          stats_par_type['livrees_partiellement'] +
+                          stats_par_type['collectees'] +
+                          stats_par_type['emballees'] +
+                          stats_par_type['affectees_supervision'])
+    
+    # Vérifier si c'est une requête AJAX pour les statistiques
+    if request.GET.get('ajax') == 'stats':
+        from django.http import JsonResponse
+        return JsonResponse({
+            'affectees_supervision': stats_par_type.get('affectees_supervision', 0),
+            'affectees_admin': stats_par_type.get('affectees_admin', 0),
+            'total_affectees': total_affectees,
+            'collectees': stats_par_type.get('collectees', 0),
+            'emballees': stats_par_type.get('emballees', 0),
+            'renvoyees_logistique': stats_par_type.get('renvoyees_logistique', 0),
+        })
     
     context = {
         'page_title': 'Mes Commandes à Préparer',
@@ -1084,7 +1301,7 @@ def detail_prepa(request, pk):
 
     # Vérifier que la commande est bien affectée à cet opérateur pour la préparation
     etat_preparation = commande.etats.filter(
-        Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation'),
+        Q(enum_etat__libelle='À imprimer') | Q(enum_etat__libelle='En préparation') | Q(enum_etat__libelle='Collectée') | Q(enum_etat__libelle='Emballée'),
         operateur=operateur_profile
     ).first()
     
@@ -1135,7 +1352,7 @@ def detail_prepa(request, pk):
         # Trouver l'état précédent (le dernier état terminé avant l'état actuel)
         for etat in reversed(etats_commande):
             if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
-                if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
+                if etat.enum_etat.libelle not in ['À imprimer', 'En préparation', 'Collectée', 'Emballée']:
                     etat_precedent = etat
                     break
     
@@ -1266,7 +1483,7 @@ def detail_prepa(request, pk):
         # Action 'commencer_preparation' supprimée car les commandes passent maintenant 
         # directement en "En préparation" lors de l'affectation
         
-        if action == 'marquer_preparee':
+        if action == 'marquer_collectee':
             with transaction.atomic():
                 # Marquer l'état 'En préparation' comme terminé
                 etat_en_preparation, created = EnumEtatCmd.objects.get_or_create(libelle='En préparation')
@@ -1282,23 +1499,61 @@ def detail_prepa(request, pk):
                     etat_actuel.operateur = operateur_profile
                     etat_actuel.save()
                 
-                # Créer le nouvel état 'Préparée'
-                etat_preparee, created = EnumEtatCmd.objects.get_or_create(libelle='Préparée')
+                # Créer le nouvel état 'Collectée'
+                etat_collectee, created = EnumEtatCmd.objects.get_or_create(libelle='Collectée')
                 EtatCommande.objects.create(
                     commande=commande,
-                    enum_etat=etat_preparee,
+                    enum_etat=etat_collectee,
                     operateur=operateur_profile
                 )
                 
                 # Log de l'opération
                 Operation.objects.create(
                     commande=commande,
-                    type_operation='PREPARATION_TERMINEE',
+                    type_operation='ARTICLES_COLLECTES',
                     operateur=operateur_profile,
-                    conclusion=f"Commande marquée comme préparée par {operateur_profile.nom_complet}."
+                    conclusion=f"Articles collectés par {operateur_profile.nom_complet}."
                 )
             
-            messages.success(request, f"La commande {commande.id_yz} a bien été marquée comme préparée.")
+            messages.success(request, f"La commande {commande.id_yz} a bien été marquée comme collectée.")
+            return redirect('Prepacommande:detail_prepa', pk=commande.pk)
+
+        elif action == 'marquer_emballee':
+            with transaction.atomic():
+                # Marquer l'état 'Collectée' comme terminé
+                etat_collectee, created = EnumEtatCmd.objects.get_or_create(libelle='Collectée')
+                
+                etat_actuel = EtatCommande.objects.filter(
+                    commande=commande,
+                    enum_etat=etat_collectee,
+                    date_fin__isnull=True
+                ).first()
+                
+                if etat_actuel:
+                    etat_actuel.date_fin = timezone.now()
+                    etat_actuel.operateur = operateur_profile
+                    etat_actuel.save()
+                
+                # Créer le nouvel état 'Emballée'
+                etat_emballee, created = EnumEtatCmd.objects.get_or_create(libelle='Emballée')
+                EtatCommande.objects.create(
+                    commande=commande,
+                    enum_etat=etat_emballee,
+                    operateur=operateur_profile
+                )
+                
+                # Log de l'opération
+                Operation.objects.create(
+                    commande=commande,
+                    type_operation='COMMANDE_EMBALLEE',
+                    operateur=operateur_profile,
+                    conclusion=f"Commande emballée par {operateur_profile.nom_complet}. Notification envoyée au superviseur."
+                )
+                
+                # TODO: Ajouter ici la notification au superviseur
+                # Pour l'instant, on peut utiliser les messages Django ou créer un système de notification
+            
+            messages.success(request, f"La commande {commande.id_yz} a bien été marquée comme emballée. Le superviseur a été notifié.")
             return redirect('Prepacommande:detail_prepa', pk=commande.pk)
 
         elif action == 'signaler_probleme':

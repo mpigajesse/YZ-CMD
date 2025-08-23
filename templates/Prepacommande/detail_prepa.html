@@ -498,26 +498,26 @@
         {% elif etat_preparation.enum_etat.libelle == 'En préparation' %}
         <div class="bg-white rounded-xl shadow-lg mt-4 border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
             <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
-                <i class="fas fa-clipboard-list mr-2"></i>Finaliser la Préparation
+                <i class="fas fa-boxes mr-2"></i>Nouveau Workflow de Préparation
             </h2>
             
             <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
                 <div class="flex items-center">
                     <i class="fas fa-cog fa-spin text-blue-600 mr-3 text-xl"></i>
                     <div>
-                        <h3 class="font-semibold text-blue-800">Étape 2 : Préparation en cours</h3>
-                        <p class="text-sm text-blue-600">Rassemblez tous les articles et emballez-les, puis marquez la commande comme préparée.</p>
+                        <h3 class="font-semibold text-blue-800">Étape 1 : Collecte des articles</h3>
+                        <p class="text-sm text-blue-600">Rassemblez tous les articles de la commande dans votre zone de préparation.</p>
                     </div>
                 </div>
             </div>
 
             <form method="POST" class="flex flex-col sm:flex-row gap-4">
                 {% csrf_token %}
-                <button type="submit" name="action" value="marquer_preparee" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                    <i class="fas fa-check-circle text-2xl"></i>
+                <button type="submit" name="action" value="marquer_collectee" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                    <i class="fas fa-box text-2xl"></i>
                     <div>
-                    Marquer comme Préparée
-                        <span class="block text-sm font-normal">Finalise la préparation et la rend prête pour l'expédition.</span>
+                    Marquer comme Collectée
+                        <span class="block text-sm font-normal">Tous les articles ont été rassemblés et sont prêts pour l'emballage.</span>
                     </div>
                 </button>
                 
@@ -529,8 +529,68 @@
                         <span class="block text-sm font-normal">Renvoyer la commande à la confirmation si un article est défectueux.</span>
                     </div>
                 </button>
-
             </form>
+        </div>
+        
+        {% elif etat_preparation.enum_etat.libelle == 'Collectée' %}
+        <div class="bg-white rounded-xl shadow-lg mt-4 border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+            <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+                <i class="fas fa-box-open mr-2"></i>Étape 2 : Emballage
+            </h2>
+            
+            <div class="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-6">
+                <div class="flex items-center">
+                    <i class="fas fa-box text-orange-600 mr-3 text-xl"></i>
+                    <div>
+                        <h3 class="font-semibold text-orange-800">Étape 2 : Emballage en cours</h3>
+                        <p class="text-sm text-orange-600">Les articles ont été collectés. Maintenant, emballez-les soigneusement.</p>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" class="flex flex-col sm:flex-row gap-4">
+                {% csrf_token %}
+                <button type="submit" name="action" value="marquer_emballee" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-purple-500 hover:bg-purple-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                    <i class="fas fa-boxes text-2xl"></i>
+                    <div>
+                    Marquer comme Emballée
+                        <span class="block text-sm font-normal">La commande est emballée et prête pour la finalisation par le superviseur.</span>
+                    </div>
+                </button>
+                
+                <!-- Action: Signaler un problème -->
+                <button type="button" onclick="showProblemModal()" class="mt-4 w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                    <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    <div>
+                        Signaler un problème
+                        <span class="block text-sm font-normal">Renvoyer la commande à la confirmation si un article est défectueux.</span>
+                    </div>
+                </button>
+            </form>
+        </div>
+        
+        {% elif etat_preparation.enum_etat.libelle == 'Emballée' %}
+        <div class="bg-white rounded-xl shadow-lg mt-4 border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+            <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+                <i class="fas fa-bell mr-2"></i>En attente de Finalisation
+            </h2>
+            
+            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-6">
+                <div class="flex items-center">
+                    <i class="fas fa-bell text-purple-600 mr-3 text-xl"></i>
+                    <div>
+                        <h3 class="font-semibold text-purple-800">Commande Emballée</h3>
+                        <p class="text-sm text-purple-600">La commande a été emballée avec succès. Le superviseur de préparation a été notifié pour finaliser la préparation.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 flex gap-4">
+                <a href="{% url 'Prepacommande:liste_prepa' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Retour à la liste
+                </a>
+            </div>
         </div>
         {% endif %}
     {% elif etat_preparation.date_fin %}

@@ -1,0 +1,198 @@
+{% load static %}
+
+<!-- Barre de recherche intelligente pour les pages de suivi -->
+<div class="bg-white rounded-xl shadow-lg border p-6 mb-8 preparation-card" style="border-color: var(--preparation-border-accent);">
+    
+    <!-- Description et barre de recherche principale -->
+    <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="flex-1">
+            <p class="text-gray-700 mb-2">
+                Recherche intelligente et filtres avancés pour optimiser votre suivi des commandes.
+            </p>
+            <div id="searchResults" class="hidden">
+                <span class="text-sm text-blue-600 font-medium">
+                    <i class="fas fa-search mr-1"></i>
+                    <span id="resultCount">0</span> résultat(s) trouvé(s)
+                </span>
+            </div>
+        </div>
+        
+        <!-- Barre de recherche principale -->
+        <div class="flex gap-2 items-center">
+            <div class="relative">
+                <input type="text" id="smartSearch" 
+                       placeholder="Rechercher par ID, client, téléphone..." 
+                       class="block w-80 px-4 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <i class="fas fa-search text-gray-400"></i>
+                </div>
+            </div>
+            <button onclick="clearSmartSearch()" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                <i class="fas fa-times mr-1"></i>
+                Effacer
+            </button>
+            <button onclick="toggleAdvancedSearch()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="fas fa-filter mr-1"></i>
+                Filtres
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtres avancés (cachés par défaut) -->
+    <div id="advancedSearch" class="hidden bg-gray-50 rounded-lg p-6 border border-gray-200">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            
+            <!-- Informations de base -->
+            <div class="space-y-4">
+                <h4 class="font-semibold text-gray-800 border-b border-gray-300 pb-2">
+                    <i class="fas fa-info-circle mr-2 text-blue-600"></i>
+                    Informations de base
+                </h4>
+                
+                <div>
+                    <label for="filterIdYz" class="block text-sm font-medium text-gray-700 mb-1">ID YZ</label>
+                    <input type="text" id="filterIdYz" placeholder="Ex: 123" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterNumCmd" class="block text-sm font-medium text-gray-700 mb-1">N° Externe</label>
+                    <input type="text" id="filterNumCmd" placeholder="Ex: CMD-001" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterClient" class="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                    <input type="text" id="filterClient" placeholder="Nom du client" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterPhone" class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                    <input type="text" id="filterPhone" placeholder="Ex: 0612345678" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterEmail" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="filterEmail" placeholder="client@email.com" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+            </div>
+            
+            <!-- Localisation -->
+            <div class="space-y-4">
+                <h4 class="font-semibold text-gray-800 border-b border-gray-300 pb-2">
+                    <i class="fas fa-map-marker-alt mr-2 text-green-600"></i>
+                    Localisation
+                </h4>
+                
+                <div>
+                    <label for="filterVilleClient" class="block text-sm font-medium text-gray-700 mb-1">Ville Client</label>
+                    <input type="text" id="filterVilleClient" placeholder="Ex: Casablanca" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterVilleRegion" class="block text-sm font-medium text-gray-700 mb-1">Ville & Région</label>
+                    <input type="text" id="filterVilleRegion" placeholder="Ex: Casablanca-Settat" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterAdresse" class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                    <input type="text" id="filterAdresse" placeholder="Adresse complète" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+            </div>
+            
+            <!-- Dates -->
+            <div class="space-y-4">
+                <h4 class="font-semibold text-gray-800 border-b border-gray-300 pb-2">
+                    <i class="fas fa-calendar-alt mr-2 text-purple-600"></i>
+                    Dates
+                </h4>
+                
+                <div>
+                    <label for="filterDateCommande" class="block text-sm font-medium text-gray-700 mb-1">Date Commande</label>
+                    <input type="date" id="filterDateCommande" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterDateConfirmation" class="block text-sm font-medium text-gray-700 mb-1">Date Confirmation</label>
+                    <input type="date" id="filterDateConfirmation" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterDateAffectation" class="block text-sm font-medium text-gray-700 mb-1">Date Affectation</label>
+                    <input type="date" id="filterDateAffectation" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterDatePreparation" class="block text-sm font-medium text-gray-700 mb-1">Date Préparation</label>
+                    <input type="date" id="filterDatePreparation" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterDateLivraison" class="block text-sm font-medium text-gray-700 mb-1">Date Livraison</label>
+                    <input type="date" id="filterDateLivraison" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+            </div>
+            
+            <!-- Montant et statut -->
+            <div class="space-y-4">
+                <h4 class="font-semibold text-gray-800 border-b border-gray-300 pb-2">
+                    <i class="fas fa-chart-line mr-2 text-orange-600"></i>
+                    Montant & Statut
+                </h4>
+                
+                <div>
+                    <label for="filterTotalMin" class="block text-sm font-medium text-gray-700 mb-1">Total Min (DH)</label>
+                    <input type="number" id="filterTotalMin" placeholder="Ex: 100" min="0" step="0.01" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterTotalMax" class="block text-sm font-medium text-gray-700 mb-1">Total Max (DH)</label>
+                    <input type="number" id="filterTotalMax" placeholder="Ex: 1000" min="0" step="0.01" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterEtat" class="block text-sm font-medium text-gray-700 mb-1">État</label>
+                    <input type="text" id="filterEtat" placeholder="Ex: Confirmée" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterOperateur" class="block text-sm font-medium text-gray-700 mb-1">Opérateur</label>
+                    <input type="text" id="filterOperateur" placeholder="Nom de l'opérateur" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                
+                <div>
+                    <label for="filterStatut" class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <input type="text" id="filterStatut" placeholder="Statut spécifique" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+            <button onclick="clearFilters()" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                <i class="fas fa-eraser mr-2"></i>
+                Effacer Filtres
+            </button>
+            <button onclick="applyFilters()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="fas fa-check mr-2"></i>
+                Appliquer
+            </button>
+        </div>
+    </div>
+</div>

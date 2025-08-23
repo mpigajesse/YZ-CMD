@@ -27,6 +27,9 @@ class EnumEtatCmd(models.Model):
     DELIVERY_STATUS_CHOICES = [
         ('à imprimer', 'À imprimer'),
         ('en_preparation', 'En préparation'),
+        ('collectee', 'Collectée'),
+        ('emballee', 'Emballée'),
+        ('validee', 'Validée'),
         ('en_livraison', 'En livraison'),
         ('livree', 'Livrée'),
         ('retournee', 'Retournée'),
@@ -260,6 +263,12 @@ class Operation(models.Model):
         ('MODIFICATION', 'Modification'),
         ('PROBLEME_SIGNALÉ', 'Problème signalé'),
         ('RENVOI_PREPARATION', 'Renvoi en préparation'),
+        # Opérations d'affectation par supervision
+        ('AFFECTATION_SUPERVISION', 'Affectation par supervision'),
+        ('REAFFECTATION_SUPERVISION', 'Réaffectation par supervision'),
+        # Opérations d'affectation par admin
+        ('AFFECTATION_ADMIN', 'Affectation par admin'),
+        ('REAFFECTATION_ADMIN', 'Réaffectation par admin'),
     ]
     Type_Commentaire_CHOICES=[
         ("Commande Annulée", "Commande Annulée"),
