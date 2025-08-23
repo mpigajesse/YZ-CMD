@@ -1588,20 +1588,22 @@ def etiquette_view(request):
         page_subtitle = f"{len(commandes_a_imprimer)} étiquette(s) à imprimer"
 
     else:
+        # Récupérer uniquement les commandes avec l'état "Confirmée"
         commandes_a_imprimer = Commande.objects.filter(
-            etats__enum_etat__libelle='Préparée',
-            etats__operateur=operateur_profile,
-            etats__date_fin__isnull=True
-        ).select_related('client', 'ville', 'ville__region').order_by('-etats__date_debut').distinct()
+            etats__enum_etat__libelle='Confirmée'
+        ).select_related('client', 'ville', 'ville__region').order_by('-date_creation').distinct()
 
-        # Ajouter la date de préparation pour chaque commande
+        # Ajouter la date de confirmation pour chaque commande
         for commande in commandes_a_imprimer:
-            etat_preparee = commande.etats.filter(enum_etat__libelle='Préparée').order_by('-date_debut').first()
-            if etat_preparee:
-                commande.date_preparation = etat_preparee.date_debut
+            etat_confirmee = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('-date_debut').first()
+            if etat_confirmee:
+                commande.date_confirmation = etat_confirmee.date_debut
+            else:
+                # Fallback: utiliser la date de création
+                commande.date_confirmation = commande.date_creation
 
-        page_title = 'Ticketage et Impression - Commandes Préparées'
-        page_subtitle = f'Générez et imprimez les tickets pour {commandes_a_imprimer.count()} commande(s) préparée(s)'
+        page_title = 'Codes-barres des Commandes'
+        page_subtitle = f'Impression des étiquettes de commandes - {commandes_a_imprimer.count()} commande(s)'
     
     # Générer les codes-barres
     code128 = barcode.get_barcode_class('code128')
@@ -1619,6 +1621,171 @@ def etiquette_view(request):
         'operateur_profile': operateur_profile,
     }
     return render(request, 'Superpreparation/etiquette.html', context)
+
+@superviseur_preparation_required
+def etiquettes_articles_view(request):
+    """
+    Page de gestion des étiquettes d'articles et variantes pour les commandes.
+    Affiche les codes-barres des articles et variantes de chaque commande.
+    """
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Votre profil opérateur n'existe pas.")
+        return redirect('login')
+
+    commande_ids_str = request.GET.get('ids')
+    search_query = request.GET.get('search', '')
+    commandes_a_imprimer = []
+
+    if commande_ids_str:
+        # Impression spécifique d'une ou plusieurs commandes
+        commande_ids = [int(id) for id in commande_ids_str.split(',') if id.isdigit()]
+        commandes_a_imprimer = Commande.objects.filter(
+            id__in=commande_ids,
+            etats__operateur=operateur_profile
+        ).select_related('client', 'ville', 'ville__region').prefetch_related(
+            'paniers__article', 'paniers__variantes'
+        ).distinct()
+        
+        page_title = "Impression des Étiquettes Articles"
+        page_subtitle = f"{len(commandes_a_imprimer)} commande(s) - Étiquettes articles"
+    else:
+        # Affichage uniquement des commandes avec l'état "Confirmée"
+        commandes_a_imprimer = Commande.objects.filter(
+            etats__enum_etat__libelle='Confirmée'
+        ).select_related('client', 'ville', 'ville__region').prefetch_related(
+            'paniers__article', 'paniers__variante'
+        ).distinct()
+
+        # Appliquer la recherche si fournie
+        if search_query:
+            commandes_a_imprimer = commandes_a_imprimer.filter(
+                Q(id_yz__icontains=search_query) |
+                Q(client__nom__icontains=search_query) |
+                Q(client__prenom__icontains=search_query) |
+                Q(num_cmd__icontains=search_query)
+            )
+
+        # Trier par date de création (plus récentes en premier)
+        commandes_a_imprimer = commandes_a_imprimer.order_by('-date_creation')
+
+        page_title = 'Étiquettes des Articles et Variantes'
+        page_subtitle = f'Codes-barres des articles pour {commandes_a_imprimer.count()} commande(s)'
+
+    # Ajouter la date de confirmation pour chaque commande
+    for commande in commandes_a_imprimer:
+        etat_confirmee = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('-date_debut').first()
+        if etat_confirmee:
+            commande.date_confirmation = etat_confirmee.date_debut
+    
+    context = {
+        'page_title': page_title,
+        'page_subtitle': page_subtitle,
+        'commandes_preparees': commandes_a_imprimer,
+        'operateur_profile': operateur_profile,
+        'search_query': search_query,
+    }
+    return render(request, 'Superpreparation/etiquettes_articles.html', context)
+
+@superviseur_preparation_required
+def api_commandes_confirmees(request):
+    """API pour récupérer toutes les commandes confirmées"""
+    try:
+        # Récupérer toutes les commandes confirmées
+        commandes_confirmees = Commande.objects.filter(
+            etats__enum_etat__libelle='Confirmée'
+        ).select_related('client').distinct()
+        
+        commandes_data = []
+        for commande in commandes_confirmees:
+            commandes_data.append({
+                'id': commande.id_yz,
+                'client_nom': f"{commande.client.prenom} {commande.client.nom}",
+                'date_creation': commande.date_creation.strftime('%Y-%m-%d %H:%M:%S'),
+                'total': float(commande.total_cmd)
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'commandes': commandes_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@superviseur_preparation_required
+def api_articles_commande(request, commande_id):
+    """API pour récupérer les articles d'une commande avec leurs codes-barres"""
+    try:
+        # Récupérer la commande avec ses paniers
+        commande = get_object_or_404(
+            Commande.objects.select_related('client').prefetch_related(
+                'paniers__article', 'paniers__variante'
+            ),
+            id_yz=commande_id
+        )
+        
+        # Préparer les données des articles
+        articles_data = []
+        for panier in commande.paniers.all():
+            # Déterminer la référence pour le code-barres
+            reference = panier.article.reference
+            if panier.variante and panier.variante.reference_variante:
+                reference = panier.variante.reference_variante
+            
+            # Générer le code-barres en utilisant le filtre existant
+            try:
+                from .templatetags.barcode_filters import barcode_image_url
+                barcode_url = barcode_image_url(reference)
+            except Exception as e:
+                # En cas d'erreur, utiliser une URL vide
+                barcode_url = ""
+            
+            article_data = {
+                'nom': panier.article.nom,
+                'reference': panier.article.reference,
+                'quantite': panier.quantite,
+                'sous_total': float(panier.sous_total),
+                'barcode_url': barcode_url,
+            }
+            
+            # Ajouter les informations de variante si elle existe
+            if panier.variante:
+                variante_info = {
+                    'reference_variante': panier.variante.reference_variante,
+                }
+                
+                # Ajouter les informations de couleur si elle existe
+                if panier.variante.couleur:
+                    variante_info['couleur'] = panier.variante.couleur.nom
+                
+                # Ajouter les informations de pointure si elle existe
+                if panier.variante.pointure:
+                    variante_info['pointure'] = panier.variante.pointure.pointure
+                
+                article_data['variante'] = variante_info
+            
+            articles_data.append(article_data)
+        
+        return JsonResponse({
+            'success': True,
+            'articles': articles_data,
+            'commande_id': commande.id_yz,
+            'client': f"{commande.client.prenom} {commande.client.nom}"
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 @superviseur_preparation_required
 def impression_etiquettes_view(request):
@@ -1828,7 +1995,11 @@ def modifier_commande_prepa(request, commande_id):
                         'quantite': panier.quantite,
                         'prix': panier.sous_total / panier.quantite,  # Prix unitaire
                         'sous_total': panier.sous_total,
-                        'is_upsell': article.isUpsell
+                        'is_upsell': article.isUpsell,
+                        'phase': article.phase,
+                        'has_promo_active': article.has_promo_active,
+                        'qte_disponible': article.qte_disponible,
+                        'description': article.description or ''
                     }
                     
                     return JsonResponse({
@@ -1955,74 +2126,6 @@ def modifier_commande_prepa(request, commande_id):
                         'error': str(e)
                     })
             
-            elif action == 'delete_article':
-                # Supprimer un article
-                from commande.models import Panier
-                
-                article_id = request.POST.get('article_id')
-                
-                try:
-                    panier = Panier.objects.get(id=article_id, commande=commande)
-                    
-                    # Sauvegarder l'info avant suppression
-                    etait_upsell = panier.article.isUpsell
-                    
-                    # Supprimer l'article
-                    panier.delete()
-                    
-                    # Recalculer le compteur après suppression (logique de confirmation)
-                    if etait_upsell:
-                        # Compter la quantité totale d'articles upsell restants (après suppression)
-                        total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
-                            total=Sum('quantite')
-                        )['total'] or 0
-                        
-                        # Appliquer la logique : compteur = max(0, total_quantite_upsell - 1)
-                        if total_quantite_upsell >= 2:
-                            commande.compteur = total_quantite_upsell - 1
-                        else:
-                            commande.compteur = 0
-                        
-                        commande.save()
-                        
-                        # Recalculer TOUS les articles de la commande avec le nouveau compteur
-                        commande.recalculer_totaux_upsell()
-                    
-                    # Recalculer le total de la commande avec frais de livraison
-                    total_commande = commande.paniers.aggregate(
-                        total=Sum('sous_total')
-                    )['total'] or 0
-                    frais_livraison = commande.ville.frais_livraison if commande.ville else 0
-                    commande.total_cmd = float(total_commande) #+ float(frais_livraison)
-                    commande.save()
-                    
-                    # Calculer les statistiques upsell pour la réponse
-                    articles_upsell = commande.paniers.filter(article__isUpsell=True)
-                    total_quantite_upsell = articles_upsell.aggregate(
-                        total=Sum('quantite')
-                    )['total'] or 0
-                    
-                    return JsonResponse({
-                        'success': True,
-                        'message': 'Article supprimé avec succès',
-                        'total_commande': float(commande.total_cmd),
-                        'nb_articles': commande.paniers.count(),
-                        'compteur': commande.compteur,
-                        'articles_upsell': articles_upsell.count(),
-                        'quantite_totale_upsell': total_quantite_upsell,
-                        'sous_total_articles': float(commande.sous_total_articles)
-                    })
-                    
-                except Panier.DoesNotExist:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Article non trouvé'
-                    })
-                except Exception as e:
-                    return JsonResponse({
-                        'success': False,
-                        'error': str(e)
-                    })
             
             elif action == 'update_operation':
                 # Mettre à jour une opération existante
@@ -2749,10 +2852,11 @@ def modifier_commande_superviseur(request, commande_id):
                 try:
                     panier = Panier.objects.get(id=panier_id, commande=commande)
                     article_nom = panier.article.nom
+                    etait_upsell = panier.article.isUpsell  # Sauvegarder avant suppression
                     panier.delete()
                     
                     # Recalculer le compteur upsell si nécessaire
-                    if panier.article.isUpsell:
+                    if etait_upsell:
                         total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
                             total=Sum('quantite')
                         )['total'] or 0
@@ -2777,6 +2881,7 @@ def modifier_commande_superviseur(request, commande_id):
                         'success': True,
                         'message': f'Article {article_nom} supprimé avec succès',
                         'compteur_upsell': commande.compteur,
+                        'articles_count': commande.paniers.count(),
                         'total_commande': float(commande.total_cmd),
                         'frais_livraison': float(frais_livraison),
                         'total_final': float(commande.total_cmd) + float(frais_livraison)
@@ -4519,6 +4624,13 @@ def rafraichir_articles_commande_prepa(request, commande_id):
         }
         
         print(f"✅ Rafraîchissement terminé - Articles: {response_data['articles_count']}, Compteur: {response_data['compteur']}")
+        print(f"🔍 Détails du compteur: type={type(commande.compteur)}, valeur={commande.compteur}")
+        if commande.compteur is None:
+            print("⚠️ ATTENTION: Le compteur est None dans la base de données")
+        elif commande.compteur == 0:
+            print("ℹ️ Le compteur est 0 (normal si pas d'articles upsell)")
+        else:
+            print(f"✅ Le compteur a une valeur: {commande.compteur}")
         return JsonResponse(response_data)
         
     except Commande.DoesNotExist:
@@ -4533,20 +4645,33 @@ def rafraichir_articles_commande_prepa(request, commande_id):
 @superviseur_preparation_required
 def ajouter_article_commande_prepa(request, commande_id):
     """Ajouter un article à la commande en préparation"""
+    print("🔄 ===== DÉBUT ajouter_article_commande_prepa =====")
+    print(f"📦 Méthode HTTP: {request.method}")
+    print(f"📦 Commande ID: {commande_id}")
+    print(f"📦 User: {request.user}")
+    print(f"📦 POST data: {dict(request.POST)}")
+    print(f"📦 Headers: {dict(request.headers)}")
+    
     if request.method != 'POST':
+        print("❌ Méthode non autorisée")
         return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
     
     try:
         # Autoriser PREPARATION et SUPERVISEUR_PREPARATION
         operateur = Operateur.objects.get(user=request.user, actif=True)
+        print(f"✅ Opérateur trouvé: {operateur.id} - Type: {operateur.type_operateur}")
         if operateur.type_operateur not in ['PREPARATION', 'SUPERVISEUR_PREPARATION']:
+            print(f"❌ Type d'opérateur non autorisé: {operateur.type_operateur}")
             return JsonResponse({'error': "Accès réservé à l'équipe préparation"}, status=403)
     except Operateur.DoesNotExist:
+        print("❌ Profil d'opérateur non trouvé")
         return JsonResponse({'error': 'Profil d\'opérateur non trouvé.'}, status=403)
     
     try:
         with transaction.atomic():
+            print("🔧 Début de la transaction atomique")
             commande = Commande.objects.select_for_update().get(id=commande_id)
+            print(f"✅ Commande trouvée: {commande.id} - ID YZ: {commande.id_yz}")
             
             # Vérifier que la commande est en préparation
             if operateur.type_operateur == 'SUPERVISEUR_PREPARATION':
@@ -4564,7 +4689,10 @@ def ajouter_article_commande_prepa(request, commande_id):
                 ).first()
             
             if not etat_preparation:
+                print("❌ Commande non en préparation pour cet opérateur")
                 return JsonResponse({'error': 'Cette commande n\'est pas en préparation pour vous.'}, status=403)
+            
+            print(f"✅ État de préparation trouvé: {etat_preparation.enum_etat.libelle}")
             
             article_id = request.POST.get('article_id')
             quantite = int(request.POST.get('quantite', 1))
@@ -4579,9 +4707,12 @@ def ajouter_article_commande_prepa(request, commande_id):
             })
             
             if not article_id or quantite <= 0:
+                print(f"❌ Données invalides: article_id={article_id}, quantite={quantite}")
                 return JsonResponse({'error': 'Données invalides'}, status=400)
 
+            print(f"✅ Données reçues: article_id={article_id}, quantite={quantite}, variante_id={variante_id}")
             article = Article.objects.get(id=article_id)
+            print(f"✅ Article trouvé: {article.id} - {article.nom}")
             variante_obj = None
             if variante_id:
                 try:
@@ -4701,10 +4832,13 @@ def ajouter_article_commande_prepa(request, commande_id):
                 'sous_total': panier.sous_total,
                 'is_upsell': article.isUpsell,
                 'compteur': commande.compteur,
+                'phase': article.phase,
+                'has_promo_active': article.has_promo_active,
+                'qte_disponible': variante_obj.qte_disponible if variante_obj else article.qte_disponible,
                 'description': article.description or ''
             }
             
-            return JsonResponse({
+            response_data = {
                 'success': True, 
                 'message': message,
                 'compteur': commande.compteur,
@@ -4716,11 +4850,21 @@ def ajouter_article_commande_prepa(request, commande_id):
                 'sous_total_articles': float(sum(p.sous_total for p in commande.paniers.all())),
                 'articles_upsell': articles_upsell.count(),
                 'quantite_totale_upsell': total_quantite_upsell
-            })
+            }
+            
+            print("✅ ===== SUCCÈS ajouter_article_commande_prepa =====")
+            print(f"📦 Réponse: {response_data}")
+            
+            return JsonResponse(response_data)
             
     except Article.DoesNotExist:
+        print("❌ Article non trouvé")
         return JsonResponse({'error': 'Article non trouvé'}, status=404)
     except Exception as e:
+        print(f"❌ ===== ERREUR ajouter_article_commande_prepa =====")
+        print(f"❌ Exception: {str(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
         return JsonResponse({'error': f'Erreur interne: {str(e)}'}, status=500)
 
 @superviseur_preparation_required
@@ -5746,3 +5890,85 @@ def commandes_confirmees(request):
     }
     
     return render(request, 'Superpreparation/commande_confirmees.html', context)
+
+@login_required
+def get_article_variants(request, article_id):
+    """
+    Récupère toutes les variantes disponibles d'un article donné
+    """
+    try:
+        from article.models import Article, VarianteArticle
+        
+        print(f"🔍 Recherche des variantes pour l'article ID: {article_id} (type: {type(article_id)})")
+        
+        # D'abord, vérifier si l'article existe (avec ou sans le filtre actif=True)
+        try:
+            article_test = Article.objects.get(id=article_id)
+            print(f"📋 Article trouvé mais actif={article_test.actif}")
+        except Article.DoesNotExist:
+            print(f"❌ Aucun article trouvé avec l'ID {article_id}")
+            # Lister quelques articles pour debug
+            articles_existants = Article.objects.all()[:5]
+            print("📚 Articles existants (premiers 5):")
+            for art in articles_existants:
+                print(f"   - ID: {art.id}, Nom: {art.nom}, Actif: {art.actif}")
+        
+        # Vérifier que l'article existe ET est actif
+        article = get_object_or_404(Article, id=article_id, actif=True)
+        print(f"✅ Article trouvé: {article.nom}")
+        
+        # Récupérer toutes les variantes actives de cet article
+        variantes = VarianteArticle.objects.filter(
+            article=article,
+            actif=True
+        ).select_related('couleur', 'pointure').order_by('couleur__nom', 'pointure__ordre')
+        
+        print(f"📊 Nombre de variantes trouvées: {variantes.count()}")
+        
+        # Construire la liste des variantes avec leurs informations
+        variants_data = []
+        for variante in variantes:
+            print(f"🔸 Variante: {variante.id} - Couleur: {variante.couleur} - Pointure: {variante.pointure} - Stock: {variante.qte_disponible}")
+            
+            variant_info = {
+                'id': variante.id,
+                'couleur': variante.couleur.nom if variante.couleur else None,
+                'pointure': variante.pointure.pointure if variante.pointure else None,
+                'taille': None,  # À adapter selon votre modèle si vous avez des tailles
+                'stock': variante.qte_disponible,
+                'qte_disponible': variante.qte_disponible,
+                'prix_unitaire': float(variante.prix_unitaire),
+                'prix_actuel': float(variante.prix_actuel),
+                'reference_variante': variante.reference_variante,
+                'est_disponible': variante.est_disponible
+            }
+            variants_data.append(variant_info)
+        
+        response_data = {
+            'success': True,
+            'variants': variants_data,
+            'article': {
+                'id': article.id,
+                'nom': article.nom,
+                'reference': article.reference
+            }
+        }
+        
+        print(f"📤 Réponse envoyée: {len(variants_data)} variantes")
+        return JsonResponse(response_data)
+        
+    except Article.DoesNotExist:
+        print(f"❌ Article {article_id} non trouvé")
+        return JsonResponse({
+            'success': False,
+            'error': 'Article non trouvé'
+        }, status=404)
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Erreur dans get_article_variants: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': 'Erreur lors de la récupération des variantes'
+        }, status=500)

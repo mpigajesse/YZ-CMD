@@ -666,6 +666,8 @@
                 </div>
             </div>
 
+
+
             <!-- Livraison -->
             <div class="bg-white rounded-xl shadow-lg p-4 animate-slideInUp">
                 <h3 class="text-lg font-semibold mb-4 section-title">
@@ -742,6 +744,20 @@
                                 title="Forcer la synchronisation des données">
                             <i class="fas fa-sync-alt mr-1"></i>Sync
                         </button>
+                        
+                        <!-- Bouton de debug pour les boutons d'ajout -->
+                        <button type="button" onclick="debugBoutonsAjoutPanier()" 
+                                class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium ml-2 hover:bg-purple-200"
+                                title="Debugger les boutons d'ajout au panier">
+                            <i class="fas fa-bug mr-1"></i>Debug Boutons
+                        </button>
+                        
+                        <!-- Bouton pour vérifier les boutons dans le DOM -->
+                        <button type="button" onclick="checkButtonsInDOM()" 
+                                class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium ml-2 hover:bg-orange-200"
+                                title="Vérifier l'état des boutons dans le DOM">
+                            <i class="fas fa-search mr-1"></i>Check DOM
+                        </button>
                 </h3>
                     <div class="flex gap-2">
                         <button type="button" class="btn-prepa px-3 py-2 rounded text-sm" onclick="ouvrirModalAjoutArticle()">
@@ -770,7 +786,7 @@
                                         <i class="fas fa-info-circle"></i>
                                     </button>
                                 </th>
-                                <th class="px-4 py-3 text-center">État</th>
+                                <th class="px-4 py-3 text-center w-36">État</th>
                                 <th class="px-4 py-3 text-center">Actions</th>
                         </tr>
                     </thead>
@@ -850,29 +866,70 @@
                                 </td>
                                 <td class="px-4 py-3 text-right font-bold" id="sous-total-{{ panier.id }}">{{ panier.sous_total|floatformat:2 }} DH</td>
                                 <td class="px-4 py-3 text-center">
-                                    {% with found=False %}
+                                    <div class="flex flex-col gap-1">
+                                        <!-- État de l'article (phase) -->
+                                        {% if panier.article.phase == 'EN_COURS' %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                                                <i class="fas fa-play-circle mr-1"></i>En Cours
+                                            </span>
+                                        {% elif panier.article.phase == 'LIQUIDATION' %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                                                <i class="fas fa-percentage mr-1"></i>Liquidation
+                                            </span>
+                                        {% elif panier.article.phase == 'EN_TEST' %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">
+                                                <i class="fas fa-flask mr-1"></i>Test
+                                            </span>
+                                        {% else %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
+                                                <i class="fas fa-question-circle mr-1"></i>{{ panier.article.phase }}
+                                            </span>
+                                        {% endif %}
+                                        
+                                        <!-- État de retour (si applicable) -->
                                     {% for article_data in articles_renvoyes %}
                                         {% if article_data.article.id == panier.article.id %}
                                             {% if article_data.etat == 'defectueux' %}
-                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
-                                                    <i class="fas fa-times-circle mr-1"></i>Défectueux
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-200 text-red-800">
+                                                        <i class="fas fa-exclamation-triangle mr-1"></i>Défectueux
                                                 </span>
                                             {% elif article_data.etat == 'bon' %}
-                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
-                                                    <i class="fas fa-check-circle mr-1"></i>Bon
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-200 text-green-800">
+                                                        <i class="fas fa-check-circle mr-1"></i>Retour Bon
                                                 </span>
                                             {% else %}
-                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
-                                                    <i class="fas fa-question-circle mr-1"></i>Inconnu: {{ article_data.etat }}
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-800">
+                                                        <i class="fas fa-question-circle mr-1"></i>{{ article_data.etat }}
                                                 </span>
                                             {% endif %}
-                                            {% with found=True %}{% endwith %}
                                         {% endif %}
                                     {% endfor %}
-                                    {% if not found %}
-                                        <span class="text-gray-400">-</span>
+                                        
+                                        <!-- État upsell (si applicable) -->
+                                        {% if panier.article.isUpsell %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                                                <i class="fas fa-arrow-up mr-1"></i>Upsell
+                                            </span>
                                     {% endif %}
-                                    {% endwith %}
+                                        
+                                        <!-- État promotion (si applicable) -->
+                                        {% if panier.article.has_promo_active %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                                                <i class="fas fa-fire mr-1"></i>Promo
+                                            </span>
+                                        {% endif %}
+                                        
+                                        <!-- État du stock (si rupture) -->
+                                        {% if panier.article.qte_disponible <= 0 %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                                                <i class="fas fa-exclamation-triangle mr-1"></i>Rupture
+                                            </span>
+                                        {% elif panier.article.qte_disponible <= 5 %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                                                <i class="fas fa-exclamation mr-1"></i>Stock Faible
+                                            </span>
+                                        {% endif %}
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <button type="button" class="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded transition-colors" onclick="supprimerArticle({{ panier.id }})" title="Supprimer cet article">
@@ -1041,7 +1098,7 @@
                     </button>
                 </div>
                 
-                <div id="articlesList" class="space-y-3 max-h-96 overflow-y-auto"></div>
+                <div id="articlesList" class="max-h-96 overflow-y-auto"></div>
                 
                 <div class="mt-6 flex justify-end space-x-3">
                     <button type="button" onclick="fermerModalAjoutArticle()" 
@@ -1397,25 +1454,152 @@
 {% block extra_js %}
 {{ block.super }}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    let commandeId = {{ commande.id }};
-    let articlesDisponibles = [];
-    let modificationsQuantites = {};
-    let compteurCommande = {{ commande.compteur|default:0 }};
-
-    // Fonctions globales pour les `onclick`
+// Fonctions globales pour les `onclick` - définies en dehors du DOMContentLoaded
     window.ouvrirModalAjoutArticle = function() {
+        console.log('🔧 Fonction ouvrirModalAjoutArticle appelée');
         const modal = document.getElementById('modalAjoutArticle');
         if (modal) {
             modal.classList.remove('hidden');
+        if (typeof chargerArticlesDisponibles === 'function') {
             chargerArticlesDisponibles();
+        }
+        } else {
+            console.error('❌ Modal modalAjoutArticle non trouvée');
         }
     };
 
     window.fermerModalAjoutArticle = function() {
         const modal = document.getElementById('modalAjoutArticle');
         if (modal) modal.classList.add('hidden');
+    
+        // Réinitialiser les variantes sélectionnées
+        window.selectedArticleWithVariant = null;
+        window._varianteSelection = {};
+        
+        // Réinitialiser l'affichage des boutons
+        const boutonsAjouterPanier = document.querySelectorAll('[id^="btn-ajouter-panier-"]');
+        boutonsAjouterPanier.forEach(btn => {
+            btn.classList.add('hidden');
+            btn.classList.remove('inline-flex');
+        });
+        
+        // Réafficher tous les boutons "Sélectionner"
+        const boutonsSelectionner = document.querySelectorAll('[id^="btn-selectionner-"]');
+        boutonsSelectionner.forEach(btn => {
+            btn.classList.remove('hidden');
+        });
+        
+        // Masquer tous les boutons "Choisir variante"
+        const boutonsVariantes = document.querySelectorAll('[id^="btn-variantes-"]');
+        boutonsVariantes.forEach(btn => {
+            btn.classList.add('hidden');
+            btn.classList.remove('inline-flex');
+        });
+        
+        // Recharger la liste des articles pour réinitialiser l'affichage
+        if (typeof chargerArticlesDisponibles === 'function') {
+            chargerArticlesDisponibles();
+        }
     };
+
+// Initialisation des variables globales
+window.selectedArticleWithVariant = null;
+window._varianteSelection = {};
+
+// Fonctions de base pour les modales
+window.ouvrirModalConfirmation = function(message, action) {
+    const msgElem = document.getElementById('messageConfirmation');
+    if (msgElem) msgElem.textContent = message;
+    const btnConfirm = document.getElementById('btnConfirmer');
+    if (btnConfirm) btnConfirm.onclick = action;
+    const modal = document.getElementById('modalConfirmation');
+    if (modal) modal.classList.remove('hidden');
+};
+
+window.fermerModalConfirmation = function() {
+    const modal = document.getElementById('modalConfirmation');
+    if (modal) modal.classList.add('hidden');
+};
+
+// Fonction de base pour changer la quantité
+window.changeQuantite = function(articleId, delta) {
+    const input = document.getElementById(`qte-article-${articleId}`);
+    if (input) {
+        const newValue = Math.max(1, parseInt(input.value) + delta);
+        input.value = newValue;
+    }
+};
+
+// Fonction pour charger les articles disponibles
+window.chargerArticlesDisponibles = function(filterType = 'tous') {
+    console.log(`🔄 Chargement des articles avec filtre: ${filterType}`);
+    const url = new URL("{% url 'Superpreparation:api_articles_disponibles_prepa' %}", window.location.origin);
+    url.searchParams.set('filter', filterType);
+    console.log(`🌐 URL de l'API: ${url.toString()}`);
+    
+    fetch(url)
+        .then(response => {
+            console.log(`📡 Réponse reçue, status: ${response.status}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('📥 Données brutes reçues:', data);
+            
+            // Gestion des deux formats possibles (tableau direct ou objet avec propriété articles)
+            let articles = [];
+            if (Array.isArray(data)) {
+                articles = data;
+                console.log(`📦 ${articles.length} article(s) trouvé(s) (format tableau)`);
+            } else if (data.success && data.articles) {
+                articles = data.articles;
+                console.log(`📦 ${articles.length} article(s) trouvé(s) (format objet)`);
+            } else {
+                console.warn('⚠️ Format de données inattendu:', data);
+                console.log('🔍 Propriétés disponibles:', Object.keys(data));
+                return;
+            }
+            
+            console.log(`🎯 Articles à afficher:`, articles);
+            window.articlesDisponibles = articles;
+            if (typeof window.afficherArticles === 'function') {
+                window.afficherArticles(articles);
+            } else {
+                console.error('❌ Fonction afficherArticles non trouvée');
+            }
+            
+            // Calculer les statistiques basiques si pas fournies
+            if (!data.stats) {
+                const stats = {
+                    'tous': articles.length,
+                    'disponible': articles.filter(a => a.qte_disponible > 0).length,
+                    'upsell': articles.filter(a => a.isUpsell).length,
+                    'promo': articles.filter(a => a.has_reduction).length,
+                    'liquidation': articles.filter(a => a.phase === 'LIQUIDATION').length,
+                    'test': articles.filter(a => a.phase === 'EN_TEST').length
+                };
+                if (typeof window.mettreAJourStatistiques === 'function') {
+                    window.mettreAJourStatistiques(stats);
+                }
+            } else {
+                if (typeof window.mettreAJourStatistiques === 'function') {
+                    window.mettreAJourStatistiques(data.stats);
+                }
+            }
+            
+            if (typeof window.mettreAJourFiltreActif === 'function') {
+                window.mettreAJourFiltreActif(filterType);
+            }
+        }).catch(error => console.error('Erreur de chargement des articles:', error));
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    let commandeId = {{ commande.id }};
+    let articlesDisponibles = [];
+    let modificationsQuantites = {};
+    let compteurCommande = {{ commande.compteur|default:0 }};
 
     // Fonction pour diagnostiquer le compteur upsell
     window.diagnostiquerCompteur = function() {
@@ -1806,6 +1990,75 @@ document.addEventListener('DOMContentLoaded', function() {
         newRow.setAttribute('data-panier-id', articleData.panier_id);
         newRow.setAttribute('data-article-id', articleData.article_id || '');
         
+        // Fonction pour générer les badges d'état
+        function genererBadgesEtat(article) {
+            let badges = [];
+            
+            // État de phase
+            const phase = article.phase || 'EN_COURS';
+            if (phase === 'EN_COURS') {
+                badges.push(`
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                        <i class="fas fa-play-circle mr-1"></i>En Cours
+                    </span>
+                `);
+            } else if (phase === 'LIQUIDATION') {
+                badges.push(`
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                        <i class="fas fa-percentage mr-1"></i>Liquidation
+                    </span>
+                `);
+            } else if (phase === 'EN_TEST') {
+                badges.push(`
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">
+                        <i class="fas fa-flask mr-1"></i>Test
+                    </span>
+                `);
+            } else {
+                badges.push(`
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
+                        <i class="fas fa-question-circle mr-1"></i>${phase}
+                    </span>
+                `);
+            }
+            
+            // État upsell
+            if (article.is_upsell) {
+                badges.push(`
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                        <i class="fas fa-arrow-up mr-1"></i>Upsell
+                    </span>
+                `);
+            }
+            
+            // État promotion
+            if (article.has_promo_active) {
+                badges.push(`
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                        <i class="fas fa-fire mr-1"></i>Promo
+                    </span>
+                `);
+            }
+            
+            // État de stock
+            const stock = parseInt(article.qte_disponible || article.stock || 0);
+            if (stock <= 0) {
+                badges.push(`
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>Rupture
+                    </span>
+                `);
+            } else if (stock <= 5) {
+                badges.push(`
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                        <i class="fas fa-exclamation mr-1"></i>Stock Faible
+                    </span>
+                `);
+            }
+            
+            return badges.join('');
+        }
+        
         // Construire le HTML de la ligne
         const upsellBadge = articleData.is_upsell ? 
             '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 ml-2"><i class="fas fa-arrow-up mr-1"></i>Upsell</span>' : '';
@@ -1846,7 +2099,9 @@ document.addEventListener('DOMContentLoaded', function() {
             </td>
             <td class="px-4 py-3 text-right font-bold" id="sous-total-${articleData.panier_id}">${parseFloat(articleData.sous_total).toFixed(2)} DH</td>
             <td class="px-4 py-3 text-center">
-                <span class="text-gray-400">-</span>
+                <div class="flex flex-col gap-1">
+                    ${genererBadgesEtat(articleData)}
+                </div>
             </td>
             <td class="px-4 py-3 text-center">
                 <button type="button" class="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded transition-colors" onclick="supprimerArticle(${articleData.panier_id})" title="Supprimer cet article">
@@ -2066,14 +2321,6 @@ document.addEventListener('DOMContentLoaded', function() {
         showNotificationToast(message, 'info');
     }
 
-    function ouvrirModalConfirmation(message, action) {
-        const msgElem = document.getElementById('messageConfirmation');
-        if (msgElem) msgElem.textContent = message;
-        const btnConfirm = document.getElementById('btnConfirmer');
-        if (btnConfirm) btnConfirm.onclick = action;
-        const modal = document.getElementById('modalConfirmation');
-        if (modal) modal.classList.remove('hidden');
-    }
 
     window.fermerModalConfirmation = function() {
         const modal = document.getElementById('modalConfirmation');
@@ -2082,64 +2329,62 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Fonction globale pour sélectionner un article
     window.selectionnerArticle = function(articleId, articleName, varianteId) {
-        // Enregistrer immédiatement la variante venant du bouton de la carte
-        try {
-            if (typeof varianteId !== 'undefined' && varianteId !== null) {
-                window._varianteSelection = window._varianteSelection || {};
-                window._varianteSelection[articleId] = parseInt(varianteId);
-                console.log('✅ Variante sélectionnée', { articleId, varianteId: window._varianteSelection[articleId] });
-            }
-        } catch(e) { console.warn('⚠️ Impossible de mémoriser la variante', e); }
-        const quantiteInput = document.getElementById(`qte-article-${articleId}`);
-        if (!quantiteInput) {
-            console.error(`❌ Input de quantité non trouvé pour l'article ${articleId}`);
-            return;
+        console.log(`🎯 Sélection de l'article ${articleId}: "${articleName}"`);
+        
+        // Marquer l'article comme sélectionné (quantité sera définie lors de la sélection de variante)
+        window.selectedArticleWithVariant = {
+            articleId: articleId,
+            articleName: articleName,
+            quantite: 1, // Quantité par défaut, sera modifiée lors de la sélection de variante
+            variante_id: null
+        };
+        
+        // Masquer le bouton "Sélectionner" et afficher le bouton "Choisir variante"
+        const btnSelectionner = document.getElementById(`btn-selectionner-${articleId}`);
+        const btnVariantes = document.getElementById(`btn-variantes-${articleId}`);
+        
+        if (btnSelectionner) {
+            btnSelectionner.classList.add('hidden');
         }
         
-        const quantite = parseInt(quantiteInput.value, 10);
-        if (isNaN(quantite) || quantite <= 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Quantité invalide',
-                text: 'Veuillez entrer une quantité valide (minimum 1).',
-                confirmButtonText: 'OK'
-            });
-            return;
+        if (btnVariantes) {
+            btnVariantes.classList.remove('hidden');
+            btnVariantes.classList.add('inline-flex');
         }
         
-        // Si l'article possède des variantes, exiger une sélection
+        // Vérifier si l'article a des variantes
         try {
             const data = (window.articlesDisponibles || []).find(a => a.id === articleId);
             const hasVar = data && Array.isArray(data.variantes_all) && data.variantes_all.length > 0;
-            const selectedVar = window._varianteSelection && window._varianteSelection[articleId];
-            console.log('🔎 Vérification variantes', { hasVar, selectedVar });
-            if (hasVar && !selectedVar) {
-                showNotificationToast('Veuillez sélectionner une variante (couleur/pointure) avant d\'ajouter.', 'warning');
-                return;
+            
+            if (hasVar) {
+                // Si l'article a des variantes, afficher le bouton "Choisir variante"
+                showNotificationToast(`Article "${articleName}" sélectionné. Cliquez sur "Choisir variante" pour continuer.`, 'info');
+            } else {
+                // Si l'article n'a pas de variantes, afficher directement le bouton "Ajouter au panier"
+                const btnAjouterPanier = document.getElementById(`btn-ajouter-panier-${articleId}`);
+                if (btnAjouterPanier) {
+                    btnAjouterPanier.classList.remove('hidden');
+                    btnAjouterPanier.classList.add('inline-flex');
+                }
+                showNotificationToast(`Article "${articleName}" sélectionné. Cliquez sur "Ajouter au panier" pour confirmer.`, 'info');
             }
-        } catch(e) { console.warn('⚠️ Erreur détection variantes', e); }
-        
-        // Vérifier que la quantité ne dépasse pas le stock disponible
-        const maxStock = parseInt(quantiteInput.getAttribute('max')) || 99;
-        if (quantite > maxStock) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Quantité trop élevée',
-                text: `La quantité demandée (${quantite}) dépasse le stock disponible (${maxStock}).`,
-                confirmButtonText: 'OK'
-            });
-            return;
+        } catch(e) { 
+            console.warn('⚠️ Erreur détection variantes', e);
+            // En cas d'erreur, afficher directement le bouton "Ajouter au panier"
+            const btnAjouterPanier = document.getElementById(`btn-ajouter-panier-${articleId}`);
+            if (btnAjouterPanier) {
+                btnAjouterPanier.classList.remove('hidden');
+                btnAjouterPanier.classList.add('inline-flex');
+            }
         }
-        
-        console.log(`🎯 Sélection de l'article ${articleId}: ${quantite} x "${articleName}"`);
-        ouvrirModalConfirmation(`Ajouter ${quantite} x "${articleName}" au panier ?`, () => ajouterArticleAuPanier(articleId, quantite));
     };
 
     window.supprimerArticle = function(panierId) {
         ouvrirModalConfirmation('Êtes-vous sûr de vouloir supprimer cet article ?', () => {
             const formData = new FormData();
             formData.append('action', 'delete_article');
-            formData.append('article_id', panierId);
+            formData.append('panier_id', panierId);
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
             if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
             
@@ -2476,61 +2721,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if(fraisDisplay) fraisDisplay.value = `${frais || 0} DH`;
     }
 
-    function chargerArticlesDisponibles(filterType = 'tous') {
-        console.log(`🔄 Chargement des articles avec filtre: ${filterType}`);
-        const url = new URL("{% url 'Superpreparation:api_articles_disponibles_prepa' %}", window.location.origin);
-        url.searchParams.set('filter', filterType);
-        console.log(`🌐 URL de l'API: ${url.toString()}`);
-        
-        fetch(url)
-            .then(response => {
-                console.log(`📡 Réponse reçue, status: ${response.status}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('📥 Données brutes reçues:', data);
-                
-                // Gestion des deux formats possibles (tableau direct ou objet avec propriété articles)
-                let articles = [];
-                if (Array.isArray(data)) {
-                    articles = data;
-                    console.log(`📦 ${articles.length} article(s) trouvé(s) (format tableau)`);
-                } else if (data.success && data.articles) {
-                    articles = data.articles;
-                    console.log(`📦 ${articles.length} article(s) trouvé(s) (format objet)`);
-                } else {
-                    console.warn('⚠️ Format de données inattendu:', data);
-                    console.log('🔍 Propriétés disponibles:', Object.keys(data));
-                    return;
-                }
-                
-                console.log(`🎯 Articles à afficher:`, articles);
-                articlesDisponibles = articles;
-                afficherArticles(articles);
-                
-                // Calculer les statistiques basiques si pas fournies
-                if (!data.stats) {
-                    const stats = {
-                        'tous': articles.length,
-                        'disponible': articles.filter(a => a.qte_disponible > 0).length,
-                        'upsell': articles.filter(a => a.isUpsell).length,
-                        'promo': articles.filter(a => a.has_reduction).length,
-                        'liquidation': articles.filter(a => a.phase === 'LIQUIDATION').length,
-                        'test': articles.filter(a => a.phase === 'EN_TEST').length
-                    };
-                    mettreAJourStatistiques(stats);
-                } else {
-                    mettreAJourStatistiques(data.stats);
-                }
-                
-                mettreAJourFiltreActif(filterType);
-            }).catch(error => console.error('Erreur de chargement des articles:', error));
-    }
 
-    function mettreAJourStatistiques(stats) {
+
+
+
+
+
+// Fonction pour mettre à jour les statistiques
+window.mettreAJourStatistiques = function(stats) {
         if (!stats) {
             console.warn('Stats non définies');
             return;
@@ -2558,46 +2756,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Afficher un résumé des statistiques
-        afficherResumeStatistiques(stats);
+    if (typeof window.afficherResumeStatistiques === 'function') {
+        window.afficherResumeStatistiques(stats);
     }
-    
-    function afficherResumeStatistiques(stats) {
-        const container = document.getElementById('articlesList');
-        if (!container || !stats) return;
-        
-        // Créer un résumé en haut de la liste
-        const resumeElement = document.createElement('div');
-        resumeElement.className = 'mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl shadow-sm';
-        resumeElement.innerHTML = `
-            <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <i class="fas fa-chart-bar text-blue-600"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-semibold text-blue-800 text-sm">Résumé des articles trouvés</h3>
-                        <p class="text-xs text-blue-600">${stats.tous || 0} article(s) au total</p>
-                    </div>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    ${stats.disponible > 0 ? `<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">${stats.disponible} en stock</span>` : ''}
-                    ${stats.promo > 0 ? `<span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">${stats.promo} en promo</span>` : ''}
-                    ${stats.upsell > 0 ? `<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">${stats.upsell} upsell</span>` : ''}
-                    ${stats.liquidation > 0 ? `<span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">${stats.liquidation} liquidation</span>` : ''}
-                    ${stats.test > 0 ? `<span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">${stats.test} en test</span>` : ''}
-                </div>
-            </div>
-        `;
-        
-        // Insérer le résumé au début de la liste
-        if (container.firstChild) {
-            container.insertBefore(resumeElement, container.firstChild);
-        } else {
-            container.appendChild(resumeElement);
-        }
-    }
+};
 
-    function mettreAJourFiltreActif(filterType) {
+// Fonction pour mettre à jour le filtre actif
+window.mettreAJourFiltreActif = function(filterType) {
         // Retirer la classe active de tous les boutons
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.classList.remove('active', 'bg-blue-600', 'text-white');
@@ -2610,44 +2775,268 @@ document.addEventListener('DOMContentLoaded', function() {
             activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
             activeBtn.classList.add('active', 'bg-blue-600', 'text-white');
         }
-    }
+};
 
+// Fonction pour filtrer les articles
     window.filtrerArticles = function(filterType) {
-        chargerArticlesDisponibles(filterType);
-    };
+    if (typeof window.chargerArticlesDisponibles === 'function') {
+        window.chargerArticlesDisponibles(filterType);
+    }
+};
 
-    function afficherArticles(articles) {
+// Fonction pour ajouter un article au panier depuis le bouton
+window.ajouterArticleAuPanierDepuisBouton = function(articleId) {
+    console.log('🔄 ===== DÉBUT ajouterArticleAuPanierDepuisBouton =====');
+    console.log('📦 articleId reçu:', articleId);
+    console.log('📦 Type de articleId:', typeof articleId);
+    console.log('📦 window.selectedArticleWithVariant:', window.selectedArticleWithVariant);
+    console.log('📦 window._varianteSelection:', window._varianteSelection);
+    console.log('🔍 Vérification des fonctions critiques:');
+    console.log('- ouvrirModalConfirmation:', typeof window.ouvrirModalConfirmation);
+    console.log('- ajouterArticleAuPanier:', typeof window.ajouterArticleAuPanier);
+    
+    // Récupérer la quantité depuis la sélection de variante ou utiliser 1 par défaut
+    let quantite = 1;
+    let articleName = 'Article';
+    
+    // Si une variante a été sélectionnée, récupérer la quantité depuis le modal de variantes
+    console.log('🔍 Vérification selectedArticleWithVariant...');
+    if (window.selectedArticleWithVariant && window.selectedArticleWithVariant.articleId === articleId) {
+        quantite = window.selectedArticleWithVariant.quantite || 1;
+        articleName = window.selectedArticleWithVariant.articleName || 'Article';
+        console.log('✅ Quantité récupérée depuis selectedArticleWithVariant:', quantite);
+        console.log('✅ Nom de l\'article récupéré:', articleName);
+    } else {
+        console.log('⚠️ Aucune variante sélectionnée pour cet article');
+        // Sinon, récupérer le nom de l'article depuis le tableau
+        const row = document.querySelector(`[onclick*="selectionnerArticle(${articleId}"]`)?.closest('tr');
+        console.log('🔍 Recherche de la ligne dans le tableau:', row);
+        if (row) {
+            articleName = row.querySelector('.text-sm.font-medium')?.textContent || 'Article';
+            console.log('✅ Nom de l\'article trouvé dans le tableau:', articleName);
+        } else {
+            console.log('⚠️ Ligne non trouvée dans le tableau');
+        }
+        console.log('⚠️ Utilisation de la quantité par défaut (1)');
+    }
+    
+    console.log('📊 Données finales:', { quantite, articleName });
+    
+    // Ouvrir le modal de confirmation
+    console.log('🔍 Tentative d\'ouverture du modal de confirmation...');
+    if (typeof window.ouvrirModalConfirmation === 'function') {
+        console.log('✅ Fonction ouvrirModalConfirmation trouvée, ouverture du modal...');
+        window.ouvrirModalConfirmation(`Ajouter ${quantite} x "${articleName}" au panier ?`, () => {
+            console.log('🔄 Callback du modal de confirmation exécuté');
+            if (typeof window.ajouterArticleAuPanier === 'function') {
+                console.log('✅ Fonction ajouterArticleAuPanier trouvée, appel...');
+                window.ajouterArticleAuPanier(articleId, quantite);
+            } else {
+                console.error('❌ Fonction ajouterArticleAuPanier non trouvée');
+            }
+            
+            // Réinitialiser l'affichage après ajout
+            const btnAjouterPanier = document.getElementById(`btn-ajouter-panier-${articleId}`);
+            const btnVariantes = document.getElementById(`btn-variantes-${articleId}`);
+            const btnSelectionner = document.getElementById(`btn-selectionner-${articleId}`);
+            
+            if (btnAjouterPanier) {
+                btnAjouterPanier.classList.add('hidden');
+                btnAjouterPanier.classList.remove('inline-flex');
+            }
+            
+            if (btnVariantes) {
+                btnVariantes.classList.add('hidden');
+                btnVariantes.classList.remove('inline-flex');
+            }
+            
+            if (btnSelectionner) {
+                btnSelectionner.classList.remove('hidden');
+            }
+            
+            // Réinitialiser les variables globales après l'ajout
+            window.selectedArticleWithVariant = null;
+            if (window._varianteSelection && window._varianteSelection[articleId]) {
+                delete window._varianteSelection[articleId];
+            }
+        });
+    } else {
+        console.error('❌ Fonction ouvrirModalConfirmation non trouvée');
+        console.error('❌ ===== FIN ajouterArticleAuPanierDepuisBouton (ERREUR) =====');
+    }
+    console.log('✅ ===== FIN ajouterArticleAuPanierDepuisBouton =====');
+};
+
+// Fonction pour afficher les articles
+window.afficherArticles = function(articles) {
         const container = document.getElementById('articlesList');
         if (!container) {
             console.warn('Container articlesList non trouvé');
             return;
         }
+    
+    // Filtrer les doublons basés sur l'ID de l'article
+    const articlesUniques = [];
+    const articlesIds = new Set();
+    
+    articles.forEach(article => {
+        if (!articlesIds.has(article.id)) {
+            articlesIds.add(article.id);
+            articlesUniques.push(article);
+        }
+    });
+    
+    console.log(`📊 Articles originaux: ${articles.length}, Articles uniques: ${articlesUniques.length}`);
+    
+    // Stocker les articles uniques dans une variable globale pour pouvoir les réutiliser
+    window.articlesList = articlesUniques;
+    
         container.innerHTML = '';
         
-        if (articles.length === 0) {
+    if (articlesUniques.length === 0) {
             container.innerHTML = `
-                <div class="text-center py-12 text-gray-500">
-                    <div class="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                        <i class="fas fa-search text-4xl text-gray-400"></i>
-                    </div>
-                    <div class="text-xl font-medium mb-2">Aucun article trouvé</div>
-                    <div class="text-sm text-gray-400">Essayez de modifier vos critères de recherche</div>
+            <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-search text-4xl mb-4"></i>
+                <div class="text-lg font-medium">Aucun article trouvé</div>
+                <div class="text-sm">Essayez de modifier vos critères de recherche</div>
                 </div>
             `;
             return;
         }
         
-        // Créer une grille responsive pour le catalogue
-        const gridContainer = document.createElement('div');
-        gridContainer.className = 'catalog-grid';
+    // Créer un tableau HTML complet avec des bordures visibles
+    const tableHTML = `
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border-2 border-gray-300 rounded-lg shadow-lg" style="border-collapse: collapse;">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Article</th>
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Prix</th>
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Stock Général</th>
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white">
+                    ${articlesUniques.map(article => {
+        // Badge de type d'article
+        const typeBadge = article.article_type !== 'normal' ? `
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${article.type_color ? article.type_color.replace('text-', 'bg-').replace('-600', '-100') : 'bg-blue-100 text-blue-600'} ${article.type_color || 'text-blue-600'} ml-2">
+                <i class="${article.type_icon || 'fas fa-tag'} mr-1"></i>
+                ${article.article_type.toUpperCase()}
+            </span>
+        ` : '';
         
-        articles.forEach((article, index) => {
-            const articleCard = creerCarteArticle(article, index);
-            gridContainer.appendChild(articleCard);
-        });
+        // Affichage du prix avec réduction si applicable
+        const prixDisplay = article.has_reduction ? `
+            <div class="text-sm">
+                <span class="font-semibold text-green-600">${article.prix} DH</span>
+                <span class="line-through text-gray-400 ml-2">${article.prix_original} DH</span>
+                <span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs ml-2">-${article.reduction_pourcentage}%</span>
+            </div>
+        ` : `
+            <div class="text-sm font-semibold text-green-600">${article.prix} DH</div>
+        `;
         
-        container.appendChild(gridContainer);
-    }
+        // Calculer le stock général (somme de tous les stocks des variantes)
+        let stockGeneral = 0;
+        let variantesEnRupture = [];
+        
+        if (article.variantes_all && Array.isArray(article.variantes_all)) {
+            console.log(`🔍 Calcul stock général pour ${article.nom} - ${article.variantes_all.length} variantes:`);
+            stockGeneral = article.variantes_all.reduce((total, variante) => {
+                const stockVariante = parseInt(variante.qte_disponible || variante.stock) || 0;
+                console.log(`  - Variante ${variante.id}: ${stockVariante} unités`);
+                if (stockVariante === 0) {
+                    variantesEnRupture.push(variante);
+                }
+                return total + stockVariante;
+            }, 0);
+            console.log(`✅ Stock général calculé: ${stockGeneral} unités (${variantesEnRupture.length} variantes en rupture)`);
+        } else {
+            // Si pas de variantes, utiliser le stock de l'article principal
+            stockGeneral = parseInt(article.qte_disponible) || 0;
+        }
+        
+        // Statut du stock général amélioré
+        let stockStatus;
+        if (stockGeneral > 0) {
+            const totalVariantes = article.variantes_all ? article.variantes_all.length : 1;
+            const variantesDisponibles = totalVariantes - variantesEnRupture.length;
+            
+            if (variantesEnRupture.length === 0) {
+                // Toutes les variantes sont disponibles
+                stockStatus = `<span class="font-semibold text-green-600">${stockGeneral}</span>`;
+            } else {
+                // Certaines variantes en rupture, d'autres disponibles
+                stockStatus = `<div class="text-center">
+                    <span class="font-semibold text-green-600">${stockGeneral}</span>
+                    <div class="text-xs text-orange-600 mt-1">
+                        ${variantesDisponibles}/${totalVariantes} variantes disp.
+                    </div>
+                </div>`;
+            }
+        } else {
+            // Rupture totale
+            stockStatus = `<span class="font-semibold text-red-600">Rupture</span>`;
+        }
+        
+        // Icône d'information pour les variantes en rupture (si applicable)
+        const infoIcon = variantesEnRupture.length > 0 && stockGeneral > 0 ? 
+            `<button type="button" class="ml-2 text-blue-500 hover:text-blue-700" onclick="afficherVariantesEnRupture(${article.id}, ${JSON.stringify(variantesEnRupture).replace(/"/g, '&quot;')})" title="${variantesEnRupture.length} variante(s) en rupture">
+                <i class="fas fa-info-circle"></i>
+            </button>` : '';
+        
+        return `
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-4 py-3 border-2 border-gray-300">
+                    <div class="flex items-center">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">${article.nom}</div>
+                            <div class="text-sm text-gray-500">Réf: ${article.reference || 'N/A'}</div>
+                            ${typeBadge}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-center border-2 border-gray-300">
+                    ${prixDisplay}
+                </td>
+                <td class="px-4 py-3 text-center border-2 border-gray-300">
+                    <div class="flex items-center justify-center">
+                        <span class="text-sm text-gray-900">${stockStatus}</span>
+                        ${infoIcon}
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-center border-2 border-gray-300">
+                    <div class="flex items-center justify-center gap-2">
+                        <button type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" 
+                                onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')" 
+                                id="btn-selectionner-${article.id}">
+                            <i class="fas fa-check mr-1"></i>Sélectionner
+                        </button>
+                        <button type="button" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors hidden" 
+                                id="btn-variantes-${article.id}"
+                                onclick="ouvrirModalVariantes(${JSON.stringify(article).replace(/"/g, '&quot;')})">
+                            <i class="fas fa-layer-group mr-1"></i>Choisir variante
+                        </button>
+                        <button type="button" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors hidden btn-ajouter-panier" 
+                                id="btn-ajouter-panier-${article.id}"
+                                data-article-id="${article.id}"
+                                onclick="ajouterArticleAuPanierDepuisBouton(${article.id})"
+                                ${stockGeneral <= 0 ? 'disabled' : ''}>
+                            <i class="fas fa-shopping-cart mr-1"></i>Ajouter au panier
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    container.innerHTML = tableHTML;
+};
     
     function creerCarteArticle(article, index) {
         const card = document.createElement('div');
@@ -3045,21 +3434,23 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
 
-    function changeQuantite(articleId, delta) {
-        const input = document.getElementById(`qte-article-${articleId}`);
-        if (input) {
-            const newValue = Math.max(1, parseInt(input.value) + delta);
-            input.value = newValue;
-        }
-    }
 
-    function ajouterArticleAuPanier(articleId, quantite) {
-        console.log('🔄 Ajout d\'article au panier:', { articleId, quantite, variante_id: window._varianteSelection ? window._varianteSelection[articleId] : undefined });
+
+
+
+    window.ajouterArticleAuPanier = function(articleId, quantite) {
+        console.log('🔄 ===== DÉBUT ajouterArticleAuPanier =====');
+        console.log('📦 Paramètres reçus:', { articleId, quantite });
+        console.log('📦 Types des paramètres:', { articleId: typeof articleId, quantite: typeof quantite });
+        console.log('📦 window._varianteSelection:', window._varianteSelection);
+        console.log('📦 variante_id pour cet article:', window._varianteSelection ? window._varianteSelection[articleId] : undefined);
         
+        console.log('🔧 Préparation des données FormData...');
         const formData = new FormData();
         formData.append('action', 'add_article');
         formData.append('article_id', articleId);
         formData.append('quantite', quantite);
+        
         // Inclure la variante sélectionnée si disponible
         if (window._varianteSelection && window._varianteSelection[articleId]) {
             console.log('📦 Envoi variante_id:', window._varianteSelection[articleId]);
@@ -3067,23 +3458,51 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             console.log('⚠️ Aucune variante_id jointe');
         }
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
         
-        fetch(`{% url 'Superpreparation:ajouter_article_commande_prepa' commande.id %}`, { method: 'POST', body: formData })
+        // Log du FormData
+        console.log('📦 FormData préparé:');
+        for (let [key, value] of formData.entries()) {
+            console.log(`  - ${key}: ${value}`);
+        }
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        console.log('🔍 CSRF Token trouvé:', csrfToken ? 'OUI' : 'NON');
+        if (csrfToken) {
+            formData.append('csrfmiddlewaretoken', csrfToken.value);
+            console.log('✅ CSRF Token ajouté au FormData');
+        } else {
+            console.error('❌ CSRF Token non trouvé');
+        }
+        
+        const url = `{% url 'Superpreparation:ajouter_article_commande_prepa' commande.id %}`;
+        console.log('🌐 URL de la requête:', url);
+        console.log('📡 Début de la requête fetch...');
+        
+        fetch(url, { method: 'POST', body: formData })
             .then(res => {
-                console.log('🌐 Réponse HTTP:', res.status, res.statusText);
+                console.log('🌐 Réponse HTTP reçue:', res.status, res.statusText);
+                console.log('🌐 Headers de la réponse:', Object.fromEntries(res.headers.entries()));
+                if (!res.ok) {
+                    console.error('❌ Erreur HTTP:', res.status, res.statusText);
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
                 return res.json();
             })
             .then(data => {
-                console.log('📥 Réponse JSON ajout:', data);
+                console.log('📥 Réponse JSON reçue:', data);
+                console.log('📥 Type de la réponse:', typeof data);
                 debugDatabaseInteraction('ajouter_article', data);
                 if (data.success) {
                     console.log('✅ Article ajouté avec succès:', data);
+                    console.log('✅ ===== FIN ajouterArticleAuPanier (SUCCÈS) =====');
                     
                     // Fermer les modales
-                    fermerModalConfirmation();
-                    fermerModalAjoutArticle();
+                    console.log('🔧 Fermeture des modales...');
+                    if (typeof window.fermerModalConfirmation === 'function') {
+                        window.fermerModalConfirmation();
+                    }
+                    if (typeof window.fermerModalAjoutArticle === 'function') {
+                        window.fermerModalAjoutArticle();
+                    }
                     
                     // Si nous avons les données de l'article, l'ajouter dynamiquement
                     if (data.article_data) {
@@ -3102,20 +3521,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     showNotificationToast(data.message || 'Article ajouté avec succès', 'success');
                 } else {
                     console.error('❌ Erreur lors de l\'ajout:', data.error);
+                    console.error('❌ ===== FIN ajouterArticleAuPanier (ERREUR) =====');
+                    if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'error',
                         title: 'Erreur',
                         text: data.error || 'Impossible d\'ajouter l\'article.'
                     });
+                    } else {
+                        console.error('❌ SweetAlert2 non disponible');
+                        alert('Erreur: ' + (data.error || 'Impossible d\'ajouter l\'article.'));
+                    }
                 }
             })
             .catch(error => {
-                console.error('❌ Erreur réseau:', error);
+                console.error('❌ Erreur fetch:', error);
+                console.error('❌ ===== FIN ajouterArticleAuPanier (ERREUR RÉSEAU) =====');
+                if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'error',
-                    title: 'Erreur de communication',
-                    text: 'Impossible de contacter le serveur.'
+                        title: 'Erreur réseau',
+                        text: 'Impossible de communiquer avec le serveur: ' + error.message
                 });
+                } else {
+                    console.error('❌ SweetAlert2 non disponible');
+                    alert('Erreur réseau: ' + error.message);
+                }
             });
     }
 
@@ -3520,8 +3951,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Attendre que le DOM soit chargé
         setTimeout(() => {
+            // Configurer les boutons de quantité (decrease/increase)
             const boutonsQuantite = document.querySelectorAll('[data-action="decrease"], [data-action="increase"]');
             console.log(`📦 ${boutonsQuantite.length} boutons de quantité trouvés`);
+            
+            // Configurer les boutons d'ajout au panier
+            const boutonsAjoutPanier = document.querySelectorAll('.btn-ajouter-panier');
+            console.log(`🛒 ${boutonsAjoutPanier.length} boutons d'ajout au panier trouvés`);
             
             boutonsQuantite.forEach(bouton => {
                 const articleId = bouton.getAttribute('data-article-id');
@@ -3562,6 +3998,28 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Configurer les event listeners au chargement et après chaque mise à jour
     configurerEventListenersQuantite();
+    
+    // Event listener global pour les boutons d'ajout au panier
+    document.addEventListener('click', function(e) {
+        console.log('🖱️ Clic détecté sur:', e.target);
+        console.log('🔍 Classes de l\'élément cliqué:', e.target.className);
+        console.log('🔍 ID de l\'élément cliqué:', e.target.id);
+        
+        if (e.target && e.target.classList.contains('btn-ajouter-panier')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const articleId = e.target.getAttribute('data-article-id');
+            console.log('🖱️ Clic global détecté sur bouton ajouter panier pour article', articleId);
+            if (articleId && typeof window.ajouterArticleAuPanierDepuisBouton === 'function') {
+                window.ajouterArticleAuPanierDepuisBouton(articleId);
+            }
+        }
+        
+        // Vérifier aussi si c'est un bouton avec data-article-id
+        if (e.target && e.target.getAttribute('data-article-id')) {
+            console.log('🖱️ Clic détecté sur élément avec data-article-id:', e.target.getAttribute('data-article-id'));
+        }
+    });
     
     // Reconfigurer après chaque mise à jour de la liste d'articles
     const originalAfficherArticles = afficherArticles;
@@ -3821,8 +4279,121 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 2000);
     }
 
+    // Fonction pour debugger les boutons d'ajout au panier
+    window.debugBoutonsAjoutPanier = function() {
+        console.log('🔍 Debug des boutons d\'ajout au panier...');
+        
+        const boutons = document.querySelectorAll('.btn-ajouter-panier');
+        console.log(`📦 ${boutons.length} boutons d'ajout au panier trouvés`);
+        
+        boutons.forEach((btn, index) => {
+            const articleId = btn.getAttribute('data-article-id');
+            const onclick = btn.getAttribute('onclick');
+            const isVisible = !btn.classList.contains('hidden');
+            
+            console.log(`🔍 Bouton ${index + 1}:`, {
+                articleId: articleId,
+                onclick: onclick,
+                visible: isVisible,
+                id: btn.id,
+                classes: btn.className,
+                disabled: btn.disabled,
+                style: btn.style.cssText
+            });
+            
+            // Vérifier si le bouton est dans le DOM et visible
+            const rect = btn.getBoundingClientRect();
+            console.log(`📐 Position du bouton ${index + 1}:`, {
+                top: rect.top,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height,
+                visible: rect.width > 0 && rect.height > 0
+            });
+            
+            // Tester si le bouton a un event listener
+            let eventTriggered = false;
+            
+            const originalOnClick = btn.onclick;
+            btn.onclick = function(e) {
+                eventTriggered = true;
+                console.log(`✅ Event déclenché pour bouton ${index + 1} (article ${articleId})`);
+                if (originalOnClick) originalOnClick.call(this, e);
+            };
+            
+            // Déclencher un clic de test
+            setTimeout(() => {
+                console.log(`🧪 Test de clic pour bouton ${index + 1} (article ${articleId})`);
+                btn.click();
+                setTimeout(() => {
+                    if (!eventTriggered) {
+                        console.warn(`⚠️ Aucun event déclenché pour bouton ${index + 1} (article ${articleId})`);
+                        // Essayer de déclencher manuellement
+                        console.log(`🔄 Tentative de déclenchement manuel pour bouton ${index + 1}`);
+                        const clickEvent = new MouseEvent('click', {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window
+                        });
+                        btn.dispatchEvent(clickEvent);
+                    }
+                    btn.onclick = originalOnClick;
+                }, 100);
+            }, index * 200);
+        });
+    };
+
     // Vérifier l'état de la base de données au chargement
     setTimeout(verifierEtatBaseDeDonnees, 1000);
+    
+    // Fonction globale pour forcer l'ajout d'un article (pour debug)
+    window.forceAddArticle = function(articleId) {
+        console.log('🚀 Force add article:', articleId);
+        if (typeof window.ajouterArticleAuPanierDepuisBouton === 'function') {
+            window.ajouterArticleAuPanierDepuisBouton(articleId);
+        } else {
+            console.error('❌ Fonction ajouterArticleAuPanierDepuisBouton non trouvée');
+        }
+    };
+    
+    // Fonction pour vérifier l'état des boutons dans le DOM
+    window.checkButtonsInDOM = function() {
+        console.log('🔍 Vérification des boutons dans le DOM...');
+        
+        // Vérifier tous les boutons d'ajout au panier
+        const allButtons = document.querySelectorAll('[id^="btn-ajouter-panier-"]');
+        console.log(`📦 ${allButtons.length} boutons d'ajout au panier trouvés dans le DOM`);
+        
+        allButtons.forEach((btn, index) => {
+            const articleId = btn.id.replace('btn-ajouter-panier-', '');
+            const rect = btn.getBoundingClientRect();
+            const isVisible = !btn.classList.contains('hidden');
+            const isInViewport = rect.width > 0 && rect.height > 0;
+            
+            console.log(`🔍 Bouton ${index + 1} (article ${articleId}):`, {
+                id: btn.id,
+                visible: isVisible,
+                inViewport: isInViewport,
+                position: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+                classes: btn.className,
+                onclick: btn.getAttribute('onclick'),
+                dataArticleId: btn.getAttribute('data-article-id')
+            });
+        });
+        
+        // Vérifier spécifiquement le bouton pour l'article 22
+        const btn22 = document.getElementById('btn-ajouter-panier-22');
+        if (btn22) {
+            console.log('🎯 Bouton spécifique pour article 22 trouvé:', {
+                visible: !btn22.classList.contains('hidden'),
+                classes: btn22.className,
+                onclick: btn22.getAttribute('onclick'),
+                innerHTML: btn22.innerHTML
+            });
+        } else {
+            console.error('❌ Bouton pour article 22 non trouvé dans le DOM');
+        }
+    };
     
     // Calculer et afficher le total des unités upsell
     const totalUpsell = calculerTotalUnitesUpsell();
@@ -4105,6 +4676,511 @@ document.addEventListener('DOMContentLoaded', function() {
             _majEtatsBoutonsQuantite(id);
         }
     });
+
+    // Fonctions pour le modal des variantes
+    window.ouvrirModalVariantes = function(article) {
+        try {
+            console.log('🎯 Ouverture modal variantes pour article:', article);
+            
+            const modal = document.getElementById('modalVariantes');
+            if (!modal) {
+                console.error('❌ Modal variantes non trouvé');
+                return;
+            }
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // Charger les variantes de l'article
+            chargerVariantesArticle(article);
+            
+        } catch (e) {
+            console.error('❌ Erreur ouverture modal variantes:', e);
+        }
+    };
+
+    window.fermerModalVariantes = function() {
+        const modal = document.getElementById('modalVariantes');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    };
+
+    function chargerVariantesArticle(article) {
+        const variantsList = document.getElementById('variantsList');
+        if (!variantsList) {
+            console.error('❌ Container variantsList non trouvé');
+            return;
+        }
+        
+        // Afficher un indicateur de chargement
+        variantsList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Chargement des variantes...</div>';
+        
+        // Appel AJAX pour récupérer les variantes
+        fetch(`{% url 'Superpreparation:get_article_variants' 0 %}`.replace('0', article.id))
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('✅ Variantes chargées:', data.variants);
+                    afficherVariantes(data.variants, article);
+                } else {
+                    console.error('❌ Erreur chargement variantes:', data.error);
+                    variantsList.innerHTML = '<div class="text-center py-4 text-red-500">Erreur lors du chargement des variantes</div>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur réseau:', error);
+                variantsList.innerHTML = '<div class="text-center py-4 text-red-500">Erreur de connexion</div>';
+            });
+    }
+
+    function afficherVariantes(variants, article) {
+        const variantsList = document.getElementById('variantsList');
+        
+        if (!variants || variants.length === 0) {
+            variantsList.innerHTML = '<div class="text-center py-4 text-gray-500">Aucune variante disponible</div>';
+            return;
+        }
+
+        // Créer un tableau HTML complet pour les variantes avec des bordures visibles
+        const tableHTML = `
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border-2 border-gray-300 rounded-lg shadow-lg" style="border-collapse: collapse;">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Variante</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Prix</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Stock</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Quantité</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Référence</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white">
+                        ${variants.map(variant => {
+                            const stockDisponible = parseInt(variant.qte_disponible || variant.stock) || 0;
+                            const stockClass = stockDisponible > 0 ? 'text-green-600' : 'text-red-600';
+                            const stockStatus = stockDisponible > 0 ? 
+                                `<span class="font-semibold text-green-600">${stockDisponible}</span>` : 
+                                `<span class="font-semibold text-red-600">Rupture</span>`;
+                            
+                            return `
+                                <tr class="hover:bg-gray-50 transition-colors ${stockDisponible <= 0 ? 'opacity-50' : ''}">
+                                    <td class="px-4 py-3 border-2 border-gray-300">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            ${variant.couleur || 'N/A'} - ${variant.pointure || 'N/A'}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        <div class="text-sm font-semibold text-green-600">${variant.prix_actuel} DH</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        <span class="text-sm ${stockClass}">${stockStatus}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        ${stockDisponible > 0 ? `
+                                            <div class="flex items-center justify-center gap-2">
+                                                <button type="button" onclick="changeQuantiteVariante(${variant.id}, -1)" class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">-</button>
+                                                <input type="number" id="qte-variante-${variant.id}" class="w-16 p-2 border rounded-lg text-center text-sm" value="1" min="1" max="${stockDisponible}">
+                                                <button type="button" onclick="changeQuantiteVariante(${variant.id}, 1)" class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">+</button>
+                                            </div>
+                                        ` : `
+                                            <span class="text-red-500 text-sm font-medium">-</span>
+                                        `}
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        <div class="text-sm text-gray-600">${variant.reference_variante || 'N/A'}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        ${stockDisponible > 0 ? `
+                                            <button type="button" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" 
+                                                    onclick="console.log('🖱️ Clic sur Sélectionner variante', ${variant.id}); selectionnerVariante(${variant.id}, ${article.id})">
+                                                <i class="fas fa-check mr-1"></i>Sélectionner
+                                            </button>
+                                        ` : `
+                                            <span class="text-red-500 text-sm font-medium">Indisponible</span>
+                                        `}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        variantsList.innerHTML = tableHTML;
+    }
+
+    window.selectionnerVariante = function(variantId, articleId) {
+        console.log('🔄 ===== DÉBUT selectionnerVariante =====');
+        console.log('📦 Variante ID reçu:', variantId);
+        console.log('📦 Article ID reçu:', articleId);
+        console.log('📦 Type de variantId:', typeof variantId);
+        console.log('📦 Type de articleId:', typeof articleId);
+        
+        try {
+            // Récupérer les objets complets depuis les données stockées
+            const article = window.articlesList ? window.articlesList.find(a => a.id === parseInt(articleId)) : null;
+            const variant = article && article.variantes_all ? article.variantes_all.find(v => v.id === parseInt(variantId)) : null;
+            
+            console.log('🔍 Article trouvé:', article);
+            console.log('🔍 Variante trouvée:', variant);
+            
+            if (!article || !variant) {
+                console.error('❌ Article ou variante non trouvé');
+                return;
+            }
+            
+            console.log('🎯 Sélection de variante:', variant);
+            
+            // Fermer le modal des variantes
+            fermerModalVariantes();
+            
+            // Récupérer la quantité depuis l'input de la variante
+            const quantiteInput = document.getElementById(`qte-variante-${variant.id}`);
+            if (!quantiteInput) {
+                console.error(`❌ Input de quantité non trouvé pour la variante ${variant.id}`);
+                return;
+            }
+            
+            const quantite = parseInt(quantiteInput.value, 10);
+            if (isNaN(quantite) || quantite <= 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Quantité invalide',
+                    text: 'Veuillez entrer une quantité valide (minimum 1).',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+            
+            // Vérifier que la quantité ne dépasse pas le stock disponible
+            if (quantite > variant.stock) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Quantité trop élevée',
+                    text: `La quantité demandée (${quantite}) dépasse le stock disponible (${variant.stock}).`,
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+            
+            // Créer un article combiné avec les données de la variante
+            const articleAvecVariante = {
+                ...article,
+                // Ajouter les caractéristiques de la variante
+                couleur: variant.couleur,
+                pointure: variant.pointure,
+                // Utiliser les prix et stock de la variante
+                prix_actuel: variant.prix_actuel,
+                qte_disponible: variant.stock,
+                // Ajouter l'ID de la variante pour référence
+                variante_id: variant.id,
+                reference_variante: variant.reference_variante,
+                // Ajouter la quantité sélectionnée
+                quantite: quantite
+            };
+            
+            console.log('🔄 Article avec variante créé:', articleAvecVariante);
+            
+            // Stocker l'article avec variante pour l'utiliser lors de l'ajout
+            window.selectedArticleWithVariant = articleAvecVariante;
+            
+            // Mettre à jour la variante sélectionnée dans la sélection globale
+            window._varianteSelection = window._varianteSelection || {};
+            window._varianteSelection[article.id] = variant.id;
+            
+            // Masquer le bouton "Choisir variante" et afficher le bouton "Ajouter au panier"
+            console.log('🔧 Recherche des boutons pour article ID:', article.id);
+            const btnVariantes = document.getElementById(`btn-variantes-${article.id}`);
+            const btnAjouterPanier = document.getElementById(`btn-ajouter-panier-${article.id}`);
+            
+            console.log('🔍 Boutons trouvés:', {
+                btnVariantes: btnVariantes ? 'OUI' : 'NON',
+                btnAjouterPanier: btnAjouterPanier ? 'OUI' : 'NON'
+            });
+            
+            if (btnVariantes) {
+                btnVariantes.classList.add('hidden');
+                btnVariantes.classList.remove('inline-flex');
+                console.log('✅ Bouton variantes masqué');
+            } else {
+                console.error('❌ Bouton variantes non trouvé');
+            }
+            
+            if (btnAjouterPanier) {
+                btnAjouterPanier.classList.remove('hidden');
+                btnAjouterPanier.classList.add('inline-flex');
+                
+                // Utiliser uniquement l'attribut onclick qui fonctionne
+                const articleId = btnAjouterPanier.getAttribute('data-article-id');
+                
+                // Modifier le contenu AVANT d'ajouter l'onclick
+                btnAjouterPanier.innerHTML = `
+                    <i class="fas fa-shopping-cart mr-1"></i>Ajouter variante au panier
+                `;
+                
+                // Ajouter l'onclick APRÈS avoir modifié le contenu
+                btnAjouterPanier.setAttribute('onclick', `console.log('🖱️ Clic sur bouton principal pour article ${articleId}'); ajouterArticleAuPanierDepuisBouton(${articleId})`);
+                
+                // Ajouter également un event listener comme fallback
+                btnAjouterPanier.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🖱️ Event listener déclenché pour article', articleId);
+                    if (typeof window.ajouterArticleAuPanierDepuisBouton === 'function') {
+                        window.ajouterArticleAuPanierDepuisBouton(articleId);
+                    } else {
+                        console.error('❌ Fonction ajouterArticleAuPanierDepuisBouton non trouvée');
+                    }
+                });
+                
+                console.log('✅ Onclick ajouté au bouton principal pour article', articleId);
+                console.log('✅ Event listener ajouté comme fallback pour article', articleId);
+                console.log('🔍 Onclick final:', btnAjouterPanier.getAttribute('onclick'));
+                
+                // Vérifier l'état final du bouton
+                console.log('🔍 État final du bouton:');
+                console.log('  - Visible:', !btnAjouterPanier.classList.contains('hidden'));
+                console.log('  - Classes:', btnAjouterPanier.className);
+                console.log('  - ID:', btnAjouterPanier.id);
+                console.log('  - data-article-id:', btnAjouterPanier.getAttribute('data-article-id'));
+                console.log('  - onclick:', btnAjouterPanier.getAttribute('onclick'));
+                console.log('  - innerHTML:', btnAjouterPanier.innerHTML);
+                
+                console.log('✅ Bouton ajouter panier affiché avec event listener ajouté pour article', articleId);
+                
+                // Test manuel du bouton après 1 seconde
+                setTimeout(() => {
+                    console.log('🧪 Test manuel du bouton pour article', articleId);
+                    const testBtn = document.getElementById(`btn-ajouter-panier-${articleId}`);
+                    if (testBtn) {
+                        console.log('🔍 Bouton trouvé pour test, déclenchement du clic...');
+                        
+                        // Vérifier si le bouton est réellement visible
+                        const rect = testBtn.getBoundingClientRect();
+                        console.log('📐 Position du bouton de test:', {
+                            top: rect.top,
+                            left: rect.left,
+                            width: rect.width,
+                            height: rect.height,
+                            visible: rect.width > 0 && rect.height > 0
+                        });
+                        
+                        // Vérifier si le bouton est dans le viewport
+                        const isInViewport = rect.top >= 0 && rect.left >= 0 && 
+                                           rect.bottom <= window.innerHeight && 
+                                           rect.right <= window.innerWidth;
+                        console.log('👁️ Bouton dans le viewport:', isInViewport);
+                        
+                        // Essayer de cliquer sur le bouton
+                        testBtn.click();
+                        
+                        // Si le clic ne fonctionne pas, essayer de déclencher l'événement manuellement
+                        setTimeout(() => {
+                            console.log('🔄 Tentative de déclenchement manuel de l\'événement...');
+                            const clickEvent = new MouseEvent('click', {
+                                bubbles: true,
+                                cancelable: true,
+                                view: window
+                            });
+                            testBtn.dispatchEvent(clickEvent);
+                        }, 100);
+                        
+                    } else {
+                        console.error('❌ Bouton non trouvé pour test manuel');
+                    }
+                }, 1000);
+            } else {
+                console.error('❌ Bouton ajouter panier non trouvé');
+            }
+            
+            // Modifier l'affichage de l'article dans la liste pour montrer la variante sélectionnée
+            const row = document.querySelector(`[onclick*="selectionnerArticle(${article.id}"]`)?.closest('tr');
+            if (row) {
+                const articleInfo = row.querySelector('.text-sm.text-gray-500');
+                if (articleInfo) {
+                    articleInfo.innerHTML = `Réf: ${article.reference || 'N/A'} | <span class="text-blue-600 font-medium">${variant.couleur || 'N/A'}</span> | <span class="text-blue-600 font-medium">${variant.pointure || 'N/A'}</span> | <span class="text-orange-600 font-medium">Qte: ${quantite}</span> <span class="text-green-600">(Variante sélectionnée)</span>`;
+                }
+            }
+            
+            // Afficher une notification de succès
+            if (typeof showNotificationToast === 'function') {
+                showNotificationToast(`✅ Variante sélectionnée: ${variant.couleur || 'N/A'} - ${variant.pointure || 'N/A'} (${quantite} unités). Cliquez sur "Ajouter variante au panier" pour confirmer.`, 'success');
+            }
+            
+            console.log('✅ ===== FIN selectionnerVariante (SUCCÈS) =====');
+            
+        } catch (e) {
+            console.error('❌ ===== ERREUR selectionnerVariante =====');
+            console.error('❌ Exception:', e);
+            console.error('❌ Stack trace:', e.stack);
+            if (typeof showNotificationToast === 'function') {
+                showNotificationToast('❌ Erreur lors de la sélection de la variante', 'error');
+            }
+        }
+    };
+    
+    // Fonction pour changer la quantité d'une variante
+    window.changeQuantiteVariante = function(variantId, delta) {
+        const input = document.getElementById(`qte-variante-${variantId}`);
+        if (input) {
+            const newValue = Math.max(1, parseInt(input.value) + delta);
+            const maxStock = parseInt(input.getAttribute('max')) || 99;
+            if (newValue <= maxStock) {
+                input.value = newValue;
+            }
+        }
+    };
+    
+    // Fonction pour afficher les variantes en rupture
+    window.afficherVariantesEnRupture = function(articleId, variantesEnRupture) {
+        console.log('📋 Affichage des variantes en rupture pour l\'article', articleId, variantesEnRupture);
+        
+        // Créer le contenu HTML pour le modal
+        let variantesHTML = '';
+        if (variantesEnRupture && variantesEnRupture.length > 0) {
+            variantesHTML = `
+                <div class="space-y-3">
+                    ${variantesEnRupture.map(variante => `
+                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
+                                            ${variante.couleur || 'N/A'}
+                                        </span>
+                                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
+                                            ${variante.pointure || 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div class="text-sm text-gray-600">
+                                        Réf: ${variante.reference_variante || 'N/A'}
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-semibold text-red-600">Rupture</div>
+                                    <div class="text-xs text-gray-500">Stock: 0</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } else {
+            variantesHTML = `
+                <div class="text-center py-4 text-gray-500">
+                    <i class="fas fa-info-circle text-2xl mb-2"></i>
+                    <p>Aucune variante en rupture</p>
+                </div>
+            `;
+        }
+        
+        // Afficher le modal avec SweetAlert2
+        Swal.fire({
+            title: '<div class="flex items-center gap-2"><i class="fas fa-exclamation-triangle text-red-500"></i><span>Variantes en rupture</span></div>',
+            html: `
+                <div class="text-left">
+                    <p class="mb-4 text-sm text-gray-600">Les variantes suivantes sont actuellement en rupture de stock :</p>
+                    ${variantesHTML}
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonText: 'Compris',
+            confirmButtonColor: '#3085d6',
+            width: '600px'
+        });
+    };
+
+    // Fonction de test pour valider le calcul du stock général
+    window.testerCalculStockGeneral = function() {
+        console.log('🧪 Test du calcul du stock général...');
+        
+        // Créer des données de test
+        const articleTest = {
+            id: 999,
+            nom: "Article Test",
+            variantes_all: [
+                { id: 1, qte_disponible: 5, couleur: "Rouge", pointure: "42" },
+                { id: 2, qte_disponible: 0, couleur: "Bleu", pointure: "42" },
+                { id: 3, qte_disponible: 3, couleur: "Vert", pointure: "43" },
+                { id: 4, qte_disponible: null, stock: 2, couleur: "Noir", pointure: "44" }, // Test fallback
+            ]
+        };
+        
+        // Test du calcul
+        let stockGeneral = 0;
+        let variantesEnRupture = [];
+        
+        if (articleTest.variantes_all && Array.isArray(articleTest.variantes_all)) {
+            stockGeneral = articleTest.variantes_all.reduce((total, variante) => {
+                const stockVariante = parseInt(variante.qte_disponible || variante.stock) || 0;
+                console.log(`  - Variante ${variante.id} (${variante.couleur} ${variante.pointure}): ${stockVariante} unités`);
+                if (stockVariante === 0) {
+                    variantesEnRupture.push(variante);
+                }
+                return total + stockVariante;
+            }, 0);
+        }
+        
+        const resultExpected = 5 + 0 + 3 + 2; // = 10
+        const success = stockGeneral === resultExpected;
+        
+        console.log(`📊 Résultat du test:`);
+        console.log(`   Stock calculé: ${stockGeneral}`);
+        console.log(`   Stock attendu: ${resultExpected}`);
+        console.log(`   Variantes en rupture: ${variantesEnRupture.length}`);
+        console.log(`   Test ${success ? '✅ RÉUSSI' : '❌ ÉCHOUÉ'}`);
+        
+        if (success) {
+            showNotificationToast('✅ Test du calcul de stock réussi!', 'success');
+        } else {
+            showNotificationToast('❌ Test du calcul de stock échoué!', 'error');
+        }
+        
+        return success;
+    };
+
+
 });
 </script>
+
+<!-- Modal de sélection des variantes -->
+<div id="modalVariantes" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-semibold text-gray-800">
+                        <i class="fas fa-layer-group text-blue-500 mr-2"></i>
+                        <span>Sélectionner une variante</span>
+                    </h3>
+                    <button type="button" class="text-gray-400 hover:text-gray-600">
+                        <span class="text-gray-500 hover:text-gray-700 cursor-pointer transition-colors" onclick="fermerModalVariantes()">
+                            <i class="fas fa-times text-xl"></i>
+                        </span>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">Sélectionnez une variante de l'article pour l'ajouter au panier :</p>
+                </div>
+                
+                <!-- Liste des variantes -->
+                <div id="variantsList">
+                    <!-- Les variantes seront chargées dynamiquement ici -->
+                </div>
+                
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="fermerModalVariantes()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %} 

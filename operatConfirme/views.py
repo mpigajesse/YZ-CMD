@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from django.db.models import Sum
 from django.db import models, transaction
 from client.models import Client
-from article.models import Article
+from article.models import Article, VarianteArticle
 import logging
 from django.urls import reverse
 from django.template.loader import render_to_string
@@ -1444,12 +1444,21 @@ def modifier_commande(request, commande_id):
                     # Convertir variante_id en entier ou None
                     variante_id_int = int(variante_id) if variante_id and variante_id != 'null' and variante_id != '' else None
                     
-                    # Vérifier si l'article avec cette variante existe déjà dans la commande
-                    panier_existant = Panier.objects.filter(
-                        commande=commande, 
-                        article=article, 
-                        variante_id=variante_id_int
-                    ).first()
+                                        # Vérifier si l'article avec cette variante existe déjà dans la commande
+                    if variante_id_int:
+                        variante_obj = VarianteArticle.objects.get(id=variante_id_int)
+                        panier_existant = Panier.objects.filter(
+                            commande=commande, 
+                            article=article, 
+                            variante=variante_obj
+                        ).first()
+                    else:
+                        variante_obj = None
+                        panier_existant = Panier.objects.filter(
+                            commande=commande, 
+                            article=article, 
+                            variante__isnull=True
+                        ).first()
                     
                     if panier_existant:
                         # Si l'article existe déjà, mettre à jour la quantité
@@ -1459,12 +1468,16 @@ def modifier_commande(request, commande_id):
                         print(f"🔄 Article existant mis à jour: ID={article.id}, nouvelle quantité={panier.quantite}")
                     else:
                         # Si l'article n'existe pas, créer un nouveau panier
+                        variante_obj = None
+                        if variante_id_int:
+                            variante_obj = VarianteArticle.objects.get(id=variante_id_int)
+                        
                         panier = Panier.objects.create(
                             commande=commande,
                             article=article,
                             quantite=quantite,
                             sous_total=0,  # Sera recalculé après
-                            variante_id=variante_id_int  # Ajouter l'ID de la variante
+                            variante=variante_obj
                         )
                         print(f"➕ Nouvel article ajouté: ID={article.id}, quantité={quantite}")
                     

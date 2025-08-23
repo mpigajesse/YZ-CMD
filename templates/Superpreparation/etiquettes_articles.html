@@ -1,0 +1,776 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load barcode_filters %}
+{% load static %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
+
+{% block extra_head %}
+<style>
+/* Styles pour l'impression */
+@media print {
+    @page {
+        size: A4;
+        margin: 5mm;
+    }
+
+    body, html {
+        margin: 0;
+        padding: 0;
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+    
+    /* Container pour les étiquettes d'articles */
+    .article-labels-container {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 3mm !important;
+        width: 100% !important;
+    }
+    
+    /* Format compact d'étiquette d'article, 60mm x 40mm */
+    .article-label {
+        width: 60mm !important;
+        height: 40mm !important;
+        border: 1px solid black !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 8px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: white !important;
+        page-break-inside: avoid !important;
+        margin: 0 !important;
+        overflow: hidden;
+    }
+    
+    .article-label * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    
+    /* En-tête de l'étiquette d'article */
+    .article-label-header {
+        background-color: #f0f0f0 !important;
+        padding: 1mm !important;
+        text-align: center !important;
+        font-weight: bold !important;
+        font-size: 9px !important;
+        border-bottom: 1px solid #ccc !important;
+    }
+    
+    /* Corps de l'étiquette d'article */
+    .article-label-body {
+        padding: 1mm !important;
+        flex-grow: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+    
+    /* Code-barres de l'article */
+    .article-barcode {
+        max-width: 100% !important;
+        max-height: 20mm !important;
+        object-fit: contain !important;
+    }
+    
+    /* Référence de l'article */
+    .article-reference {
+        font-size: 7px !important;
+        text-align: center !important;
+        margin-top: 1mm !important;
+        font-weight: bold !important;
+    }
+    
+    /* Séparateur entre commandes */
+    .commande-separator {
+        grid-column: 1 / -1 !important;
+        border-top: 2px dashed #333 !important;
+        margin: 5mm 0 !important;
+        text-align: center !important;
+        font-weight: bold !important;
+        font-size: 12px !important;
+        padding: 2mm !important;
+        background-color: #f9f9f9 !important;
+    }
+}
+
+/* Styles d'affichage normal */
+.article-labels-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    padding: 20px;
+}
+
+.article-label {
+    width: 200px;
+    height: 120px;
+    border: 2px solid #ddd;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    margin: 0 auto;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.article-label-header {
+    background-color: #f0f0f0;
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+    border-bottom: 1px solid #ccc;
+}
+
+.article-label-body {
+    padding: 8px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.article-barcode {
+    max-width: 100%;
+    max-height: 60px;
+    object-fit: contain;
+}
+
+.article-reference {
+    font-size: 10px;
+    text-align: center;
+    margin-top: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.commande-separator {
+    grid-column: 1 / -1;
+    border-top: 2px dashed #333;
+    margin: 20px 0;
+    text-align: center;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+}
+
+/* Styles pour l'affichage des articles dans le tableau */
+.article-item {
+    margin-bottom: 8px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid var(--preparation-primary);
+}
+
+.article-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.article-reference {
+    font-size: 11px;
+    color: #666;
+    font-family: monospace;
+}
+
+.variantes-list {
+    margin-top: 6px;
+    padding-left: 12px;
+}
+
+.variante-item {
+    font-size: 10px;
+    color: #555;
+    margin-bottom: 2px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 20px;
+    color: #ccc;
+}
+
+/* Styles pour le modal amélioré */
+.modal-overlay {
+    backdrop-filter: blur(4px);
+    transition: all 0.3s ease;
+}
+
+.modal-container {
+    transform: scale(0.95) translateY(-20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.modal-container.show {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px 12px 0 0;
+}
+
+.modal-content {
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+.modal-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: #f7fafc;
+    border-radius: 3px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+/* Animations pour les cartes d'articles */
+.article-card {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.article-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.6s;
+}
+
+.article-card:hover::before {
+    left: 100%;
+}
+
+.article-card:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    border-color: #667eea;
+}
+
+/* Animation d'apparition des cartes */
+.article-card {
+    animation: slideInUp 0.6s ease forwards;
+    opacity: 0;
+    transform: translateY(30px);
+}
+
+.article-card:nth-child(1) { animation-delay: 0.1s; }
+.article-card:nth-child(2) { animation-delay: 0.2s; }
+.article-card:nth-child(3) { animation-delay: 0.3s; }
+.article-card:nth-child(4) { animation-delay: 0.4s; }
+.article-card:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes slideInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.barcode-section {
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+}
+
+.barcode-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.6s;
+}
+
+.barcode-section:hover::before {
+    left: 100%;
+}
+
+/* Styles pour les badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.8rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.badge:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.badge-primary {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-success {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.badge-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+/* Styles pour les boutons d'action */
+.action-button {
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.action-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.action-button:hover::before {
+    width: 100%;
+    height: 100%;
+}
+
+/* Animation de chargement */
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Animation d'apparition des cartes */
+.article-card {
+    animation: slideInUp 0.5s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.article-card:nth-child(1) { animation-delay: 0.1s; }
+.article-card:nth-child(2) { animation-delay: 0.2s; }
+.article-card:nth-child(3) { animation-delay: 0.3s; }
+.article-card:nth-child(4) { animation-delay: 0.4s; }
+.article-card:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes slideInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-tags mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: white;">{{ page_subtitle }}</p>
+        </div>
+
+    </div>
+
+    <!-- Contenu de la page Étiquettes Articles -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+            <i class="fas fa-tags mr-2"></i>Étiquettes des Articles et Variantes
+        </h2>
+
+        <!-- Description de la page -->
+        <div class="mb-4">
+            <p class="text-gray-700 mb-2">Codes-barres des articles et variantes pour chaque commande - optimisé pour l'impression d'étiquettes.</p>
+            {% if search_query %}
+                <div class="flex items-center text-sm text-gray-600">
+                    <i class="fas fa-search mr-2"></i>
+                    <span>Résultats pour : "<strong>{{ search_query }}</strong>"</span>
+                    <a href="{% url 'Superpreparation:etiquettes_articles' %}" class="ml-2 text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-times-circle"></i> Effacer
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Barre d'outils -->
+        <div class="mb-6 flex flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <!-- Sélecteur de format -->
+            <button onclick="setFormatQR()" 
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors h-10">
+                <i class="fas fa-qrcode mr-2"></i>
+                QR Code
+            </button>
+            <button onclick="setFormatBarcode()" 
+                    class="inline-flex items-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors h-10">
+                <i class="fas fa-barcode mr-2"></i>
+                Code-barres
+            </button>
+            
+            <!-- Bouton Imprimer Toutes les Étiquettes -->
+            <button onclick="imprimerTousCodesBarres()" 
+                    class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded transition-colors h-10">
+                <i class="fas fa-print mr-2"></i>
+                Imprimer Toutes les Étiquettes
+            </button>
+            
+            <!-- Bouton Imprimer Étiquettes Articles -->
+            <button onclick="imprimerEtiquettesArticles()" 
+                    class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors h-10">
+                <i class="fas fa-tags mr-2"></i>
+                Imprimer Étiquettes Articles
+            </button>
+                
+            <!-- Barre de recherche intelligente -->
+            <div class="relative ml-auto">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <input type="text" id="smartSearch" 
+                               placeholder="Recherche intelligente..." 
+                               class="block px-4 py-2 pr-10 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm w-64 h-10"
+                               autocomplete="off">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                    </div>
+                    <button onclick="clearSmartSearch()" 
+                            class="inline-flex items-center px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors h-10">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button onclick="toggleAdvancedSearch()" 
+                            class="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors h-10">
+                        <i class="fas fa-filter mr-2"></i>
+                        Filtres
+                    </button>
+                </div>
+                
+                <!-- Filtres avancés -->
+                <div id="advancedSearch" class="hidden absolute top-full left-0 mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-4 z-50 min-w-96">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ID YZ</label>
+                            <input type="text" id="filterId" placeholder="ID YZ..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                            <input type="text" id="filterClient" placeholder="Nom ou prénom..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                            <input type="text" id="filterPhone" placeholder="Numéro..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+                            <input type="text" id="filterCity" placeholder="Ville..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Min</label>
+                            <input type="number" id="filterTotalMin" placeholder="0" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Max</label>
+                            <input type="number" id="filterTotalMax" placeholder="1000" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-between">
+                        <button onclick="applyFilters()" 
+                                class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors h-10">
+                            <i class="fas fa-check mr-2"></i>
+                            Appliquer
+                        </button>
+                        <button onclick="clearFilters()" 
+                                class="inline-flex items-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors h-10">
+                            <i class="fas fa-eraser mr-2"></i>
+                            Effacer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Indicateur de résultats -->
+        <div id="searchResults" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md hidden">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-search text-blue-600 mr-2"></i>
+                    <span class="text-blue-800">
+                        <span id="resultCount">0</span> résultat(s) trouvé(s)
+                    </span>
+                </div>
+                <button onclick="clearAllSearch()" class="text-blue-600 hover:text-blue-800 text-sm">
+                    <i class="fas fa-times mr-1"></i>Effacer tout
+                </button>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200" id="commandesTable">
+                <thead style="background-color: var(--preparation-primary);">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Confirmée</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Articles</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for commande in commandes_preparees %}
+                        <tr class="hover:bg-gray-50 commande-row" 
+                            data-id="{{ commande.id_yz }}"
+                            data-client="{{ commande.client.prenom }} {{ commande.client.nom }}"
+                            data-phone="{{ commande.client.numero_tel|default:'' }}"
+                            data-city="{{ commande.ville.nom|default:'' }}"
+                            data-total="{{ commande.total_cmd }}"
+                            data-date="{{ commande.date_confirmation|date:'d/m/Y' }}">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ commande.id_yz }}</td>
+                            
+                            <!-- Colonne Client -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                                {% if commande.client.email %}
+                                <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Colonne Téléphone -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.client.numero_tel %}
+                                <div class="text-sm text-gray-900">{{ commande.client.numero_tel }}</div>
+                                {% else %}
+                                <div class="text-sm text-gray-500">Non renseigné</div>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Colonne Ville -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.ville %}
+                                    <div class="text-sm font-medium text-gray-900">{{ commande.ville.nom }}</div>
+                                    <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region|default:"Région non spécifiée" }}</div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non définie</div>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Colonne Total -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                            </td>
+                            
+                            <!-- Colonne Date Confirmée -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ commande.date_confirmation|date:"d/m/Y" }}</div>
+                                <div class="text-xs text-gray-500">{{ commande.date_confirmation|date:"H:i" }}</div>
+                            </td>
+                            
+                            <!-- Colonne Articles -->
+                            <td class="px-4 py-4 whitespace-nowrap text-center">
+                                <button onclick="afficherModalArticles('{{ commande.id_yz }}', '{{ commande.client.prenom }} {{ commande.client.nom }}')" 
+                                        class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    <i class="fas fa-shopping-cart mr-2"></i>
+                                    Voir Articles ({{ commande.paniers.count }})
+                                </button>
+                            </td>
+                            
+                            <!-- Colonne Actions -->
+                            <td class="px-4 py-4 whitespace-nowrap text-center">
+                                <div class="flex flex-col space-y-2">
+                                    <!-- Bouton Imprimer Articles -->
+                                    <button onclick="imprimerCodesBarresIndividuelCommande('{{ commande.id_yz }}', '{{ commande.client.prenom }} {{ commande.client.nom }}')" 
+                                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-tags mr-2"></i>
+                                        Imprimer Articles
+                                    </button>
+                                    
+                                    <!-- Bouton Imprimer Étiquettes Articles -->
+                                    <button onclick="imprimerEtiquettesArticlesCommande('{{ commande.id_yz }}', '{{ commande.client.prenom }} {{ commande.client.nom }}')" 
+                                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                        <i class="fas fa-tag mr-2"></i>
+                                        Étiquettes Articles
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fas fa-tags text-4xl mb-4 text-gray-300"></i>
+                                <p class="text-lg font-medium">Aucune commande disponible</p>
+                                <p class="text-sm">Les commandes avec leurs articles et variantes apparaîtront ici pour impression d'étiquettes.</p>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour afficher les articles d'une commande -->
+<div id="modalArticles" class="fixed inset-0 modal-overlay bg-black bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-10 mx-auto p-0 border-0 w-11/12 md:w-4/5 lg:w-3/4 xl:w-2/3 shadow-2xl rounded-xl bg-white modal-container" id="modalContainer">
+        <!-- En-tête du modal -->
+        <div class="modal-header text-white p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white bg-opacity-20 p-2 rounded-lg">
+                        <i class="fas fa-shopping-cart text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold" id="modalTitle">Articles de la commande</h3>
+                        <p class="text-blue-100 text-xs mt-1" id="modalSubtitle">Détails des articles et codes-barres</p>
+                    </div>
+                </div>
+                <button onclick="fermerModalArticles()" class="text-white hover:text-blue-200 transition-colors duration-200 p-2 rounded-full hover:bg-white hover:bg-opacity-20">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Corps du modal -->
+        <div class="p-4">
+            <!-- Barre d'outils -->
+            <div class="flex items-center justify-between mb-4 bg-gradient-to-r from-gray-50 to-blue-50 p-3 rounded-lg border border-gray-200">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-info-circle text-blue-600 text-sm"></i>
+                        <span class="text-xs text-gray-600" id="articlesCount">Chargement...</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-barcode text-green-600 text-sm"></i>
+                        <span class="text-xs text-gray-600">Codes-barres scannables</span>
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <!-- Sélecteur de format pour le modal -->
+                    <div class="flex items-center space-x-1 bg-gray-100 rounded-md p-1 mr-2">
+                        <button id="modalQrButton" onclick="modalArticles.setFormat('qr')" 
+                                class="inline-flex items-center px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors">
+                            <i class="fas fa-qrcode mr-1"></i>
+                            QR
+                        </button>
+                        <button id="modalBarcodeButton" onclick="modalArticles.setFormat('barcode')" 
+                                class="inline-flex items-center px-2 py-1 bg-gray-500 hover:bg-gray-600 text-white text-xs font-medium rounded transition-colors">
+                            <i class="fas fa-barcode mr-1"></i>
+                            Code128
+                        </button>
+                    </div>
+                    <button onclick="imprimerCodesBarresModal()" class="action-button inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-all duration-200 shadow-sm hover:shadow-md">
+                        <i class="fas fa-print mr-1 text-xs"></i>
+                        Imprimer
+                    </button>
+                    <button onclick="actualiserModalArticles()" class="action-button inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition-all duration-200 shadow-sm hover:shadow-md">
+                        <i class="fas fa-sync-alt mr-1 text-xs"></i>
+                        Actualiser
+                    </button>
+                </div>
+            </div>
+
+            <!-- Contenu principal -->
+            <div id="modalContent" class="modal-content max-h-96">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+        </div>
+
+        <!-- Pied du modal -->
+        <div class="bg-gray-50 px-4 py-3 rounded-b-lg border-t border-gray-200">
+            <div class="flex justify-between items-center">
+                <div class="text-xs text-gray-500">
+                    <i class="fas fa-clock mr-1"></i>
+                    <span id="modalTimestamp">Dernière mise à jour: maintenant</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="fermerModalArticles()" class="action-button px-4 py-1.5 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400 transition-all duration-200 shadow-sm hover:shadow-md">
+                        <i class="fas fa-times mr-1 text-xs"></i>
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="{% static 'js/etiquettage/etiquettes-articles-modal.js' %}"></script>
+<script src="{% static 'js/etiquettage/impress_Codes-barres_Articles.js' %}"></script>
+<script src="{% static 'js/etiquettage/smart-search.js' %}"></script>
+<script src="{% static 'js/etiquettage/print-article-labels.js' %}"></script>
+{% endblock %}

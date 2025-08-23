@@ -719,7 +719,7 @@
                     </button>
                 </div>
                 
-                <div id="articlesList" class="space-y-3 max-h-96 overflow-y-auto"></div>
+                <div id="articlesList" class="max-h-96 overflow-y-auto"></div>
                 
                 <div class="mt-6 flex justify-end space-x-3">
                     <button type="button" onclick="fermerModalAjoutArticle()" 
@@ -1093,6 +1093,23 @@ document.addEventListener('DOMContentLoaded', function() {
     window.fermerModalAjoutArticle = function() {
         const modal = document.getElementById('modalAjoutArticle');
         if (modal) modal.classList.add('hidden');
+        
+        // Réinitialiser la sélection de variante
+        selectedArticleWithVariant = null;
+        
+        // Réinitialiser l'affichage des articles
+        setTimeout(() => {
+            const articlesList = document.getElementById('articlesList');
+            if (articlesList) {
+                // Recharger la liste des articles pour réinitialiser l'affichage
+                const searchInput = document.getElementById('searchArticle');
+                if (searchInput && searchInput.value.trim()) {
+                    rechercherArticles(searchInput.value.trim());
+                } else {
+                    chargerTousLesArticles();
+                }
+            }
+        }, 100);
     };
 
     // Fonction pour diagnostiquer le compteur upsell
@@ -1758,7 +1775,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (modal) modal.classList.add('hidden');
     };
 
-    window.selectionnerArticle = function(articleId, articleName) {
+    // Variable globale pour stocker l'article sélectionné avec variante
+    let selectedArticleWithVariant = null;
+
+    window.selectionnerArticle = function(articleId, articleName, varianteId = null) {
         const quantiteInput = document.getElementById(`qte-article-${articleId}`);
         if (!quantiteInput) return;
         const quantite = parseInt(quantiteInput.value, 10);
@@ -1766,7 +1786,15 @@ document.addEventListener('DOMContentLoaded', function() {
             Swal.fire('Quantité invalide', 'Veuillez entrer une quantité valide.', 'warning');
             return;
         }
+        
+        // Si on a un article avec variante sélectionné, l'utiliser
+        if (selectedArticleWithVariant && selectedArticleWithVariant.id == articleId) {
+            ouvrirModalConfirmation(`Ajouter ${quantite} x "${articleName}" (${selectedArticleWithVariant.couleur || 'N/A'} - ${selectedArticleWithVariant.pointure || 'N/A'}) au panier ?`, 
+                () => ajouterArticleAuPanier(articleId, quantite, selectedArticleWithVariant.variante_id));
+            selectedArticleWithVariant = null; // Réinitialiser après utilisation
+        } else {
         ouvrirModalConfirmation(`Ajouter ${quantite} x "${articleName}" au panier ?`, () => ajouterArticleAuPanier(articleId, quantite));
+        }
     };
 
     window.supprimerArticle = function(panierId) {
@@ -2166,6 +2194,10 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn('Container articlesList non trouvé');
             return;
         }
+        
+        // Stocker les articles dans une variable globale pour pouvoir les réutiliser
+        window.articlesList = articles;
+        
         container.innerHTML = '';
         
         if (articles.length === 0) {
@@ -2179,16 +2211,27 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        articles.forEach(article => {
-            const div = document.createElement('div');
-            div.className = 'p-4 border rounded-lg hover:bg-gray-50 flex justify-between items-center transition-all duration-200';
-            
+        // Créer un tableau HTML complet avec des bordures visibles
+        const tableHTML = `
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border-2 border-gray-300 rounded-lg shadow-lg" style="border-collapse: collapse;">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Article</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Prix</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Stock</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Quantité</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white">
+                        ${articles.map(article => {
             // Badge de type d'article
             const typeBadge = article.article_type !== 'normal' ? `
-                <div class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${article.type_color.replace('text-', 'bg-').replace('-600', '-100')} ${article.type_color}">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${article.type_color.replace('text-', 'bg-').replace('-600', '-100')} ${article.type_color} ml-2">
                     <i class="${article.type_icon} mr-1"></i>
                     ${article.article_type.toUpperCase()}
-                </div>
+                </span>
             ` : '';
             
             // Affichage du prix avec réduction si applicable
@@ -2199,7 +2242,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs ml-2">-${article.reduction_pourcentage}%</span>
                 </div>
             ` : `
-                <div class="text-sm text-gray-500">Prix: <span class="font-semibold text-green-600">${article.prix} DH</span></div>
+                <div class="text-sm font-semibold text-green-600">${article.prix} DH</div>
             `;
             
             // Statut du stock
@@ -2207,31 +2250,52 @@ document.addEventListener('DOMContentLoaded', function() {
                 `<span class="font-semibold text-green-600">${article.qte_disponible}</span>` : 
                 `<span class="font-semibold text-red-600">Rupture</span>`;
             
-            div.innerHTML = `
-                <div class="flex-1">
-                    <div class="flex items-start justify-between mb-2">
-                        <div class="font-medium text-lg">${article.nom}</div>
+            return `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 border-2 border-gray-300">
+                        <div class="flex items-center">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">${article.nom}</div>
+                                <div class="text-sm text-gray-500">Réf: ${article.reference || 'N/A'}</div>
                         ${typeBadge}
                     </div>
-                    <div class="text-sm text-gray-600 mb-2">Réf: ${article.reference || 'N/A'} | ${article.couleur} | Pt: ${article.pointure}</div>
-                    ${prixDisplay}
-                    <div class="text-sm text-gray-500 mt-1">Stock: ${stockStatus}</div>
-                    ${article.description ? `<div class="text-xs text-gray-400 mt-2 italic">"${article.description}"</div>` : ''}
                 </div>
-                <div class="flex items-center gap-3 ml-4">
-                <div class="flex items-center gap-2">
+                    </td>
+                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                        ${prixDisplay}
+                    </td>
+                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                        <span class="text-sm text-gray-900">${stockStatus}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                        <div class="flex items-center justify-center gap-2">
                         <button type="button" onclick="changeQuantite(${article.id}, -1)" class="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">-</button>
                         <input type="number" id="qte-article-${article.id}" class="w-16 p-2 border rounded-lg text-center" value="1" min="1" max="${article.qte_disponible}" ${article.qte_disponible <= 0 ? 'disabled' : ''}>
                         <button type="button" onclick="changeQuantite(${article.id}, 1)" class="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">+</button>
                     </div>
-                    <button type="button" class="btn-prepa px-4 py-2 rounded-lg font-medium transition-colors ${article.qte_disponible <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-90'}" 
+                    </td>
+                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                        <div class="flex items-center justify-center gap-2">
+                            <button type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" 
+                                    onclick="ouvrirModalVariantes(${JSON.stringify(article).replace(/"/g, '&quot;')})">
+                                <i class="fas fa-layer-group mr-1"></i>Variantes
+                            </button>
+                            <button type="button" class="btn-prepa px-3 py-2 rounded-lg text-sm font-medium transition-colors ${article.qte_disponible <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-90'}" 
                             onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')" 
                             ${article.qte_disponible <= 0 ? 'disabled' : ''}>
                         <i class="fas fa-plus mr-1"></i>Ajouter
                     </button>
-                </div>`;
-            container.appendChild(div);
-        });
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        container.innerHTML = tableHTML;
     }
 
     function changeQuantite(articleId, delta) {
@@ -2242,13 +2306,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function ajouterArticleAuPanier(articleId, quantite) {
-        console.log('🔄 Ajout d\'article au panier:', { articleId, quantite });
+    function ajouterArticleAuPanier(articleId, quantite, varianteId = null) {
+        console.log('🔄 Ajout d\'article au panier:', { articleId, quantite, varianteId });
         
         const formData = new FormData();
         formData.append('action', 'add_article');
         formData.append('article_id', articleId);
         formData.append('quantite', quantite);
+        if (varianteId) {
+            formData.append('variante_id', varianteId);
+        }
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken.value);
         
@@ -2708,6 +2775,253 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.classList.remove('flex');
         }
     };
+
+    // ===== Gestion du modal des variantes =====
+    function ouvrirModalVariantes(article) {
+        try {
+            console.log('🔍 Ouverture modal variantes pour article:', article);
+            
+            const modal = document.getElementById('modalVariantes');
+            if (!modal) {
+                console.error('❌ Modal variantes introuvable');
+                return;
+            }
+            
+            // Afficher le modal
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // Charger les variantes de l'article
+            chargerVariantesArticle(article);
+            
+        } catch (e) {
+            console.error('❌ Erreur ouverture modal variantes:', e);
+            showToast('❌ Erreur lors de l\'ouverture du modal de variantes', 'error');
+        }
+    }
+
+    function fermerModalVariantes() {
+        const modal = document.getElementById('modalVariantes');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    }
+
+    function chargerVariantesArticle(article) {
+        const variantsList = document.getElementById('variantsList');
+        if (!variantsList) {
+            console.error('❌ Liste des variantes introuvable');
+            return;
+        }
+
+        console.log('🔍 Chargement des variantes pour l\'article:', article);
+        
+        // Afficher un loader
+        variantsList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Chargement des variantes...</div>';
+
+        // Faire une requête AJAX pour récupérer les variantes
+        fetch(`{% url 'Superpreparation:get_article_variants' 0 %}`.replace('0', article.id))
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.variants.length > 0) {
+                    console.log(`✅ ${data.variants.length} variantes trouvées`);
+                    afficherVariantes(data.variants, article);
+                } else {
+                    console.log('❌ Aucune variante ou erreur:', data.error);
+                    variantsList.innerHTML = '<div class="text-center py-4 text-gray-500">Aucune variante disponible</div>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur chargement variantes:', error);
+                variantsList.innerHTML = '<div class="text-center py-4 text-red-500">Erreur lors du chargement des variantes</div>';
+            });
+    }
+
+    function afficherVariantes(variants, article) {
+        const variantsList = document.getElementById('variantsList');
+        
+        if (!variants || variants.length === 0) {
+            variantsList.innerHTML = '<div class="text-center py-4 text-gray-500">Aucune variante disponible</div>';
+            return;
+        }
+
+        // Créer un tableau HTML complet pour les variantes avec des bordures visibles
+        const tableHTML = `
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border-2 border-gray-300 rounded-lg shadow-lg" style="border-collapse: collapse;">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Variante</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Prix</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Stock</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Référence</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white">
+                        ${variants.map(variant => {
+                            const stockVariante = parseInt(variant.qte_disponible || variant.stock) || 0;
+                            const stockClass = stockVariante > 0 ? 'text-green-600' : 'text-red-600';
+                            const stockStatus = stockVariante > 0 ? 
+                                `<span class="font-semibold text-green-600">${stockVariante}</span>` : 
+                                `<span class="font-semibold text-red-600">Rupture</span>`;
+                            
+                            return `
+                                <tr class="hover:bg-gray-50 transition-colors ${stockVariante <= 0 ? 'opacity-50' : ''}">
+                                    <td class="px-4 py-3 border-2 border-gray-300">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            ${variant.couleur || 'N/A'} - ${variant.pointure || 'N/A'}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        <div class="text-sm font-semibold text-green-600">${variant.prix_actuel} DH</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        <span class="text-sm ${stockClass}">${stockStatus}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        <div class="text-sm text-gray-600">${variant.reference_variante || 'N/A'}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        ${stockVariante > 0 ? `
+                                            <button type="button" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" 
+                                                    onclick="selectionnerVariante(${JSON.stringify(variant).replace(/"/g, '&quot;')}, ${JSON.stringify(article).replace(/"/g, '&quot;')})">
+                                                <i class="fas fa-check mr-1"></i>Sélectionner
+                                            </button>
+                                        ` : `
+                                            <span class="text-red-500 text-sm font-medium">Indisponible</span>
+                                        `}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        variantsList.innerHTML = tableHTML;
+    }
+
+    function selectionnerVariante(variant, article) {
+        try {
+            console.log('🎯 Sélection de variante:', variant);
+            
+            // Fermer le modal des variantes
+            fermerModalVariantes();
+            
+            // Créer un article combiné avec les données de la variante
+            const articleAvecVariante = {
+                ...article,
+                // Ajouter les caractéristiques de la variante
+                couleur: variant.couleur,
+                pointure: variant.pointure,
+                // Utiliser les prix et stock de la variante
+                prix_actuel: variant.prix_actuel,
+                qte_disponible: variant.qte_disponible || variant.stock,
+                // Ajouter l'ID de la variante pour référence
+                variante_id: variant.id,
+                reference_variante: variant.reference_variante
+            };
+            
+            console.log('🔄 Article avec variante créé:', articleAvecVariante);
+            
+            // Stocker l'article avec variante pour l'utiliser lors de l'ajout
+            selectedArticleWithVariant = articleAvecVariante;
+            
+            // Réinitialiser l'affichage de tous les articles d'abord
+            const allArticleElements = document.querySelectorAll('[onclick*="selectionnerArticle"]');
+            allArticleElements.forEach(element => {
+                const row = element.closest('tr');
+                if (row) {
+                    const articleInfo = row.querySelector('.text-sm.text-gray-500');
+                    const addButton = element;
+                    if (articleInfo) {
+                        // Extraire l'ID de l'article depuis l'onclick
+                        const onclickAttr = addButton.getAttribute('onclick');
+                        const articleIdMatch = onclickAttr.match(/selectionnerArticle\((\d+)/);
+                        if (articleIdMatch) {
+                            const articleId = articleIdMatch[1];
+                            // Trouver l'article correspondant dans la liste
+                            const articleData = window.articlesList ? window.articlesList.find(a => a.id == articleId) : null;
+                            if (articleData) {
+                                articleInfo.innerHTML = `Réf: ${articleData.reference || 'N/A'}`;
+                            }
+                        }
+                    }
+                    if (addButton) {
+                        addButton.innerHTML = '<i class="fas fa-plus mr-1"></i>Ajouter';
+                        addButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                        addButton.classList.add('btn-prepa');
+                    }
+                }
+            });
+            
+            // Modifier l'affichage de l'article dans la liste pour montrer la variante sélectionnée
+            const articleElement = document.querySelector(`[onclick*="selectionnerArticle(${article.id}"]`);
+            if (articleElement) {
+                const row = articleElement.closest('tr');
+                if (row) {
+                    const articleInfo = row.querySelector('.text-sm.text-gray-500');
+                    if (articleInfo) {
+                        articleInfo.innerHTML = `Réf: ${article.reference || 'N/A'} | <span class="text-blue-600 font-medium">${variant.couleur || 'N/A'}</span> | <span class="text-blue-600 font-medium">${variant.pointure || 'N/A'}</span> <span class="text-green-600">(Variante sélectionnée)</span>`;
+                    }
+                    
+                    // Modifier le bouton "Ajouter" pour montrer qu'une variante est sélectionnée
+                    const addButton = articleElement;
+                    if (addButton) {
+                        addButton.innerHTML = '<i class="fas fa-plus mr-1"></i>Ajouter variante';
+                        addButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                        addButton.classList.remove('btn-prepa');
+                    }
+                }
+            }
+            
+            showToast(`✅ Variante sélectionnée: ${variant.couleur || 'N/A'} - ${variant.pointure || 'N/A'}`, 'success');
+            
+        } catch (e) {
+            console.error('❌ Erreur sélection variante:', e);
+            showToast('❌ Erreur lors de la sélection de la variante', 'error');
+        }
+    }
 });
 </script>
+
+<!-- Modal de sélection des variantes -->
+<div id="modalVariantes" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-semibold text-gray-800">
+                        <i class="fas fa-layer-group text-blue-500 mr-2"></i>
+                        <span>Sélectionner une variante</span>
+                    </h3>
+                    <button type="button" class="text-gray-400 hover:text-gray-600">
+                        <span class="text-gray-500 hover:text-gray-700 cursor-pointer transition-colors" onclick="fermerModalVariantes()">
+                            <i class="fas fa-times text-xl"></i>
+                        </span>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">Sélectionnez une variante de l'article pour l'ajouter au panier :</p>
+                </div>
+                
+                <!-- Liste des variantes -->
+                <div id="variantsList">
+                    <!-- Les variantes seront chargées dynamiquement ici -->
+                </div>
+                
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="fermerModalVariantes()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %} 

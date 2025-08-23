@@ -24,6 +24,9 @@ urlpatterns = [
     path('changer-mot-de-passe/', views.changer_mot_de_passe_view, name='changer_mot_de_passe'),
     path('detail-prepa/<int:pk>/', views.detail_prepa, name='detail_prepa'),
     path('etiquettes/', views.etiquette_view, name='etiquette'),
+    path('etiquettes-articles/', views.etiquettes_articles_view, name='etiquettes_articles'),
+    path('api/commande/<int:commande_id>/articles/', views.api_articles_commande, name='api_articles_commande'),
+    path('api/commandes-confirmees/', views.api_commandes_confirmees, name='api_commandes_confirmees'),
     # Impression supprimée (gérée par Gestion des étiquettes)
     path('modifier-commande/<int:commande_id>/', views.modifier_commande_prepa, name='modifier_commande'),
     path('modifier-commande-superviseur/<int:commande_id>/', views.modifier_commande_superviseur, name='modifier_commande_superviseur'),
@@ -44,6 +47,7 @@ urlpatterns = [
     path('commande/<int:commande_id>/modifier-quantite/', views.modifier_quantite_article_prepa, name='modifier_quantite_article_prepa'),
     path('commande/<int:commande_id>/supprimer-article/', views.supprimer_article_commande_prepa, name='supprimer_article_commande_prepa'),
     path('commande/<int:commande_id>/prix-upsell/', views.api_prix_upsell_articles, name='api_prix_upsell_articles'),
+    path('api/article/<int:article_id>/variantes/', views.get_article_variants, name='get_article_variants'),
 
     # URLs pour la gestion de stock
     path('stock/articles/', views.liste_articles, name='liste_articles'),

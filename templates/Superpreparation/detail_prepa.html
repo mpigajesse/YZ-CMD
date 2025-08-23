@@ -1,4 +1,5 @@
 {% extends 'composant_generale/Superpreparation/base.html' %}
+{% load barcode_filters %}
 
 {% block title %}{{ page_title }} - YZ-CMD{% endblock %}
 
@@ -239,9 +240,143 @@
         </div>
         {% endif %}
         
-        <!-- Code-barres -->
-        <div class="mb-6 text-center bg-gray-50 p-4 rounded-lg">
-            <img src="{{ commande_barcode }}" alt="Code-barres pour la commande {{ commande.id_yz }}" class="mx-auto" style="height: 70px; min-width: 280px;">
+        <!-- Code QR de la commande - Section isolée -->
+        <div class="mb-8 text-center bg-white p-6 rounded-xl shadow-lg border-2 border-gray-300">
+            <h4 class="text-lg font-semibold text-gray-700 mb-3">
+                <i class="fas fa-qrcode mr-2"></i>Code QR de la Commande
+            </h4>
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <img src="{{ commande_barcode }}" alt="Code QR pour la commande {{ commande.id_yz }}" class="mx-auto" style="height: 80px; min-width: 300px;">
+                <div class="text-sm text-gray-600 mt-3 font-medium">Commande #{{ commande.id_yz }}</div>
+            </div>
+            <div class="text-xs text-gray-500 mt-3">
+                <i class="fas fa-info-circle mr-1"></i>
+                Scannez ce code QR pour identifier la commande
+            </div>
+        </div>
+
+        <!-- Section Codes-barres des Articles - Complètement séparée -->
+        <div class="mb-6 bg-white rounded-xl shadow-lg p-4 animate-slideInUp border-l-4 border-blue-500">
+            <h3 class="text-lg font-semibold mb-4 section-title">
+                <i class="fas fa-barcode mr-3"></i>Codes-barres des Articles
+                <span class="text-sm font-normal text-gray-600 ml-2">
+                    (<span id="codes-barcodes-count">{{ paniers.count }}</span> article<span id="codes-barcodes-plural">{{ paniers.count|pluralize }}</span>)
+                </span>
+            </h3>
+            
+            <div class="space-y-3">
+                {% for panier in paniers %}
+                <div class="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+                                <i class="fas fa-box mr-2 text-blue-600"></i>
+                                {{ panier.article.nom }}
+                                {% if panier.article.isUpsell %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 ml-2">
+                                        <i class="fas fa-arrow-up mr-1"></i>Upsell
+                                    </span>
+                                {% endif %}
+                            </h4>
+                            
+                            <!-- Codes-barres en grille compacte -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                <!-- Code-barre principal de l'article -->
+                                <div class="bg-blue-50 border border-blue-300 rounded p-2">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs font-medium text-blue-800">
+                                            <i class="fas fa-barcode mr-1"></i>Principal
+                                        </span>
+                                        <span class="text-xs text-blue-600 font-mono bg-blue-100 px-1 py-0.5 rounded text-xs">{{ panier.quantite }}x</span>
+                                    </div>
+                                    <div class="bg-white border border-blue-400 rounded p-1 text-center">
+                                        <!-- Image du code-barre principal -->
+                                        <img src="{{ panier.article.reference|barcode_image_url }}" 
+                                             alt="Code-barre {{ panier.article.reference }}" 
+                                             class="mx-auto mb-1" 
+                                             style="height: 40px; min-width: 120px; max-width: 100%; object-fit: contain;">
+                                        <div class="font-mono text-xs font-bold text-blue-900 mb-0.5">{{ panier.article.reference }}</div>
+                                        <div class="text-xs text-blue-600">{{ panier.article.couleur }} - {{ panier.article.pointure }}</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Codes-barres des variantes -->
+                                {% if panier.article.variantes_all %}
+                                    {% for variante in panier.article.variantes_all %}
+                                    <div class="bg-green-50 border border-green-300 rounded p-2">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-xs font-medium text-green-800">
+                                                <i class="fas fa-layer-group mr-1"></i>Var.{{ forloop.counter }}
+                                            </span>
+                                            <span class="text-xs text-green-600 font-mono bg-green-100 px-1 py-0.5 rounded text-xs">
+                                                {% if variante.qte_disponible %}
+                                                    {{ variante.qte_disponible }}
+                                                {% else %}
+                                                    N/A
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="bg-white border border-green-400 rounded p-1 text-center">
+                                            <!-- Image du code-barre de la variante -->
+                                            <img src="{{ variante.reference_variante|barcode_image_url }}" 
+                                                 alt="Code-barre {{ variante.reference_variante }}" 
+                                                 class="mx-auto mb-1" 
+                                                 style="height: 40px; min-width: 120px; max-width: 100%; object-fit: contain;">
+                                            <div class="font-mono text-xs font-bold text-green-900 mb-0.5">{{ variante.reference_variante }}</div>
+                                            <div class="text-xs text-green-600">{{ variante.couleur }} - {{ variante.pointure }}</div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Informations supplémentaires compactes -->
+                            <div class="mt-2 flex flex-wrap gap-1">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                    <i class="fas fa-tag mr-1"></i>{{ panier.article.categorie|default:"N/A" }}
+                                </span>
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                    <i class="fas fa-user mr-1"></i>{{ panier.article.genre|default:"N/A" }}
+                                </span>
+                                {% if panier.article.phase %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium 
+                                        {% if panier.article.phase == 'LIQUIDATION' %}bg-red-100 text-red-700
+                                        {% elif panier.article.phase == 'EN_TEST' %}bg-yellow-100 text-yellow-700
+                                        {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                        <i class="fas fa-flag mr-1"></i>{{ panier.article.phase }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-6 text-gray-500">
+                    <i class="fas fa-barcode text-3xl mb-3"></i>
+                    <div class="text-base font-medium">Aucun article dans la commande</div>
+                    <div class="text-sm">Les codes-barres apparaîtront ici une fois les articles ajoutés</div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Note explicative -->
+            <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-blue-600 mr-2 mt-0.5"></i>
+                    <div class="text-xs text-blue-700">
+                        <strong>Utilisation :</strong> Scannez d'abord le code QR de la commande, puis scannez individuellement 
+                        chaque code-barre d'article lors de la préparation pour valider les articles.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions globales -->
+            <div class="mt-3 flex justify-center items-center pt-2 border-t border-gray-200">
+                <div class="text-xs text-gray-500">
+                    <i class="fas fa-barcode mr-1"></i>
+                    Codes-barres générés automatiquement pour chaque article et variante
+                </div>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -464,102 +599,7 @@
         </div>
     </div>
 
-    <!-- Section 5: Actions de Préparation -->
-    {% if etat_preparation and not etat_preparation.date_fin %}
-        {% if etat_preparation.enum_etat.libelle == 'À imprimer' %}
-        <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
-            <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
-                <i class="fas fa-print mr-2"></i>Impression et Préparation
-            </h2>
-            
-            <div class="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-6">
-                <div class="flex items-center">
-                    <i class="fas fa-print text-orange-600 mr-3 text-xl"></i>
-                    <div>
-                        <h3 class="font-semibold text-orange-800">Étape 1 : Impression</h3>
-                        <p class="text-sm text-orange-600">Imprimez d'abord l'étiquette de préparation, puis cliquez sur "Commencer la Préparation".</p>
-                    </div>
-                </div>
-            </div>
 
-            <form method="POST" class="flex flex-col sm:flex-row gap-4">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="commencer_preparation">
-                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
-                    <i class="fas fa-play mr-2"></i>
-                    Commencer la Préparation
-                </button>
-                <a href="{% url 'Superpreparation:liste_prepa' %}" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Retour à la liste
-                </a>
-            </form>
-        </div>
-        {% elif etat_preparation.enum_etat.libelle == 'En préparation' %}
-        <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
-            <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
-                <i class="fas fa-clipboard-list mr-2"></i>Finaliser la Préparation
-            </h2>
-            
-            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
-                <div class="flex items-center">
-                    <i class="fas fa-cog fa-spin text-blue-600 mr-3 text-xl"></i>
-                    <div>
-                        <h3 class="font-semibold text-blue-800">Étape 2 : Préparation en cours</h3>
-                        <p class="text-sm text-blue-600">Rassemblez tous les articles et emballez-les, puis marquez la commande comme préparée.</p>
-                    </div>
-                </div>
-            </div>
-
-            <form method="POST" class="flex flex-col sm:flex-row gap-4">
-                {% csrf_token %}
-                <button type="submit" name="action" value="marquer_preparee" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                    <i class="fas fa-check-circle text-2xl"></i>
-                    <div>
-                    Marquer comme Préparée
-                        <span class="block text-sm font-normal">Finalise la préparation et la rend prête pour l'expédition.</span>
-                    </div>
-                </button>
-                
-                <!-- Action: Signaler un problème -->
-                <button type="button" onclick="showProblemModal()" class="mt-4 w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                    <i class="fas fa-exclamation-triangle text-2xl"></i>
-                    <div>
-                        Signaler un problème
-                        <span class="block text-sm font-normal">Renvoyer la commande à la confirmation si un article est défectueux.</span>
-                    </div>
-                </button>
-
-            </form>
-        </div>
-        {% endif %}
-    {% elif etat_preparation.date_fin %}
-    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
-        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
-            <div class="flex items-center">
-                <i class="fas fa-check-circle text-green-600 mr-3 text-xl"></i>
-                <div>
-                    <h3 class="font-semibold text-green-800">Commande Préparée</h3>
-                    <p class="text-sm text-green-600">
-                        Cette commande a été marquée comme préparée le {{ etat_preparation.date_fin|date:"d/m/Y à H:i" }}.
-                        Elle est maintenant prête pour l'étiquetage et la livraison.
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="mt-4 flex gap-4">
-            <a href="{% url 'Superpreparation:etiquette' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center">
-                <i class="fas fa-tags mr-2"></i>
-                Gérer les Étiquettes
-            </a>
-            <a href="{% url 'Superpreparation:liste_prepa' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Retour à la liste
-            </a>
-        </div>
-    </div>
-    {% endif %}
 
 
 </div>
@@ -567,30 +607,6 @@
 
 {% block extra_js %}
 <script>
-function showProblemModal() {
-    Swal.fire({
-        title: 'Signaler un problème',
-        text: "Voulez-vous vraiment renvoyer cette commande à la confirmation ?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Oui, renvoyer !',
-        cancelButtonText: 'Annuler'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // Créer un formulaire et le soumettre
-            const form = document.getElementById('actionForm');
-            
-            const actionInput = document.createElement('input');
-            actionInput.type = 'hidden';
-            actionInput.name = 'action';
-            actionInput.value = 'signaler_probleme';
-            form.appendChild(actionInput);
-
-            form.submit();
-        }
-    });
-}
+// Scripts pour l'interface de supervision de préparation
 </script>
 {% endblock %} 
