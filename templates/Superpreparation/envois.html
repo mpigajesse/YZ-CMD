@@ -282,10 +282,18 @@
     });
 
     // Fonction pour exporter les commandes d'un envoi en Excel
-    async function exporterEnvoiExcel(envoiId, numeroEnvoi) {
+    function exporterEnvoiExcel(envoiId, numeroEnvoi, button) {
+        // Si le bouton n'est pas passé, le trouver via event
+        if (!button) {
+            button = event.target;
+        }
+        
+        exporterEnvoiExcelAsync(envoiId, numeroEnvoi, button);
+    }
+
+    async function exporterEnvoiExcelAsync(envoiId, numeroEnvoi, button) {
         try {
             // Afficher un indicateur de chargement
-            const button = event.target;
             const originalText = button.innerHTML;
             button.disabled = true;
             button.innerHTML = '<span>⏳</span> Génération Excel...';
@@ -322,7 +330,6 @@
             alert('Erreur lors de la génération du fichier Excel: ' + error.message);
             
             // Restaurer le bouton en cas d'erreur
-            const button = event.target;
             button.disabled = false;
             button.innerHTML = '<span>📊</span> Exporter commandes Excel';
         }

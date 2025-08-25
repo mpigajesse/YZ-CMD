@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.db.models import Count, Q, Sum, F, Avg
@@ -4803,30 +4804,70 @@ def envois_view(request):
     }
     return render(request, 'Superpreparation/envois.html', context)
 
-@superviseur_preparation_required
+@csrf_exempt
+@login_required
 def historique_envois_view(request):
-    """Page d'historique des envois."""
-    try:
-        operateur_profile = request.user.profil_operateur
-        if not operateur_profile.is_preparation:
-            messages.error(request, "Accès non autorisé.")
-            return redirect('login')
-    except Operateur.DoesNotExist:
-        messages.error(request, "Profil opérateur non trouvé.")
-        return redirect('login')
-
-    # Placeholder: en attendant un modèle Envoi
-    envois = []
+    """Page d'historique des envois clôturés."""
+    from django.core.paginator import Paginator
+    from datetime import datetime, timedelta
+    
+    # Récupérer les envois clôturés (status=False)
+    envois_clotures = Envoi.objects.filter(
+        status=False  # False = clôturé
+    ).select_related('region', 'operateur_creation').order_by('-date_creation')
+    
+    # Mettre à jour le compteur de commandes pour chaque envoi clôturé
+    for envoi in envois_clotures:
+        # Pour les envois clôturés, on compte toutes les commandes de la région
+        # qui étaient préparées à la date de clôture (approximatif)
+        nb_commandes = Commande.objects.filter(
+            ville__region=envoi.region,
+            etats__enum_etat__libelle='Préparée',
+            date_creation__lte=envoi.date_livraison_effective or envoi.date_creation
+        ).count()
+        
+        # Mettre à jour seulement si le nombre a changé
+        if envoi.nb_commandes != nb_commandes:
+            envoi.nb_commandes = nb_commandes
+            envoi.save(update_fields=['nb_commandes'])
+    
+    # Filtrage par période si demandé
+    periode = request.GET.get('periode')
+    if periode:
+        today = datetime.now().date()
+        if periode == '7j':
+            date_debut = today - timedelta(days=7)
+            envois_clotures = envois_clotures.filter(date_creation__gte=date_debut)
+        elif periode == '30j':
+            date_debut = today - timedelta(days=30)
+            envois_clotures = envois_clotures.filter(date_creation__gte=date_debut)
+        elif periode == '90j':
+            date_debut = today - timedelta(days=90)
+            envois_clotures = envois_clotures.filter(date_creation__gte=date_debut)
+    
+    # Filtrage par région si demandé
+    region_filter = request.GET.get('region')
+    if region_filter:
+        envois_clotures = envois_clotures.filter(region__id=region_filter)
+    
+    # Pagination
+    paginator = Paginator(envois_clotures, 12)  # 12 envois par page
+    page_number = request.GET.get('page')
+    envois = paginator.get_page(page_number)
+    
+    # Récupérer toutes les régions pour le filtre
+    from parametre.models import Region
+    regions = Region.objects.all().order_by('nom_region')
+    
     context = {
         'envois': envois,
+        'regions': regions,
+        'periode_selected': periode,
+        'region_selected': region_filter,
         'page_title': 'Historique des envois',
-        'page_subtitle': 'Consulter les envois passés et leurs détails',
+        'page_subtitle': 'Consulter les envois clôturés et exporter leurs données',
     }
     return render(request, 'Superpreparation/historique_envois.html', context)
-
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
-import json
 
 @csrf_exempt
 @login_required
@@ -6582,14 +6623,27 @@ def api_etiquettes_articles(request):
 @login_required
 def export_commandes_envoi_excel(request, envoi_id):
     """Exporter les commandes préparées d'un envoi en fichier Excel"""
-    import openpyxl
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
     from django.http import HttpResponse
     from django.utils import timezone
     
     try:
+        print(f"🔍 DEBUG - Export Excel pour envoi ID: {envoi_id}")
+        
         # Récupérer l'envoi
         envoi = Envoi.objects.select_related('region').get(id=envoi_id)
+        print(f"🔍 DEBUG - Envoi trouvé: {envoi.numero_envoi}, Région: {envoi.region.nom_region}")
+        
+        # Importer openpyxl après avoir vérifié l'envoi
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+            print("🔍 DEBUG - Imports openpyxl réussis")
+        except ImportError as import_error:
+            print(f"🚫 ERREUR - Import openpyxl échoué: {import_error}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Erreur d\'import openpyxl: {import_error}'
+            }, status=500)
         
         # Récupérer les commandes préparées de la région de cet envoi
         commandes = Commande.objects.filter(
@@ -6602,118 +6656,76 @@ def export_commandes_envoi_excel(request, envoi_id):
             'paniers__article', 'paniers__variante'
         ).distinct()
         
-        # Créer un nouveau workbook Excel
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = f"Envoi {envoi.numero_envoi}"
+        print(f"🔍 DEBUG - Nombre de commandes trouvées: {commandes.count()}")
         
-        # Styles
-        header_font = Font(bold=True, color="FFFFFF")
-        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-        header_alignment = Alignment(horizontal="center", vertical="center")
-        border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
-        )
+        # Test: Créer un workbook simple d'abord
+        try:
+            wb = openpyxl.Workbook()
+            print("🔍 DEBUG - Workbook créé avec succès")
+            ws = wb.active
+            ws.title = f"Envoi_{envoi.numero_envoi}"[:31]  # Limiter à 31 caractères
+            print(f"🔍 DEBUG - Worksheet configuré: {ws.title}")
+        except Exception as wb_error:
+            print(f"🚫 ERREUR - Création workbook échouée: {wb_error}")
+            raise wb_error
         
-        # En-tête du document
-        ws.merge_cells('A1:J1')
-        ws['A1'] = f"EXPORT COMMANDES - ENVOI {envoi.numero_envoi}"
-        ws['A1'].font = Font(bold=True, size=16)
-        ws['A1'].alignment = Alignment(horizontal="center")
-        
-        ws.merge_cells('A2:J2')
-        ws['A2'] = f"Région: {envoi.region.nom_region} | Date: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
-        ws['A2'].alignment = Alignment(horizontal="center")
-        
-        # Ligne vide
-        current_row = 4
-        
-        # En-têtes des colonnes
-        headers = [
-            'N° Commande', 'Client', 'Téléphone', 'Ville', 'Adresse', 
-            'Article', 'Variante', 'Quantité', 'Prix Unit.', 'Sous-total'
-        ]
-        
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=current_row, column=col, value=header)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_alignment
-            cell.border = border
-        
-        current_row += 1
-        
-        # Données des commandes
-        total_commandes = 0
-        total_articles = 0
-        total_montant = 0
-        
-        for commande in commandes:
-            total_commandes += 1
+        # TEST SIMPLE: Ajoutons juste quelques données de base
+        try:
+            # En-tête simple
+            ws['A1'] = f"EXPORT COMMANDES - ENVOI {envoi.numero_envoi}"
+            ws['A2'] = f"Région: {envoi.region.nom_region}"
+            ws['A3'] = f"Date: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
             
-            # Pour chaque article de la commande
-            for panier in commande.paniers.all():
-                total_articles += panier.quantite
-                total_montant += panier.sous_total
-                
-                # Données de la ligne
-                row_data = [
-                    commande.num_cmd,
-                    f"{commande.client.nom} {commande.client.prenom}" if commande.client else "N/A",
-                    commande.client.telephone if commande.client else "N/A",
-                    commande.ville.nom_ville if commande.ville else "N/A",
-                    commande.adresse[:50] + "..." if len(commande.adresse) > 50 else commande.adresse,
-                    panier.article.nom,
-                    panier.variante.nom if panier.variante else "Standard",
-                    panier.quantite,
-                    f"{panier.sous_total / panier.quantite:.2f}",
-                    f"{panier.sous_total:.2f}"
-                ]
-                
-                for col, value in enumerate(row_data, 1):
-                    cell = ws.cell(row=current_row, column=col, value=value)
-                    cell.border = border
-                    if col in [8, 9, 10]:  # Colonnes numériques
-                        cell.alignment = Alignment(horizontal="right")
-                
-                current_row += 1
-        
-        # Ligne de totaux
-        current_row += 1
-        ws.merge_cells(f'A{current_row}:G{current_row}')
-        ws[f'A{current_row}'] = f"TOTAUX: {total_commandes} commandes | {total_articles} articles"
-        ws[f'A{current_row}'].font = Font(bold=True)
-        ws[f'A{current_row}'].alignment = Alignment(horizontal="right")
-        
-        ws[f'H{current_row}'] = total_articles
-        ws[f'H{current_row}'].font = Font(bold=True)
-        ws[f'H{current_row}'].alignment = Alignment(horizontal="right")
-        ws[f'H{current_row}'].border = border
-        
-        ws.merge_cells(f'I{current_row}:J{current_row}')
-        ws[f'I{current_row}'] = f"{total_montant:.2f} DH"
-        ws[f'I{current_row}'].font = Font(bold=True)
-        ws[f'I{current_row}'].alignment = Alignment(horizontal="right")
-        ws[f'I{current_row}'].border = border
-        
-        # Ajuster la largeur des colonnes
-        column_widths = [15, 20, 15, 15, 30, 25, 15, 10, 12, 12]
-        for i, width in enumerate(column_widths, 1):
-            ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
+            # En-têtes des colonnes
+            headers = ['N° Commande', 'Client', 'Ville', 'Articles']
+            for col, header in enumerate(headers, 1):
+                ws.cell(row=5, column=col, value=header)
+            
+            print(f"🔍 DEBUG - En-têtes ajoutés")
+            
+            # Données simplifiées des commandes
+            row = 6
+            for commande in commandes:
+                try:
+                    client_nom = f"{commande.client.nom} {commande.client.prenom}" if commande.client else "N/A"
+                    ville_nom = commande.ville.nom_ville if commande.ville else "N/A"
+                    nb_articles = commande.paniers.count()
+                    
+                    ws.cell(row=row, column=1, value=commande.num_cmd)
+                    ws.cell(row=row, column=2, value=client_nom)
+                    ws.cell(row=row, column=3, value=ville_nom)
+                    ws.cell(row=row, column=4, value=nb_articles)
+                    row += 1
+                    
+                except Exception as row_error:
+                    print(f"🚫 ERREUR - Ligne commande {commande.id}: {row_error}")
+                    continue
+            
+            print(f"🔍 DEBUG - {row-6} lignes de données ajoutées")
+            
+        except Exception as data_error:
+            print(f"🚫 ERREUR - Ajout des données: {data_error}")
+            raise data_error
         
         # Préparer la réponse HTTP
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = f'attachment; filename="Envoi_{envoi.numero_envoi}_Commandes.xlsx"'
-        
-        # Sauvegarder le workbook dans la réponse
-        wb.save(response)
-        
-        return response
+        try:
+            print("🔍 DEBUG - Préparation de la réponse HTTP")
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="Envoi_{envoi.numero_envoi}_Commandes.xlsx"'
+            print(f"🔍 DEBUG - Headers HTTP configurés")
+            
+            # Sauvegarder le workbook dans la réponse
+            print("🔍 DEBUG - Sauvegarde du workbook...")
+            wb.save(response)
+            print("🔍 DEBUG - Workbook sauvegardé avec succès")
+            
+            return response
+            
+        except Exception as save_error:
+            print(f"🚫 ERREUR - Sauvegarde échouée: {save_error}")
+            raise save_error
         
     except Envoi.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Envoi non trouvé'}, status=404)

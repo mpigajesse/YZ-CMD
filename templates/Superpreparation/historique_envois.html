@@ -4,39 +4,225 @@
 {% block content %}
 <div class="p-4">
     <h1 class="text-2xl font-bold mb-2">{{ page_title|default:'Historique des envois' }}</h1>
-    <p class="text-sm text-gray-600 mb-4">{{ page_subtitle|default:'Consulter les envois passés' }}</p>
+    <p class="text-sm text-gray-600 mb-4">{{ page_subtitle|default:'Consulter les envois clôturés et exporter leurs données' }}</p>
 
-    <div class="bg-white rounded shadow p-4">
-        <div class="overflow-auto">
-            <table class="min-w-full text-sm">
-                <thead>
-                    <tr class="text-left border-b">
-                        <th class="py-2 pr-4">#</th>
-                        <th class="py-2 pr-4">Livreur</th>
-                        <th class="py-2 pr-4">Région</th>
-                        <th class="py-2 pr-4">Date</th>
-                        <th class="py-2 pr-4">Commandes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for envoi in envois %}
-                    <tr class="border-b">
-                        <td class="py-2 pr-4">{{ envoi.code }}</td>
-                        <td class="py-2 pr-4">{{ envoi.livreur }}</td>
-                        <td class="py-2 pr-4">{{ envoi.region }}</td>
-                        <td class="py-2 pr-4">{{ envoi.date }}</td>
-                        <td class="py-2 pr-4">{{ envoi.nb_commandes }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="py-4 text-center text-gray-500">Aucun envoi enregistré.</td>
-                    </tr>
+    <!-- Filtres -->
+    <div class="bg-white rounded shadow p-4 mb-6">
+        <h2 class="font-semibold mb-3">Filtres</h2>
+        <form method="GET" class="flex flex-wrap gap-4 items-end">
+            <!-- Filtre par période -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Période</label>
+                <select name="periode" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                    <option value="">Toutes les périodes</option>
+                    <option value="7j" {% if periode_selected == '7j' %}selected{% endif %}>7 derniers jours</option>
+                    <option value="30j" {% if periode_selected == '30j' %}selected{% endif %}>30 derniers jours</option>
+                    <option value="90j" {% if periode_selected == '90j' %}selected{% endif %}>90 derniers jours</option>
+                </select>
+            </div>
+            
+            <!-- Filtre par région -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Région</label>
+                <select name="region" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                    <option value="">Toutes les régions</option>
+                    {% for region in regions %}
+                    <option value="{{ region.id }}" {% if region_selected == region.id|stringformat:"s" %}selected{% endif %}>
+                        {{ region.nom_region }}
+                    </option>
                     {% endfor %}
-                </tbody>
-            </table>
+                </select>
+            </div>
+            
+            <!-- Boutons -->
+            <div class="flex gap-2">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition-colors">
+                    <span>🔍</span> Filtrer
+                </button>
+                <a href="{% url 'Superpreparation:historique_envois' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm transition-colors">
+                    <span>🔄</span> Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded shadow p-4 text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ envois.paginator.count }}</div>
+            <div class="text-sm text-gray-600">Envois clôturés</div>
+        </div>
+        <div class="bg-white rounded shadow p-4 text-center">
+            <div class="text-2xl font-bold text-green-600">100%</div>
+            <div class="text-sm text-gray-600">Taux de clôture</div>
+        </div>
+        <div class="bg-white rounded shadow p-4 text-center">
+            <div class="text-2xl font-bold text-orange-600">{{ envois.object_list|length }}</div>
+            <div class="text-sm text-gray-600">Sur cette page</div>
+        </div>
+        <div class="bg-white rounded shadow p-4 text-center">
+            <div class="text-2xl font-bold text-purple-600">
+                {% for envoi in envois %}{{ envoi.nb_commandes }}{% if not forloop.last %} + {% endif %}{% empty %}0{% endfor %}
+            </div>
+            <div class="text-sm text-gray-600">Total commandes</div>
         </div>
     </div>
+
+    <!-- Liste des envois clôturés -->
+    <div class="mb-6">
+        <h2 class="text-xl font-semibold mb-4">Envois clôturés</h2>
+        
+        {% if envois %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for envoi in envois %}
+            <div class="bg-white rounded-lg shadow-md p-5 border-l-4 border-gray-400">
+                <!-- Header de la card -->
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-800">{{ envoi.numero_envoi }}</h3>
+                        <p class="text-sm text-gray-600">{{ envoi.region.nom_region }}</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        Clôturé
+                    </span>
+                </div>
+                
+                <!-- Détails de l'envoi -->
+                <div class="space-y-2 mb-4">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Date de création:</span>
+                        <span class="font-medium">{{ envoi.date_creation|date:"d/m/Y" }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Date de clôture:</span>
+                        <span class="font-medium">{{ envoi.date_livraison_effective|date:"d/m/Y"|default:"N/A" }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Créé par:</span>
+                        <span class="font-medium">{{ envoi.operateur_creation.nom|default:"N/A" }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Nb commandes:</span>
+                        <span class="font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ envoi.nb_commandes }}</span>
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="pt-3 border-t">
+                    <button class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            onclick="exporterEnvoiExcel('{{ envoi.id }}', '{{ envoi.numero_envoi }}')">
+                        <span>📊</span> Exporter commandes Excel
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if envois.has_other_pages %}
+        <div class="mt-6 flex justify-center">
+            <nav class="flex space-x-1">
+                {% if envois.has_previous %}
+                    <a href="?page=1{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
+                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50">
+                        Première
+                    </a>
+                    <a href="?page={{ envois.previous_page_number }}{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
+                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 hover:bg-gray-50">
+                        Précédent
+                    </a>
+                {% endif %}
+
+                <span class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-300">
+                    Page {{ envois.number }} sur {{ envois.paginator.num_pages }}
+                </span>
+
+                {% if envois.has_next %}
+                    <a href="?page={{ envois.next_page_number }}{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
+                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 hover:bg-gray-50">
+                        Suivant
+                    </a>
+                    <a href="?page={{ envois.paginator.num_pages }}{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
+                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50">
+                        Dernière
+                    </a>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="bg-white rounded-lg shadow-md p-8 text-center">
+            <div class="text-gray-400 text-4xl mb-4">📦</div>
+            <h3 class="text-lg font-medium text-gray-800 mb-2">Aucun envoi clôturé trouvé</h3>
+            <p class="text-gray-600">
+                {% if periode_selected or region_selected %}
+                    Essayez de modifier les filtres pour voir plus de résultats.
+                {% else %}
+                    Il n'y a pas encore d'envois clôturés dans le système.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    // Fonction pour exporter les commandes d'un envoi clôturé en Excel
+    async function exporterEnvoiExcel(envoiId, numeroEnvoi) {
+        try {
+            // Afficher un indicateur de chargement
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<span>⏳</span> Génération Excel...';
+
+            // Faire la requête pour télécharger le fichier Excel
+            const response = await fetch(`/Superpreparation/envois/${envoiId}/export-excel/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+
+            // Télécharger le fichier
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Envoi_${numeroEnvoi}_Commandes_Historique.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            // Restaurer le bouton
+            button.disabled = false;
+            button.innerHTML = originalText;
+
+        } catch (error) {
+            console.error('Erreur lors de l\'export:', error);
+            alert('Erreur lors de la génération du fichier Excel: ' + error.message);
+            
+            // Restaurer le bouton en cas d'erreur
+            const button = event.target;
+            button.disabled = false;
+            button.innerHTML = '<span>📊</span> Exporter commandes Excel';
+        }
+    }
+</script>
 {% endblock %}
 
 
