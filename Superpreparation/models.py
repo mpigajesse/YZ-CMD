@@ -1,3 +1,4 @@
 from django.db import models
 
-# Create your models here.
+# Models spécifiques à Superpreparation (aucun modèle pour les envois ici, utiliser `commande.Envoi`)
+

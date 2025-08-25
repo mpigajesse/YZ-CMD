@@ -12,7 +12,7 @@ from django.core.paginator import Paginator
 
 import json
 from parametre.models import Operateur, Ville
-from commande.models import Commande, EtatCommande, EnumEtatCmd, Operation, Panier
+from commande.models import Commande, EtatCommande, EnumEtatCmd, Operation, Panier, Envoi
 from django.urls import reverse
 
 import barcode
@@ -3174,7 +3174,7 @@ def api_articles_disponibles_prepa(request):
                 article.prix_actuel = article.prix_unitaire
                 article.save(update_fields=['prix_actuel'])
             
-            # Récupérer toutes les variantes actives (inclut celles en rupture)
+            # Récupérer toutes les variantes actives (inclet celles en rupture)
             variantes_actives = article.variantes.filter(actif=True)
             
             # Si pas de variantes, créer une entrée avec les propriétés de compatibilité
@@ -4751,6 +4751,172 @@ def exporter_envois_journaliers(request):
     """
     # Votre logique d'exportation ici
     return HttpResponse("Export des envois journaliers à implémenter.", content_type="text/plain")
+
+@superviseur_preparation_required
+def envois_view(request):
+    """Page de gestion des envois (création/en cours)."""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+
+    # Données placeholder: commandes prêtes (même logique que export_envois)
+    from parametre.models import Region
+    regions = Region.objects.all()
+    commandes_pretes = Commande.objects.filter(
+        etats__enum_etat__libelle='Préparée',
+        etats__date_fin__isnull=True
+    ).select_related('ville__region')
+    
+    # Récupérer les envois actifs (non clôturés)
+    envois_actifs = Envoi.objects.exclude(
+        status=False
+    ).select_related('region').order_by('-date_creation')
+
+    # Mettre à jour le compteur de commandes pour chaque envoi
+    for envoi in envois_actifs:
+        nb_commandes = Commande.objects.filter(
+            ville__region=envoi.region,
+            etats__enum_etat__libelle='Préparée',
+            etats__date_fin__isnull=True
+        ).count()
+        
+        # Mettre à jour seulement si le nombre a changé
+        if envoi.nb_commandes != nb_commandes:
+            envoi.nb_commandes = nb_commandes
+            envoi.save(update_fields=['nb_commandes'])
+
+    # Récupérer les IDs des régions qui ont déjà un envoi actif
+    regions_avec_envoi_actif = set(envois_actifs.values_list('region_id', flat=True))
+
+    context = {
+        'regions': regions,
+        'commandes_pretes': commandes_pretes,
+        'envois_actifs': envois_actifs,
+        'regions_avec_envoi_actif': regions_avec_envoi_actif,
+        'page_title': 'Gestion des envois',
+        'page_subtitle': 'Créer et suivre les envois en cours',
+    }
+    return render(request, 'Superpreparation/envois.html', context)
+
+@superviseur_preparation_required
+def historique_envois_view(request):
+    """Page d'historique des envois."""
+    try:
+        operateur_profile = request.user.profil_operateur
+        if not operateur_profile.is_preparation:
+            messages.error(request, "Accès non autorisé.")
+            return redirect('login')
+    except Operateur.DoesNotExist:
+        messages.error(request, "Profil opérateur non trouvé.")
+        return redirect('login')
+
+    # Placeholder: en attendant un modèle Envoi
+    envois = []
+    context = {
+        'envois': envois,
+        'page_title': 'Historique des envois',
+        'page_subtitle': 'Consulter les envois passés et leurs détails',
+    }
+    return render(request, 'Superpreparation/historique_envois.html', context)
+
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+import json
+
+@csrf_exempt
+@login_required
+def creer_envoi_region(request):
+    """Créer un envoi basé sur une région (POST)."""
+    # Debug: Afficher les informations de l'utilisateur
+    print(f"🔍 DEBUG - Utilisateur: {request.user.username}")
+    print(f"🔍 DEBUG - Authentifié: {request.user.is_authenticated}")
+    print(f"🔍 DEBUG - Headers: {dict(request.headers)}")
+    print(f"🔍 DEBUG - Method: {request.method}")
+    
+    try:
+        from parametre.models import Operateur
+        operateur = Operateur.objects.get(user=request.user, actif=True)
+        print(f"🔍 DEBUG - Profil opérateur: {operateur.type_operateur}")
+    except Operateur.DoesNotExist:
+        print(f"🔍 DEBUG - Aucun profil opérateur trouvé")
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Méthode non autorisée'}, status=405)
+
+    try:
+        from parametre.models import Region
+        region_id = request.POST.get('region_id')
+
+        if not region_id:
+            return JsonResponse({'success': False, 'message': 'Région requise'}, status=400)
+
+        region = Region.objects.get(id=region_id)
+
+        # Vérifier qu'il n'y a pas déjà un envoi actif pour cette région
+        envoi_actif_existant = Envoi.objects.filter(region=region, status=True).exists()
+        if envoi_actif_existant:
+            return JsonResponse({
+                'success': False, 
+                'message': f'Il existe déjà un envoi actif pour la région {region.nom_region}. Veuillez clôturer l\'envoi existant avant d\'en créer un nouveau.'
+            }, status=400)
+
+        # Générer un numéro d'envoi via le modèle Envoi
+        from django.utils import timezone
+        
+        # Récupérer le profil opérateur
+        try:
+            from parametre.models import Operateur
+            operateur_creation = Operateur.objects.get(user=request.user, actif=True)
+        except Operateur.DoesNotExist:
+            operateur_creation = None
+            
+        envoi = Envoi.objects.create(
+            region=region,
+            operateur_creation=operateur_creation,
+            date_envoi=timezone.now().date(),
+            date_livraison_prevue=timezone.now().date(),
+        )
+
+        return JsonResponse({'success': True, 'envoi_id': envoi.id, 'numero': envoi.numero_envoi})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@csrf_exempt
+@login_required
+def cloturer_envoi(request):
+    """Clôturer un envoi (POST)."""
+    print(f"🔍 DEBUG CLOTURER - Utilisateur: {request.user.username}")
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Méthode non autorisée'}, status=405)
+
+    try:
+        envoi_id = request.POST.get('envoi_id')
+        if not envoi_id:
+            return JsonResponse({'success': False, 'message': 'ID d\'envoi requis'}, status=400)
+
+        envoi = Envoi.objects.get(id=envoi_id)
+        
+        # Vérifier que l'envoi n'est pas déjà clôturé
+        if not envoi.status:  # False = déjà clôturé
+            return JsonResponse({'success': False, 'message': 'Cet envoi est déjà clôturé'}, status=400)
+
+        # Marquer l'envoi comme livré (clôturé)
+        envoi.marquer_comme_livre(getattr(request.user, 'profil_operateur', None))
+
+        return JsonResponse({
+            'success': True, 
+            'message': f'Envoi {envoi.numero_envoi} clôturé avec succès'
+        })
+    except Envoi.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Envoi non trouvé'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 @superviseur_preparation_required
 def rafraichir_articles_commande_prepa(request, commande_id):
@@ -6409,4 +6575,153 @@ def api_etiquettes_articles(request):
         return JsonResponse({
             'success': False,
             'error': f'Erreur lors de la génération des étiquettes: {str(e)}'
+        }, status=500)
+
+
+@csrf_exempt
+@login_required
+def export_commandes_envoi_excel(request, envoi_id):
+    """Exporter les commandes préparées d'un envoi en fichier Excel"""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from django.http import HttpResponse
+    from django.utils import timezone
+    
+    try:
+        # Récupérer l'envoi
+        envoi = Envoi.objects.select_related('region').get(id=envoi_id)
+        
+        # Récupérer les commandes préparées de la région de cet envoi
+        commandes = Commande.objects.filter(
+            ville__region=envoi.region,
+            etats__enum_etat__libelle='Préparée',
+            etats__date_fin__isnull=True
+        ).select_related(
+            'client', 'ville', 'ville__region'
+        ).prefetch_related(
+            'paniers__article', 'paniers__variante'
+        ).distinct()
+        
+        # Créer un nouveau workbook Excel
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = f"Envoi {envoi.numero_envoi}"
+        
+        # Styles
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # En-tête du document
+        ws.merge_cells('A1:J1')
+        ws['A1'] = f"EXPORT COMMANDES - ENVOI {envoi.numero_envoi}"
+        ws['A1'].font = Font(bold=True, size=16)
+        ws['A1'].alignment = Alignment(horizontal="center")
+        
+        ws.merge_cells('A2:J2')
+        ws['A2'] = f"Région: {envoi.region.nom_region} | Date: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
+        ws['A2'].alignment = Alignment(horizontal="center")
+        
+        # Ligne vide
+        current_row = 4
+        
+        # En-têtes des colonnes
+        headers = [
+            'N° Commande', 'Client', 'Téléphone', 'Ville', 'Adresse', 
+            'Article', 'Variante', 'Quantité', 'Prix Unit.', 'Sous-total'
+        ]
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=current_row, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = border
+        
+        current_row += 1
+        
+        # Données des commandes
+        total_commandes = 0
+        total_articles = 0
+        total_montant = 0
+        
+        for commande in commandes:
+            total_commandes += 1
+            
+            # Pour chaque article de la commande
+            for panier in commande.paniers.all():
+                total_articles += panier.quantite
+                total_montant += panier.sous_total
+                
+                # Données de la ligne
+                row_data = [
+                    commande.num_cmd,
+                    f"{commande.client.nom} {commande.client.prenom}" if commande.client else "N/A",
+                    commande.client.telephone if commande.client else "N/A",
+                    commande.ville.nom_ville if commande.ville else "N/A",
+                    commande.adresse[:50] + "..." if len(commande.adresse) > 50 else commande.adresse,
+                    panier.article.nom,
+                    panier.variante.nom if panier.variante else "Standard",
+                    panier.quantite,
+                    f"{panier.sous_total / panier.quantite:.2f}",
+                    f"{panier.sous_total:.2f}"
+                ]
+                
+                for col, value in enumerate(row_data, 1):
+                    cell = ws.cell(row=current_row, column=col, value=value)
+                    cell.border = border
+                    if col in [8, 9, 10]:  # Colonnes numériques
+                        cell.alignment = Alignment(horizontal="right")
+                
+                current_row += 1
+        
+        # Ligne de totaux
+        current_row += 1
+        ws.merge_cells(f'A{current_row}:G{current_row}')
+        ws[f'A{current_row}'] = f"TOTAUX: {total_commandes} commandes | {total_articles} articles"
+        ws[f'A{current_row}'].font = Font(bold=True)
+        ws[f'A{current_row}'].alignment = Alignment(horizontal="right")
+        
+        ws[f'H{current_row}'] = total_articles
+        ws[f'H{current_row}'].font = Font(bold=True)
+        ws[f'H{current_row}'].alignment = Alignment(horizontal="right")
+        ws[f'H{current_row}'].border = border
+        
+        ws.merge_cells(f'I{current_row}:J{current_row}')
+        ws[f'I{current_row}'] = f"{total_montant:.2f} DH"
+        ws[f'I{current_row}'].font = Font(bold=True)
+        ws[f'I{current_row}'].alignment = Alignment(horizontal="right")
+        ws[f'I{current_row}'].border = border
+        
+        # Ajuster la largeur des colonnes
+        column_widths = [15, 20, 15, 15, 30, 25, 15, 10, 12, 12]
+        for i, width in enumerate(column_widths, 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
+        
+        # Préparer la réponse HTTP
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="Envoi_{envoi.numero_envoi}_Commandes.xlsx"'
+        
+        # Sauvegarder le workbook dans la réponse
+        wb.save(response)
+        
+        return response
+        
+    except Envoi.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Envoi non trouvé'}, status=404)
+    except Exception as e:
+        import traceback
+        print(f"Erreur dans export_commandes_envoi_excel: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur lors de la génération du fichier Excel: {str(e)}'
         }, status=500)

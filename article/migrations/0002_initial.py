@@ -17,15 +17,62 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='mouvementstock',
-            name='commande_associee',
-            field=models.ForeignKey(blank=True, help_text='Commande liée à ce mouvement (si applicable)', null=True, on_delete=django.db.models.deletion.SET_NULL, to='commande.commande'),
+        # Rendre l'ajout de la colonne idempotent côté DB (évite l'erreur colonne existe déjà)
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql=(
+                        "ALTER TABLE article_mouvementstock "
+                        "ADD COLUMN IF NOT EXISTS commande_associee_id integer NULL;\n"
+                        "DO $$ BEGIN\n"
+                        "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'article_mouvementstock_commande_associee_id_fk') THEN\n"
+                        "ALTER TABLE article_mouvementstock ADD CONSTRAINT article_mouvementstock_commande_associee_id_fk FOREIGN KEY (commande_associee_id) REFERENCES commande_commande(id) ON DELETE SET NULL;\n"
+                        "END IF;\n"
+                        "END $$;\n"
+                        "CREATE INDEX IF NOT EXISTS article_mouvementstock_commande_associee_id_idx ON article_mouvementstock(commande_associee_id);"
+                    ),
+                    reverse_sql=(
+                        "DROP INDEX IF EXISTS article_mouvementstock_commande_associee_id_idx;\n"
+                        "ALTER TABLE article_mouvementstock DROP CONSTRAINT IF EXISTS article_mouvementstock_commande_associee_id_fk;\n"
+                        "ALTER TABLE article_mouvementstock DROP COLUMN IF EXISTS commande_associee_id;"
+                    ),
+                )
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name='mouvementstock',
+                    name='commande_associee',
+                    field=models.ForeignKey(blank=True, help_text='Commande liée à ce mouvement (si applicable)', null=True, on_delete=django.db.models.deletion.SET_NULL, to='commande.commande'),
+                )
+            ],
         ),
-        migrations.AddField(
-            model_name='mouvementstock',
-            name='operateur',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='parametre.operateur'),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql=(
+                        "ALTER TABLE article_mouvementstock "
+                        "ADD COLUMN IF NOT EXISTS operateur_id integer NULL;\n"
+                        "DO $$ BEGIN\n"
+                        "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'article_mouvementstock_operateur_id_fk') THEN\n"
+                        "ALTER TABLE article_mouvementstock ADD CONSTRAINT article_mouvementstock_operateur_id_fk FOREIGN KEY (operateur_id) REFERENCES parametre_operateur(id) ON DELETE SET NULL;\n"
+                        "END IF;\n"
+                        "END $$;\n"
+                        "CREATE INDEX IF NOT EXISTS article_mouvementstock_operateur_id_idx ON article_mouvementstock(operateur_id);"
+                    ),
+                    reverse_sql=(
+                        "DROP INDEX IF EXISTS article_mouvementstock_operateur_id_idx;\n"
+                        "ALTER TABLE article_mouvementstock DROP CONSTRAINT IF EXISTS article_mouvementstock_operateur_id_fk;\n"
+                        "ALTER TABLE article_mouvementstock DROP COLUMN IF EXISTS operateur_id;"
+                    ),
+                )
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name='mouvementstock',
+                    name='operateur',
+                    field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='parametre.operateur'),
+                )
+            ],
         ),
         migrations.AddField(
             model_name='promotion',
@@ -52,10 +99,33 @@ class Migration(migrations.Migration):
             name='pointure',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='article.pointure'),
         ),
-        migrations.AddField(
-            model_name='mouvementstock',
-            name='variante',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='mouvements', to='article.variantearticle'),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql=(
+                        "ALTER TABLE article_mouvementstock "
+                        "ADD COLUMN IF NOT EXISTS variante_id integer NULL;\n"
+                        "DO $$ BEGIN\n"
+                        "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'article_mouvementstock_variante_id_fk') THEN\n"
+                        "ALTER TABLE article_mouvementstock ADD CONSTRAINT article_mouvementstock_variante_id_fk FOREIGN KEY (variante_id) REFERENCES article_variantearticle(id) ON DELETE CASCADE;\n"
+                        "END IF;\n"
+                        "END $$;\n"
+                        "CREATE INDEX IF NOT EXISTS article_mouvementstock_variante_id_idx ON article_mouvementstock(variante_id);"
+                    ),
+                    reverse_sql=(
+                        "DROP INDEX IF EXISTS article_mouvementstock_variante_id_idx;\n"
+                        "ALTER TABLE article_mouvementstock DROP CONSTRAINT IF EXISTS article_mouvementstock_variante_id_fk;\n"
+                        "ALTER TABLE article_mouvementstock DROP COLUMN IF EXISTS variante_id;"
+                    ),
+                )
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name='mouvementstock',
+                    name='variante',
+                    field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='mouvements', to='article.variantearticle'),
+                )
+            ],
         ),
         migrations.AddConstraint(
             model_name='article',

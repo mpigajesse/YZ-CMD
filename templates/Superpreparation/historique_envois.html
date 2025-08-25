@@ -1,0 +1,42 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="p-4">
+    <h1 class="text-2xl font-bold mb-2">{{ page_title|default:'Historique des envois' }}</h1>
+    <p class="text-sm text-gray-600 mb-4">{{ page_subtitle|default:'Consulter les envois passés' }}</p>
+
+    <div class="bg-white rounded shadow p-4">
+        <div class="overflow-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="text-left border-b">
+                        <th class="py-2 pr-4">#</th>
+                        <th class="py-2 pr-4">Livreur</th>
+                        <th class="py-2 pr-4">Région</th>
+                        <th class="py-2 pr-4">Date</th>
+                        <th class="py-2 pr-4">Commandes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for envoi in envois %}
+                    <tr class="border-b">
+                        <td class="py-2 pr-4">{{ envoi.code }}</td>
+                        <td class="py-2 pr-4">{{ envoi.livreur }}</td>
+                        <td class="py-2 pr-4">{{ envoi.region }}</td>
+                        <td class="py-2 pr-4">{{ envoi.date }}</td>
+                        <td class="py-2 pr-4">{{ envoi.nb_commandes }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-4 text-center text-gray-500">Aucun envoi enregistré.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

@@ -298,26 +298,10 @@ class Operation(models.Model):
 
 
 class Envoi(models.Model):
-    STATUS_CHOICES = [
-        ('en_preparation', 'En préparation'),
-        ('en_attente', 'En attente de livraison'),
-        ('en_cours', 'En cours de livraison'),
-        ('reporte', 'Reporté'),
-        ('livre', 'Livré'),
-        ('annule', 'Annulé')
-    ]
+
 
     # Relations
-    commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='envois')
-    livreur = models.ForeignKey(
-        Operateur, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name='envois_livraison',
-        limit_choices_to={'type_operateur': 'LOGISTIQUE'}
-    )
-   
+    commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='envois', null=True, blank=True)   
     region = models.ForeignKey(
         'parametre.Region', 
         on_delete=models.SET_NULL, 
@@ -327,16 +311,12 @@ class Envoi(models.Model):
     )
     
     # Informations principales
-    date_envoi = models.DateField(default=timezone.now, verbose_name="Date d'envoi", help_text="Date prévue pour l'envoi")
+    date_envoi = models.DateField(default=timezone.now, verbose_name="Date d'envoi")
     date_livraison_prevue = models.DateField(verbose_name="Date de livraison prévue")
-    date_livraison_effective = models.DateField(null=True, blank=True, verbose_name="Date de livraison effective")
-    
-    # Gestion des reports
-    date_report = models.DateField(null=True, blank=True, verbose_name="Date de report")
-    motif_report = models.TextField(null=True, blank=True, verbose_name="Motif du report")
+    date_livraison_effective = models.DateField(null=True, blank=True, verbose_name="Date de clôture")
     
     # Statut et suivi
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='en_preparation')
+    status = models.BooleanField(default=True, verbose_name="En cours")
     numero_envoi = models.CharField(max_length=50, blank=True, verbose_name="Numéro d'envoi")
     
     # Opérateurs et traçabilité
@@ -348,35 +328,19 @@ class Envoi(models.Model):
         related_name='envois_crees',
         verbose_name="Créé par"
     )
-    operateur_modification = models.ForeignKey(
-        Operateur, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name='envois_modifies',
-        verbose_name="Modifié par"
-    )
     
     # Dates de suivi
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
     
-    # Notes et observations
-    notes_preparation = models.TextField(null=True, blank=True, verbose_name="Notes de préparation")
-    notes_livraison = models.TextField(null=True, blank=True, verbose_name="Notes de livraison")
-    commentaire = models.TextField(null=True, blank=True, verbose_name="Commentaires généraux")
-    
     # Statistiques
     nb_commandes = models.PositiveIntegerField(default=0, verbose_name="Nombre de commandes")
-    poids_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Poids total (kg)")
-    valeur_totale = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Valeur totale (FCFA)")
 
     class Meta:
         verbose_name = "Envoi"
         verbose_name_plural = "Envois"
         ordering = ['-date_creation']
         indexes = [
-            models.Index(fields=['date_envoi', 'livreur']),
             models.Index(fields=['status', 'date_creation']),
             models.Index(fields=['region', 'date_envoi']),
         ]
@@ -389,162 +353,28 @@ class Envoi(models.Model):
             count = Envoi.objects.filter(date_creation__date=today).count() + 1
             self.numero_envoi = f"ENV-{today.strftime('%Y%m%d')}-{count:04d}"
         
-        # Mettre à jour les statistiques automatiquement
-        self.calculer_statistiques()
-        
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Envoi {self.numero_envoi} - {self.get_status_display()}"
-
-    def calculer_statistiques(self):
-        """Calcule automatiquement les statistiques de l'envoi"""
-        commandes = self.commandes_associees.all()
-        self.nb_commandes = commandes.count()
-        
-        # Calculer la valeur totale
-        from django.db.models import Sum
-        valeur = commandes.aggregate(total=Sum('total_cmd'))['total'] or 0
-        self.valeur_totale = valeur
+        status_text = "En cours" if self.status else "Clôturé"
+        return f"Envoi {self.numero_envoi} - {status_text}"
 
     @property
     def commandes_associees(self):
         """Retourne les commandes associées à cet envoi"""
         return self.commande_set.all()
 
-    def ajouter_commande(self, commande, operateur=None):
-        """Ajoute une commande à cet envoi"""
-        # Vérifier que la commande est prête
-        if not commande.etat_actuel or commande.etat_actuel.enum_etat.libelle != 'Prête':
-            raise ValueError("La commande doit être dans l'état 'Prête' pour être ajoutée à un envoi")
-        
-        # Associer la commande à l'envoi
-        commande.envoi = self
-        commande.save()
-        
-        # Recalculer les statistiques
-        self.calculer_statistiques()
-        self.save()
-
-    def retirer_commande(self, commande, operateur=None):
-        """Retire une commande de cet envoi"""
-        commande.envoi = None
-        commande.save()
-        
-        # Recalculer les statistiques
-        self.calculer_statistiques()
-        self.save()
-
-    def reporter(self, nouvelle_date, motif, operateur):
-        """Reporter la livraison à une nouvelle date"""
-        self.date_report = nouvelle_date
-        self.motif_report = motif
-        self.status = 'reporte'
-        self.operateur_modification = operateur
-        self.save()
-
     def marquer_comme_livre(self, operateur, date_livraison=None):
-        """Marquer l'envoi comme livré"""
+        """Marquer l'envoi comme livré (clôturé)"""
         from django.utils import timezone
-        self.status = 'livre'
+        self.status = False  # False = clôturé
         self.date_livraison_effective = date_livraison or timezone.now().date()
-        self.operateur_modification = operateur
         self.save()
-        
-        # Mettre à jour l'état des commandes associées
-        for commande in self.commandes_associees:
-            # Créer l'état "Livrée" pour chaque commande
-            from .models import EnumEtatCmd, EtatCommande
-            etat_livree, _ = EnumEtatCmd.objects.get_or_create(
-                libelle='Livrée',
-                defaults={'ordre': 90, 'couleur': '#10B981'}
-            )
-            
-            # Terminer l'état actuel
-            etat_actuel = commande.etat_actuel
-            if etat_actuel:
-                etat_actuel.terminer_etat(operateur)
-            
-            # Créer le nouvel état
-            EtatCommande.objects.create(
-                commande=commande,
-                enum_etat=etat_livree,
-                operateur=operateur,
-                commentaire=f"Livraison via envoi {self.numero_envoi}"
-            )
 
-    def marquer_en_cours(self, operateur):
-        """Marquer l'envoi comme en cours de livraison"""
-        self.status = 'en_cours'
-        self.operateur_modification = operateur
-        self.save()
-        
-        # Mettre à jour l'état des commandes associées
-        for commande in self.commandes_associees:
-            from .models import EnumEtatCmd, EtatCommande
-            etat_en_cours, _ = EnumEtatCmd.objects.get_or_create(
-                libelle='En cours de livraison',
-                defaults={'ordre': 80, 'couleur': '#3B82F6'}
-            )
-            
-            # Terminer l'état actuel
-            etat_actuel = commande.etat_actuel
-            if etat_actuel:
-                etat_actuel.terminer_etat(operateur)
-            
-            # Créer le nouvel état
-            EtatCommande.objects.create(
-                commande=commande,
-                enum_etat=etat_en_cours,
-                operateur=operateur,
-                commentaire=f"Envoi en cours via {self.numero_envoi}"
-            )
-
-    def annuler(self, operateur, commentaire=None):
+    def annuler(self, operateur):
         """Annuler l'envoi"""
-        self.status = 'annule'
-        self.operateur_modification = operateur
-        if commentaire:
-            self.commentaire = commentaire
+        self.status = False  # False = annulé/clôturé
         self.save()
-        
-        # Libérer les commandes associées
-        for commande in self.commandes_associees:
-            commande.envoi = None
-            commande.save()
-
-    def get_export_data(self):
-        """Retourne les données formatées pour l'export"""
-        return {
-            'numero_envoi': self.numero_envoi,
-            'date_envoi': self.date_envoi.strftime('%d/%m/%Y'),
-            'livreur': f"{self.livreur.nom} {self.livreur.prenom}" if self.livreur else 'Non assigné',
-            'region': self.region.nom if self.region else 'Toutes',
-            'nb_commandes': self.nb_commandes,
-            'valeur_totale': f"{self.valeur_totale} FCFA" if self.valeur_totale else '0 FCFA',
-            'status': self.get_status_display(),
-            'commandes': [
-                {
-                    'numero': f"CMD-{cmd.id_yz}",
-                    'client': cmd.client.nom_complet,
-                    'ville': cmd.ville.nom if cmd.ville else 'Non définie',
-                    'montant': f"{cmd.total_cmd} FCFA"
-                }
-                for cmd in self.commandes_associees
-            ]
-        }
-
-    @classmethod
-    def exports_journaliers(cls, date_envoi, region=None, livreur=None):
-        """Retourne les envois pour une date donnée avec filtres optionnels"""
-        queryset = cls.objects.filter(date_envoi=date_envoi)
-        
-        if region:
-            queryset = queryset.filter(region=region)
-        if livreur:
-            queryset = queryset.filter(livreur=livreur)
-            
-        return queryset.select_related('livreur', 'region').prefetch_related('commandes_associees')
 
 class EtatArticleRenvoye(models.Model):
     commande = models.ForeignKey('Commande', on_delete=models.CASCADE, related_name='etats_articles_renvoyes')

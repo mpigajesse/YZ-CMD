@@ -57,6 +57,13 @@ urlpatterns = [
     path('api/codes-barres-commandes/', views.api_codes_barres_commandes, name='api_codes_barres_commandes'),
     path('api/etiquettes-articles/', views.api_etiquettes_articles, name='api_etiquettes_articles'),
 
+    # Gestion des envois
+    path('envois/', views.envois_view, name='envois'),
+    path('envois/historique/', views.historique_envois_view, name='historique_envois'),
+    path('envois/creer-region/', views.creer_envoi_region, name='creer_envoi_region'),
+    path('envois/cloturer/', views.cloturer_envoi, name='cloturer_envoi'),
+    path('envois/<int:envoi_id>/export-excel/', views.export_commandes_envoi_excel, name='export_commandes_envoi_excel'),
+
     # URLs pour la gestion de stock
     path('stock/articles/', views.liste_articles, name='liste_articles'),
     path('stock/article/creer/', views.creer_article, name='creer_article'),
