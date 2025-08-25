@@ -1912,53 +1912,6 @@ def api_articles_commande(request, commande_id):
             'error': str(e)
         }, status=500)
 
-@superviseur_preparation_required
-def impression_etiquettes_view(request):
-    """
-    Vue dédiée à générer une page contenant uniquement les étiquettes pour l'impression.
-    """
-    try:
-        operateur_profile = request.user.profil_operateur
-        if not operateur_profile.is_preparation:
-            return HttpResponse("Accès non autorisé.", status=403)
-    except Operateur.DoesNotExist:
-        return HttpResponse("Profil opérateur non trouvé.", status=403)
-
-    commande_ids_str = request.GET.get('ids')
-    if not commande_ids_str:
-        return HttpResponse("Aucun ID de commande fourni.", status=400)
-
-    commande_ids = [int(id) for id in commande_ids_str.split(',') if id.isdigit()]
-    commandes = Commande.objects.filter(id__in=commande_ids, etats__operateur=operateur_profile).distinct()
-
-    # Génération de code-barres pour les commandes déjà en préparation
-    code128 = barcode.get_barcode_class('code128')
-
-    for commande in commandes:
-        # Génération du code-barres (plus besoin de transition d'état)
-        barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
-        buffer = BytesIO()
-        barcode_instance.write(buffer, options={'write_text': False, 'module_height': 15.0, 'module_width': 0.3})
-        barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        commande.barcode_base64 = barcode_base64
-        print(f"DEBUG: Barcode for commande {commande.id_yz}: {commande.barcode_base64[:50]}...") # Afficher les 50 premiers caractères
-        
-        # Récupérer la date de début de préparation pour l'étiquette
-        etat_preparation = commande.etats.filter(
-            enum_etat__libelle='En préparation', 
-            operateur=operateur_profile,
-            date_fin__isnull=True
-        ).first()
-        if etat_preparation:
-            commande.date_preparation = etat_preparation.date_debut
-        else:
-            commande.date_preparation = timezone.now()
-
-    context = {
-        'commandes': commandes,
-    }
-    # Fonction supprimée de l'interface superviseur: redirection vers gestion des étiquettes
-    return redirect('Superpreparation:etiquette')
 
 @superviseur_preparation_required
 def api_commande_produits(request, commande_id):
@@ -6295,4 +6248,165 @@ def get_article_variants(request, article_id):
         return JsonResponse({
             'success': False,
             'error': 'Erreur lors de la récupération des variantes'
+        }, status=500)
+
+@superviseur_preparation_required
+def api_codes_barres_commandes(request):
+    """
+    API pour récupérer le contenu HTML des codes-barres des commandes
+    """
+    try:
+        ids = request.GET.get('ids')
+        if not ids:
+            return JsonResponse({'error': 'IDs des commandes requis'}, status=400)
+        
+        print(f"🔍 Recherche de la commande avec id_yz: {ids}")
+        
+        # Récupérer la commande
+        try:
+            commande = Commande.objects.get(id_yz=ids)
+            print(f"✅ Commande trouvée: {commande.id_yz}")
+        except Commande.DoesNotExist:
+            print(f"❌ Commande non trouvée avec id_yz: {ids}")
+            return JsonResponse({'error': f'Commande avec ID YZ {ids} non trouvée'}, status=404)
+        
+        # Générer le code-barres
+        try:
+            barcode_data = f"YZ{commande.id_yz}"
+            print(f"📊 Génération du code-barres: {barcode_data}")
+            barcode_image = barcode.Code128(barcode_data, writer=ImageWriter())
+            buffer = BytesIO()
+            barcode_image.write(buffer)
+            barcode_base64 = base64.b64encode(buffer.getvalue()).decode()
+            print(f"✅ Code-barres généré avec succès")
+        except Exception as barcode_error:
+            print(f"❌ Erreur lors de la génération du code-barres: {str(barcode_error)}")
+            barcode_base64 = ""
+        
+        # Préparer les données de la commande
+        commande_data = {
+            'id_yz': commande.id_yz,
+            'num_cmd': commande.num_cmd,
+            'client_nom': f"{commande.client.nom} {commande.client.prenom}" if commande.client else "Client non défini",
+            'client_telephone': commande.client.numero_tel if commande.client else "",
+            'ville_client': commande.ville_init or (commande.ville.nom if commande.ville else ""),
+            'ville_region': f"{commande.ville.nom} {commande.ville.region.nom_region}" if commande.ville and commande.ville.region else "",
+            'adresse': commande.client.adresse if commande.client else "",
+            'total': commande.total_cmd,
+            'barcode_image': barcode_base64
+        }
+        
+        # Rendre le template HTML
+        html_content = render_to_string('Superpreparation/partials/_codes_barres_commande.html', {
+            'commande': commande_data
+        })
+        
+        return JsonResponse({
+            'success': True,
+            'html': html_content,
+            'commande': commande_data
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur dans api_codes_barres_commandes: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur lors de la génération des codes-barres: {str(e)}'
+        }, status=500)
+
+@superviseur_preparation_required
+def api_etiquettes_articles(request):
+    """
+    API pour récupérer le contenu HTML des étiquettes des articles
+    """
+    try:
+        ids = request.GET.get('ids')
+        format_type = request.GET.get('format', 'qr')  # 'qr' ou 'barcode'
+        
+        if not ids:
+            return JsonResponse({'error': 'IDs des commandes requis'}, status=400)
+        
+        print(f"🔍 Recherche de la commande avec id_yz: {ids} pour format: {format_type}")
+        
+        # Récupérer la commande et ses articles
+        try:
+            commande = Commande.objects.get(id_yz=ids)
+            print(f"✅ Commande trouvée: {commande.id_yz}")
+        except Commande.DoesNotExist:
+            print(f"❌ Commande non trouvée avec id_yz: {ids}")
+            return JsonResponse({'error': f'Commande avec ID YZ {ids} non trouvée'}, status=404)
+        articles = commande.paniers.all().select_related('article', 'variante')
+        
+        articles_data = []
+        for panier in articles:
+            article = panier.article
+            variante = panier.variante
+            
+            # Générer le QR code pour l'article
+            try:
+                import qrcode
+                qr_data = f"ART{article.id}_{variante.id if variante else 'NO_VAR'}"
+                qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                qr.add_data(qr_data)
+                qr.make(fit=True)
+                qr_img = qr.make_image(fill_color="black", back_color="white")
+                
+                # Convertir en base64
+                buffer = BytesIO()
+                qr_img.save(buffer, format='PNG')
+                qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+            except ImportError:
+                # Fallback si qrcode n'est pas installé
+                qr_base64 = ""
+                print("Warning: qrcode library not installed, QR codes will not be generated")
+            
+            # Générer le code-barres pour l'article
+            barcode_data = f"ART{article.reference}_{variante.reference_variante if variante else 'NO_VAR'}"
+            barcode_image = barcode.Code128(barcode_data, writer=ImageWriter())
+            buffer = BytesIO()
+            barcode_image.write(buffer)
+            barcode_base64 = base64.b64encode(buffer.getvalue()).decode()
+            
+            # Calculer le prix unitaire à partir du sous_total et de la quantité
+            prix_unitaire = panier.sous_total / panier.quantite if panier.quantite > 0 else 0
+            
+            article_data = {
+                'id': article.id,
+                'nom': article.nom,
+                'reference': article.reference,
+                'prix': float(prix_unitaire),
+                'quantite': panier.quantite,
+                'couleur': variante.couleur.nom if variante and variante.couleur else "Standard",
+                'pointure': variante.pointure.pointure if variante and variante.pointure else "Standard",
+                'qr_image': qr_base64,
+                'barcode_image': barcode_base64
+            }
+            articles_data.append(article_data)
+        
+        # Rendre le template HTML avec le format spécifié
+        html_content = render_to_string('Superpreparation/partials/_etiquettes_articles.html', {
+            'articles': articles_data,
+            'commande': {
+                'id_yz': commande.id_yz,
+                'client_nom': f"{commande.client.nom} {commande.client.prenom}" if commande.client else "Client non défini"
+            },
+            'format_type': format_type
+        })
+        
+        return JsonResponse({
+            'success': True,
+            'html': html_content,
+            'articles': articles_data,
+            'format_type': format_type
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur dans api_etiquettes_articles: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur lors de la génération des étiquettes: {str(e)}'
         }, status=500)

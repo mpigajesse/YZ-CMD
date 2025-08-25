@@ -52,6 +52,10 @@ urlpatterns = [
     path('commande/<int:commande_id>/supprimer-article/', views.supprimer_article_commande_prepa, name='supprimer_article_commande_prepa'),
     path('commande/<int:commande_id>/prix-upsell/', views.api_prix_upsell_articles, name='api_prix_upsell_articles'),
     path('api/article/<int:article_id>/variantes/', views.get_article_variants, name='get_article_variants'),
+    
+    # URLs pour les modales d'impression
+    path('api/codes-barres-commandes/', views.api_codes_barres_commandes, name='api_codes_barres_commandes'),
+    path('api/etiquettes-articles/', views.api_etiquettes_articles, name='api_etiquettes_articles'),
 
     # URLs pour la gestion de stock
     path('stock/articles/', views.liste_articles, name='liste_articles'),

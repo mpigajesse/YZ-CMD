@@ -6,357 +6,312 @@
 {% block page_title %}{{ page_title }}{% endblock %}
 {% block page_subtitle %}{{ page_subtitle }}{% endblock %}
 
+{% block extra_head %}
+<style>
+/* Styles pour l'affichage compact */
+.compact-table th {
+    font-size: 0.75rem;
+    padding: 0.5rem;
+}
+
+.compact-table td {
+    font-size: 0.75rem;
+    padding: 0.5rem;
+    vertical-align: middle;
+}
+
+/* Colonnes optimisées */
+.col-id { width: 80px; }
+.col-client { width: 150px; }
+.col-phone { width: 120px; }
+.col-city { width: 120px; }
+.col-total { width: 100px; }
+.col-actions { width: 120px; }
+
+/* Animation d'apparition des cartes */
+.commande-card {
+    animation: slideInUp 0.5s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.commande-card:nth-child(1) { animation-delay: 0.1s; }
+.commande-card:nth-child(2) { animation-delay: 0.2s; }
+.commande-card:nth-child(3) { animation-delay: 0.3s; }
+.commande-card:nth-child(4) { animation-delay: 0.4s; }
+.commande-card:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes slideInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-{% csrf_token %}
 <div class="main-content transition-all duration-300" id="mainContent">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 text-white p-4 rounded-xl shadow-lg"
          style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
         <div>
-            <h1 class="text-3xl font-bold flex items-center mb-2">
-                <i class="fas fa-print mr-3" style="color: var(--preparation-border-accent);"></i>
+            <h1 class="text-2xl font-bold flex items-center mb-1">
+                <i class="fas fa-print mr-2" style="color: var(--preparation-border-accent);"></i>
                 {{ page_title }}
             </h1>
-            <p style="color: white;">{{ page_subtitle }}</p>
+            <p class="text-sm" style="color: white;">{{ page_subtitle }}</p>
         </div>
     </div>
 
-    <!-- Statistiques rapides -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <!-- Total des commandes -->
-        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
-                        <i class="fas fa-print text-2xl"></i>
+    <!-- Contenu de la page Commandes à Imprimer -->
+    <div class="bg-white rounded-xl shadow-lg border p-4 mb-6" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-xl font-bold flex items-center mb-4" style="color: var(--preparation-primary);">
+            <i class="fas fa-print mr-2"></i>Commandes à Imprimer
+        </h2>
+
+        <!-- Description de la page -->
+        <div class="mb-4">
+            <p class="text-gray-700 text-sm mb-2">Liste des commandes en attente d'impression des étiquettes et documents.</p>
+        </div>
+
+        <!-- Barre d'outils compacte -->
+        <div class="mb-4 flex flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <!-- Bouton Imprimer Toutes les Étiquettes -->
+            <button onclick="imprimerToutesEtiquettes()" 
+                    class="inline-flex items-center px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded transition-colors">
+                <i class="fas fa-print mr-2"></i>
+                Imprimer Toutes les Étiquettes
+            </button>
+            
+            <!-- Bouton Imprimer Codes-barres Commandes -->
+            <button onclick="imprimerCodesBarresCommandes()" 
+                    class="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors">
+                <i class="fas fa-barcode mr-2"></i>
+                Codes-barres Commandes
+            </button>
+            
+            <!-- Barre de recherche -->
+            <div class="relative ml-auto">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <input type="text" id="searchInput" 
+                               placeholder="Rechercher..." 
+                               class="block px-3 py-2 pr-8 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm w-48"
+                               autocomplete="off">
+                        <div class="absolute inset-y-0 right-0 pr-2 flex items-center">
+                            <i class="fas fa-search text-gray-400 text-xs"></i>
+                        </div>
                     </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">À Imprimer</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ stats.total_commandes }}</p>
-                    </div>
+                    <button onclick="clearSearch()" 
+                            class="inline-flex items-center px-2 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Valeur totale -->
-        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
-                        <i class="fas fa-coins text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur Totale</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.valeur_totale|floatformat:0 }} DH</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Commandes urgentes -->
-        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110" style="color: var(--preparation-primary);">
-                        <i class="fas fa-exclamation-triangle text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Urgentes</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300" style="group-hover:color: var(--preparation-primary);">{{ stats.commandes_urgentes }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-{% include 'Superpreparation/includes/smart-search-toolbar.html' %}
-
+        <!-- Tableau compact -->
         <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 compact-table" id="commandesTable">
                 <thead style="background-color: var(--preparation-primary);">
                     <tr>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Affectation</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Code-barres</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
-                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
+                        <th scope="col" class="col-id px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">N° EXTERNE</th>
+                        <th scope="col" class="col-client px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">CLIENT</th>
+                        <th scope="col" class="col-phone px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">TÉLÉPHONE</th>
+                        <th scope="col" class="col-city px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">VILLE</th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">RÉGION</th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">ADRESSE</th>
+                        <th scope="col" class="col-total px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">TOTAL</th>
+                        <th scope="col" class="col-actions px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    {% if commandes %}
-                        {% for commande in commandes %}
-                        <tr class="hover:bg-gray-50 commande-row" 
-                            data-id-yz="{{ commande.id_yz }}"
-                            data-num-cmd="{{ commande.num_cmd|default:'' }}"
-                            data-client="{{ commande.client.prenom }} {{ commande.client.nom }}"
-                            data-phone="{{ commande.client.numero_tel|default:'' }}"
-                            data-email="{{ commande.client.email|default:'' }}"
-                            data-ville-client="{{ commande.ville_init|default:'' }}"
-                            data-ville-region="{% if commande.ville %}{{ commande.ville.nom }} {{ commande.ville.region.nom_region }}{% endif %}"
-                            data-adresse="{% if commande.client.adresse %}{{ commande.client.adresse }}{% endif %}"
-                            data-date-affectation="{% if commande.etat_actuel %}{{ commande.etat_actuel.date_debut|date:'d/m/Y' }}{% endif %}"
-                            data-total="{{ commande.total_cmd }}"
-                            data-etat="À imprimer"
-                            data-operateur="{% if commande.etat_actuel.operateur %}{{ commande.etat_actuel.operateur.nom }} {{ commande.etat_actuel.operateur.prenom }}{% endif %}">
-                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {{ commande.id_yz }}
-                            </td>
-                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
-                            <!-- Colonne Client -->
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
-                                {% if commande.client.email %}
-                                <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
-                                {% endif %}
-                            </td>
-                            <!-- Colonne Téléphone -->
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                {% if commande.client.numero_tel %}
-                                <div class="text-sm text-gray-900 font-medium">
-                                    <i class="fas fa-phone mr-1"></i>
-                                    {{ commande.client.numero_tel }}
-                                </div>
-                                {% else %}
-                                <div class="text-sm text-gray-500">Non renseigné</div>
-                                {% endif %}
-                            </td>
-                            <!-- Colonne Ville Client -->
-                            <td class="px-4 py-4 whitespace-nowrap text-sm">
-                                {% if commande.ville_init and commande.ville_init != '' %}
-                                    <div style="color: var(--preparation-primary);" class="font-medium">{{ commande.ville_init }}</div>
-                                {% else %}
-                                    <div style="color: var(--preparation-primary);">Non spécifiée</div>
-                                {% endif %}
-                            </td>
-                            <!-- Colonne Ville & Région (ville de livraison) -->
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                {% if commande.ville %}
-                                    <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
-                                    <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
-                                {% else %}
-                                    <div class="text-sm text-gray-500">Non définie</div>
-                                {% endif %}
-                            </td>
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                {% with etat_actuel=commande.etat_actuel %}
-                                    {% if etat_actuel %}
-                                        <div class="text-sm text-gray-900">{{ etat_actuel.date_debut|date:"d/m/Y" }}</div>
-                                        <div class="text-xs text-gray-500">{{ etat_actuel.date_debut|date:"H:i" }}</div>
-                                    {% else %}
-                                        <div class="text-sm text-gray-500">Non définie</div>
-                                    {% endif %}
-                                {% endwith %}
-                            </td>
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
-                            </td>
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                {% if commande.barcode_base64 %}
-                                    <img src="data:image/png;base64,{{ commande.barcode_base64 }}" alt="Code-barres" style="height: 30px;">
-                                {% else %}
-                                    <span class="text-xs text-gray-400">N/A</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                    <i class="fas fa-print mr-1"></i>
-                                    À imprimer
-                                </span>
-                            </td>
-                            <td class="px-4 py-4 whitespace-nowrap text-center">
-                                <button type="button"
-                                   onclick="openPanierModal({{ commande.id }})"
-                                   class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
-                                   style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
-                                   title="Voir le panier de cette commande">
-                                    <i class="fas fa-shopping-cart mr-1"></i> 
-                                    {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
+                    {% for commande in commandes_a_imprimer %}
+                    <tr class="commande-card hover:bg-gray-50 transition-colors">
+                        <td class="col-id px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ commande.id_yz }}
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                            {{ commande.num_cmd|default:"N/A" }}
+                        </td>
+                        <td class="col-client px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                            {% if commande.client %}
+                                {{ commande.client.prenom }} {{ commande.client.nom }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td class="col-phone px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                            {% if commande.client %}
+                                {{ commande.client.telephone|default:"N/A" }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td class="col-city px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                            {% if commande.ville %}
+                                {{ commande.ville.nom }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                            {% if commande.ville and commande.ville.region %}
+                                {{ commande.ville.region.nom }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                            {% if commande.client %}
+                                {{ commande.client.adresse|default:"N/A" }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td class="col-total px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ commande.total_cmd|floatformat:2 }} DH
+                        </td>
+                        <td class="col-actions px-3 py-2 whitespace-nowrap text-center text-sm">
+                            <div class="flex space-x-1 justify-center">
+                                <button onclick="imprimerEtiquettesCommande('{{ commande.id_yz }}')" 
+                                        class="inline-flex items-center px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors">
+                                    <i class="fas fa-tags mr-1"></i>
+                                    Étiquettes
                                 </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                                <div class="flex flex-col items-center py-8">
-                                    <i class="fas fa-print text-4xl text-gray-300 mb-4"></i>
-                                    <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande à imprimer</h3>
-                                    <p class="text-gray-500">Toutes les commandes ont été imprimées ou sont en cours de préparation.</p>
-                                </div>
-                            </td>
-                        </tr>
-                    {% endif %}
+                                <button onclick="imprimerCodeBarreCommande('{{ commande.id_yz }}')" 
+                                        class="inline-flex items-center px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition-colors">
+                                    <i class="fas fa-barcode mr-1"></i>
+                                    Code-barres
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="px-3 py-4 text-center text-sm text-gray-500">
+                            Aucune commande à imprimer trouvée
+                        </td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
-
-    <!-- Modal panier (style admin) -->
-    <div id="panierModal" class="fixed inset-0 z-50 hidden">
-  <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closePanierModal()"></div>
-  <div class="relative z-10 max-w-3xl mx-auto mt-20 bg-white rounded-xl shadow-2xl overflow-hidden">
-    <div class="flex items-center justify-between px-6 py-4 border-b">
-      <h3 class="text-2xl font-bold">Détails du panier</h3>
-      <button class="text-gray-500 hover:text-gray-700" onclick="closePanierModal()"><i class="fas fa-times text-xl"></i></button>
-    </div>
-    <div class="m-6 p-4 rounded-lg border bg-blue-50">
-      <div class="flex items-center justify-between">
-        <div>
-          <div id="panierCmdId" class="font-semibold text-blue-800">Commande</div>
-          <div class="text-sm text-blue-700">Client: <span id="panierClient"></span></div>
-        </div>
-        <div class="text-right">
-          <div id="panierCount" class="text-blue-700 font-semibold"></div>
-          <div class="text-sm text-blue-700">Total: <span id="panierTotalEntete"></span></div>
-        </div>
-      </div>
-    </div>
-    <div class="px-6 pb-4">
-      <div id="panierEmpty" class="text-center py-12 text-gray-500 hidden">
-        <i class="fas fa-shopping-basket text-4xl mb-3"></i>
-        <div class="text-lg font-semibold">Panier vide</div>
-        <div class="text-sm">Cette commande ne contient aucun article.</div>
-      </div>
-      <div id="panierItems" class="space-y-2"></div>
-    </div>
-    <div class="px-6 py-4 bg-gray-50 border-t">
-      <div class="flex items-center justify-between text-sm mb-2">
-        <div class="text-gray-600">Sous-total articles:</div>
-        <div id="panierSousTotal" class="text-gray-900">0.00 DH</div>
-      </div>
-      <div class="flex items-center justify-between font-bold text-lg">
-        <div>Total commande:</div>
-        <div id="panierTotalFinal" class="text-green-600">0.00 DH</div>
-      </div>
-            </div>
-    </div>
 </div>
-{% endblock content %}
 
-{% block extra_js %}
 <script>
-function formatMoney(v) { try { return parseFloat(v).toFixed(2) + ' DH'; } catch(e) { return '0.00 DH'; } }
-
-function openPanierModal(commandeId) {
-    console.log('Ouverture du panier pour la commande:', commandeId);
-    const url = `/Superpreparation/api/commande/${commandeId}/panier/`;
-    console.log('URL appelée:', url);
+// Fonction de recherche
+document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#commandesTable tbody tr');
     
-    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
-      .then(r => {
-        console.log('Réponse reçue:', r.status, r.statusText);
-        if (!r.ok) {
-          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-        }
-        return r.json();
-      })
-      .then(data => {
-        console.log('Données reçues:', data);
-        console.log('data.success:', data.success);
-        console.log('data.error:', data.error);
-        console.log('data.articles:', data.articles);
-        console.log('data.commande:', data.commande);
-        if (!data || data.error || data.success === false) {
-            console.log('Erreur détectée:', data?.error || data?.message || 'Impossible de charger le panier');
-            return showToast(data?.error || data?.message || 'Impossible de charger le panier', 'error');
-        }
-        const cmd = data.commande || {};
-        const articles = data.articles || [];
-
-        // Entête
-        document.getElementById('panierCmdId').textContent = 'Commande ' + (cmd.id_yz || '');
-        document.getElementById('panierClient').textContent = cmd.client_nom || '';
-        document.getElementById('panierCount').textContent = (cmd.total_articles || 0) + ' article' + ((cmd.total_articles||0)>1?'s':'');
-        document.getElementById('panierTotalEntete').textContent = formatMoney(cmd.total_final || 0);
-
-        // Liste
-        const list = document.getElementById('panierItems');
-        list.innerHTML = '';
-        if (articles.length === 0) {
-            document.getElementById('panierEmpty').classList.remove('hidden');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
         } else {
-            document.getElementById('panierEmpty').classList.add('hidden');
-            articles.forEach(a => {
-                const row = document.createElement('div');
-                row.className = 'flex items-center justify-between py-2 border-b last:border-b-0';
-                row.innerHTML = `
-                    <div>
-                        <div class="text-sm font-medium text-gray-800">${a.nom || ''}</div>
-                        <div class="text-xs text-gray-500">Ref: ${a.reference || 'N/A'} · PU: ${formatMoney(a.prix_unitaire || 0)}</div>
-                    </div>
-                    <div class="text-right">
-                        <div class="text-sm text-gray-700">${a.quantite || 0} × ${parseFloat(a.prix_unitaire||0).toFixed(2)}</div>
-                        <div class="text-sm font-semibold text-gray-900">${formatMoney(a.sous_total || 0)}</div>
-                    </div>`;
-                list.appendChild(row);
-            });
+            row.style.display = 'none';
         }
+    });
+});
 
-        // Totaux
-        document.getElementById('panierSousTotal').textContent = formatMoney(cmd.total_montant || cmd.total_articles_montant || 0);
-        document.getElementById('panierTotalFinal').textContent = formatMoney(cmd.total_final || 0);
-
-        console.log('Tentative d\'ouverture de la modal...');
-        const modal = document.getElementById('panierModal');
-        console.log('Modal element trouvé:', modal);
-        console.log('Modal classes avant:', modal.className);
-        modal.classList.remove('hidden');
-        console.log('Modal classes après:', modal.className);
-        console.log('Modal visible:', !modal.classList.contains('hidden'));
-      })
-      .catch(() => showToast('Erreur réseau', 'error'));
+// Fonction pour effacer la recherche
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    const rows = document.querySelectorAll('#commandesTable tbody tr');
+    rows.forEach(row => {
+        row.style.display = '';
+    });
 }
 
-function closePanierModal() { 
-    document.getElementById('panierModal').classList.add('hidden'); 
-}
-
-// Fonction pour afficher les notifications toast
-function showToast(message, type = 'info', duration = 3000) {
-    const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all transform translate-x-full opacity-0 max-w-sm`;
+// Fonction pour imprimer toutes les étiquettes
+function imprimerToutesEtiquettes() {
+    const commandeIds = [];
+    const rows = document.querySelectorAll('#commandesTable tbody tr');
     
-    if (type === 'success') {
-        toast.classList.add('bg-green-500', 'text-white');
-    } else if (type === 'error') {
-        toast.classList.add('bg-red-500', 'text-white');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const idCell = row.querySelector('td:first-child');
+            if (idCell) {
+                commandeIds.push(idCell.textContent.trim());
+            }
+        }
+    });
+    
+    if (commandeIds.length > 0) {
+        const ids = commandeIds.join(',');
+        window.open(`/Superpreparation/etiquettes-articles/?ids=${ids}`, '_blank');
     } else {
-        toast.classList.add('bg-gray-800', 'text-white');
+        alert('Aucune commande sélectionnée pour l\'impression.');
+    }
+}
+
+// Fonction pour imprimer les codes-barres des commandes
+function imprimerCodesBarresCommandes() {
+    const commandeIds = [];
+    const rows = document.querySelectorAll('#commandesTable tbody tr');
+    
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const idCell = row.querySelector('td:first-child');
+            if (idCell) {
+                commandeIds.push(idCell.textContent.trim());
+            }
+        }
+    });
+    
+    if (commandeIds.length > 0) {
+        const ids = commandeIds.join(',');
+        window.open(`/Superpreparation/etiquettes/?ids=${ids}`, '_blank');
+    } else {
+        alert('Aucune commande sélectionnée pour l\'impression.');
+    }
+}
+
+// Fonction pour imprimer les étiquettes d'une commande spécifique
+function imprimerEtiquettesCommande(idYz) {
+    window.open(`/Superpreparation/etiquettes-articles/?ids=${idYz}`, '_blank');
+}
+
+// Fonction pour imprimer le code-barres d'une commande spécifique
+function imprimerCodeBarreCommande(idYz) {
+    window.open(`/Superpreparation/etiquettes/?ids=${idYz}`, '_blank');
+}
+
+// Script de gestion de la sidebar
+document.addEventListener('DOMContentLoaded', function() {
+    const menuToggle = document.getElementById('menu-toggle');
+    const body = document.body;
+    
+    if (menuToggle) {
+        menuToggle.addEventListener('click', function() {
+            console.log('🔄 Menu toggle clicked');
+            body.classList.toggle('sidebar-open');
+            body.classList.toggle('sidebar-collapsed');
+            
+            // Animation du hamburger
+            menuToggle.classList.toggle('hamburger-active');
+        });
     }
     
-    toast.textContent = message;
-    document.body.appendChild(toast);
+    // Gestion du redimensionnement
+    window.addEventListener('resize', () => {
+        console.log('📐 Redimensionnement détecté:', window.innerWidth);
+        if (window.innerWidth > 1023) {
+            body.classList.add('sidebar-open');
+            body.classList.remove('sidebar-collapsed');
+            console.log('🖥️ Redimensionnement: mode desktop');
+        } else {
+            body.classList.add('sidebar-collapsed');
+            body.classList.remove('sidebar-open');
+            console.log('📱 Redimensionnement: mode mobile');
+        }
+    });
     
-    // Animer l'entrée
-    setTimeout(() => {
-        toast.classList.remove('translate-x-full', 'opacity-0');
-        toast.classList.add('translate-x-0', 'opacity-100');
-    }, 100);
-    
-    // Animer la sortie
-    setTimeout(() => {
-        toast.classList.remove('translate-x-0', 'opacity-100');
-        toast.classList.add('translate-x-full', 'opacity-0');
-        setTimeout(() => toast.remove(), 500);
-    }, duration);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("Page de suivi des commandes à imprimer chargée.");
+    console.log('✅ Script de sidebar initialisé pour commandes-a-imprimer');
 });
 </script>
-
-<!-- Script de recherche intelligente -->
-<script src="{% static 'js/Suivi_des_Commandes/suivi-commandes-smart-search.js' %}"></script>
-<script>
-// Initialiser la recherche intelligente pour cette page
-document.addEventListener('DOMContentLoaded', function() {
-    initSuiviCommandesSearch('a_imprimer');
-});
-</script>
-{% endblock %} 
+{% endblock %}

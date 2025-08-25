@@ -941,10 +941,51 @@
 
 <!-- Script de recherche intelligente -->
 <script src="{% static 'js/Suivi_des_Commandes/suivi-commandes-smart-search.js' %}"></script>
+<!-- Script des modales d'impression -->
+<script src="{% static 'js/etiquettage/impression-modals.js' %}"></script>
 <script>
-// Initialiser la recherche intelligente pour cette page
+    // Initialiser la recherche intelligente pour cette page
+    document.addEventListener('DOMContentLoaded', function() {
+        initSuiviCommandesSearch('confirmées');
+    });
+
+// Script de gestion de la sidebar
 document.addEventListener('DOMContentLoaded', function() {
-    initSuiviCommandesSearch('confirmées');
+    const menuToggle = document.getElementById('menu-toggle');
+    const body = document.body;
+    
+    if (menuToggle) {
+        menuToggle.addEventListener('click', function() {
+            console.log('🔄 Menu toggle clicked');
+            body.classList.toggle('sidebar-open');
+            body.classList.toggle('sidebar-collapsed');
+            
+            // Animation du hamburger
+            menuToggle.classList.toggle('hamburger-active');
+        });
+    }
+    
+    // Gestion du redimensionnement
+    window.addEventListener('resize', () => {
+        console.log('📐 Redimensionnement détecté:', window.innerWidth);
+        if (window.innerWidth > 1023) {
+            body.classList.add('sidebar-open');
+            body.classList.remove('sidebar-collapsed');
+            console.log('🖥️ Redimensionnement: mode desktop');
+        } else {
+            body.classList.add('sidebar-collapsed');
+            body.classList.remove('sidebar-open');
+            console.log('📱 Redimensionnement: mode mobile');
+        }
+    });
+    
+    console.log('✅ Script de sidebar initialisé pour commandes-confirmees');
 });
+
+// Les fonctions d'impression sont maintenant gérées par impression-modals.js
 </script>
+
+<!-- Inclure la modale de choix d'impression -->
+{% include 'Superpreparation/partials/_modal_impression_choice.html' %}
+
 {% endblock %} 
