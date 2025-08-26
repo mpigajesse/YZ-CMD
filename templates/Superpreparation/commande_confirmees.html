@@ -98,6 +98,55 @@
         box-shadow: 0 2px 8px rgba(46, 27, 34, 0.2);
     }
 
+    /* Styles pour la barre de progression d'impression multiple */
+    #printProgressContainer {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 12px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    #printProgressBar {
+        transition: width 0.5s ease-in-out;
+        background: linear-gradient(90deg, #8b5cf6, #3b82f6);
+        box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+    }
+
+    #printProgressText {
+        font-weight: 500;
+        color: #374151;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Animation pour le bouton d'impression multiple */
+    #bulkPrintBtn {
+        position: relative;
+        overflow: hidden;
+    }
+
+    #bulkPrintBtn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    #bulkPrintBtn:hover::before {
+        left: 100%;
+    }
+
+    #bulkPrintBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
     .theme-button-primary:hover {
         background: linear-gradient(135deg, var(--preparation-light), var(--preparation-primary));
         border-color: var(--preparation-border-accent);
@@ -299,10 +348,44 @@
 {% include 'Superpreparation/includes/smart-search-toolbar.html' %}
 
     <!-- Actions en masse -->
-    <div class="flex gap-2 mb-6">
-        <button id="bulkAffectBtn" class="px-4 py-2 rounded-lg font-medium transition-all shadow-sm opacity-50 cursor-not-allowed bg-[var(--preparation-primary)] text-white flex items-center gap-2" disabled>
-            <i class="fas fa-users-cog"></i> Affecter sélection
-        </button>
+    <div class="flex flex-col gap-4 mb-6">
+        <!-- Ligne des boutons -->
+        <div class="flex gap-2">
+            <button id="bulkAffectBtn" class="px-4 py-2 rounded-lg font-medium transition-all shadow-sm opacity-50 cursor-not-allowed bg-[var(--preparation-primary)] text-white flex items-center gap-2" disabled>
+                <i class="fas fa-users-cog"></i> Affecter sélection
+            </button>
+            
+            <!-- Bouton Impression Multiple Fusionné -->
+            <button id="bulkPrintBtn" class="px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white flex items-center gap-2">
+                <i class="fas fa-print"></i> Impression multiple ticket / Impression code QR Articles
+            </button>
+        </div>
+        
+        <!-- Barre de progression pour l'impression multiple -->
+        <div id="printProgressContainer" class="hidden w-full bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-700">Progression de l'impression multiple</span>
+                <span id="printProgressPercent" class="text-sm font-bold text-purple-600">0%</span>
+            </div>
+            <div class="bg-gray-200 rounded-full h-3 mb-2">
+                <div id="printProgressBar" class="bg-gradient-to-r from-purple-600 to-blue-600 h-3 rounded-full transition-all duration-500 ease-in-out" style="width: 0%"></div>
+            </div>
+            <div id="printProgressText" class="text-sm text-gray-600 text-center font-medium">En attente...</div>
+            <div id="printProgressSteps" class="flex justify-between mt-3 text-xs text-gray-500">
+                <div class="flex items-center">
+                    <div id="step1Icon" class="w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center">
+                        <i class="fas fa-clock text-gray-500"></i>
+                    </div>
+                    <span>Tickets</span>
+                </div>
+                <div class="flex items-center">
+                    <div id="step2Icon" class="w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center">
+                        <i class="fas fa-clock text-gray-500"></i>
+                    </div>
+                    <span>Codes QR</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Message si aucun résultat -->
@@ -981,6 +1064,166 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     console.log('✅ Script de sidebar initialisé pour commandes-confirmees');
+    
+    // Vérifier que la fonction d'impression multiple est disponible
+    if (typeof window.impressionMultipleFusionnee === 'function') {
+        console.log('✅ Fonction impressionMultipleFusionnee disponible');
+    } else {
+        console.warn('⚠️ Fonction impressionMultipleFusionnee non disponible');
+        // Attendre un peu plus pour que le script soit chargé
+        setTimeout(() => {
+            if (typeof window.impressionMultipleFusionnee === 'function') {
+                console.log('✅ Fonction impressionMultipleFusionnee disponible après délai');
+            } else {
+                console.error('❌ Fonction impressionMultipleFusionnee toujours non disponible');
+            }
+        }, 1000);
+    }
+    
+    // Event listener pour le bouton d'impression multiple
+    const bulkPrintBtn = document.getElementById('bulkPrintBtn');
+    if (bulkPrintBtn) {
+        bulkPrintBtn.addEventListener('click', function() {
+            console.log('🖱️ Clic sur bouton impression multiple détecté');
+            
+            // Désactiver le bouton
+            bulkPrintBtn.disabled = true;
+            bulkPrintBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            // Afficher la barre de progression
+            const progressContainer = document.getElementById('printProgressContainer');
+            const progressBar = document.getElementById('printProgressBar');
+            const progressText = document.getElementById('printProgressText');
+            const progressPercent = document.getElementById('printProgressPercent');
+            const step1Icon = document.getElementById('step1Icon');
+            const step2Icon = document.getElementById('step2Icon');
+            
+            if (progressContainer && progressBar && progressText && progressPercent) {
+                progressContainer.classList.remove('hidden');
+                
+                // Initialiser la progression
+                progressBar.style.width = '0%';
+                progressPercent.textContent = '0%';
+                progressText.textContent = 'Démarrage de l\'impression multiple...';
+                
+                // Initialiser les étapes
+                if (step1Icon) {
+                    step1Icon.className = 'w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center';
+                    step1Icon.innerHTML = '<i class="fas fa-clock text-gray-500"></i>';
+                }
+                if (step2Icon) {
+                    step2Icon.className = 'w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center';
+                    step2Icon.innerHTML = '<i class="fas fa-clock text-gray-500"></i>';
+                }
+            }
+            
+            // Étape 1 : Impression des tickets (0% à 50%)
+            setTimeout(() => {
+                if (progressBar && progressText && progressPercent && step1Icon) {
+                    progressBar.style.width = '50%';
+                    progressPercent.textContent = '50%';
+                    progressText.textContent = 'Impression des tickets de commande en cours...';
+                    
+                    // Marquer l'étape 1 comme active
+                    step1Icon.className = 'w-4 h-4 rounded-full bg-blue-500 mr-2 flex items-center justify-center';
+                    step1Icon.innerHTML = '<i class="fas fa-spinner fa-spin text-white text-xs"></i>';
+                }
+                
+                // Lancer l'impression des tickets
+                if (typeof imprimerTicketsMultipleDirect === 'function') {
+                    imprimerTicketsMultipleDirect();
+                } else {
+                    console.error('Fonction imprimerTicketsMultipleDirect non disponible');
+                    alert('La fonction d\'impression des tickets n\'est pas disponible');
+                    resetPrintProgress();
+                    return;
+                }
+                
+                // Étape 2 : Impression des codes QR (50% à 100%)
+                setTimeout(() => {
+                    if (progressBar && progressText && progressPercent && step1Icon && step2Icon) {
+                        progressBar.style.width = '100%';
+                        progressPercent.textContent = '100%';
+                        progressText.textContent = 'Impression des codes QR des articles en cours...';
+                        
+                        // Marquer l'étape 1 comme terminée
+                        step1Icon.className = 'w-4 h-4 rounded-full bg-green-500 mr-2 flex items-center justify-center';
+                        step1Icon.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
+                        
+                        // Marquer l'étape 2 comme active
+                        step2Icon.className = 'w-4 h-4 rounded-full bg-blue-500 mr-2 flex items-center justify-center';
+                        step2Icon.innerHTML = '<i class="fas fa-spinner fa-spin text-white text-xs"></i>';
+                    }
+                    
+                    if (typeof imprimerCodesQRArticlesDirect === 'function') {
+                        imprimerCodesQRArticlesDirect();
+                    } else {
+                        console.error('Fonction imprimerCodesQRArticlesDirect non disponible');
+                        alert('La fonction d\'impression des codes QR n\'est pas disponible');
+                    }
+                    
+                    // Finalisation
+                    setTimeout(() => {
+                        if (step2Icon) {
+                            step2Icon.className = 'w-4 h-4 rounded-full bg-green-500 mr-2 flex items-center justify-center';
+                            step2Icon.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
+                        }
+                        
+                        progressText.textContent = 'Impression multiple terminée avec succès !';
+                        
+                        // Masquer la progression après un délai
+                        setTimeout(() => {
+                            resetPrintProgress();
+                        }, 2000);
+                        
+                        console.log('✅ Impression multiple terminée');
+                    }, 3000);
+                }, 2000);
+            }, 500);
+        });
+    }
+    
+    // Fonction pour réinitialiser la progression
+    function resetPrintProgress() {
+        const bulkPrintBtn = document.getElementById('bulkPrintBtn');
+        const progressContainer = document.getElementById('printProgressContainer');
+        const progressBar = document.getElementById('printProgressBar');
+        const progressText = document.getElementById('printProgressText');
+        const progressPercent = document.getElementById('printProgressPercent');
+        const step1Icon = document.getElementById('step1Icon');
+        const step2Icon = document.getElementById('step2Icon');
+        
+        if (bulkPrintBtn) {
+            bulkPrintBtn.disabled = false;
+            bulkPrintBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        
+        if (progressContainer) {
+            progressContainer.classList.add('hidden');
+        }
+        
+        if (progressBar) {
+            progressBar.style.width = '0%';
+        }
+        
+        if (progressText) {
+            progressText.textContent = 'En attente...';
+        }
+        
+        if (progressPercent) {
+            progressPercent.textContent = '0%';
+        }
+        
+        if (step1Icon) {
+            step1Icon.className = 'w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center';
+            step1Icon.innerHTML = '<i class="fas fa-clock text-gray-500"></i>';
+        }
+        
+        if (step2Icon) {
+            step2Icon.className = 'w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center';
+            step2Icon.innerHTML = '<i class="fas fa-clock text-gray-500"></i>';
+        }
+    }
 });
 
 // Les fonctions d'impression sont maintenant gérées par impression-modals.js

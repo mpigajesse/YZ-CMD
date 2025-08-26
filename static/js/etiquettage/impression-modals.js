@@ -28,21 +28,13 @@ class ImpressionModals {
             });
         }
 
-        // Modale de choix de format
-        const formatChoiceModal = document.getElementById('formatChoiceModal');
-        if (formatChoiceModal) {
-            formatChoiceModal.addEventListener('click', (e) => {
-                if (e.target === formatChoiceModal) {
-                    this.hideFormatChoiceModal();
-                }
-            });
-        }
+        // Modale de choix de format - SUPPRIMÉE car plus nécessaire
 
         // Fermer avec la touche Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.hideImpressionChoiceModal();
-                this.hideFormatChoiceModal();
+                // Plus de modale de choix de format à fermer
             }
         });
     }
@@ -136,8 +128,8 @@ class ImpressionModals {
     async imprimerEtiquettesArticles() {
         this.hideImpressionChoiceModal();
         if (this.currentCommandeIdYz) {
-            // Afficher d'abord la modale de choix de format
-            this.showFormatChoiceModal();
+            // Charger directement les QR codes (plus de choix de format)
+            this.loadEtiquettesWithFormat('qr');
         }
     }
 
@@ -217,108 +209,37 @@ class ImpressionModals {
     }
 
     /**
-     * Afficher la modale de choix de format pour les étiquettes
+     * Afficher la modale de choix de format pour les étiquettes - SUPPRIMÉE
+     * Utilise maintenant directement les QR codes
      */
-    showFormatChoiceModal() {
-        // Créer ou récupérer la modale de choix de format
-        let modal = document.getElementById('formatChoiceModal');
-        if (!modal) {
-            modal = this.createFormatChoiceModal();
-        }
-        
-        // Afficher la modale
-        modal.classList.remove('hidden');
-    }
+    // showFormatChoiceModal() - SUPPRIMÉE
 
     /**
-     * Créer la modale de choix de format
+     * Créer la modale de choix de format - SUPPRIMÉE car plus nécessaire
+     * Utilise maintenant directement les QR codes
      */
-    createFormatChoiceModal() {
-        const modal = document.createElement('div');
-        modal.id = 'formatChoiceModal';
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
-        
-        modal.innerHTML = `
-            <div class="relative p-6 bg-white w-full max-w-md m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down">
-                <!-- En-tête du modal -->
-                <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-6">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--preparation-light);">
-                            <i class="fas fa-tags text-white text-xl"></i>
-                        </div>
-                        <h3 class="text-2xl font-bold" style="color: var(--preparation-light);">Choisir le format</h3>
-                    </div>
-                    <button onclick="impressionModals.hideFormatChoiceModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                
-                <!-- Contenu du modal -->
-                <div class="py-6">
-                    <div class="mb-6">
-                        <p class="text-gray-600 mb-6">Choisissez le format d'affichage pour les étiquettes des articles :</p>
-                        
-                        <div class="space-y-4">
-                            <!-- Option QR Codes -->
-                            <button onclick="impressionModals.loadEtiquettesWithFormat('qr')" 
-                                    class="w-full p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 flex items-center space-x-4">
-                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                    <i class="fas fa-qrcode text-blue-600 text-xl"></i>
-                                </div>
-                                <div class="text-left">
-                                    <h4 class="font-semibold text-gray-900">QR Codes</h4>
-                                    <p class="text-sm text-gray-600">Afficher les QR codes des articles</p>
-                                </div>
-                            </button>
-                            
-                            <!-- Option Codes-barres -->
-                            <button onclick="impressionModals.loadEtiquettesWithFormat('barcode')" 
-                                    class="w-full p-4 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 flex items-center space-x-4">
-                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                                    <i class="fas fa-barcode text-green-600 text-xl"></i>
-                                </div>
-                                <div class="text-left">
-                                    <h4 class="font-semibold text-gray-900">Codes-barres</h4>
-                                    <p class="text-sm text-gray-600">Afficher les codes-barres des articles</p>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        return modal;
-    }
+    // createFormatChoiceModal() - SUPPRIMÉE
 
     /**
-     * Fermer la modale de choix de format
+     * Fermer la modale de choix de format - SUPPRIMÉE
      */
-    hideFormatChoiceModal() {
-        const modal = document.getElementById('formatChoiceModal');
-        if (modal) {
-            modal.classList.add('hidden');
-        }
-    }
+    // hideFormatChoiceModal() - SUPPRIMÉE
 
     /**
-     * Charger les étiquettes avec un format spécifique
+     * Charger les étiquettes avec un format spécifique (maintenant uniquement QR codes)
      */
     async loadEtiquettesWithFormat(format) {
-        this.hideFormatChoiceModal();
+        // Utilise maintenant uniquement les QR codes, le paramètre format est ignoré
         
         if (this.currentCommandeIdYz) {
             try {
                 // Afficher un indicateur de chargement
-                this.showNotification(`Chargement des étiquettes (${format === 'qr' ? 'QR Codes' : 'Codes-barres'})...`, 'info');
+                this.showNotification('Chargement des QR codes des articles...', 'info');
                 
-                console.log(`🔍 Chargement des étiquettes pour la commande: ${this.currentCommandeIdYz} avec format: ${format}`);
+                console.log(`🔍 Chargement des QR codes pour la commande: ${this.currentCommandeIdYz}`);
                 
-                // Charger le contenu via AJAX avec le format spécifié
-                const response = await fetch(`/Superpreparation/api/etiquettes-articles/?ids=${this.currentCommandeIdYz}&format=${format}`);
+                // Charger le contenu via AJAX avec le format QR (toujours)
+                const response = await fetch(`/Superpreparation/api/etiquettes-articles/?ids=${this.currentCommandeIdYz}&format=qr`);
                 console.log(`📡 Réponse du serveur: ${response.status} ${response.statusText}`);
                 
                 if (response.ok) {
@@ -332,33 +253,16 @@ class ImpressionModals {
                 }
             } catch (error) {
                 console.error('Erreur:', error);
-                this.showNotification(`Erreur lors du chargement des étiquettes: ${error.message}`, 'error');
+                this.showNotification(`Erreur lors du chargement des QR codes: ${error.message}`, 'error');
             }
         }
     }
 
     /**
-     * Afficher la modale des codes-barres des commandes
+     * Afficher la modale des codes-barres des commandes - SUPPRIMÉE
+     * Plus nécessaire car nous utilisons uniquement les QR codes
      */
-    showCodesBarresModal(data) {
-        // Créer ou récupérer la modale
-        let modal = document.getElementById('codesBarresModal');
-        if (!modal) {
-            modal = this.createCodesBarresModal();
-        }
-        
-        // Mettre à jour le contenu
-        const content = modal.querySelector('#codesBarresContent');
-        if (content) {
-            content.innerHTML = data.html || 'Aucun contenu disponible';
-        }
-        
-        // Afficher la modale
-        modal.classList.remove('hidden');
-        
-        // Initialiser les fonctionnalités d'impression
-        this.initializeCodesBarresFeatures();
-    }
+    // showCodesBarresModal() - SUPPRIMÉE
 
     /**
      * Afficher la modale des étiquettes des articles
@@ -444,71 +348,14 @@ class ImpressionModals {
     }
 
     /**
-     * Créer la modale des codes-barres des commandes
+     * Créer la modale des codes-barres des commandes - SUPPRIMÉE
+     * Plus nécessaire car nous utilisons uniquement les QR codes
      */
+    /*
     createCodesBarresModal() {
-        const modal = document.createElement('div');
-        modal.id = 'codesBarresModal';
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
-        
-        modal.innerHTML = `
-            <div class="relative p-6 bg-white w-full max-w-6xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down">
-                <!-- En-tête du modal -->
-                <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-6">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--preparation-light);">
-                            <i class="fas fa-barcode text-white text-xl"></i>
-                        </div>
-                        <h3 class="text-2xl font-bold" style="color: var(--preparation-light);">Codes-barres des Commandes</h3>
-                    </div>
-                    <button onclick="impressionModals.hideCodesBarresModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                
-                <!-- Contrôles de sélection -->
-                <div class="flex justify-between items-center mb-4 p-3 bg-gray-50 rounded-lg">
-                    <div class="flex items-center space-x-4">
-                        <label class="flex items-center space-x-2">
-                            <input type="checkbox" id="selectAllCodesBarres" class="form-checkbox h-4 w-4 text-blue-600 rounded" onchange="impressionModals.toggleSelectAllCodesBarres()">
-                            <span class="text-sm font-medium text-gray-700">Sélectionner tout</span>
-                        </label>
-                        <span id="codesBarresSelectionCount" class="text-sm text-gray-500">0 sélectionné(s)</span>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="impressionModals.printSelectedCodesBarres()" 
-                                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-all duration-200 flex items-center space-x-1">
-                            <i class="fas fa-print text-xs"></i>
-                            <span>Imprimer sélection</span>
-                        </button>
-                        <button onclick="impressionModals.printAllCodesBarres()" 
-                                class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-all duration-200 flex items-center space-x-1">
-                            <i class="fas fa-print text-xs"></i>
-                            <span>Imprimer tout</span>
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Contenu du modal -->
-                <div id="codesBarresContent" class="flex-1 overflow-y-auto">
-                    <!-- Le contenu sera chargé ici -->
-                </div>
-                
-                <!-- Boutons d'action -->
-                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                    <button onclick="impressionModals.hideCodesBarresModal()" 
-                            class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200">
-                        Fermer
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        return modal;
+        // Fonction supprimée car plus nécessaire
     }
+    */
 
     /**
      * Créer la modale des étiquettes des articles
@@ -1080,12 +927,10 @@ class ImpressionModals {
     }
 
     /**
-     * Initialiser les fonctionnalités des codes-barres
+     * Initialiser les fonctionnalités des codes-barres - SUPPRIMÉE
+     * Plus nécessaire car nous utilisons uniquement les QR codes
      */
-    initializeCodesBarresFeatures() {
-        // Charger les scripts nécessaires si pas déjà fait
-        this.loadScript('/static/js/etiquettage/impress_Codes-barres_Articles.js');
-    }
+    // initializeCodesBarresFeatures() - SUPPRIMÉE
 
     /**
      * Initialiser les fonctionnalités des étiquettes
@@ -1588,10 +1433,8 @@ function printEtiquettesArticles() {
     impressionModals.printEtiquettesArticles();
 }
 
-// Fonctions pour la modale de choix de format
-function hideFormatChoiceModal() {
-    impressionModals.hideFormatChoiceModal();
-}
+// Fonctions pour la modale de choix de format - SUPPRIMÉES
+// function hideFormatChoiceModal() - SUPPRIMÉE
 
 function loadEtiquettesWithFormat(format) {
     impressionModals.loadEtiquettesWithFormat(format);
@@ -2073,4 +1916,427 @@ function imprimerCodesQRArticlesDirect() {
             console.error('Erreur lors de l\'impression directe des codes QR:', error);
             impressionModals.showNotification('Erreur lors de l\'impression', 'error');
         });
+}
+
+/**
+ * Impression multiple fusionnée : tickets + codes QR des articles
+ * Lance les deux impressions en séquence avec une barre de progression
+ */
+window.impressionMultipleFusionnee = function() {
+    // Désactiver le bouton pendant l'impression
+    const bulkPrintBtn = document.getElementById('bulkPrintBtn');
+    const progressContainer = document.getElementById('printProgressContainer');
+    const progressBar = document.getElementById('printProgressBar');
+    const progressText = document.getElementById('printProgressText');
+    
+    if (!bulkPrintBtn || !progressContainer || !progressBar || !progressText) {
+        console.error('Éléments de progression non trouvés');
+        return;
+    }
+    
+    // Afficher la barre de progression et désactiver le bouton
+    bulkPrintBtn.disabled = true;
+    bulkPrintBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    progressContainer.classList.remove('hidden');
+    
+    // Variables pour suivre la progression
+    let currentStep = 0;
+    const totalSteps = 2;
+    
+    // Fonction pour mettre à jour la progression
+    function updateProgress(step, text) {
+        currentStep = step;
+        const percentage = (step / totalSteps) * 100;
+        progressBar.style.width = percentage + '%';
+        progressText.textContent = text;
+    }
+    
+    // Fonction pour terminer l'impression
+    function finishPrinting() {
+        bulkPrintBtn.disabled = false;
+        bulkPrintBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        progressContainer.classList.add('hidden');
+        progressBar.style.width = '0%';
+        progressText.textContent = 'Préparation...';
+        
+        // Notification de succès
+        impressionModals.showNotification('Impression multiple terminée !', 'success');
+    }
+    
+    // Fonction pour gérer les erreurs
+    function handleError(error, stepName) {
+        console.error(`Erreur lors de ${stepName}:`, error);
+        impressionModals.showNotification(`Erreur lors de ${stepName}`, 'error');
+        finishPrinting();
+    }
+    
+    // Étape 1 : Impression des tickets multiples
+    updateProgress(1, 'Impression des tickets de commande...');
+    
+    fetch('/Superpreparation/api/ticket-commande-multiple/?direct_print=true')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Créer une nouvelle fenêtre pour l'impression des tickets
+                const printWindow = window.open('', '_blank', 'width=800,height=600');
+                
+                // HTML pour l'impression des tickets
+                const printHTML = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Impression Tickets de Commande Multiple</title>
+                        <meta charset="utf-8">
+                        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+                        <style>
+                            @page {
+                                size: A4;
+                                margin: 5mm;
+                            }
+
+                            body, html {
+                                margin: 0;
+                                padding: 0;
+                                background: white !important;
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                            
+                            .no-print {
+                                display: none !important;
+                            }
+                            
+                            /* Container pour les tickets */
+                            .ticket-commande-container {
+                                display: grid !important;
+                                grid-template-columns: repeat(2, 1fr) !important;
+                                gap: 3mm !important;
+                                width: 100% !important;
+                                max-width: 180mm !important;
+                                margin: 0 auto !important;
+                                padding: 3mm !important;
+                            }
+                            
+                            /* Format compact du ticket */
+                            .ticket-commande {
+                                width: 85mm !important;
+                                height: 60mm !important;
+                                border: 1px solid black !important;
+                                font-family: Arial, sans-serif !important;
+                                font-size: 8px !important;
+                                background: white !important;
+                                page-break-inside: avoid !important;
+                                margin: 0 !important;
+                                overflow: hidden;
+                                display: flex !important;
+                                flex-direction: column !important;
+                            }
+                            
+                            .ticket-commande * {
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                            
+                            /* En-tête noir */
+                            .ticket-header {
+                                background-color: #000000 !important;
+                                color: #ffffff !important;
+                                padding: 2mm !important;
+                                font-size: 9px !important;
+                                font-weight: bold !important;
+                                display: flex !important;
+                                justify-content: space-between !important;
+                                align-items: center !important;
+                            }
+                            
+                            .ticket-number {
+                                font-weight: bold !important;
+                                display: flex !important;
+                                align-items: center !important;
+                            }
+                            
+                            .ticket-date {
+                                font-size: 7px !important;
+                            }
+                            
+                            /* Contenu du ticket */
+                            .ticket-content {
+                                padding: 2mm !important;
+                                flex: 1 !important;
+                                display: flex !important;
+                                flex-direction: column !important;
+                                justify-content: space-between !important;
+                            }
+                            
+                            .client-info {
+                                margin-bottom: 2mm !important;
+                            }
+                            
+                            .client-name {
+                                font-weight: bold !important;
+                                font-size: 9px !important;
+                                margin-bottom: 1mm !important;
+                            }
+                            
+                            .client-details {
+                                font-size: 7px !important;
+                                color: #666 !important;
+                                line-height: 1.2 !important;
+                            }
+                            
+                            .articles-info {
+                                margin-bottom: 2mm !important;
+                            }
+                            
+                            .articles-title {
+                                font-weight: bold !important;
+                                font-size: 8px !important;
+                                margin-bottom: 1mm !important;
+                                color: #333 !important;
+                            }
+                            
+                            .articles-list {
+                                font-size: 7px !important;
+                                color: #666 !important;
+                                line-height: 1.2 !important;
+                                word-break: break-word !important;
+                            }
+                            
+                            .total-info {
+                                border-top: 1px solid #ccc !important;
+                                padding-top: 1mm !important;
+                                text-align: right !important;
+                            }
+                            
+                            .total-amount {
+                                font-weight: bold !important;
+                                font-size: 10px !important;
+                                color: #000 !important;
+                            }
+                            
+                            .articles-count {
+                                font-size: 7px !important;
+                                color: #666 !important;
+                                margin-top: 0.5mm !important;
+                            }
+                            
+                            @media print {
+                                body {
+                                    -webkit-print-color-adjust: exact !important;
+                                    color-adjust: exact !important;
+                                    print-color-adjust: exact !important;
+                                }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="ticket-commande-container">
+                            ${data.html}
+                        </div>
+                        <script>
+                            // Lancer l'impression automatiquement
+                            window.onload = function() {
+                                setTimeout(function() {
+                                    window.print();
+                                    setTimeout(function() {
+                                        window.close();
+                                        // Notifier la fenêtre parent que l'impression des tickets est terminée
+                                        if (window.opener) {
+                                            window.opener.postMessage('tickets_printed', '*');
+                                        }
+                                    }, 1000);
+                                }, 500);
+                            };
+                        </script>
+                    </body>
+                    </html>
+                `;
+                
+                // Écrire le contenu dans la nouvelle fenêtre
+                printWindow.document.write(printHTML);
+                printWindow.document.close();
+                
+                // Attendre que l'impression des tickets soit terminée avant de passer aux codes QR
+                const checkTicketsPrinted = setInterval(() => {
+                    if (printWindow.closed) {
+                        clearInterval(checkTicketsPrinted);
+                        
+                        // Étape 2 : Impression des codes QR des articles
+                        updateProgress(2, 'Impression des codes QR des articles...');
+                        
+                        // Petit délai pour permettre à l'utilisateur de voir la progression
+                        setTimeout(() => {
+                            fetch('/Superpreparation/api/etiquettes-articles-multiple/')
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        // Créer une nouvelle fenêtre pour l'impression des codes QR
+                                        const qrPrintWindow = window.open('', '_blank', 'width=800,height=600');
+                                        
+                                        // HTML pour l'impression des codes QR
+                                        const qrPrintHTML = `
+                                            <!DOCTYPE html>
+                                            <html>
+                                            <head>
+                                                <title>Impression Codes QR Articles</title>
+                                                <meta charset="utf-8">
+                                                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+                                                <style>
+                                                    @page {
+                                                        size: A4;
+                                                        margin: 5mm;
+                                                    }
+
+                                                    body, html {
+                                                        margin: 0;
+                                                        padding: 0;
+                                                        background: white !important;
+                                                        -webkit-print-color-adjust: exact !important;
+                                                        color-adjust: exact !important;
+                                                        print-color-adjust: exact !important;
+                                                    }
+                                                    
+                                                    .no-print {
+                                                        display: none !important;
+                                                    }
+                                                    
+                                                    /* Container pour les étiquettes */
+                                                    .etiquettes-container {
+                                                        display: grid !important;
+                                                        grid-template-columns: repeat(2, 1fr) !important;
+                                                        gap: 3mm !important;
+                                                        width: 100% !important;
+                                                        max-width: 180mm !important;
+                                                        margin: 0 auto !important;
+                                                        padding: 3mm !important;
+                                                    }
+                                                    
+                                                    /* Format compact de l'étiquette */
+                                                    .etiquette-article {
+                                                        width: 85mm !important;
+                                                        height: 60mm !important;
+                                                        border: 1px solid black !important;
+                                                        font-family: Arial, sans-serif !important;
+                                                        font-size: 8px !important;
+                                                        background: white !important;
+                                                        page-break-inside: avoid !important;
+                                                        margin: 0 !important;
+                                                        overflow: hidden;
+                                                        display: flex !important;
+                                                        flex-direction: column !important;
+                                                        align-items: center !important;
+                                                        justify-content: center !important;
+                                                        text-align: center !important;
+                                                    }
+                                                    
+                                                    .etiquette-article * {
+                                                        -webkit-print-color-adjust: exact !important;
+                                                        color-adjust: exact !important;
+                                                        print-color-adjust: exact !important;
+                                                    }
+                                                    
+                                                    /* QR Code */
+                                                    .qr-code {
+                                                        margin-bottom: 2mm !important;
+                                                    }
+                                                    
+                                                    .qr-code img {
+                                                        width: 25mm !important;
+                                                        height: 25mm !important;
+                                                        border: 1px solid #000 !important;
+                                                    }
+                                                    
+                                                    /* Informations article */
+                                                    .article-info {
+                                                        padding: 2mm !important;
+                                                        font-size: 7px !important;
+                                                        line-height: 1.2 !important;
+                                                    }
+                                                    
+                                                    .article-name {
+                                                        font-weight: bold !important;
+                                                        margin-bottom: 1mm !important;
+                                                        word-break: break-word !important;
+                                                    }
+                                                    
+                                                    .article-variant {
+                                                        font-size: 6px !important;
+                                                        color: #666 !important;
+                                                        word-break: break-word !important;
+                                                    }
+                                                    
+                                                    @media print {
+                                                        body {
+                                                            -webkit-print-color-adjust: exact !important;
+                                                            color-adjust: exact !important;
+                                                            print-color-adjust: exact !important;
+                                                        }
+                                                    }
+                                                </style>
+                                            </head>
+                                            <body>
+                                                <div class="etiquettes-container">
+                                                    ${data.html}
+                                                </div>
+                                                <script>
+                                                    // Lancer l'impression automatiquement
+                                                    window.onload = function() {
+                                                        setTimeout(function() {
+                                                            window.print();
+                                                            setTimeout(function() {
+                                                                window.close();
+                                                                // Notifier la fenêtre parent que l'impression des codes QR est terminée
+                                                                if (window.opener) {
+                                                                    window.opener.postMessage('qr_printed', '*');
+                                                                }
+                                                            }, 1000);
+                                                        }, 500);
+                                                    };
+                                                </script>
+                                            </body>
+                                            </html>
+                                        `;
+                                        
+                                        // Écrire le contenu dans la nouvelle fenêtre
+                                        qrPrintWindow.document.write(qrPrintHTML);
+                                        qrPrintWindow.document.close();
+                                        
+                                        // Attendre que l'impression des codes QR soit terminée
+                                        const checkQRPrinted = setInterval(() => {
+                                            if (qrPrintWindow.closed) {
+                                                clearInterval(checkQRPrinted);
+                                                finishPrinting();
+                                            }
+                                        }, 500);
+                                        
+                                    } else {
+                                        handleError(new Error(data.error), 'l\'impression des codes QR');
+                                    }
+                                })
+                                .catch(error => {
+                                    handleError(error, 'l\'impression des codes QR');
+                                });
+                        }, 1000); // Délai de 1 seconde
+                    }
+                }, 500);
+                
+            } else {
+                handleError(new Error(data.error), 'l\'impression des tickets');
+            }
+        })
+        .catch(error => {
+            handleError(error, 'l\'impression des tickets');
+        });
+};
+
+// S'assurer que la fonction est disponible globalement
+if (typeof window !== 'undefined') {
+    window.impressionMultipleFusionnee = window.impressionMultipleFusionnee || function() {
+        console.error('La fonction impressionMultipleFusionnee n\'est pas encore chargée');
+        if (window.impressionModals && window.impressionModals.showNotification) {
+            window.impressionModals.showNotification('Erreur', 'La fonction d\'impression multiple n\'est pas encore disponible', 'error');
+        }
+    };
 }

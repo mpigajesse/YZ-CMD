@@ -1,117 +1,1050 @@
 {% extends 'composant_generale/Superpreparation/base.html' %}
 {% load static %}
 
-{% block content %}
-<div class="p-4">
-    <h1 class="text-2xl font-bold mb-2">{{ page_title|default:'Historique des envois' }}</h1>
-    <p class="text-sm text-gray-600 mb-4">{{ page_subtitle|default:'Consulter les envois clôturés et exporter leurs données' }}</p>
+{% block title %}Historique des Envois - YZ-CMD{% endblock %}
 
-    <!-- Filtres -->
-    <div class="bg-white rounded shadow p-4 mb-6">
-        <h2 class="font-semibold mb-3">Filtres</h2>
-        <form method="GET" class="flex flex-wrap gap-4 items-end">
-            <!-- Filtre par période -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Période</label>
-                <select name="periode" class="border border-gray-300 rounded px-3 py-2 text-sm">
-                    <option value="">Toutes les périodes</option>
-                    <option value="7j" {% if periode_selected == '7j' %}selected{% endif %}>7 derniers jours</option>
-                    <option value="30j" {% if periode_selected == '30j' %}selected{% endif %}>30 derniers jours</option>
-                    <option value="90j" {% if periode_selected == '90j' %}selected{% endif %}>90 derniers jours</option>
-                </select>
-            </div>
-            
-            <!-- Filtre par région -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Région</label>
-                <select name="region" class="border border-gray-300 rounded px-3 py-2 text-sm">
-                    <option value="">Toutes les régions</option>
-                    {% for region in regions %}
-                    <option value="{{ region.id }}" {% if region_selected == region.id|stringformat:"s" %}selected{% endif %}>
-                        {{ region.nom_region }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <!-- Boutons -->
-            <div class="flex gap-2">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition-colors">
-                    <span>🔍</span> Filtrer
-                </button>
-                <a href="{% url 'Superpreparation:historique_envois' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm transition-colors">
-                    <span>🔄</span> Réinitialiser
-                </a>
-            </div>
-        </form>
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Variables CSS harmonisées avec le thème de supervision */
+    :root {
+        /* Utilisation des couleurs du thème de base Superpreparation */
+        --preparation-primary: #070F2B; /* Couleur principale navy */
+        --preparation-dark: #050A1F;   /* Plus sombre */
+        --preparation-light: #0E1D3D;  /* Plus clair */
+        --preparation-text-light: #E6F0FF; /* Texte très clair */
+        --preparation-border-accent: #1E3A8A; /* Accent (indigo) */
+        --preparation-hover-bg: #0B1733; /* Arrière-plan au survol */
+        --preparation-success: #10b981;
+        --preparation-warning: #f59e0b;
+        --preparation-error: #ef4444;
+        --preparation-info: #3b82f6;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    @keyframes bounce {
+        0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0); }
+        40%, 43% { transform: translate3d(0, -30px, 0); }
+        70% { transform: translate3d(0, -15px, 0); }
+        90% { transform: translate3d(0, -4px, 0); }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+    
+    .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+    
+    .animate-bounce {
+        animation: bounce 1s;
+    }
+
+    /* Styles harmonisés avec le thème de supervision */
+    .theme-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+    }
+
+    .theme-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+    }
+
+    .theme-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
+    }
+
+    .theme-button-primary {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.2);
+        position: relative;
+        overflow: hidden;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+    }
+
+    .theme-button-primary:hover {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    .theme-button-primary:active {
+        transform: translateY(0);
+    }
+
+    .theme-button-primary::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .theme-button-primary:hover::before {
+        left: 100%;
+    }
+
+    .theme-button-secondary {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        color: var(--preparation-primary);
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .theme-button-secondary:hover {
+        background: var(--preparation-hover-bg);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        color: var(--preparation-primary);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .theme-input {
+        border: 2px solid var(--preparation-text-light);
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        padding: 8px 12px;
+    }
+
+    .theme-input:focus {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        outline: none;
+    }
+
+    /* Styles spécifiques pour les cartes de statistiques */
+    .stats-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+    }
+
+    .stats-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-5px);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .stats-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    /* Styles pour les icônes des statistiques */
+    .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border-radius: 50%;
+        padding: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stats-card:hover .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Styles pour les cartes d'envois */
+    .envoi-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+    }
+
+    .envoi-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
+    }
+
+    .envoi-card.cloture {
+        border-left: 4px solid var(--preparation-text-light);
+    }
+
+    .envoi-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+        transform: translateX(-100%);
+        transition: transform 0.6s ease;
+    }
+
+    .envoi-card:hover::after {
+        transform: translateX(100%);
+    }
+
+    /* Styles pour les sections de filtres */
+    .filters-section {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .filters-section:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Styles pour la pagination */
+    .pagination-container {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .pagination-container:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        pointer-events: none;
+    }
+
+    .toast {
+        background: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 10px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        max-width: 400px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.success {
+        border-left: 4px solid var(--preparation-success);
+    }
+
+    .toast.error {
+        border-left: 4px solid var(--preparation-error);
+    }
+
+    .toast.info {
+        border-left: 4px solid var(--preparation-info);
+    }
+
+    .toast.warning {
+        border-left: 4px solid var(--preparation-warning);
+    }
+
+    .toast::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 3s linear;
+    }
+
+    .toast.show::before {
+        transform: scaleX(1);
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Tooltip styles */
+    .tooltip {
+        position: relative;
+        cursor: help;
+    }
+
+    .tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip::before {
+        content: '';
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: rgba(0,0,0,0.8);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip:hover::after,
+    .tooltip:hover::before {
+        opacity: 1;
+        visibility: visible;
+        bottom: 135%;
+    }
+
+    /* Empty state improvements */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-radius: 16px;
+        border: 2px dashed var(--preparation-text-light);
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        color: var(--preparation-text-light);
+        margin-bottom: 20px;
+        animation: pulse 2s infinite;
+    }
+
+    /* Search highlight */
+    .search-highlight {
+        background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%);
+        padding: 2px 4px;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .stats-card {
+            margin-bottom: 16px;
+        }
+        
+        .envoi-card {
+            margin-bottom: 16px;
+        }
+        
+        .toast {
+            max-width: calc(100vw - 40px);
+            right: 0;
+        }
+    }
+
+    /* Quick actions panel */
+    .quick-actions {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+    }
+
+    .quick-action-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: var(--preparation-primary);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 10px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.2);
+        cursor: pointer;
+    }
+
+    .quick-action-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(7, 15, 43, 0.3);
+    }
+
+    .quick-action-btn.tooltip::after {
+        right: 60px;
+        left: auto;
+        transform: none;
+    }
+
+    .quick-action-btn.tooltip::before {
+        right: 60px;
+        left: auto;
+        transform: none;
+    }
+
+    /* Améliorations spécifiques pour la visibilité */
+    .page-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        margin-bottom: 32px;
+    }
+
+    .section-title {
+        color: var(--preparation-primary);
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-badge.en-cours {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .status-badge.cloture {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+    }
+
+    .status-badge.disponible {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .status-badge.existant {
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+    }
+
+    /* Styles pour les filtres personnalisés */
+    .filter-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .filter-pill {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 25px;
+        padding: 8px 16px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        position: relative;
+    }
+
+    .filter-pill:hover {
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(7, 15, 43, 0.15);
+    }
+
+    .filter-pill.active {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border-color: var(--preparation-border-accent);
+        color: white;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+    }
+
+    .filter-pill .badge {
+        background: rgba(255, 255, 255, 0.2);
+        color: inherit;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .filter-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .filter-modal.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .filter-modal-content {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        max-width: 400px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        transform: scale(0.9);
+        transition: transform 0.3s ease;
+        border: 2px solid var(--preparation-border-accent);
+        box-shadow: 0 20px 40px rgba(7, 15, 43, 0.3);
+    }
+
+    .filter-modal.show .filter-modal-content {
+        transform: scale(1);
+    }
+
+    .filter-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid var(--preparation-text-light);
+    }
+
+    .filter-modal-title {
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: var(--preparation-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .filter-modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        color: var(--preparation-text-light);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 50%;
+        transition: all 0.3s ease;
+    }
+
+    .filter-modal-close:hover {
+        background: var(--preparation-hover-bg);
+        color: var(--preparation-primary);
+    }
+
+    .filter-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .filter-option {
+        padding: 12px 16px;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: white;
+    }
+
+    .filter-option:hover {
+        border-color: var(--preparation-border-accent);
+        background: var(--preparation-hover-bg);
+        transform: translateX(4px);
+    }
+
+    .filter-option.selected {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border-color: var(--preparation-border-accent);
+        color: white;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.2);
+    }
+
+    .filter-option .check-icon {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .filter-option.selected .check-icon {
+        opacity: 1;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 2px solid var(--preparation-text-light);
+    }
+
+    .filter-actions button {
+        flex: 1;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: 2px solid;
+        cursor: pointer;
+    }
+
+    .filter-actions .btn-apply {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border-color: var(--preparation-border-accent);
+        color: white;
+    }
+
+    .filter-actions .btn-apply:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(7, 15, 43, 0.3);
+    }
+
+    .filter-actions .btn-cancel {
+        background: white;
+        border-color: var(--preparation-text-light);
+        color: var(--preparation-primary);
+    }
+
+    .filter-actions .btn-cancel:hover {
+        background: var(--preparation-hover-bg);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+    }
+
+    /* Responsive pour les filtres */
+    @media (max-width: 768px) {
+        .filter-pills {
+            gap: 8px;
+        }
+        
+        .filter-pill {
+            font-size: 13px;
+            padding: 6px 12px;
+        }
+        
+        .filter-modal-content {
+            width: 95%;
+            padding: 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- Toast notifications container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Quick actions panel -->
+    <div class="quick-actions">
+        <div class="quick-action-btn tooltip" data-tooltip="Actualiser la page" onclick="refreshPage()">
+            <i class="fas fa-sync-alt"></i>
+        </div>
+        <div class="quick-action-btn tooltip" data-tooltip="Retour en haut" onclick="scrollToTop()">
+            <i class="fas fa-arrow-up"></i>
+        </div>
+        <div class="quick-action-btn tooltip" data-tooltip="Raccourcis clavier" onclick="showKeyboardShortcuts()">
+            <i class="fas fa-keyboard"></i>
+        </div>
     </div>
 
-    <!-- Statistiques rapides -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded shadow p-4 text-center">
-            <div class="text-2xl font-bold text-blue-600">{{ envois.paginator.count }}</div>
-            <div class="text-sm text-gray-600">Envois clôturés</div>
-        </div>
-        <div class="bg-white rounded shadow p-4 text-center">
-            <div class="text-2xl font-bold text-green-600">100%</div>
-            <div class="text-sm text-gray-600">Taux de clôture</div>
-        </div>
-        <div class="bg-white rounded shadow p-4 text-center">
-            <div class="text-2xl font-bold text-orange-600">{{ envois.object_list|length }}</div>
-            <div class="text-sm text-gray-600">Sur cette page</div>
-        </div>
-        <div class="bg-white rounded shadow p-4 text-center">
-            <div class="text-2xl font-bold text-purple-600">
-                {% for envoi in envois %}{{ envoi.nb_commandes }}{% if not forloop.last %} + {% endif %}{% empty %}0{% endfor %}
+    <!-- En-tête de la page -->
+    <div class="page-header">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+            <div>
+                <h1 class="text-3xl font-bold flex items-center mb-2">
+                    <i class="fas fa-history mr-3 text-yellow-300"></i>
+                    {{ page_title|default:'Historique des envois' }}
+                </h1>
+                <p class="text-white opacity-90">{{ page_subtitle|default:'Consulter les envois clôturés et exporter leurs données' }}</p>
             </div>
-            <div class="text-sm text-gray-600">Total commandes</div>
+            <div class="flex items-center gap-6 mt-4 md:mt-0">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-white">{{ envois.paginator.count|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">Envois clôturés</div>
+                </div>
+                <div class="text-center border-l border-white/30 pl-6 ml-6">
+                    <div class="text-3xl font-bold text-white">100%</div>
+                    <div class="text-sm text-white opacity-80">Taux de clôture</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- Envois clôturés -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center">
+                <div class="stats-icon">
+                    <i class="fas fa-check-circle text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Envois clôturés</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ envois.paginator.count|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- Taux de clôture -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center">
+                <div class="stats-icon">
+                    <i class="fas fa-percentage text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Taux de clôture</p>
+                    <p class="text-3xl font-bold text-gray-900">100%</p>
+                </div>
+            </div>
+        </div>
+        <!-- Sur cette page -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center">
+                <div class="stats-icon">
+                    <i class="fas fa-list text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Sur cette page</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ envois.object_list|length|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- Total commandes -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center">
+                <div class="stats-icon">
+                    <i class="fas fa-clipboard-list text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total commandes</p>
+                    <p class="text-3xl font-bold text-gray-900">
+                        {% for envoi in envois %}{{ envoi.nb_commandes }}{% if not forloop.last %} + {% endif %}{% empty %}0{% endfor %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres personnalisés -->
+    <div class="filters-section mb-8">
+        <h2 class="section-title">
+            <i class="fas fa-filter text-blue-600"></i>
+            Filtres de recherche
+            <span class="status-badge {% if periode_selected or region_selected %}en-cours{% else %}disponible{% endif %} animate-pulse">
+                {% if periode_selected or region_selected %}Filtres actifs{% else %}Tous les envois{% endif %}
+            </span>
+        </h2>
+        
+        <!-- Pills de filtres -->
+        <div class="filter-pills">
+            <!-- Filtre Période -->
+            <div class="filter-pill {% if periode_selected %}active{% endif %}" onclick="openFilterModal('periode')">
+                <i class="fas fa-calendar-alt"></i>
+                <span>
+                    {% if periode_selected == '7j' %}
+                        7 derniers jours
+                    {% elif periode_selected == '30j' %}
+                        30 derniers jours
+                    {% elif periode_selected == '90j' %}
+                        90 derniers jours
+                    {% else %}
+                        Toutes les périodes
+                    {% endif %}
+                </span>
+                {% if periode_selected %}
+                    <span class="badge">{{ periode_selected }}</span>
+                {% endif %}
+                <i class="fas fa-chevron-down ml-2"></i>
+            </div>
+            
+            <!-- Filtre Région -->
+            <div class="filter-pill {% if region_selected %}active{% endif %}" onclick="openFilterModal('region')">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>
+                    {% if region_selected %}
+                        {% for region in regions %}
+                            {% if region.id|stringformat:"s" == region_selected %}
+                                {{ region.nom_region }}
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        Toutes les régions
+                    {% endif %}
+                </span>
+                {% if region_selected %}
+                    <span class="badge">1</span>
+                {% endif %}
+                <i class="fas fa-chevron-down ml-2"></i>
+            </div>
+            
+            <!-- Bouton réinitialiser -->
+            {% if periode_selected or region_selected %}
+            <div class="filter-pill" onclick="resetFilters()" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;">
+                <i class="fas fa-times"></i>
+                <span>Réinitialiser</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Modal Filtre Période -->
+    <div id="periodeModal" class="filter-modal">
+        <div class="filter-modal-content">
+            <div class="filter-modal-header">
+                <div class="filter-modal-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Filtrer par période
+                </div>
+                <button class="filter-modal-close" onclick="closeFilterModal('periode')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="filter-options">
+                <div class="filter-option {% if not periode_selected %}selected{% endif %}" data-value="" onclick="selectFilterOption(this, 'periode')">
+                    <span>Toutes les périodes</span>
+                    <i class="fas fa-check check-icon"></i>
+                </div>
+                <div class="filter-option {% if periode_selected == '7j' %}selected{% endif %}" data-value="7j" onclick="selectFilterOption(this, 'periode')">
+                    <span>7 derniers jours</span>
+                    <i class="fas fa-check check-icon"></i>
+                </div>
+                <div class="filter-option {% if periode_selected == '30j' %}selected{% endif %}" data-value="30j" onclick="selectFilterOption(this, 'periode')">
+                    <span>30 derniers jours</span>
+                    <i class="fas fa-check check-icon"></i>
+                </div>
+                <div class="filter-option {% if periode_selected == '90j' %}selected{% endif %}" data-value="90j" onclick="selectFilterOption(this, 'periode')">
+                    <span>90 derniers jours</span>
+                    <i class="fas fa-check check-icon"></i>
+                </div>
+            </div>
+            
+            <div class="filter-actions">
+                <button class="btn-cancel" onclick="closeFilterModal('periode')">Annuler</button>
+                <button class="btn-apply" onclick="applyFilter('periode')">Appliquer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Filtre Région -->
+    <div id="regionModal" class="filter-modal">
+        <div class="filter-modal-content">
+            <div class="filter-modal-header">
+                <div class="filter-modal-title">
+                    <i class="fas fa-map-marker-alt"></i>
+                    Filtrer par région
+                </div>
+                <button class="filter-modal-close" onclick="closeFilterModal('region')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="filter-options">
+                <div class="filter-option {% if not region_selected %}selected{% endif %}" data-value="" onclick="selectFilterOption(this, 'region')">
+                    <span>Toutes les régions</span>
+                    <i class="fas fa-check check-icon"></i>
+                </div>
+                {% for region in regions %}
+                <div class="filter-option {% if region_selected == region.id|stringformat:'s' %}selected{% endif %}" data-value="{{ region.id }}" onclick="selectFilterOption(this, 'region')">
+                    <span>{{ region.nom_region }}</span>
+                    <i class="fas fa-check check-icon"></i>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="filter-actions">
+                <button class="btn-cancel" onclick="closeFilterModal('region')">Annuler</button>
+                <button class="btn-apply" onclick="applyFilter('region')">Appliquer</button>
+            </div>
         </div>
     </div>
 
     <!-- Liste des envois clôturés -->
-    <div class="mb-6">
-        <h2 class="text-xl font-semibold mb-4">Envois clôturés</h2>
+    <div class="mb-8">
+        <h2 class="section-title">
+            <i class="fas fa-check-double text-blue-600"></i>
+            Envois clôturés
+            <span class="status-badge cloture">
+                {{ envois.object_list|length|default:0 }} résultats
+            </span>
+        </h2>
         
         {% if envois %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for envoi in envois %}
-            <div class="bg-white rounded-lg shadow-md p-5 border-l-4 border-gray-400">
+            <div class="envoi-card cloture" data-envoi-id="{{ envoi.id }}">
                 <!-- Header de la card -->
-                <div class="flex justify-between items-start mb-3">
+                <div class="flex justify-between items-start mb-4">
                     <div>
-                        <h3 class="font-bold text-lg text-gray-800">{{ envoi.numero_envoi }}</h3>
-                        <p class="text-sm text-gray-600">{{ envoi.region.nom_region }}</p>
+                        <h3 class="font-bold text-xl text-gray-800 tooltip" data-tooltip="Numéro d'envoi: {{ envoi.numero_envoi }}">{{ envoi.numero_envoi }}</h3>
+                        <p class="text-sm text-gray-600 flex items-center mt-1">
+                            <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>
+                            {{ envoi.region.nom_region }}
+                        </p>
                     </div>
-                    <span class="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    <span class="status-badge cloture">
+                        <i class="fas fa-check"></i>
                         Clôturé
                     </span>
                 </div>
                 
                 <!-- Détails de l'envoi -->
-                <div class="space-y-2 mb-4">
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Date de création:</span>
-                        <span class="font-medium">{{ envoi.date_creation|date:"d/m/Y" }}</span>
+                <div class="space-y-3 mb-6">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">Date de création:</span>
+                        <span class="font-medium text-sm tooltip" data-tooltip="{{ envoi.date_creation|date:'d/m/Y H:i' }}">{{ envoi.date_creation|date:"d/m/Y" }}</span>
                     </div>
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Date de clôture:</span>
-                        <span class="font-medium">{{ envoi.date_livraison_effective|date:"d/m/Y"|default:"N/A" }}</span>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">Date de clôture:</span>
+                        <span class="font-medium text-sm tooltip" data-tooltip="{{ envoi.date_livraison_effective|date:'d/m/Y H:i'|default:'Non spécifiée' }}">{{ envoi.date_livraison_effective|date:"d/m/Y"|default:"N/A" }}</span>
                     </div>
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Créé par:</span>
-                        <span class="font-medium">{{ envoi.operateur_creation.nom|default:"N/A" }}</span>
+                    {% if envoi.operateur_creation %}
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">Créé par:</span>
+                        <span class="font-medium text-sm tooltip" data-tooltip="Opérateur: {{ envoi.operateur_creation.nom|default:'N/A' }}">{{ envoi.operateur_creation.nom|default:"N/A" }}</span>
                     </div>
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Nb commandes:</span>
-                        <span class="font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ envoi.nb_commandes }}</span>
+                    {% endif %}
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">Commandes:</span>
+                        <span class="font-medium bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{{ envoi.nb_commandes }}</span>
                     </div>
                 </div>
                 
                 <!-- Actions -->
-                <div class="pt-3 border-t">
-                    <button class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                <div class="pt-4 border-t border-gray-200">
+                    <button class="w-full theme-button-primary tooltip"
+                            data-tooltip="Exporter les données de commandes en format Excel"
                             onclick="exporterEnvoiExcel('{{ envoi.id }}', '{{ envoi.numero_envoi }}')">
-                        <span>📊</span> Exporter commandes Excel
+                        <i class="fas fa-download mr-2"></i>
+                        Exporter commandes Excel
                     </button>
                 </div>
             </div>
@@ -120,56 +1053,109 @@
 
         <!-- Pagination -->
         {% if envois.has_other_pages %}
-        <div class="mt-6 flex justify-center">
-            <nav class="flex space-x-1">
-                {% if envois.has_previous %}
-                    <a href="?page=1{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
-                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50">
-                        Première
-                    </a>
-                    <a href="?page={{ envois.previous_page_number }}{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
-                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 hover:bg-gray-50">
-                        Précédent
-                    </a>
-                {% endif %}
+        <div class="pagination-container mt-8">
+            <nav class="flex justify-center">
+                <div class="flex space-x-1">
+                    {% if envois.has_previous %}
+                        <a href="?page=1{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
+                           class="theme-button-secondary tooltip"
+                           data-tooltip="Première page">
+                            <i class="fas fa-angle-double-left mr-1"></i>
+                            Première
+                        </a>
+                        <a href="?page={{ envois.previous_page_number }}{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
+                           class="theme-button-secondary tooltip"
+                           data-tooltip="Page précédente">
+                            <i class="fas fa-angle-left mr-1"></i>
+                            Précédent
+                        </a>
+                    {% endif %}
 
-                <span class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-300">
-                    Page {{ envois.number }} sur {{ envois.paginator.num_pages }}
-                </span>
+                    <span class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg">
+                        Page {{ envois.number }} sur {{ envois.paginator.num_pages }}
+                    </span>
 
-                {% if envois.has_next %}
-                    <a href="?page={{ envois.next_page_number }}{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
-                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 hover:bg-gray-50">
-                        Suivant
-                    </a>
-                    <a href="?page={{ envois.paginator.num_pages }}{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
-                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50">
-                        Dernière
-                    </a>
-                {% endif %}
+                    {% if envois.has_next %}
+                        <a href="?page={{ envois.next_page_number }}{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
+                           class="theme-button-secondary tooltip"
+                           data-tooltip="Page suivante">
+                            Suivant
+                            <i class="fas fa-angle-right ml-1"></i>
+                        </a>
+                        <a href="?page={{ envois.paginator.num_pages }}{% if periode_selected %}&periode={{ periode_selected }}{% endif %}{% if region_selected %}&region={{ region_selected }}{% endif %}" 
+                           class="theme-button-secondary tooltip"
+                           data-tooltip="Dernière page">
+                            Dernière
+                            <i class="fas fa-angle-double-right ml-1"></i>
+                        </a>
+                    {% endif %}
+                </div>
             </nav>
         </div>
         {% endif %}
 
         {% else %}
-        <div class="bg-white rounded-lg shadow-md p-8 text-center">
-            <div class="text-gray-400 text-4xl mb-4">📦</div>
-            <h3 class="text-lg font-medium text-gray-800 mb-2">Aucun envoi clôturé trouvé</h3>
-            <p class="text-gray-600">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-box"></i>
+            </div>
+            <h3 class="text-xl font-medium text-gray-800 mb-2">Aucun envoi clôturé trouvé</h3>
+            <p class="text-gray-600 mb-4">
                 {% if periode_selected or region_selected %}
                     Essayez de modifier les filtres pour voir plus de résultats.
                 {% else %}
                     Il n'y a pas encore d'envois clôturés dans le système.
                 {% endif %}
             </p>
+            {% if periode_selected or region_selected %}
+            <button class="theme-button-primary px-6 py-3 rounded-lg font-medium animate-bounce" onclick="resetFilters()">
+                <i class="fas fa-redo mr-2"></i>
+                Réinitialiser les filtres
+            </button>
+            {% endif %}
         </div>
         {% endif %}
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
+    // Toast notification system
+    function showToast(message, type = 'info', duration = 4000) {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        const icon = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            info: 'fas fa-info-circle',
+            warning: 'fas fa-exclamation-triangle'
+        }[type];
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <i class="${icon} mr-3 text-lg"></i>
+                <div class="flex-1">
+                    <p class="font-medium">${message}</p>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Show animation
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        // Auto remove
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
@@ -177,52 +1163,233 @@
     }
 
     // Fonction pour exporter les commandes d'un envoi clôturé en Excel
-    async function exporterEnvoiExcel(envoiId, numeroEnvoi) {
-        try {
-            // Afficher un indicateur de chargement
-            const button = event.target;
-            const originalText = button.innerHTML;
-            button.disabled = true;
-            button.innerHTML = '<span>⏳</span> Génération Excel...';
+    function exporterEnvoiExcel(envoiId, numeroEnvoi) {
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<div class="loading-spinner mr-2"></div>Génération...';
 
-            // Faire la requête pour télécharger le fichier Excel
-            const response = await fetch(`/Superpreparation/envois/${envoiId}/export-excel/`, {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+        showToast('Génération du fichier Excel en cours...', 'info');
+
+        fetch(`/Superpreparation/export-envoi-excel/${envoiId}/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
                 }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Envoi_${numeroEnvoi}_Commandes.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                showToast('Fichier Excel téléchargé avec succès !', 'success');
+                button.disabled = false;
+                button.innerHTML = originalText;
+            })
+            .catch(error => {
+                console.error('Erreur lors de l\'export:', error);
+                showToast('Erreur lors de la génération du fichier Excel', 'error');
+                button.disabled = false;
+                button.innerHTML = originalText;
             });
+    }
 
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP: ${response.status}`);
-            }
+    // Quick actions functions
+    function refreshPage() {
+        showToast('Actualisation de la page...', 'info');
+        setTimeout(() => window.location.reload(), 1000);
+    }
 
-            // Télécharger le fichier
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Envoi_${numeroEnvoi}_Commandes_Historique.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+    function scrollToTop() {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+        showToast('Retour en haut de page', 'info');
+    }
 
-            // Restaurer le bouton
-            button.disabled = false;
-            button.innerHTML = originalText;
+    function showKeyboardShortcuts() {
+        const shortcuts = [
+            'Ctrl+R : Actualiser la page',
+            'Ctrl+N : Navigation rapide',
+            'Ctrl+F : Recherche',
+            'Echap : Fermer les modales'
+        ];
+        
+        showToast('Raccourcis clavier disponibles', 'info', 5000);
+        
+        // Show detailed shortcuts in console for now
+        console.log('Raccourcis clavier:');
+        shortcuts.forEach(shortcut => console.log('- ' + shortcut));
+    }
 
-        } catch (error) {
-            console.error('Erreur lors de l\'export:', error);
-            alert('Erreur lors de la génération du fichier Excel: ' + error.message);
-            
-            // Restaurer le bouton en cas d'erreur
-            const button = event.target;
-            button.disabled = false;
-            button.innerHTML = '<span>📊</span> Exporter commandes Excel';
+    function resetFilters() {
+        window.location.href = "{% url 'Superpreparation:historique_envois' %}";
+    }
+
+    // Auto-refresh functionality
+    let autoRefreshInterval;
+    
+    function startAutoRefresh() {
+        autoRefreshInterval = setInterval(() => {
+            showToast('Actualisation automatique des données...', 'info', 2000);
+            setTimeout(() => window.location.reload(), 2000);
+        }, 600000); // Refresh every 10 minutes
+    }
+
+    function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
         }
     }
+
+    // Start auto-refresh when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        startAutoRefresh();
+        
+        // Show welcome message
+        setTimeout(() => {
+            showToast('Bienvenue dans l\'historique des envois !', 'info', 3000);
+        }, 1000);
+
+        // Show filter status
+        const hasFilters = {% if periode_selected or region_selected %}true{% else %}false{% endif %};
+        if (hasFilters) {
+            setTimeout(() => {
+                showToast('Filtres actifs détectés', 'warning', 3000);
+            }, 2000);
+        }
+    });
+
+    // Stop auto-refresh when user is inactive
+    let userActivityTimeout;
+    document.addEventListener('mousemove', function() {
+        clearTimeout(userActivityTimeout);
+        userActivityTimeout = setTimeout(stopAutoRefresh, 60000); // Stop after 1 minute of inactivity
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'r':
+                    e.preventDefault();
+                    refreshPage();
+                    break;
+                case 'f':
+                    e.preventDefault();
+                    document.querySelector('select[name="periode"]').focus();
+                    showToast('Recherche par filtres', 'info');
+                    break;
+                case 'n':
+                    e.preventDefault();
+                    window.location.href = "{% url 'Superpreparation:envois' %}";
+                    showToast('Navigation vers les envois actifs', 'info');
+                    break;
+            }
+        } else if (e.key === 'Escape') {
+            // Close any open modals or tooltips
+            const tooltips = document.querySelectorAll('.tooltip:hover');
+            tooltips.forEach(tooltip => tooltip.blur());
+        }
+    });
+
+    // Variables pour les filtres
+    let selectedPeriode = '{{ periode_selected|default:"" }}';
+    let selectedRegion = '{{ region_selected|default:"" }}';
+
+    // Fonctions pour les modales de filtres
+    function openFilterModal(type) {
+        const modal = document.getElementById(type + 'Modal');
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeFilterModal(type) {
+        const modal = document.getElementById(type + 'Modal');
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    }
+
+    function selectFilterOption(element, type) {
+        // Retirer la sélection de tous les autres options
+        const options = element.parentElement.querySelectorAll('.filter-option');
+        options.forEach(option => option.classList.remove('selected'));
+        
+        // Ajouter la sélection à l'option cliquée
+        element.classList.add('selected');
+        
+        // Stocker la valeur sélectionnée
+        if (type === 'periode') {
+            selectedPeriode = element.dataset.value;
+        } else if (type === 'region') {
+            selectedRegion = element.dataset.value;
+        }
+    }
+
+    function applyFilter(type) {
+        // Construire l'URL avec les paramètres
+        let url = "{% url 'Superpreparation:historique_envois' %}?";
+        let params = [];
+        
+        if (selectedPeriode) {
+            params.push('periode=' + selectedPeriode);
+        }
+        if (selectedRegion) {
+            params.push('region=' + selectedRegion);
+        }
+        
+        url += params.join('&');
+        
+        // Fermer la modale
+        closeFilterModal(type);
+        
+        // Rediriger vers la nouvelle URL
+        showToast('Application des filtres...', 'info');
+        setTimeout(() => {
+            window.location.href = url;
+        }, 500);
+    }
+
+    // Fermer les modales en cliquant à l'extérieur
+    document.querySelectorAll('.filter-modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('show');
+                document.body.style.overflow = 'auto';
+            }
+        });
+    });
+
+    // Fermer les modales avec la touche Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.filter-modal.show').forEach(modal => {
+                modal.classList.remove('show');
+                document.body.style.overflow = 'auto';
+            });
+        }
+    });
+
+    // Show scroll to top button when scrolling down
+    window.addEventListener('scroll', function() {
+        const scrollToTopBtn = document.querySelector('.quick-action-btn:nth-child(2)');
+        if (window.scrollY > 300) {
+            scrollToTopBtn.style.opacity = '1';
+            scrollToTopBtn.style.transform = 'scale(1)';
+        } else {
+            scrollToTopBtn.style.opacity = '0.7';
+            scrollToTopBtn.style.transform = 'scale(0.9)';
+        }
+    });
 </script>
+
 {% endblock %}
 
 
