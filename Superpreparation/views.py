@@ -7181,3 +7181,58 @@ def export_commandes_envoi_excel(request, envoi_id):
             'success': False,
             'error': f'Erreur lors de la génération du fichier Excel: {str(e)}'
         }, status=500)
+
+
+@superviseur_preparation_required
+def api_commande_info(request, commande_id):
+    """API pour récupérer les informations détaillées d'une commande pour la modale"""
+    try:
+        # Récupérer la commande
+        commande = get_object_or_404(Commande, id=commande_id)
+        
+        # Récupérer les informations détaillées de manière sécurisée
+        try:
+            etat_actuel = commande.etat_actuel
+        except:
+            etat_actuel = None
+            
+        try:
+            etat_precedent = commande.etat_precedent
+        except:
+            etat_precedent = None
+            
+        try:
+            etat_confirmation = commande.etat_confirmation
+        except:
+            etat_confirmation = None
+            
+        try:
+            operations = commande.operations.all().order_by('-date_operation')
+        except:
+            operations = []
+        
+        # Récupérer les informations détaillées
+        context = {
+            'commande': commande,
+            'etat_actuel': etat_actuel,
+            'etat_precedent': etat_precedent,
+            'etat_confirmation': etat_confirmation,
+            'operations': operations,
+        }
+        
+        # Rendre le template HTML pour les informations détaillées
+        html_content = render_to_string('Superpreparation/partials/_commande_info_modal.html', context)
+        
+        return JsonResponse({
+            'success': True,
+            'html_content': html_content
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur dans api_commande_info: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur lors du chargement des informations: {str(e)}'
+        }, status=500)

@@ -4,8 +4,24 @@
 
 {% block title %}Commandes Confirmées - YZ-CMD{% endblock %}
 
-
+{% block extra_css %}
+{{ block.super }}
 <style>
+    /* Variables CSS harmonisées avec le thème de supervision */
+    :root {
+        /* Utilisation des couleurs du thème de base Superpreparation */
+        --preparation-primary: #070F2B; /* Couleur principale navy */
+        --preparation-dark: #050A1F;   /* Plus sombre */
+        --preparation-light: #0E1D3D;  /* Plus clair */
+        --preparation-text-light: #E6F0FF; /* Texte très clair */
+        --preparation-border-accent: #1E3A8A; /* Accent (indigo) */
+        --preparation-hover-bg: #0B1733; /* Arrière-plan au survol */
+        --preparation-success: #10b981;
+        --preparation-warning: #f59e0b;
+        --preparation-error: #ef4444;
+        --preparation-info: #3b82f6;
+    }
+
     @keyframes slideInUp {
         from {
             opacity: 0;
@@ -17,85 +33,689 @@
         }
     }
     
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    @keyframes bounce {
+        0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0); }
+        40%, 43% { transform: translate3d(0, -30px, 0); }
+        70% { transform: translate3d(0, -15px, 0); }
+        90% { transform: translate3d(0, -4px, 0); }
+    }
+    
     .animate-slideInUp {
         animation: slideInUp 0.6s ease-out forwards;
         opacity: 0;
     }
-
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.375rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.875rem;
-        font-weight: 500;
-        text-transform: capitalize;
+    
+    .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+    
+    .animate-bounce {
+        animation: bounce 1s;
     }
 
-    /* Style pour la modale de succès */
-    .success-modal {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: var(--preparation-primary);
-        padding: 2rem;
-        border-radius: 1rem;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        z-index: 50;
-        max-width: 32rem;
-        width: 90%;
-    }
-
-    .success-modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: var(--preparation-primary);
-        z-index: 40;
-    }
-
-    .success-icon {
-        width: 3rem;
-        height: 3rem;
-        margin: 0 auto 1rem;
-        background-color: var(--preparation-primary);
-        border-radius: 9999px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-    }
-
-    /* Styles harmonisés avec le thème de la page "Liste des Articles" */
+    /* Styles harmonisés avec le thème de supervision */
     .theme-header {
-        background: var(--preparation-primary);
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
         border: 2px solid var(--preparation-border-accent);
-        box-shadow: 0 4px 15px rgba(46, 27, 34, 0.2);
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        border-radius: 16px;
+        padding: 24px;
     }
 
     .theme-card {
-        background: var(--preparation-primary);
+        background: white;
         border: 2px solid var(--preparation-text-light);
-        border-radius: 12px;
+        border-radius: 16px;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 10px rgba(46, 27, 34, 0.1);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 24px;
     }
 
     .theme-card:hover {
         border-color: var(--preparation-border-accent);
-        box-shadow: 0 8px 25px rgba(46, 27, 34, 0.15);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         transform: translateY(-3px);
     }
 
     .theme-button-primary {
-        background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-light));
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
         border: 2px solid var(--preparation-border-accent);
         color: white;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(46, 27, 34, 0.2);
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.2);
+        position: relative;
+        overflow: hidden;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+    }
+
+    .theme-button-primary:hover {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    .theme-button-primary:active {
+        transform: translateY(0);
+    }
+
+    .theme-button-primary::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .theme-button-primary:hover::before {
+        left: 100%;
+    }
+
+    .theme-button-secondary {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        color: var(--preparation-primary);
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .theme-button-secondary:hover {
+        background: var(--preparation-hover-bg);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        color: var(--preparation-primary);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .theme-input {
+        border: 2px solid var(--preparation-text-light);
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        padding: 8px 12px;
+    }
+
+    .theme-input:focus {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        outline: none;
+    }
+
+    /* Styles spécifiques pour les cartes de statistiques */
+    .stats-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+    }
+
+    .stats-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-5px);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .stats-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    /* Styles pour les icônes des statistiques */
+    .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border-radius: 50%;
+        padding: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stats-card:hover .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Styles pour les sections d'information */
+    .info-section {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .info-section:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        pointer-events: none;
+    }
+
+    .toast {
+        background: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 10px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        max-width: 400px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.success {
+        border-left: 4px solid var(--preparation-success);
+    }
+
+    .toast.error {
+        border-left: 4px solid var(--preparation-error);
+    }
+
+    .toast.info {
+        border-left: 4px solid var(--preparation-info);
+    }
+
+    .toast.warning {
+        border-left: 4px solid var(--preparation-warning);
+    }
+
+    .toast::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 3s linear;
+    }
+
+    .toast.show::before {
+        transform: scaleX(1);
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Tooltip styles */
+    .tooltip {
+        position: relative;
+        cursor: help;
+    }
+
+    .tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip::before {
+        content: '';
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: rgba(0,0,0,0.8);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip:hover::after,
+    .tooltip:hover::before {
+        opacity: 1;
+        visibility: visible;
+        bottom: 135%;
+    }
+
+    /* Progress bar for operations */
+    .progress-bar {
+        width: 100%;
+        height: 4px;
+        background: #e5e7eb;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+
+    /* Empty state improvements */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-radius: 16px;
+        border: 2px dashed var(--preparation-text-light);
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        color: var(--preparation-text-light);
+        margin-bottom: 20px;
+        animation: pulse 2s infinite;
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .stats-card {
+            margin-bottom: 16px;
+        }
+        
+        .toast {
+            max-width: calc(100vw - 40px);
+            right: 0;
+        }
+    }
+
+    /* Optimisations d'espacement pour éviter la compression */
+    .main-content {
+        padding: 1rem;
+        min-height: 100vh;
+    }
+
+    .page-header {
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    .stats-card {
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .info-section {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-section {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .table-cell {
+        padding: 12px 16px;
+        font-size: 0.875rem;
+    }
+
+    /* Réduction de la taille des icônes pour économiser l'espace */
+    .stats-icon {
+        width: 50px;
+        height: 50px;
+        padding: 12px;
+    }
+
+    .info-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    /* Optimisation des marges et paddings */
+    .section-title {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+
+    .info-item {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    /* Réduction de la taille des badges */
+    .status-badge {
+        padding: 3px 8px;
+        font-size: 0.75rem;
+    }
+
+    .etat-badge {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+    }
+
+    /* Optimisation des boutons d'action */
+    .action-button {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+
+    /* Réduction de l'espacement des grilles */
+    .grid {
+        gap: 1rem;
+    }
+
+    /* Optimisation pour les écrans moyens */
+    @media (min-width: 769px) and (max-width: 1200px) {
+        .main-content {
+            padding: 1.5rem;
+        }
+        
+        .page-header {
+            padding: 1.5rem;
+        }
+        
+        .stats-card {
+            padding: 1.25rem;
+        }
+        
+        .info-section {
+            padding: 1.25rem;
+        }
+    }
+
+    /* Optimisation pour les grands écrans */
+    @media (min-width: 1201px) {
+        .main-content {
+            padding: 1.5rem;
+        }
+    }
+
+    /* Optimisations supplémentaires pour l'espace */
+    .table-container {
+        max-height: calc(100vh - 400px);
+        overflow-y: auto;
+    }
+
+    .table-container table {
+        min-width: 100%;
+    }
+
+    /* Réduction des marges pour les éléments de pagination */
+    .pagination {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Optimisation des modales pour qu'elles prennent moins d'espace */
+    .modal-content {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    /* Réduction de l'espacement des éléments de formulaire */
+    .form-group {
+        margin-bottom: 0.75rem;
+    }
+
+    /* Optimisation des tooltips pour qu'ils ne prennent pas trop d'espace */
+    .tooltip::after {
+        max-width: 200px;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+
+    /* Améliorations spécifiques pour la visibilité */
+    .page-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        margin-bottom: 32px;
+    }
+
+    .section-title {
+        color: var(--preparation-primary);
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-badge.confirmee {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .status-badge.en-preparation {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .status-badge.terminee {
+        background: #f0f9ff;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:hover {
+        background: #f1f5f9;
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+    }
+
+    .info-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+    }
+
+    .info-icon.blue {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+    }
+
+    .info-icon.green {
+        background: linear-gradient(135deg, #059669 0%, var(--preparation-success) 100%);
+    }
+
+    .info-icon.purple {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+    }
+
+    .info-icon.orange {
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    }
+
+    /* Styles pour le tableau */
+    .table-container {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .table-container:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .table-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+    }
+
+    .table-row {
+        transition: all 0.3s ease;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .table-row:hover {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        transform: translateX(4px);
+    }
+
+    .table-cell {
+        padding: 16px;
+        vertical-align: middle;
+    }
+
+    /* Styles pour les boutons d'action */
+    .action-button {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .action-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    /* Styles pour les badges d'état */
+    .etat-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .etat-badge.confirmee {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .etat-badge.en-preparation {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .etat-badge.terminee {
+        background: #f0f9ff;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
     }
 
     /* Styles pour la barre de progression d'impression multiple */
@@ -110,8 +730,8 @@
 
     #printProgressBar {
         transition: width 0.5s ease-in-out;
-        background: linear-gradient(90deg, #8b5cf6, #3b82f6);
-        box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        box-shadow: 0 2px 4px rgba(7, 15, 43, 0.3);
     }
 
     #printProgressText {
@@ -147,61 +767,78 @@
         transform: none;
     }
 
-    .theme-button-primary:hover {
-        background: linear-gradient(135deg, var(--preparation-light), var(--preparation-primary));
-        border-color: var(--preparation-border-accent);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(46, 27, 34, 0.3);
+    /* Style pour la modale de succès */
+    .success-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        z-index: 50;
+        max-width: 32rem;
+        width: 90%;
+        border: 3px solid var(--preparation-border-accent);
     }
 
-    .theme-button-secondary {
-        background: var(--preparation-text-light);
-        border: 2px solid var(--preparation-border-accent);
-        color: var(--preparation-primary);
-        transition: all 0.3s ease;
-        font-weight: 600;
+    .success-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(8px);
+        z-index: 40;
     }
 
-    .theme-button-secondary:hover {
-        background: var(--preparation-hover-bg);
-        border-color: var(--preparation-border-accent);
-        transform: translateY(-2px);
+    .success-icon {
+        width: 3rem;
+        height: 3rem;
+        margin: 0 auto 1rem;
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         color: white;
     }
 
-    .theme-input {
+    /* Styles pour les champs de recherche */
+    .search-section {
+        background: white;
         border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
-        border-radius: 8px;
     }
 
-    .theme-input:focus {
+    .search-section:hover {
         border-color: var(--preparation-border-accent);
-        box-shadow: 0 0 0 3px rgba(210, 105, 30, 0.1);
-        outline: none;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
     }
 
-    .theme-table-header {
-        background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-light));
-        border-bottom: 3px solid var(--preparation-border-accent);
-        color: white;
-    }
-
+    /* Styles pour la pagination */
     .theme-pagination-controls {
         background: white;
         border: 2px solid var(--preparation-text-light);
         border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(46, 27, 34, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
     }
 
     .theme-pagination-controls:hover {
         border-color: var(--preparation-border-accent);
-        box-shadow: 0 5px 15px rgba(46, 27, 34, 0.15);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
     }
 
+    /* Styles pour les modales */
     .theme-modal {
         border: 3px solid var(--preparation-primary);
-        box-shadow: 0 25px 50px rgba(46, 27, 34, 0.3);
+        box-shadow: 0 25px 50px rgba(7, 15, 43, 0.3);
         border-radius: 16px;
     }
 
@@ -219,168 +856,497 @@
         padding: 20px;
     }
 
-    /* Styles spécifiques pour les cartes de statistiques */
-    .stats-card {
+    /* CORRECTIONS SPÉCIFIQUES POUR LE DÉBORDEMENT DU TABLEAU */
+    .main-content {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* Optimisation du tableau pour éviter le débordement */
+    .table-responsive {
+        width: 100%;
+            overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-responsive table {
+        width: 100%;
+        min-width: 1200px; /* Largeur minimale pour éviter la compression */
+        table-layout: fixed;
+    }
+
+    /* Optimisation des colonnes du tableau */
+    .table-responsive th,
+    .table-responsive td {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px; /* Largeur maximale par colonne */
+    }
+
+    /* Colonnes spécifiques avec largeurs optimisées */
+    .col-checkbox { width: 50px; }
+    .col-id { width: 80px; }
+    .col-externe { width: 100px; }
+    .col-client { width: 180px; }
+    .col-phone { width: 120px; }
+    .col-ville { width: 150px; }
+    .col-total { width: 100px; }
+    .col-date { width: 120px; }
+    .col-operateur { width: 140px; }
+    .col-etat { width: 120px; }
+    .col-actions { width: 100px; }
+
+    /* Optimisation pour les écrans moyens */
+    @media (max-width: 1400px) {
+        .table-responsive table {
+            min-width: 1000px;
+        }
+        
+        .col-client { width: 150px; }
+        .col-ville { width: 120px; }
+        .col-operateur { width: 120px; }
+    }
+
+    /* Optimisation pour les petits écrans */
+    @media (max-width: 1200px) {
+        .table-responsive table {
+            min-width: 900px;
+        }
+        
+        .col-client { width: 120px; }
+        .col-ville { width: 100px; }
+        .col-operateur { width: 100px; }
+        .col-etat { width: 100px; }
+    }
+
+    /* Optimisation pour les très petits écrans */
+    @media (max-width: 768px) {
+        .table-responsive table {
+            min-width: 800px;
+        }
+        
+        .col-client { width: 100px; }
+        .col-ville { width: 80px; }
+        .col-operateur { width: 80px; }
+        .col-etat { width: 80px; }
+    }
+
+    /* Amélioration du scroll horizontal */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
         background: var(--preparation-primary);
-        border: 2px solid var(--preparation-text-light);
-        border-radius: 16px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(46, 27, 34, 0.1);
+        border-radius: 4px;
     }
 
-    .stats-card:hover {
-        border-color: var(--preparation-border-accent);
-        box-shadow: 0 8px 25px rgba(46, 27, 34, 0.2);
-        transform: translateY(-5px);
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--preparation-light);
     }
 
-    /* Styles pour les icônes des statistiques */
+    /* Optimisation de l'espacement général */
+    .page-header {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .stats-card {
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .info-section {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Réduction des marges pour les boutons d'action */
+    .action-buttons {
+        margin-bottom: 1rem;
+    }
+
+    /* Optimisation des contrôles de pagination */
+    .pagination-controls {
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    /* SOLUTION PROFESSIONNELLE POUR DASHBOARD RESPONSIVE */
+    
+    /* Conteneur principal avec calcul automatique de l'espace */
+    .main-content {
+        width: 100%;
+        max-width: 100%;
+        padding: 0.75rem;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+
+    /* Optimisation générale de l'espacement */
+    .page-header {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .stats-card {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .info-section {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .action-buttons {
+        margin-bottom: 1rem;
+    }
+
+    .pagination-controls {
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Tableau responsive professionnel */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-responsive table {
+        width: 100%;
+        min-width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+    }
+
+    /* Largeurs de colonnes adaptatives */
+    .table-responsive th:nth-child(1), .table-responsive td:nth-child(1) { width: 40px; }  /* Checkbox */
+    .table-responsive th:nth-child(2), .table-responsive td:nth-child(2) { width: 70px; }  /* ID YZ */
+    .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 90px; }  /* N° Externe */
+    .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 140px; } /* Client */
+    .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 100px; } /* Téléphone */
+    .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 120px; } /* Ville & Région */
+    .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 80px; }  /* Total */
+    .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 100px; } /* Date Confirmation */
+    .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 120px; } /* Opérateur Conf. */
+    .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 100px; } /* État Préparation */
+    .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 120px; }  /* Actions */
+
+    /* Scrollbar personnalisée */
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--preparation-primary);
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--preparation-light);
+    }
+
+    /* Responsive adaptatif professionnel */
+    @media (max-width: 1400px) {
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.8rem;
+        }
+        
+        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 120px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 100px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 100px; }
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 110px; }  /* Actions */
+    }
+
+    @media (max-width: 1200px) {
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.35rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 100px; }
+        .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 80px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 80px; }
+        .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 80px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 80px; }
+        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 80px; }
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 100px; }  /* Actions */
+    }
+
+    @media (max-width: 768px) {
+        .main-content {
+            padding: 0.5rem;
+        }
+        
+        .page-header {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .stats-card {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-section {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.3rem 0.4rem;
+            font-size: 0.7rem;
+        }
+    }
+
+    /* Optimisation des éléments compacts */
     .stats-icon {
-        background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-light));
-        color: white;
-        border-radius: 50%;
-        padding: 16px;
-        transition: all 0.3s ease;
+        width: 40px;
+        height: 40px;
+        padding: 0.5rem;
+        font-size: 1rem;
     }
 
-    .stats-card:hover .stats-icon {
-        background: linear-gradient(135deg, var(--preparation-light), var(--preparation-primary));
-        transform: scale(1.1);
+    .info-icon {
+        width: 35px;
+        height: 35px;
+            font-size: 0.875rem;
+        }
+
+    .section-title {
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
     }
 
-
-
-
-
-    /* Styles pour les champs de recherche */
-    .search-section {
-        background: white;
-        border: 2px solid var(--preparation-text-light);
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 15px rgba(46, 27, 34, 0.1);
+    .info-item {
+        padding: 0.75rem;
+        gap: 0.5rem;
     }
 
-    .search-section:hover {
-        border-color: var(--preparation-border-accent);
-        box-shadow: 0 6px 20px rgba(46, 27, 34, 0.15);
+    .status-badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.7rem;
+    }
+
+    .etat-badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.65rem;
+    }
+
+    .action-button {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+    }
+
+    /* Optimisation spécifique pour la colonne Actions */
+    .table-responsive th:nth-child(11),
+    .table-responsive td:nth-child(11) {
+        padding: 0.5rem 1rem;
+        text-align: center;
+    }
+
+    .table-responsive td:nth-child(11) .action-button {
+        margin: 0 0.25rem;
+        min-width: 80px;
+    }
+
+    /* Espacement des boutons d'action */
+    .action-buttons-container {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
     }
 </style>
+{% endblock %}
 
 {% block content %}
 {% csrf_token %}
 <div class="main-content transition-all duration-300" id="mainContent">
-    <!-- En-tête de la page -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg bg-[var(--preparation-primary)] border-[2px] border-[var(--preparation-border-accent)] shadow-[0_4px_15px_rgba(46,27,34,0.2)] rounded-xl">
+    <!-- Toast notifications container -->
+    <div class="toast-container" id="toastContainer"></div>
 
-       
-        <div>
-            <h1 class="text-3xl font-bold flex items-center mb-2">
-                <i class="fas fa-check-circle mr-3" style="color: var(--preparation-text-light);"></i>
-                {{ page_title }}
-            </h1>
-            <p style="color: white;">{{ page_subtitle }}</p>
-        </div>
-        <div class="flex items-center gap-4 mt-4 md:mt-0">
-            <div class="text-right">
-                <div class="text-2xl font-bold" style="color: #ffffff;">{{ total_confirmees|default:0 }}</div>
-                <div class="text-sm opacity-80">Total confirmées</div>
+    <!-- En-tête de la page -->
+    <div class="page-header">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+            <div>
+                <h1 class="text-3xl font-bold flex items-center mb-2">
+                    <i class="fas fa-check-circle mr-3 text-green-300"></i>
+                    {{ page_title|default:'Commandes Confirmées' }}
+                </h1>
+                <p class="text-white opacity-90">{{ page_subtitle|default:'Gestion et suivi des commandes confirmées' }}</p>
             </div>
-            <div class="text-right border-l border-white/50 pl-4 ml-4">
-                <div class="text-2xl font-bold" style="color: #ffffff;">{{ montant_total|default:0|floatformat:0 }} DH</div>
-                <div class="text-sm opacity-80">Valeur totale</div>
+            <div class="flex items-center gap-6 mt-4 md:mt-0">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-white">{{ total_confirmees|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">Total confirmées</div>
+                </div>
+                <div class="text-center border-l border-white/30 pl-6 ml-6">
+                    <div class="text-3xl font-bold text-white">{{ montant_total|default:0|floatformat:0 }} DH</div>
+                    <div class="text-sm text-white opacity-80">Valeur totale</div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Statistiques -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <!-- Aujourd'hui -->
-        <div class="stats-card group rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.1s;">
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.1s;">
                 <div class="flex items-center">
                 <div class="stats-icon group-hover:scale-110 transition-all duration-300">
-                        <i class="fas fa-calendar-day text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Aujourd'hui</p>
-                    <p class="text-3xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ confirmees_aujourd_hui|default:0 }}</p>
-                </div>
+                        <i class="fas fa-calendar-day text-xl"></i>
+            </div>
+                    <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Aujourd'hui</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ confirmees_aujourd_hui|default:0 }}</p>
             </div>
         </div>
+            </div>
         <!-- Cette semaine -->
-        <div class="stats-card group rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.2s;">
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.2s;">
                 <div class="flex items-center">
                 <div class="stats-icon group-hover:scale-110 transition-all duration-300">
-                        <i class="fas fa-calendar-week text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Cette semaine</p>
-                    <p class="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ confirmees_semaine|default:0 }}</p>
-                </div>
+                        <i class="fas fa-calendar-week text-xl"></i>
+            </div>
+                    <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Cette semaine</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ confirmees_semaine|default:0 }}</p>
+        </div>
             </div>
         </div>
         <!-- Ce mois -->
-        <div class="stats-card group rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.3s;">
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.3s;">
                 <div class="flex items-center">
                 <div class="stats-icon group-hover:scale-110 transition-all duration-300">
-                        <i class="fas fa-calendar-alt text-2xl"></i>
+                        <i class="fas fa-calendar-alt text-xl"></i>
                     </div>
-                    <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Ce mois</p>
-                    <p class="text-3xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ confirmees_mois|default:0 }}</p>
+                    <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Ce mois</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ confirmees_mois|default:0 }}</p>
                 </div>
             </div>
         </div>
         <!-- Total -->
-        <div class="stats-card group rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.4s;">
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.4s;">
                 <div class="flex items-center">
                 <div class="stats-icon group-hover:scale-110 transition-all duration-300">
-                    <i class="fas fa-check-double text-2xl"></i>
+                    <i class="fas fa-check-double text-xl"></i>
                     </div>
-                    <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Total Confirmées</p>
-                    <p class="text-3xl font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{{ total_confirmees|default:0 }}</p>
+                    <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Total Confirmées</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{{ total_confirmees|default:0 }}</p>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <!-- Section d'informations -->
+    <div class="info-section mb-4">
+        <h2 class="section-title">
+            <i class="fas fa-info-circle text-blue-600"></i>
+            Informations générales
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="info-item">
+                <div class="info-icon green">
+                    <i class="fas fa-check-circle"></i>
+            </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Commandes confirmées</h3>
+                    <p class="text-xs text-gray-600">Commandes validées et prêtes pour la préparation</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon blue">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Affectation opérateurs</h3>
+                    <p class="text-xs text-gray-600">Assignez les commandes aux opérateurs de préparation</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon purple">
+                    <i class="fas fa-print"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Impression multiple</h3>
+                    <p class="text-xs text-gray-600">Imprimez les tickets et codes QR en lot</p>
                 </div>
             </div>
         </div>
     </div>
 
-{% include 'Superpreparation/includes/smart-search-toolbar.html' %}
+    {% include 'Superpreparation/includes/smart-search-toolbar.html' %}
 
     <!-- Actions en masse -->
-    <div class="flex flex-col gap-4 mb-6">
+    <div class="flex flex-col gap-3 action-buttons">
         <!-- Ligne des boutons -->
         <div class="flex gap-2">
-            <button id="bulkAffectBtn" class="px-4 py-2 rounded-lg font-medium transition-all shadow-sm opacity-50 cursor-not-allowed bg-[var(--preparation-primary)] text-white flex items-center gap-2" disabled>
+            <button id="bulkAffectBtn" class="px-3 py-1.5 rounded-lg font-medium transition-all shadow-sm opacity-50 cursor-not-allowed bg-[var(--preparation-primary)] text-white flex items-center gap-2 text-sm" disabled>
                 <i class="fas fa-users-cog"></i> Affecter sélection
             </button>
             
             <!-- Bouton Impression Multiple Fusionné -->
-            <button id="bulkPrintBtn" class="px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white flex items-center gap-2">
-                <i class="fas fa-print"></i> Impression multiple ticket / Impression code QR Articles
+            <button id="bulkPrintBtn" class="px-3 py-1.5 rounded-lg font-medium transition-all shadow-sm bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white flex items-center gap-2 text-sm">
+                <i class="fas fa-print"></i> Impression multiple
             </button>
         </div>
         
         <!-- Barre de progression pour l'impression multiple -->
-        <div id="printProgressContainer" class="hidden w-full bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm font-medium text-gray-700">Progression de l'impression multiple</span>
-                <span id="printProgressPercent" class="text-sm font-bold text-purple-600">0%</span>
+        <div id="printProgressContainer" class="hidden w-full bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-gray-700">Progression impression</span>
+                <span id="printProgressPercent" class="text-xs font-bold text-purple-600">0%</span>
             </div>
-            <div class="bg-gray-200 rounded-full h-3 mb-2">
-                <div id="printProgressBar" class="bg-gradient-to-r from-purple-600 to-blue-600 h-3 rounded-full transition-all duration-500 ease-in-out" style="width: 0%"></div>
+            <div class="bg-gray-200 rounded-full h-2 mb-1">
+                <div id="printProgressBar" class="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-500 ease-in-out" style="width: 0%"></div>
             </div>
-            <div id="printProgressText" class="text-sm text-gray-600 text-center font-medium">En attente...</div>
-            <div id="printProgressSteps" class="flex justify-between mt-3 text-xs text-gray-500">
+            <div id="printProgressText" class="text-xs text-gray-600 text-center font-medium">En attente...</div>
+            <div id="printProgressSteps" class="flex justify-between mt-2 text-xs text-gray-500">
                 <div class="flex items-center">
-                    <div id="step1Icon" class="w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center">
-                        <i class="fas fa-clock text-gray-500"></i>
+                    <div id="step1Icon" class="w-3 h-3 rounded-full bg-gray-300 mr-1 flex items-center justify-center">
+                        <i class="fas fa-clock text-gray-500 text-xs"></i>
                     </div>
                     <span>Tickets</span>
                 </div>
                 <div class="flex items-center">
-                    <div id="step2Icon" class="w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center">
-                        <i class="fas fa-clock text-gray-500"></i>
+                    <div id="step2Icon" class="w-3 h-3 rounded-full bg-gray-300 mr-1 flex items-center justify-center">
+                        <i class="fas fa-clock text-gray-500 text-xs"></i>
                     </div>
                     <span>Codes QR</span>
                 </div>
@@ -390,7 +1356,7 @@
 
     <!-- Message si aucun résultat -->
     {% if not page_obj.object_list %}
-    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4">
         <div class="flex">
             <div class="flex-shrink-0">
                 <i class="fas fa-exclamation-triangle text-yellow-400"></i>
@@ -410,25 +1376,25 @@
 
     <!-- Tableau des commandes confirmées -->
     {% if page_obj.object_list %}
-    <div class="overflow-x-auto mb-8 theme-card rounded-xl shadow-lg">
+    <div class="table-responsive mb-6 theme-card rounded-xl shadow-lg">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-[var(--preparation-primary)] border-b-[3px] border-[var(--preparation-primary)] text-white">
                 <tr>
-                    <th class="px-4 py-3 text-left">
+                    <th class="px-3 py-2 text-left">
                         <input type="checkbox" id="selectAll" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500">
                 </th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Confirmation</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur Conf.</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
-                    <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
-                </tr>
-            </thead>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Date Confirmation</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur Conf.</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
+                    <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
             <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
                 {% include 'Superpreparation/partials/_confirmees_table_body.html' with page_obj=page_obj %}
             </tbody>
@@ -436,7 +1402,7 @@
     </div>
 
     <!-- Contrôles de pagination flexible (style Excel) -->
-    <div class="theme-pagination-controls p-4 mb-6 transition-all duration-300">
+    <div class="theme-pagination-controls pagination-controls transition-all duration-300">
         <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
             <!-- Section Éléments par page -->
             <div class="flex items-center space-x-3">
@@ -488,7 +1454,7 @@
                 <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
                     <i class="fas fa-chart-bar text-sm" style="color: var(--preparation-primary);"></i>
                     <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> commandes confirmées</span>
-                </div>
+                                </div>
             </div>
         </div>
         
@@ -505,7 +1471,7 @@
                         <i class="fas fa-filter text-xs text-blue-500"></i>
                         <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
                     </div>
-        {% endif %}
+                                {% endif %}
                 </div>
                 <div class="flex items-center space-x-2">
                     <i class="fas fa-info-circle text-xs text-gray-400"></i>
@@ -524,7 +1490,7 @@
     <div id="paginationInfoContainer">
         {% include 'Superpreparation/partials/_confirmees_pagination_info.html' %}
     </div>
-    {% endif %}
+                                {% endif %}
 </div>
 
 <!-- Modal d'affectation aux opérateurs de préparation -->
@@ -604,15 +1570,15 @@
                     class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-all duration-200">
                 <i class="fas fa-times mr-2"></i>
                 Annuler
-            </button>
+                                    </button>
             <button onclick="proceedAffectation()" 
                     class="theme-button-primary px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5">
                 <i class="fas fa-check mr-2"></i>
                 Affecter
-            </button>
-        </div>
-    </div>
-</div>
+                                    </button>
+                                </div>
+                                    </div>
+                                </div>
 
 <!-- Modale de succès -->
 <div id="successModal" class="success-modal-overlay hidden">
@@ -627,8 +1593,8 @@
                 OK
             </button>
         </div>
+        </div>
     </div>
-</div>
 
 <!-- Modale d'erreur -->
 <div id="errorModal" class="success-modal-overlay hidden">
@@ -1228,35 +2194,46 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Les fonctions d'impression sont maintenant gérées par impression-modals.js
 
-// Fonction pour afficher/masquer les détails d'état
-function toggleEtatDetails(commandeId) {
-    const detailsElement = document.getElementById(`etat-details-${commandeId}`);
-    if (detailsElement) {
-        detailsElement.classList.toggle('hidden');
-    }
+// Fonction pour afficher la modale d'informations
+function showInfoModal(commandeId, commandeIdYz, clientName) {
+    // Mettre à jour les informations de base
+    document.getElementById('infoCommandeId').textContent = commandeIdYz;
+    document.getElementById('infoClientName').textContent = clientName;
+    
+    // Charger les informations détaillées via AJAX
+    loadCommandeInfo(commandeId);
+    
+    // Afficher la modale
+    document.getElementById('infoModal').classList.remove('hidden');
 }
 
-// Fonction pour finaliser la préparation (changer l'état vers "Préparée")
-function finaliserPreparation(commandeId, idYz) {
-    if (!confirm(`Êtes-vous sûr de vouloir finaliser la préparation de la commande ${idYz} ?`)) {
-        return;
-    }
+// Fonction pour masquer la modale d'informations
+function hideInfoModal() {
+    document.getElementById('infoModal').classList.add('hidden');
+}
+
+// Fonction pour charger les informations de la commande
+function loadCommandeInfo(commandeId) {
+    const contentContainer = document.getElementById('infoModalContent');
     
     // Afficher un indicateur de chargement
-    const button = event.target.closest('button');
-    const originalContent = button.innerHTML;
-    button.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i>';
-    button.disabled = true;
+    contentContainer.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2" style="border-color: var(--preparation-primary);"></div>
+            <span class="ml-3 text-gray-600">Chargement des informations...</span>
+        </div>
+    `;
     
     // Récupérer le token CSRF
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     
-    fetch(`/operateur-supervision/api/finaliser-preparation/${commandeId}/`, {
-        method: 'POST',
+    // Appel AJAX pour récupérer les informations détaillées
+    fetch(`/Superpreparation/api/commande-info/${commandeId}/`, {
+        method: 'GET',
         headers: {
-            'Content-Type': 'application/json',
             'X-CSRFToken': csrfToken,
-        },
+            'X-Requested-With': 'XMLHttpRequest'
+        }
     })
     .then(response => {
         if (!response.ok) {
@@ -1266,29 +2243,48 @@ function finaliserPreparation(commandeId, idYz) {
     })
     .then(data => {
         if (data.success) {
-            // Mettre à jour l'interface en temps réel
-            updateCommandeEtat(commandeId, 'Préparée');
-            
-            // Afficher une notification de succès
-            showNotification('Succès', `La préparation de la commande ${idYz} a été finalisée avec succès.`, 'success');
-            
-            // Recharger la page après un délai pour mettre à jour les statistiques
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
+            contentContainer.innerHTML = data.html_content;
         } else {
-            throw new Error(data.error || 'Erreur lors de la finalisation');
+            contentContainer.innerHTML = `
+                <div class="text-center py-8 text-red-600">
+                    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <p>Erreur lors du chargement des informations</p>
+                </div>
+            `;
         }
     })
     .catch(error => {
-        console.error('Erreur lors de la finalisation:', error);
-        showNotification('Erreur', `Erreur lors de la finalisation: ${error.message}`, 'error');
-        
-        // Restaurer le bouton
-        button.innerHTML = originalContent;
-        button.disabled = false;
+        console.error('Erreur:', error);
+        contentContainer.innerHTML = `
+            <div class="text-center py-8 text-red-600">
+                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                <p>Impossible de charger les informations</p>
+            </div>
+        `;
     });
 }
+
+// Event listeners pour la modale d'informations
+document.addEventListener('DOMContentLoaded', function() {
+    const infoModal = document.getElementById('infoModal');
+    if (infoModal) {
+        // Fermer la modale en cliquant à l'extérieur
+        window.addEventListener('click', (event) => {
+            if (event.target === infoModal) {
+                hideInfoModal();
+            }
+        });
+
+        // Fermer la modale avec la touche Escape
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                hideInfoModal();
+            }
+        });
+    }
+});
+
+
 
 // Fonction pour mettre à jour l'état de la commande en temps réel
 function updateCommandeEtat(commandeId, nouvelEtat) {
@@ -1334,68 +2330,46 @@ function updateCommandeEtat(commandeId, nouvelEtat) {
     }
 }
 
-// Fonction pour afficher les notifications
-function showNotification(title, message, type = 'info') {
-    // Créer l'élément de notification
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 translate-x-full`;
-    
-    // Définir les couleurs selon le type
-    let bgColor, textColor, icon;
-    switch (type) {
-        case 'success':
-            bgColor = 'bg-green-500';
-            textColor = 'text-white';
-            icon = 'fas fa-check-circle';
-            break;
-        case 'error':
-            bgColor = 'bg-red-500';
-            textColor = 'text-white';
-            icon = 'fas fa-exclamation-circle';
-            break;
-        case 'warning':
-            bgColor = 'bg-yellow-500';
-            textColor = 'text-white';
-            icon = 'fas fa-exclamation-triangle';
-            break;
-        default:
-            bgColor = 'bg-blue-500';
-            textColor = 'text-white';
-            icon = 'fas fa-info-circle';
-    }
-    
-    notification.className += ` ${bgColor} ${textColor}`;
-    
-    notification.innerHTML = `
-        <div class="flex items-center">
-            <i class="${icon} mr-3"></i>
-            <div>
-                <div class="font-semibold">${title}</div>
-                <div class="text-sm opacity-90">${message}</div>
+// Toast notification system harmonisé
+function showToast(message, type = 'info', duration = 4000) {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        const icon = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            info: 'fas fa-info-circle',
+            warning: 'fas fa-exclamation-triangle'
+        }[type];
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+            <i class="${icon} mr-3 text-lg"></i>
+            <div class="flex-1">
+                <p class="font-medium">${message}</p>
             </div>
-            <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-gray-400 hover:text-gray-600">
                 <i class="fas fa-times"></i>
             </button>
-        </div>
-    `;
-    
-    // Ajouter à la page
-    document.body.appendChild(notification);
-    
-    // Animation d'entrée
-    setTimeout(() => {
-        notification.classList.remove('translate-x-full');
-    }, 100);
-    
-    // Auto-suppression après 5 secondes
-    setTimeout(() => {
-        notification.classList.add('translate-x-full');
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Show animation
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        // Auto remove
         setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
-        }, 300);
-    }, 5000);
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
+// Fonction pour afficher les notifications (compatibilité)
+function showNotification(title, message, type = 'info') {
+    showToast(`${title}: ${message}`, type);
 }
 
 // Fonction pour rafraîchir automatiquement les données (optionnel)
@@ -1406,11 +2380,85 @@ function startAutoRefresh() {
         // Pour l'instant, on recharge la page
         // window.location.reload();
     }, 30000);
-}
+    }
+
+    // Start auto-refresh when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Show welcome message
+        setTimeout(() => {
+        showToast('Bienvenue dans la gestion des commandes confirmées !', 'info', 3000);
+    }, 1000);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'r':
+                    e.preventDefault();
+                    window.location.reload();
+                    showToast('Page actualisée !', 'info');
+                    break;
+            }
+        }
+    });
 
 // Démarrer le rafraîchissement automatique
 // startAutoRefresh();
 </script>
+
+<!-- Script de recherche intelligente -->
+<script src="{% static 'js/Suivi_des_Commandes/suivi-commandes-smart-search.js' %}"></script>
+<script>
+// Initialiser la recherche intelligente pour cette page
+document.addEventListener('DOMContentLoaded', function() {
+    initSuiviCommandesSearch('confirmees');
+});
+</script>
+
+<!-- Modale d'informations détaillées -->
+<div id="infoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="theme-modal relative p-6 bg-white w-full max-w-3xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down">
+        <!-- En-tête du modal -->
+        <div class="theme-modal-header flex justify-between items-center pb-4">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--preparation-light);">
+                    <i class="fas fa-info-circle text-white text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold" style="color: var(--preparation-light);">Informations détaillées</h3>
+            </div>
+            <button onclick="hideInfoModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-4 max-h-96 overflow-y-auto">
+            <div class="mb-4">
+                <h4 class="text-lg font-semibold text-gray-900 mb-2">
+                    Commande <span id="infoCommandeId" class="font-bold" style="color: var(--preparation-light);"></span>
+                </h4>
+                <p class="text-gray-600">Client: <span id="infoClientName" class="font-medium"></span></p>
+            </div>
+            
+            <!-- Contenu dynamique des informations -->
+            <div id="infoModalContent" class="space-y-4">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="theme-modal-footer flex justify-end space-x-3 pt-4">
+            <button onclick="hideInfoModal()" 
+                    class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-all duration-200">
+                <i class="fas fa-times mr-2"></i>
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- Inclure la modale de choix d'impression -->
 {% include 'Superpreparation/partials/_modal_impression_choice.html' %}

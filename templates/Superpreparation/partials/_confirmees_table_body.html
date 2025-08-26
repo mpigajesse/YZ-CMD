@@ -140,207 +140,16 @@
                         </span>
                     {% endif %}
                     
-                    <!-- Bouton pour afficher/masquer les détails d'état -->
-                    <button onclick="toggleEtatDetails('{{ commande.id }}')" 
+                    <!-- Bouton pour ouvrir la modale d'informations -->
+                    <button onclick="showInfoModal('{{ commande.id }}', '{{ commande.id_yz }}', '{{ commande.client.nom }} {{ commande.client.prenom }}')" 
                             class="ml-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
-                            title="Afficher/masquer les détails d'état">
+                            title="Informations détaillées">
                         <i class="fas fa-info text-gray-600 text-xs"></i>
                     </button>
                 {% endwith %}
             </div>
             
-            <!-- Détails d'état (masqués par défaut) -->
-            <div id="etat-details-{{ commande.id }}" class="hidden mt-2 space-y-1">
-                <!-- Affichage de l'état précédent (si applicable) -->
-                {% if commande.etat_precedent %}
-                    {% if commande.etat_precedent.enum_etat.libelle == 'En cours de livraison' %}
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                            <i class="fas fa-truck mr-1"></i>
-                            Renvoyée depuis livraison
-                        </span>
-                        <div class="text-xs text-red-600 mt-1">
-                            <i class="fas fa-calendar mr-1"></i>
-                            {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
-                        </div>
-                    {% elif commande.etat_precedent.enum_etat.libelle == 'Préparée' %}
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                            <i class="fas fa-undo mr-1"></i>
-                            Renvoyée depuis préparation
-                        </span>
-                        <div class="text-xs text-yellow-600 mt-1">
-                            <i class="fas fa-calendar mr-1"></i>
-                            {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
-                        </div>
-                    {% elif commande.etat_precedent.enum_etat.libelle == 'Confirmée' %}
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                            <i class="fas fa-check-circle mr-1"></i>
-                            Depuis confirmation
-                        </span>
-                        <div class="text-xs text-green-600 mt-1">
-                            <i class="fas fa-calendar mr-1"></i>
-                            {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
-                        </div>
-                    {% else %}
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                            <i class="fas fa-history mr-1"></i>
-                            {{ commande.etat_precedent.enum_etat.libelle }}
-                        </span>
-                        <div class="text-xs text-gray-600 mt-1">
-                            <i class="fas fa-calendar mr-1"></i>
-                            {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
-                        </div>
-                    {% endif %}
-                {% endif %}
-                
-                <!-- Affichage de l'état de confirmation -->
-                {% if commande.etat_confirmation and commande.etat_confirmation.enum_etat.libelle == 'Confirmée' %}
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                        <i class="fas fa-user-tie mr-1"></i>
-                        Confirmée par admin
-                    </span>
-                    <div class="text-xs text-purple-600 mt-1">
-                        <i class="fas fa-calendar mr-1"></i>
-                        {{ commande.etat_confirmation.date_debut|date:"d/m/Y H:i" }}
-                    </div>
-                {% endif %}
-                
-                <!-- Affichage des étapes de préparation -->
-                <div class="mt-2 pt-2 border-t border-gray-200">
-                    <div class="text-xs font-medium text-gray-700 mb-1">Étapes de préparation :</div>
-                    
-                    <!-- Étape 1: En préparation -->
-                    <div class="flex items-center mb-1">
-                        <span class="w-3 h-3 rounded-full bg-blue-500 flex items-center justify-center mr-2">
-                            <i class="fas fa-check text-white text-xs"></i>
-                        </span>
-                        <span class="text-xs text-blue-600">En préparation</span>
-                        <span class="text-xs text-gray-500 ml-2">
-                            {% if commande.etat_actuel.enum_etat.libelle == 'En préparation' %}
-                                <i class="fas fa-clock mr-1"></i>En cours
-                            {% else %}
-                                <i class="fas fa-check mr-1"></i>Terminé
-                            {% endif %}
-                        </span>
-                    </div>
-                    
-                    <!-- Étape 2: Collectée -->
-                    <div class="flex items-center mb-1">
-                        {% if commande.etat_actuel.enum_etat.libelle == 'Collectée' or commande.etat_actuel.enum_etat.libelle == 'Emballée' or commande.etat_actuel.enum_etat.libelle == 'Préparée' %}
-                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
-                                <i class="fas fa-check text-white text-xs"></i>
-                            </span>
-                            <span class="text-xs text-green-600">Collectée</span>
-                            <span class="text-xs text-green-500 ml-2">
-                                <i class="fas fa-check mr-1"></i>Terminé
-                            </span>
-                        {% else %}
-                            <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
-                                <i class="fas fa-circle text-gray-400 text-xs"></i>
-                            </span>
-                            <span class="text-xs text-gray-400">Collectée</span>
-                            <span class="text-xs text-gray-500 ml-2">
-                                <i class="fas fa-clock mr-1"></i>En attente
-                            </span>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Étape 3: Emballée -->
-                    <div class="flex items-center mb-1">
-                        {% if commande.etat_actuel.enum_etat.libelle == 'Emballée' or commande.etat_actuel.enum_etat.libelle == 'Préparée' %}
-                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
-                                <i class="fas fa-check text-white text-xs"></i>
-                            </span>
-                            <span class="text-xs text-green-600">Emballée</span>
-                            <span class="text-xs text-green-500 ml-2">
-                                <i class="fas fa-check mr-1"></i>Terminé
-                            </span>
-                        {% else %}
-                            <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
-                                <i class="fas fa-circle text-gray-400 text-xs"></i>
-                            </span>
-                            <span class="text-xs text-gray-400">Emballée</span>
-                            <span class="text-xs text-gray-500 ml-2">
-                                <i class="fas fa-clock mr-1"></i>En attente
-                            </span>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Étape 4: Préparée (finalisée par superviseur) -->
-                    <div class="flex items-center">
-                        {% if commande.etat_actuel.enum_etat.libelle == 'Préparée' %}
-                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
-                                <i class="fas fa-check text-white text-xs"></i>
-                            </span>
-                            <span class="text-xs text-green-600">Préparée</span>
-                            <span class="text-xs text-green-500 ml-2">
-                                <i class="fas fa-check mr-1"></i>Terminé
-                            </span>
-                        {% else %}
-                            <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
-                                <i class="fas fa-circle text-gray-400 text-xs"></i>
-                            </span>
-                            <span class="text-xs text-gray-400">Préparée</span>
-                            <span class="text-xs text-gray-500 ml-2">
-                                <i class="fas fa-clock mr-1"></i>En attente
-                            </span>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <!-- Affichage de l'affectation aux opérateurs de supervision -->
-                {% if commande.operations.all %}
-                    <div class="mt-2 pt-2 border-t border-gray-200">
-                        <div class="text-xs font-medium text-gray-700 mb-1">Affectations :</div>
-                        {% for operation in commande.operations.all %}
-                            {% if operation.type_operation == 'AFFECTATION_SUPERVISION' or operation.type_operation == 'REAFFECTATION_SUPERVISION' %}
-                                <div class="flex items-center mb-1">
-                                    <span class="w-3 h-3 rounded-full bg-indigo-500 flex items-center justify-center mr-2">
-                                        <i class="fas fa-user-shield text-white text-xs"></i>
-                                    </span>
-                                    <span class="text-xs text-indigo-600">
-                                        {% if operation.type_operation == 'AFFECTATION_SUPERVISION' %}
-                                            Affectée par le supervision
-                                        {% else %}
-                                            Réaffectée par le supervision
-                                        {% endif %}
-                                    </span>
-                                    <span class="text-xs text-gray-500 ml-2">
-                                        <i class="fas fa-calendar mr-1"></i>
-                                        {{ operation.date_operation|date:"d/m/Y H:i" }}
-                                    </span>
-                                </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                {% endif %}
-                
-                <!-- Affichage des changements d'état de préparation -->
-                {% if commande.operations.all %}
-                    <div class="mt-2 pt-2 border-t border-gray-200">
-                        <div class="text-xs font-medium text-gray-700 mb-1">Changements d'état :</div>
-                        {% for operation in commande.operations.all %}
-                            {% if operation.type_operation == 'CHANGEMENT_ETAT_COLLECTEE' or operation.type_operation == 'CHANGEMENT_ETAT_EMBALLEE' %}
-                                <div class="flex items-center mb-1">
-                                    <span class="w-3 h-3 rounded-full bg-orange-500 flex items-center justify-center mr-2">
-                                        <i class="fas fa-{% if operation.type_operation == 'CHANGEMENT_ETAT_COLLECTEE' %}box{% else %}boxes{% endif %} text-white text-xs"></i>
-                                    </span>
-                                    <span class="text-xs text-orange-600">
-                                        {% if operation.type_operation == 'CHANGEMENT_ETAT_COLLECTEE' %}
-                                            Marquée comme collectée
-                                        {% else %}
-                                            Marquée comme emballée
-                                        {% endif %}
-                                    </span>
-                                    <span class="text-xs text-gray-500 ml-2">
-                                        <i class="fas fa-calendar mr-1"></i>
-                                        {{ operation.date_operation|date:"d/m/Y H:i" }}
-                                    </span>
-                                </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
+
         </div>
     </td>
 
@@ -395,14 +204,7 @@
             </button>
             {% endif %}
             
-            <!-- Bouton Finaliser Préparation (si emballée) -->
-            {% if commande.etat_actuel.enum_etat.libelle == 'Emballée' %}
-            <button onclick="finaliserPreparation({{ commande.id }}, '{{ commande.id_yz }}')" 
-                    class="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
-                    title="Finaliser Préparation">
-                <i class="fas fa-check-double text-sm"></i>
-            </button>
-            {% endif %}
+
         </div>
     </td>
 </tr>

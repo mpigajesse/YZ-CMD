@@ -30,6 +30,7 @@ urlpatterns = [
     # path('etiquettes-articles/', views.etiquettes_articles_view, name='etiquettes_articles'),
     path('api/commande/<int:commande_id>/articles/', views.api_articles_commande, name='api_articles_commande'),
     path('api/commandes-confirmees/', views.api_commandes_confirmees, name='api_commandes_confirmees'),
+    path('api/commande-info/<int:commande_id>/', views.api_commande_info, name='api_commande_info'),
     # Impression supprimée (gérée par Gestion des étiquettes)
     path('modifier-commande/<int:commande_id>/', views.modifier_commande_prepa, name='modifier_commande'),
     path('modifier-commande-superviseur/<int:commande_id>/', views.modifier_commande_superviseur, name='modifier_commande_superviseur'),
