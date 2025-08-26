@@ -85,33 +85,28 @@ class OperationAdmin(admin.ModelAdmin):
     
 @admin.register(Envoi)
 class EnvoiAdmin(admin.ModelAdmin):
-    list_display = ('numero_envoi', 'date_envoi', 'livreur', 'region', 'nb_commandes', 'status', 'date_creation')
-    list_filter = ('status', 'date_envoi', 'region')
-    search_fields = ('numero_envoi', 'livreur__nom', 'livreur__prenom', 'region__nom')
+    list_display = ('numero_envoi', 'region', 'date_creation', 'date_livraison_effective', 'nb_commandes', 'status_display')
+    list_filter = ('status', 'region', 'date_creation')
+    search_fields = ('numero_envoi', 'region__nom_region')
     ordering = ('-date_creation',)
-    readonly_fields = ('numero_envoi', 'date_creation', 'date_modification', 'nb_commandes', 'valeur_totale')
+    readonly_fields = ('numero_envoi', 'date_creation', 'date_modification')
+    
+    def status_display(self, obj):
+        """Affiche le statut de manière lisible"""
+        return "En cours" if obj.status else "Clôturé"
+    status_display.short_description = "Statut"
     
     fieldsets = (
         ('Informations principales', {
-            'fields': ('numero_envoi', 'date_envoi', 'date_livraison_prevue', 'status')
+            'fields': ('numero_envoi', 'region', 'date_envoi', 'date_livraison_prevue', 'status')
         }),
-        ('Assignation', {
-            'fields': ('livreur', 'region')
+        ('Commandes', {
+            'fields': ('commande', 'nb_commandes'),
         }),
-        ('Statistiques', {
-            'fields': ('nb_commandes', 'valeur_totale', 'poids_total'),
-            'classes': ('collapse',)
-        }),
-        ('Reports et livraison', {
-            'fields': ('date_report', 'motif_report', 'date_livraison_effective'),
-            'classes': ('collapse',)
-        }),
-        ('Notes', {
-            'fields': ('notes_preparation', 'notes_livraison', 'commentaire'),
-            'classes': ('collapse',)
+        ('Dates', {
+            'fields': ('date_creation', 'date_livraison_effective', 'date_modification'),
         }),
         ('Traçabilité', {
-            'fields': ('operateur_creation', 'operateur_modification', 'date_creation', 'date_modification'),
-            'classes': ('collapse',)
+            'fields': ('operateur_creation',),
         }),
     )

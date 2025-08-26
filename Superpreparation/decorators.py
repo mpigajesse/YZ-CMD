@@ -13,6 +13,10 @@ def superviseur_preparation_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
+            # Pour les requêtes AJAX, renvoyer JSON au lieu de rediriger
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                from django.http import JsonResponse
+                return JsonResponse({'success': False, 'message': 'Authentification requise'}, status=401)
             return redirect('login')
         
         try:
@@ -22,6 +26,10 @@ def superviseur_preparation_required(view_func):
             if operateur.type_operateur in ['SUPERVISEUR_PREPARATION', 'PREPARATION', 'ADMIN']:
                 return view_func(request, *args, **kwargs)
             else:
+                # Pour les requêtes AJAX, renvoyer JSON au lieu de rediriger
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    from django.http import JsonResponse
+                    return JsonResponse({'success': False, 'message': 'Accès non autorisé. Seuls les superviseurs et opérateurs de préparation peuvent accéder à cette fonction.'}, status=403)
                 messages.error(request, "Accès non autorisé. Seuls les superviseurs et opérateurs de préparation peuvent accéder à cette page.")
                 return redirect('Superpreparation:home')
                 
@@ -29,6 +37,11 @@ def superviseur_preparation_required(view_func):
             # Fallback si pas de profil: autoriser selon groupes Django
             if request.user.groups.filter(name__in=['superviseur', 'operateur_preparation']).exists():
                 return view_func(request, *args, **kwargs)
+            
+            # Pour les requêtes AJAX, renvoyer JSON au lieu de rediriger
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                from django.http import JsonResponse
+                return JsonResponse({'success': False, 'message': 'Votre profil opérateur n\'existe pas.'}, status=403)
             messages.error(request, "Votre profil opérateur n'existe pas.")
             return redirect('login')
     

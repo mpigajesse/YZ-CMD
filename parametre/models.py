@@ -6,6 +6,7 @@ from django.utils import timezone
 
 class Region(models.Model):
     nom_region = models.CharField(max_length=100, unique=True)
+    actif = models.BooleanField(default=False)
     
     class Meta:
         verbose_name = "Région"

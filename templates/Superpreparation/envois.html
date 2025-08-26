@@ -1,0 +1,339 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="p-4">
+    <h1 class="text-2xl font-bold mb-2">{{ page_title|default:'Gestion des envois' }}</h1>
+    <p class="text-sm text-gray-600 mb-4">{{ page_subtitle|default:'Créer et suivre les envois en cours' }}</p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="bg-white rounded shadow p-4">
+            <h2 class="font-semibold mb-3">Informations générales</h2>
+            <div class="text-sm text-gray-600">
+                <p>• Les envois sont créés automatiquement par région</p>
+                <p>• Utilisez les boutons "Créer envoi" ci-dessous pour chaque région</p>
+                <p>• Les envois actifs sont affichés dans le tableau ci-dessous</p>
+            </div>
+        </div>
+
+        
+    </div>
+
+    <!-- Section des envois actifs avec cards -->
+    <div class="mt-6">
+        <h2 class="text-xl font-semibold mb-4">Envois actifs</h2>
+        
+        {% if envois_actifs %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for envoi in envois_actifs %}
+            <div class="bg-white rounded-lg shadow-md p-5 border-l-4 {% if envoi.status %}border-green-500{% else %}border-gray-400{% endif %}">
+                <!-- Header de la card -->
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-800">{{ envoi.numero_envoi }}</h3>
+                        <p class="text-sm text-gray-600">{{ envoi.region.nom_region }}</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-medium
+                        {% if envoi.status %}bg-green-100 text-green-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {% if envoi.status %}En cours{% else %}Clôturé{% endif %}
+                    </span>
+                </div>
+                
+                <!-- Détails de l'envoi -->
+                <div class="space-y-2 mb-4">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Date de création:</span>
+                        <span class="font-medium">{{ envoi.date_creation|date:"d/m/Y" }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Nb commandes:</span>
+                        <span class="font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ envoi.nb_commandes }}</span>
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="pt-3 border-t space-y-2">
+                    <!-- Export Excel -->
+                    <button class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            onclick="exporterEnvoiExcel('{{ envoi.id }}', '{{ envoi.numero_envoi }}')">
+                        <span>📊</span> Exporter commandes Excel
+                    </button>
+                    
+                    <!-- Clôturer/Status -->
+                    {% if envoi.status %}
+                    <button class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            onclick="cloturerEnvoi('{{ envoi.id }}', '{{ envoi.numero_envoi }}')">
+                        <span>🔒</span> Clôturer l'envoi
+                    </button>
+                    {% else %}
+                    <button class="w-full bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium cursor-not-allowed" disabled>
+                        <span>✅</span> Envoi clôturé
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-white rounded-lg shadow-md p-8 text-center">
+            <div class="text-gray-400 text-4xl mb-4">📦</div>
+            <h3 class="text-lg font-medium text-gray-800 mb-2">Aucun envoi actif</h3>
+            <p class="text-gray-600">Créez votre premier envoi en utilisant les boutons de région ci-dessous.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="bg-white rounded shadow p-4 mt-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="font-semibold">Créer un envoi par région</h2>
+            <div class="flex gap-2">
+                <button id="selectAllBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                    <span>☑️</span> Tout sélectionner
+                </button>
+                <button id="createMultipleBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors" style="display: none;">
+                    <span>🚀</span> Créer les envois sélectionnés
+                </button>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {% for region in regions %}
+            <div class="flex items-center border rounded p-3 {% if region.id in regions_avec_envoi_actif %}bg-gray-50{% endif %} region-card" data-region-id="{{ region.id }}">
+                {% if not region.id in regions_avec_envoi_actif %}
+                <div class="mr-3">
+                    <input type="checkbox" class="region-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" 
+                           value="{{ region.id }}" onchange="updateMultipleButton()">
+                </div>
+                {% endif %}
+                <div class="flex-grow">
+                    <div class="font-medium {% if region.id in regions_avec_envoi_actif %}text-gray-500{% endif %}">{{ region.nom_region }}</div>
+                    {% if region.id in regions_avec_envoi_actif %}
+                    <div class="text-xs text-orange-600 mt-1">
+                        <span>⚠️</span> Envoi actif en cours
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="ml-3">
+                    {% if region.id in regions_avec_envoi_actif %}
+                    <button class="bg-gray-400 text-gray-600 px-3 py-1 rounded text-sm cursor-not-allowed" disabled>
+                        <span>🔒</span> Envoi existant
+                    </button>
+                    {% else %}
+                    <button class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                            onclick="creerEnvoiRegion('{{ region.id }}')">
+                        <span>➕</span> Créer envoi
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    async function creerEnvoiRegion(regionId) {
+        try {
+            const formData = new FormData();
+            formData.append('region_id', regionId);
+            const csrftoken = getCookie('csrftoken');
+            const response = await fetch('{% url "Superpreparation:creer_envoi_region" %}', {
+                method: 'POST',
+                headers: { 
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('Envoi créé: ' + data.numero);
+                // Recharger la page pour afficher le nouvel envoi
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.message);
+            }
+        } catch (e) {
+            alert('Erreur: ' + e);
+        }
+    }
+
+    async function cloturerEnvoi(envoiId, numeroEnvoi) {
+        if (!confirm(`Êtes-vous sûr de vouloir clôturer l'envoi ${numeroEnvoi} ?`)) {
+            return;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('envoi_id', envoiId);
+            const csrftoken = getCookie('csrftoken');
+            const response = await fetch('{% url "Superpreparation:cloturer_envoi" %}', {
+                method: 'POST',
+                headers: { 
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('Envoi clôturé avec succès: ' + data.message);
+                // Recharger la page pour mettre à jour la liste
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.message);
+            }
+        } catch (e) {
+            alert('Erreur: ' + e);
+        }
+    }
+
+    // Gestion de la sélection multiple
+    function updateMultipleButton() {
+        const checkboxes = document.querySelectorAll('.region-checkbox:checked');
+        const button = document.getElementById('createMultipleBtn');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        
+        if (checkboxes.length > 0) {
+            button.style.display = 'block';
+            button.innerHTML = `<span>🚀</span> Créer ${checkboxes.length} envoi${checkboxes.length > 1 ? 's' : ''}`;
+            selectAllBtn.innerHTML = '<span>❌</span> Tout désélectionner';
+        } else {
+            button.style.display = 'none';
+            selectAllBtn.innerHTML = '<span>☑️</span> Tout sélectionner';
+        }
+    }
+
+    // Sélectionner/Désélectionner toutes les régions disponibles
+    document.getElementById('selectAllBtn').addEventListener('click', function() {
+        const checkboxes = document.querySelectorAll('.region-checkbox');
+        const checkedCount = document.querySelectorAll('.region-checkbox:checked').length;
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = checkedCount === 0;
+        });
+        
+        updateMultipleButton();
+    });
+
+    // Créer plusieurs envois en une fois
+    document.getElementById('createMultipleBtn').addEventListener('click', async function() {
+        const checkboxes = document.querySelectorAll('.region-checkbox:checked');
+        const regionIds = Array.from(checkboxes).map(cb => cb.value);
+        
+        if (regionIds.length === 0) {
+            alert('Veuillez sélectionner au moins une région');
+            return;
+        }
+
+        if (!confirm(`Êtes-vous sûr de vouloir créer ${regionIds.length} envoi${regionIds.length > 1 ? 's' : ''} ?`)) {
+            return;
+        }
+
+        // Désactiver le bouton pendant le traitement
+        this.disabled = true;
+        this.innerHTML = '<span>⏳</span> Création en cours...';
+
+        let successCount = 0;
+        let errors = [];
+
+        for (let regionId of regionIds) {
+            try {
+                const formData = new FormData();
+                formData.append('region_id', regionId);
+                const csrftoken = getCookie('csrftoken');
+                const response = await fetch('{% url "Superpreparation:creer_envoi_region" %}', {
+                    method: 'POST',
+                    headers: { 
+                        'X-CSRFToken': csrftoken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    successCount++;
+                } else {
+                    errors.push(`Région ${regionId}: ${data.message}`);
+                }
+            } catch (e) {
+                errors.push(`Région ${regionId}: Erreur de connexion`);
+            }
+        }
+
+        // Afficher le résultat
+        let message = `${successCount} envoi${successCount > 1 ? 's créés' : ' créé'} avec succès`;
+        if (errors.length > 0) {
+            message += `\n\nErreurs:\n${errors.join('\n')}`;
+        }
+        alert(message);
+
+        // Recharger la page
+        location.reload();
+    });
+
+    // Fonction pour exporter les commandes d'un envoi en Excel
+    function exporterEnvoiExcel(envoiId, numeroEnvoi, button) {
+        // Si le bouton n'est pas passé, le trouver via event
+        if (!button) {
+            button = event.target;
+        }
+        
+        exporterEnvoiExcelAsync(envoiId, numeroEnvoi, button);
+    }
+
+    async function exporterEnvoiExcelAsync(envoiId, numeroEnvoi, button) {
+        try {
+            // Afficher un indicateur de chargement
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<span>⏳</span> Génération Excel...';
+
+            // Faire la requête pour télécharger le fichier Excel
+            const response = await fetch(`/Superpreparation/envois/${envoiId}/export-excel/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+
+            // Télécharger le fichier
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Envoi_${numeroEnvoi}_Commandes.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            // Restaurer le bouton
+            button.disabled = false;
+            button.innerHTML = originalText;
+
+        } catch (error) {
+            console.error('Erreur lors de l\'export:', error);
+            alert('Erreur lors de la génération du fichier Excel: ' + error.message);
+            
+            // Restaurer le bouton en cas d'erreur
+            button.disabled = false;
+            button.innerHTML = '<span>📊</span> Exporter commandes Excel';
+        }
+    }
+</script>
+{% endblock %}
+
