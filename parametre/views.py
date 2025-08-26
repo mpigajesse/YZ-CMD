@@ -2,12 +2,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import JsonResponse, HttpResponse
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db.models import Q, Count, Avg, Min, Max, Sum
 from django.contrib.auth.models import User, Group
 from django.contrib import messages
 from .models import Region, Ville, Operateur, HistoriqueMotDePasse
-from article.models import Article
+from article.models import Article, Couleur, Pointure, VarianteArticle
 from commande.models import Commande, EtatCommande, EnumEtatCmd
 from django.contrib.messages import success, error
 from django.views.decorators.http import require_POST
@@ -2983,3 +2983,214 @@ def export_operateur_excel(request, operateur_id):
     
     wb.save(response)
     return response
+
+# ============================================================================
+# VUES POUR LA GESTION DES COULEURS ET POINTURES
+# ============================================================================
+
+@staff_member_required
+@login_required
+def gestion_couleurs_pointures(request):
+    """Page principale de gestion des couleurs et pointures"""
+    # Paramètres de recherche et pagination
+    search_couleur = request.GET.get('search_couleur', '')
+    search_pointure = request.GET.get('search_pointure', '')
+    page_couleur = request.GET.get('page_couleur', 1)
+    page_pointure = request.GET.get('page_pointure', 1)
+    items_per_page = request.GET.get('items_per_page', 10)
+    
+    # Filtrage des couleurs
+    couleurs_queryset = Couleur.objects.all().order_by('nom')
+    if search_couleur:
+        couleurs_queryset = couleurs_queryset.filter(
+            Q(nom__icontains=search_couleur) |
+            Q(description__icontains=search_couleur) |
+            Q(code_hex__icontains=search_couleur)
+        )
+    
+    # Filtrage des pointures
+    pointures_queryset = Pointure.objects.all().order_by('ordre', 'pointure')
+    if search_pointure:
+        pointures_queryset = pointures_queryset.filter(
+            Q(pointure__icontains=search_pointure) |
+            Q(description__icontains=search_pointure)
+        )
+    
+    # Pagination des couleurs
+    paginator_couleur = Paginator(couleurs_queryset, items_per_page)
+    try:
+        couleurs_page = paginator_couleur.page(page_couleur)
+    except (PageNotAnInteger, EmptyPage):
+        couleurs_page = paginator_couleur.page(1)
+    
+    # Pagination des pointures
+    paginator_pointure = Paginator(pointures_queryset, items_per_page)
+    try:
+        pointures_page = paginator_pointure.page(page_pointure)
+    except (PageNotAnInteger, EmptyPage):
+        pointures_page = paginator_pointure.page(1)
+    
+    context = {
+        'couleurs': couleurs_page,
+        'pointures': pointures_page,
+        'search_couleur': search_couleur,
+        'search_pointure': search_pointure,
+        'items_per_page': items_per_page,
+        'total_couleurs': couleurs_queryset.count(),
+        'total_pointures': pointures_queryset.count(),
+        'couleurs_count': couleurs_queryset.count(),
+        'pointures_count': pointures_queryset.count(),
+    }
+    return render(request, 'parametre/gestion_couleurs_pointures.html', context)
+
+@staff_member_required
+@login_required
+@require_POST
+def creer_couleur(request):
+    """Créer une nouvelle couleur"""
+    nom = request.POST.get('nom')
+    code_hex = request.POST.get('code_hex', '').strip()
+    description = request.POST.get('description', '').strip()
+    actif = request.POST.get('actif') == 'on'
+    
+    if nom:
+        if Couleur.objects.filter(nom__iexact=nom).exists():
+            messages.error(request, f'Une couleur avec le nom "{nom}" existe déjà.')
+        else:
+            Couleur.objects.create(
+                nom=nom,
+                code_hex=code_hex if code_hex else None,
+                description=description if description else None,
+                actif=actif
+            )
+            messages.success(request, f'La couleur "{nom}" a été créée avec succès.')
+    else:
+        messages.error(request, 'Le nom de la couleur est requis.')
+    
+    return redirect('app_admin:gestion_couleurs_pointures')
+
+@staff_member_required
+@login_required
+@require_POST
+def modifier_couleur(request, couleur_id):
+    """Modifier une couleur existante"""
+    couleur = get_object_or_404(Couleur, id=couleur_id)
+    nom = request.POST.get('nom')
+    code_hex = request.POST.get('code_hex', '').strip()
+    description = request.POST.get('description', '').strip()
+    actif = request.POST.get('actif') == 'on'
+    
+    if nom:
+        if Couleur.objects.filter(nom__iexact=nom).exclude(id=couleur_id).exists():
+            messages.error(request, f'Une couleur avec le nom "{nom}" existe déjà.')
+        else:
+            couleur.nom = nom
+            couleur.code_hex = code_hex if code_hex else None
+            couleur.description = description if description else None
+            couleur.actif = actif
+            couleur.save()
+            messages.success(request, f'La couleur a été modifiée en "{nom}".')
+    else:
+        messages.error(request, 'Le nom de la couleur est requis.')
+    
+    return redirect('app_admin:gestion_couleurs_pointures')
+
+@staff_member_required
+@login_required
+@require_POST
+def supprimer_couleur(request, couleur_id):
+    """Supprimer une couleur"""
+    couleur = get_object_or_404(Couleur, id=couleur_id)
+    nom = couleur.nom
+    
+    # Vérifier si la couleur est utilisée dans des variantes d'articles
+    variantes_utilisant_couleur = VarianteArticle.objects.filter(couleur=couleur).count()
+    
+    if variantes_utilisant_couleur > 0:
+        messages.error(request, f'Impossible de supprimer la couleur "{nom}" car elle est utilisée dans {variantes_utilisant_couleur} variante(s) d\'article(s).')
+    else:
+        couleur.delete()
+        messages.success(request, f'La couleur "{nom}" a été supprimée avec succès.')
+    
+    return redirect('app_admin:gestion_couleurs_pointures')
+
+@staff_member_required
+@login_required
+@require_POST
+def creer_pointure(request):
+    """Créer une nouvelle pointure"""
+    pointure = request.POST.get('pointure')
+    description = request.POST.get('description', '').strip()
+    ordre = request.POST.get('ordre', '0')
+    actif = request.POST.get('actif') == 'on'
+    
+    if pointure:
+        if Pointure.objects.filter(pointure__iexact=pointure).exists():
+            messages.error(request, f'Une pointure avec le nom "{pointure}" existe déjà.')
+        else:
+            try:
+                ordre_int = int(ordre) if ordre else 0
+            except ValueError:
+                ordre_int = 0
+                
+            Pointure.objects.create(
+                pointure=pointure,
+                description=description if description else None,
+                ordre=ordre_int,
+                actif=actif
+            )
+            messages.success(request, f'La pointure "{pointure}" a été créée avec succès.')
+    else:
+        messages.error(request, 'Le nom de la pointure est requis.')
+    
+    return redirect('app_admin:gestion_couleurs_pointures')
+
+@staff_member_required
+@login_required
+@require_POST
+def modifier_pointure(request, pointure_id):
+    """Modifier une pointure existante"""
+    pointure_obj = get_object_or_404(Pointure, id=pointure_id)
+    pointure_nom = request.POST.get('pointure')
+    description = request.POST.get('description', '').strip()
+    ordre = request.POST.get('ordre', '0')
+    actif = request.POST.get('actif') == 'on'
+    
+    if pointure_nom:
+        if Pointure.objects.filter(pointure__iexact=pointure_nom).exclude(id=pointure_id).exists():
+            messages.error(request, f'Une pointure avec le nom "{pointure_nom}" existe déjà.')
+        else:
+            try:
+                ordre_int = int(ordre) if ordre else 0
+            except ValueError:
+                ordre_int = 0
+                
+            pointure_obj.pointure = pointure_nom
+            pointure_obj.description = description if description else None
+            pointure_obj.ordre = ordre_int
+            pointure_obj.actif = actif
+            pointure_obj.save()
+            messages.success(request, f'La pointure a été modifiée en "{pointure_nom}".')
+    else:
+        messages.error(request, 'Le nom de la pointure est requis.')
+    
+    return redirect('app_admin:gestion_couleurs_pointures')
+
+@staff_member_required
+@login_required
+@require_POST
+def supprimer_pointure(request, pointure_id):
+    """Supprimer une pointure"""
+    pointure_obj = get_object_or_404(Pointure, id=pointure_id)
+    nom = pointure_obj.pointure
+    
+    # Vérifier si la pointure est utilisée dans des variantes d'articles
+    variantes_utilisant_pointure = VarianteArticle.objects.filter(pointure=pointure_obj).count()
+    
+    if variantes_utilisant_pointure > 0:
+        messages.error(request, f'Impossible de supprimer la pointure "{nom}" car elle est utilisée dans {variantes_utilisant_pointure} variante(s) d\'article(s).')
+    else:
+        pointure_obj.delete()
+        messages.success(request, f'La pointure "{nom}" a été supprimée avec succès.')
+    
+    return redirect('app_admin:gestion_couleurs_pointures')

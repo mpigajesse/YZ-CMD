@@ -10,6 +10,7 @@ import json
 from commande.models import Commande, EtatCommande, EnumEtatCmd
 from parametre.models import Region, Ville, Operateur
 from article.models import Article
+from commande.models import Panier
 
 
 @login_required
@@ -20,11 +21,11 @@ def global_search_view(request):
 
 @login_required
 def global_search_api(request):
-    """API pour la recherche globale en temps réel - Préparation"""
+    """API de recherche globale pour les opérateurs de préparation"""
     query = request.GET.get('q', '').strip()
     category = request.GET.get('category', 'all')
     
-    if not query or len(query) < 2:
+    if len(query) < 2:
         return JsonResponse({
             'success': False,
             'message': 'Requête trop courte',
@@ -33,37 +34,32 @@ def global_search_api(request):
     
     results = {
         'commandes': [],
-        'articles': [],
-        'stock': [],
-        'regions': [],
-        'villes': [],
-        'statistiques': []
+        'articles_panier': [],
+        'exports': [],
+        'fonctionnalites': [],
+        'profile': []
     }
     
     try:
-        # Recherche dans les commandes (pour préparation)
+        # Recherche dans les commandes
         if category in ['all', 'commandes']:
             results['commandes'] = search_commandes_preparation(query, request)
         
-        # Recherche dans les articles
-        if category in ['all', 'articles']:
-            results['articles'] = search_articles_preparation(query)
+        # Recherche dans les articles du panier des commandes en préparation
+        if category in ['all', 'articles_panier']:
+            results['articles_panier'] = search_articles_panier_preparation(query)
         
-        # Recherche dans le stock
-        if category in ['all', 'stock']:
-            results['stock'] = search_stock_preparation(query)
+        # Recherche dans les exports et rapports
+        if category in ['all', 'exports']:
+            results['exports'] = search_exports_preparation(query)
         
-        # Recherche dans les régions
-        if category in ['all', 'regions']:
-            results['regions'] = search_regions_preparation(query, request)
+        # Recherche dans les fonctionnalités
+        if category in ['all', 'fonctionnalites']:
+            results['fonctionnalites'] = search_fonctionnalites_preparation(query)
         
-        # Recherche dans les villes
-        if category in ['all', 'villes']:
-            results['villes'] = search_villes_preparation(query, request)
-        
-        # Recherche dans les statistiques
-        if category in ['all', 'statistiques']:
-            results['statistiques'] = search_statistiques_preparation(query)
+        # Recherche dans le profil
+        if category in ['all', 'profile']:
+            results['profile'] = search_profile_preparation(query)
         
         return JsonResponse({
             'success': True,
@@ -88,7 +84,6 @@ def search_commandes_preparation(query, request=None):
     if query.isdigit():
         try:
             cmd = Commande.objects.get(id=int(query))
-            # Pour la recherche par ID, être plus permissif
             commandes.append({
                 'id': cmd.id,
                 'type': 'commande',
@@ -118,7 +113,7 @@ def search_commandes_preparation(query, request=None):
     except Commande.DoesNotExist:
         pass
     
-    # Recherche par client (exclure les recherches déjà faites par numéro externe)
+    # Recherche par client
     commandes_client = Commande.objects.filter(
         Q(client__nom__icontains=query) |
         Q(client__prenom__icontains=query) |
@@ -128,7 +123,6 @@ def search_commandes_preparation(query, request=None):
     )[:10]
     
     for cmd in commandes_client:
-        # Pour la recherche par client, être plus permissif
         commandes.append({
             'id': cmd.id,
             'type': 'commande',
@@ -140,7 +134,7 @@ def search_commandes_preparation(query, request=None):
             'priority': 2
         })
     
-    # Recherche par région/ville/ville_init (exclure les recherches déjà faites)
+    # Recherche par région/ville
     commandes_geo = Commande.objects.filter(
         Q(ville__nom__icontains=query) |
         Q(ville__region__nom_region__icontains=query) |
@@ -148,217 +142,267 @@ def search_commandes_preparation(query, request=None):
     ).exclude(
         Q(num_cmd__icontains=query) |
         Q(client__nom__icontains=query) |
-        Q(client__prenom__icontains=query) |
-        Q(client__email__icontains=query)
+        Q(client__prenom__icontains=query)
     )[:10]
     
     for cmd in commandes_geo:
-        # Pour la recherche par géographie, être plus permissif
-        ville_display = cmd.ville.nom if cmd.ville else "N/A"
-        if cmd.ville_init and cmd.ville_init != (cmd.ville.nom if cmd.ville else ""):
-            ville_display = f"{cmd.ville_init} → {ville_display}"
-        
         commandes.append({
             'id': cmd.id,
             'type': 'commande',
             'title': f'Commande #{cmd.id} ({cmd.num_cmd})',
-            'subtitle': f'{ville_display} - {cmd.total_cmd} DH',
+            'subtitle': f'Client: {cmd.client.nom if cmd.client else "N/A"} - {cmd.total_cmd} DH',
             'status': get_commande_status(cmd),
             'url': reverse('Prepacommande:detail_prepa', kwargs={'pk': cmd.id}),
             'icon': 'fas fa-shopping-cart',
             'priority': 3
         })
     
-    # Dédupliquer les résultats par ID de commande
+    # Éliminer les doublons
     commandes_uniques = []
-    ids_vus = set()
-    
+    seen_ids = set()
     for cmd in commandes:
-        if cmd['id'] not in ids_vus:
+        if cmd['id'] not in seen_ids:
             commandes_uniques.append(cmd)
-            ids_vus.add(cmd['id'])
+            seen_ids.add(cmd['id'])
     
     return commandes_uniques[:10]
 
 
-def search_articles_preparation(query):
-    """Recherche dans les articles pour préparation"""
-    articles = []
+def search_exports_preparation(query):
+    """Recherche dans les exports et rapports"""
+    exports = []
     
-    articles_match = Article.objects.filter(
-        Q(nom__icontains=query) |
-        Q(reference__icontains=query) |
-        Q(description__icontains=query)
-    )[:8]
-    
-    for article in articles_match:
-        articles.append({
-            'id': article.id,
-            'type': 'article',
-            'title': article.nom,
-            'subtitle': f'Réf: {article.reference} - Stock: {article.qte_disponible}',
-            'status': 'En stock' if article.qte_disponible > 0 else 'Rupture',
-            'url': reverse('Prepacommande:detail_article', kwargs={'article_id': article.id}),
-            'icon': 'fas fa-box',
-            'priority': 1
-        })
-    
-    return articles
-
-
-def search_stock_preparation(query):
-    """Recherche dans le stock pour préparation"""
-    stock_items = []
-    
-    # Recherche par nom d'article
-    articles_stock = Article.objects.filter(
-        Q(nom__icontains=query) |
-        Q(reference__icontains=query)
-    )[:5]
-    
-    for article in articles_stock:
-        stock_items.append({
-            'id': article.id,
-            'type': 'stock',
-            'title': f'Stock {article.nom}',
-            'subtitle': f'Réf: {article.reference} - Quantité: {article.qte_disponible}',
-            'status': 'En stock' if article.qte_disponible > 0 else 'Rupture',
-            'url': f'/operateur-preparation/stock/article/{article.id}/',
-            'icon': 'fas fa-warehouse',
-            'priority': 1
-        })
-    
-    # Recherche par mots-clés stock
-    if any(keyword in query.lower() for keyword in ['stock', 'inventaire', 'quantité', 'rupture']):
-        stock_items.append({
-            'id': 'stock-general',
-            'type': 'stock',
-            'title': 'Gestion du Stock',
-            'subtitle': 'Voir tous les articles en stock',
-            'status': 'Disponible',
-            'url': '/operateur-preparation/stock/articles/',
-            'icon': 'fas fa-warehouse',
-            'priority': 2
-        })
-    
-    return stock_items
-
-
-def search_regions_preparation(query, request=None):
-    """Recherche dans les régions pour préparation"""
-    regions = []
-    
-    regions_match = Region.objects.filter(
-        Q(nom_region__icontains=query)
-    )[:5]
-    
-    for region in regions_match:
-        # Compter les commandes à préparer de cette région (plus inclusif)
-        nb_commandes = Commande.objects.filter(
-            ville__region=region,
-            etats__enum_etat__libelle__in=["Confirmée", "En préparation", "Préparée"],
-            etats__date_fin__isnull=True
-        ).count()
-        
-        regions.append({
-            'id': region.id,
-            'type': 'region',
-            'title': region.nom_region,
-            'subtitle': f'{nb_commandes} commandes à préparer',
-            'status': 'Active',
-            'url': f'/operateur-preparation/en-preparation/?region={region.nom_region}',
-            'icon': 'fas fa-map',
-            'priority': 1
-        })
-    
-    return regions
-
-
-def search_villes_preparation(query, request=None):
-    """Recherche dans les villes pour préparation"""
-    villes = []
-    
-    villes_match = Ville.objects.filter(
-        Q(nom__icontains=query) |
-        Q(region__nom_region__icontains=query)
-    )[:5]
-    
-    # Ajouter aussi les villes initiales qui correspondent
-    villes_init_match = Commande.objects.filter(
-        ville_init__icontains=query
-    ).values_list('ville_init', flat=True).distinct()[:5]
-    
-    for ville in villes_match:
-        # Compter les commandes à préparer de cette ville (plus inclusif)
-        nb_commandes = Commande.objects.filter(
-            ville=ville,
-            etats__enum_etat__libelle__in=["Confirmée", "En préparation", "Préparée"],
-            etats__date_fin__isnull=True
-        ).count()
-        
-        villes.append({
-            'id': ville.id,
-            'type': 'ville',
-            'title': ville.nom,
-            'subtitle': f'{ville.region.nom_region} - {nb_commandes} commandes à préparer',
-            'status': 'Active',
-            'url': f'/operateur-preparation/en-preparation/?ville={ville.nom}',
-            'icon': 'fas fa-map-marker-alt',
-            'priority': 1
-        })
-    
-    # Ajouter les villes initiales trouvées
-    for ville_init in villes_init_match:
-        if ville_init:
-            # Compter les commandes avec cette ville initiale
-            nb_commandes_init = Commande.objects.filter(
-                ville_init=ville_init,
-                etats__enum_etat__libelle__in=["Confirmée", "En préparation", "Préparée"],
-                etats__date_fin__isnull=True
-            ).count()
-            
-            villes.append({
-                'id': f'init_{ville_init}',
-                'type': 'ville_init',
-                'title': f'{ville_init} (Ville Initiale)',
-                'subtitle': f'{nb_commandes_init} commandes à préparer',
-                'status': 'Active',
-                'url': f'/operateur-preparation/en-preparation/?ville_init={ville_init}',
-                'icon': 'fas fa-map-marker-alt',
-                'priority': 1
-            })
-    
-    return villes
-
-
-def search_statistiques_preparation(query):
-    """Recherche dans les statistiques pour préparation"""
-    statistiques = []
-    
-    # Recherche par mots-clés spécifiques à la préparation
+    # Recherche par mots-clés d'export
     keywords = {
-        'preparation': {'title': 'Commandes en Préparation', 'url': reverse('Prepacommande:commandes_en_preparation'), 'icon': 'fas fa-boxes'},
-        'confirmee': {'title': 'Commandes Confirmées', 'url': reverse('Prepacommande:liste_prepa'), 'icon': 'fas fa-check-circle'},
-        'stock': {'title': 'Gestion du Stock', 'url': reverse('Prepacommande:liste_articles'), 'icon': 'fas fa-warehouse'},
-        'inventaire': {'title': 'Inventaire', 'url': reverse('Prepacommande:alertes_stock'), 'icon': 'fas fa-clipboard-list'},
-        'statistiques': {'title': 'Statistiques Préparation', 'url': reverse('Prepacommande:home'), 'icon': 'fas fa-chart-bar'},
-        'rapport': {'title': 'Rapports Préparation', 'url': reverse('Prepacommande:home'), 'icon': 'fas fa-file-alt'},
+        'export': {'title': 'Exports Consolidés', 'url': reverse('Prepacommande:export_commandes_consolidees_csv'), 'icon': 'fas fa-file-export'},
+        'csv': {'title': 'Export CSV Consolidé', 'url': reverse('Prepacommande:export_commandes_consolidees_csv'), 'icon': 'fas fa-file-csv'},
+        'excel': {'title': 'Export Excel Consolidé', 'url': reverse('Prepacommande:export_commandes_consolidees_excel'), 'icon': 'fas fa-file-excel'},
+        'rapport': {'title': 'Rapports Consolidés', 'url': reverse('Prepacommande:export_commandes_consolidees_excel'), 'icon': 'fas fa-chart-bar'},
+        'consolide': {'title': 'Données Consolidées', 'url': reverse('Prepacommande:export_commandes_consolidees_csv'), 'icon': 'fas fa-database'},
     }
     
     for keyword, info in keywords.items():
         if keyword in query.lower():
-            statistiques.append({
+            exports.append({
                 'id': keyword,
-                'type': 'statistique',
+                'type': 'export',
                 'title': info['title'],
-                'subtitle': 'Accès direct aux données de préparation',
+                'subtitle': 'Télécharger les données consolidées',
                 'status': 'Disponible',
                 'url': info['url'],
                 'icon': info['icon'],
                 'priority': 1
             })
     
-    return statistiques
+    return exports
+
+
+def search_fonctionnalites_preparation(query):
+    """Recherche dans les fonctionnalités de préparation"""
+    fonctionnalites = []
+    
+    # Recherche par mots-clés de fonctionnalités
+    keywords = {
+        'preparation': {'title': 'Commandes en Préparation', 'url': reverse('Prepacommande:commandes_en_preparation'), 'icon': 'fas fa-boxes'},
+        'confirmee': {'title': 'Commandes Confirmées', 'url': reverse('Prepacommande:liste_prepa'), 'icon': 'fas fa-check-circle'},
+        'livree': {'title': 'Commandes Livrées Partiellement', 'url': reverse('Prepacommande:commandes_livrees_partiellement'), 'icon': 'fas fa-truck'},
+        'retournee': {'title': 'Commandes Retournées', 'url': reverse('Prepacommande:commandes_retournees'), 'icon': 'fas fa-undo'},
+        'ticket': {'title': 'Impression Tickets', 'url': reverse('Prepacommande:imprimer_tickets_preparation'), 'icon': 'fas fa-print'},
+        'statistiques': {'title': 'Statistiques Préparation', 'url': reverse('Prepacommande:home'), 'icon': 'fas fa-chart-bar'},
+        'dashboard': {'title': 'Tableau de Bord', 'url': reverse('Prepacommande:home'), 'icon': 'fas fa-tachometer-alt'},
+    }
+    
+    for keyword, info in keywords.items():
+        if keyword in query.lower():
+            fonctionnalites.append({
+                'id': keyword,
+                'type': 'fonctionnalite',
+                'title': info['title'],
+                'subtitle': 'Accès direct aux fonctionnalités',
+                'status': 'Disponible',
+                'url': info['url'],
+                'icon': info['icon'],
+                'priority': 1
+            })
+    
+    return fonctionnalites
+
+
+def search_profile_preparation(query):
+    """Recherche dans les fonctionnalités de profil"""
+    profile = []
+    
+    # Recherche par mots-clés de profil
+    keywords = {
+        'profile': {'title': 'Mon Profil', 'url': reverse('Prepacommande:profile'), 'icon': 'fas fa-user'},
+        'profil': {'title': 'Mon Profil', 'url': reverse('Prepacommande:profile'), 'icon': 'fas fa-user'},
+        'modifier': {'title': 'Modifier Profil', 'url': reverse('Prepacommande:modifier_profile'), 'icon': 'fas fa-user-edit'},
+        'mot de passe': {'title': 'Changer Mot de Passe', 'url': reverse('Prepacommande:changer_mot_de_passe'), 'icon': 'fas fa-key'},
+        'password': {'title': 'Changer Mot de Passe', 'url': reverse('Prepacommande:changer_mot_de_passe'), 'icon': 'fas fa-key'},
+    }
+    
+    for keyword, info in keywords.items():
+        if keyword in query.lower():
+            profile.append({
+                'id': keyword,
+                'type': 'profile',
+                'title': info['title'],
+                'subtitle': 'Gestion du compte utilisateur',
+                'status': 'Disponible',
+                'url': info['url'],
+                'icon': info['icon'],
+                'priority': 1
+            })
+    
+    return profile
+
+
+def search_articles_panier_preparation(query):
+    """Recherche dans les articles du panier des commandes en préparation"""
+    articles_panier = []
+    
+    # Rechercher dans les commandes avec états : En préparation, Collectée, Emballée
+    commandes_preparation = Commande.objects.filter(
+        etats__enum_etat__libelle__in=["En préparation", "Collectée", "Emballée"],
+        etats__date_fin__isnull=True
+    ).distinct()
+    
+    # Rechercher les articles du panier qui correspondent à la requête
+    paniers_match = Panier.objects.filter(
+        commande__in=commandes_preparation,
+        article__nom__icontains=query
+    ).select_related('article', 'commande')[:10]
+    
+    for panier in paniers_match:
+        # Obtenir l'état actuel de la commande
+        etat_actuel = panier.commande.etats.filter(date_fin__isnull=True).first()
+        etat_libelle = etat_actuel.enum_etat.libelle if etat_actuel else "N/A"
+        
+        articles_panier.append({
+            'id': f"panier_{panier.id}",
+            'type': 'article_panier',
+            'title': panier.article.nom,
+            'subtitle': f'Commande #{panier.commande.id} - Qté: {panier.quantite} - État: {etat_libelle}',
+            'status': etat_libelle,
+            'url': reverse('Prepacommande:detail_prepa', kwargs={'pk': panier.commande.id}),
+            'icon': 'fas fa-shopping-basket',
+            'priority': 1
+        })
+    
+    # Rechercher aussi par référence d'article
+    paniers_ref = Panier.objects.filter(
+        commande__in=commandes_preparation,
+        article__reference__icontains=query
+    ).select_related('article', 'commande').exclude(
+        article__nom__icontains=query
+    )[:5]
+    
+    for panier in paniers_ref:
+        etat_actuel = panier.commande.etats.filter(date_fin__isnull=True).first()
+        etat_libelle = etat_actuel.enum_etat.libelle if etat_actuel else "N/A"
+        
+        articles_panier.append({
+            'id': f"panier_ref_{panier.id}",
+            'type': 'article_panier',
+            'title': f"{panier.article.nom} (Réf: {panier.article.reference})",
+            'subtitle': f'Commande #{panier.commande.id} - Qté: {panier.quantite} - État: {etat_libelle}',
+            'status': etat_libelle,
+            'url': reverse('Prepacommande:detail_prepa', kwargs={'pk': panier.commande.id}),
+            'icon': 'fas fa-shopping-basket',
+            'priority': 2
+        })
+    
+    # Rechercher par référence de variante
+    paniers_ref_variante = Panier.objects.filter(
+        commande__in=commandes_preparation,
+        variante__reference_variante__icontains=query
+    ).select_related('article', 'commande', 'variante').exclude(
+        Q(article__nom__icontains=query) | Q(article__reference__icontains=query)
+    )[:3]
+    
+    for panier in paniers_ref_variante:
+        etat_actuel = panier.commande.etats.filter(date_fin__isnull=True).first()
+        etat_libelle = etat_actuel.enum_etat.libelle if etat_actuel else "N/A"
+        
+        variante_info = ""
+        if panier.variante:
+            if panier.variante.couleur and panier.variante.pointure:
+                variante_info = f" - {panier.variante.couleur.nom} {panier.variante.pointure.pointure}"
+            elif panier.variante.couleur:
+                variante_info = f" - {panier.variante.couleur.nom}"
+            elif panier.variante.pointure:
+                variante_info = f" - {panier.variante.pointure.pointure}"
+        
+        articles_panier.append({
+            'id': f"panier_ref_var_{panier.id}",
+            'type': 'article_panier',
+            'title': f"{panier.article.nom}{variante_info} (Réf: {panier.variante.reference_variante})",
+            'subtitle': f'Commande #{panier.commande.id} - Qté: {panier.quantite} - État: {etat_libelle}',
+            'status': etat_libelle,
+            'url': reverse('Prepacommande:detail_prepa', kwargs={'pk': panier.commande.id}),
+            'icon': 'fas fa-shopping-basket',
+            'priority': 2
+        })
+    
+    # Rechercher par couleur/pointure si c'est une variante
+    paniers_variante = Panier.objects.filter(
+        commande__in=commandes_preparation,
+        variante__couleur__nom__icontains=query
+    ).select_related('article', 'commande', 'variante__couleur', 'variante__pointure').exclude(
+        Q(article__nom__icontains=query) | Q(article__reference__icontains=query) | Q(variante__reference_variante__icontains=query)
+    )[:5]
+    
+    for panier in paniers_variante:
+        etat_actuel = panier.commande.etats.filter(date_fin__isnull=True).first()
+        etat_libelle = etat_actuel.enum_etat.libelle if etat_actuel else "N/A"
+        
+        variante_info = f" - {panier.variante.couleur.nom}" if panier.variante and panier.variante.couleur else ""
+        
+        articles_panier.append({
+            'id': f"panier_var_{panier.id}",
+            'type': 'article_panier',
+            'title': f"{panier.article.nom}{variante_info}",
+            'subtitle': f'Commande #{panier.commande.id} - Qté: {panier.quantite} - État: {etat_libelle}',
+            'status': etat_libelle,
+            'url': reverse('Prepacommande:detail_prepa', kwargs={'pk': panier.commande.id}),
+            'icon': 'fas fa-shopping-basket',
+            'priority': 3
+        })
+    
+    # Rechercher aussi par pointure si c'est une variante
+    paniers_pointure = Panier.objects.filter(
+        commande__in=commandes_preparation,
+        variante__pointure__pointure__icontains=query
+    ).select_related('article', 'commande', 'variante__couleur', 'variante__pointure').exclude(
+        Q(article__nom__icontains=query) | Q(article__reference__icontains=query) | Q(variante__couleur__nom__icontains=query) | Q(variante__reference_variante__icontains=query)
+    )[:3]
+    
+    for panier in paniers_pointure:
+        etat_actuel = panier.commande.etats.filter(date_fin__isnull=True).first()
+        etat_libelle = etat_actuel.enum_etat.libelle if etat_actuel else "N/A"
+        
+        variante_info = f" - {panier.variante.pointure.pointure}" if panier.variante and panier.variante.pointure else ""
+        
+        articles_panier.append({
+            'id': f"panier_pointure_{panier.id}",
+            'type': 'article_panier',
+            'title': f"{panier.article.nom}{variante_info}",
+            'subtitle': f'Commande #{panier.commande.id} - Qté: {panier.quantite} - État: {etat_libelle}',
+            'status': etat_libelle,
+            'url': reverse('Prepacommande:detail_prepa', kwargs={'pk': panier.commande.id}),
+            'icon': 'fas fa-shopping-basket',
+            'priority': 4
+        })
+    
+    # Éliminer les doublons
+    articles_uniques = []
+    seen_ids = set()
+    for article in articles_panier:
+        if article['id'] not in seen_ids:
+            articles_uniques.append(article)
+            seen_ids.add(article['id'])
+    
+    return articles_uniques[:10]
 
 
 def is_commande_for_preparation(commande, request=None):
@@ -388,21 +432,28 @@ def search_suggestions_api(request):
     
     suggestions = []
     
-    # Suggestions basées sur l'historique de préparation
+    # Suggestions basées sur les fonctionnalités disponibles
     common_searches = [
         "commandes confirmées",
         "commandes en préparation",
-        "stock faible",
-        "articles rupture",
-        "inventaire",
-        "statistiques préparation"
+        "commandes livrées partiellement",
+        "commandes retournées",
+        "impression tickets",
+        "export csv",
+        "export excel",
+        "statistiques préparation",
+        "tableau de bord",
+        "mon profil",
+        "changer mot de passe",
+        "articles panier",
+        "rechercher articles"
     ]
     
     for search in common_searches:
         if query.lower() in search.lower():
             suggestions.append({
                 'text': search,
-                'category': 'Recherche fréquente'
+                'category': 'Fonctionnalité disponible'
             })
     
     # Suggestions de commandes récentes à préparer
@@ -417,12 +468,35 @@ def search_suggestions_api(request):
             'category': 'Commande à préparer'
         })
     
-    # Suggestions d'articles en rupture
-    articles_rupture = Article.objects.filter(qte_disponible=0)[:3]
-    for article in articles_rupture:
-        suggestions.append({
-            'text': f"stock {article.nom}",
-            'category': 'Article en rupture'
-        })
+    # Suggestions d'exports populaires
+    export_suggestions = [
+        "export commandes consolidées",
+        "export csv consolidé",
+        "export excel consolidé",
+        "rapport consolidé"
+    ]
+    
+    for export in export_suggestions:
+        if query.lower() in export.lower():
+            suggestions.append({
+                'text': export,
+                'category': 'Export disponible'
+            })
+    
+    # Suggestions d'articles populaires dans les paniers
+    if len(query) >= 3:
+        articles_populaires = Panier.objects.filter(
+            commande__etats__enum_etat__libelle__in=["En préparation", "Collectée", "Emballée"],
+            commande__etats__date_fin__isnull=True,
+            article__nom__icontains=query
+        ).values('article__nom').annotate(
+            count=Count('id')
+        ).order_by('-count')[:3]
+        
+        for article in articles_populaires:
+            suggestions.append({
+                'text': f"article {article['article__nom']}",
+                'category': 'Article dans panier'
+            })
     
     return JsonResponse({'suggestions': suggestions[:10]})

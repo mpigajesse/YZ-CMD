@@ -71,6 +71,7 @@ urlpatterns = [
     path('stock/mouvements/', views.mouvements_stock, name='mouvements_stock'),
     path('stock/alertes/', views.alertes_stock, name='alertes_stock'),
     path('stock/statistiques/', views.statistiques_stock, name='statistiques_stock'),
+    path('stock/variantes/creer-ajax/', views.creer_variantes_ajax, name='creer_variantes_ajax'),
     
     # === URLs SUPPRIMÉES : RÉPARTITION AUTOMATIQUE (DÉPLACÉES VERS ADMIN) ===
     # path('repartition-automatique/', views.repartition_automatique, name='repartition_automatique'),

@@ -64,4 +64,13 @@ urlpatterns = [
     path('global-search/', global_search_views.global_search_view, name='global_search'),
     path('global-search/api/', global_search_views.global_search_api, name='global_search_api'),
     path('global-search/suggestions/', global_search_views.search_suggestions_api, name='search_suggestions_api'),
+    
+    # URLs Gestion des Couleurs et Pointures
+    path('gestion-articles/couleurs-pointures/', views.gestion_couleurs_pointures, name='gestion_couleurs_pointures'),
+    path('gestion-articles/couleurs/creer/', views.creer_couleur, name='creer_couleur'),
+    path('gestion-articles/couleurs/modifier/<int:couleur_id>/', views.modifier_couleur, name='modifier_couleur'),
+    path('gestion-articles/couleurs/supprimer/<int:couleur_id>/', views.supprimer_couleur, name='supprimer_couleur'),
+    path('gestion-articles/pointures/creer/', views.creer_pointure, name='creer_pointure'),
+    path('gestion-articles/pointures/modifier/<int:pointure_id>/', views.modifier_pointure, name='modifier_pointure'),
+    path('gestion-articles/pointures/supprimer/<int:pointure_id>/', views.supprimer_pointure, name='supprimer_pointure'),
 ] 

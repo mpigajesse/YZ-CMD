@@ -3,21 +3,25 @@
 
 {% block title %}Créer Article - Service Préparation{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/variantes-modal.css' %}">
+{% endblock %}
+
 {% block content %}
 <div class="main-content transition-all duration-300" id="mainContent">
     <!-- En-tête avec gradient préparation -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
-         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+         style="background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-dark)); border: 2px solid var(--preparation-border-accent);">
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
                 <i class="fas fa-plus-circle mr-3"></i>
                 Créer un Nouvel Article
             </h1>
-            <p style="color: white;">Ajouter un nouveau produit au catalogue</p>
+            <p style="color: var(--preparation-text-light);">Ajouter un nouveau produit au catalogue avec ses variantes</p>
         </div>
         <div class="flex gap-3 mt-4 md:mt-0">
             <a href="{% url 'Superpreparation:liste_articles' %}" 
-               class="inline-flex items-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+               class="inline-flex items-center px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors border border-white border-opacity-30">
                 <i class="fas fa-arrow-left mr-2"></i>
                 Retour à la liste
             </a>
@@ -29,24 +33,24 @@
         <!-- Formulaire principal (2 colonnes) -->
         <div class="lg:col-span-2">
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-                        <i class="fas fa-edit mr-3 text-gray-600"></i>
+                <div class="px-6 py-4 border-b border-gray-200" style="background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-light));">
+                    <h3 class="text-lg font-semibold text-white flex items-center">
+                        <i class="fas fa-edit mr-3"></i>
                         Informations de l'Article
                     </h3>
                 </div>
                 <div class="p-6">
-                    <form method="post" class="space-y-6" id="createArticleForm">
+                    <form method="post" class="space-y-6" id="articleForm">
                         {% csrf_token %}
                         
                         <!-- Informations de base -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label for="nom" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="id_nom" class="block text-sm font-medium text-gray-700 mb-2">
                                     <i class="fas fa-tag mr-2 text-gray-500"></i>Nom de l'article <span class="text-red-500">*</span>
                                 </label>
                                 <input type="text" 
-                                       id="nom" 
+                                       id="id_nom" 
                                        name="nom" 
                                        required
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -55,11 +59,11 @@
                             </div>
 
                             <div>
-                                <label for="reference" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="id_reference" class="block text-sm font-medium text-gray-700 mb-2">
                                     <i class="fas fa-barcode mr-2 text-gray-500"></i>Référence
                                 </label>
                                 <input type="text" 
-                                       id="reference" 
+                                       id="id_reference" 
                                        name="reference"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                        placeholder="Ex: REF-001">
@@ -67,62 +71,60 @@
                             </div>
                         </div>
 
-                        <!-- Catégorie et couleur -->
+                        <!-- Catégorie et genre -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label for="categorie" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="id_categorie" class="block text-sm font-medium text-gray-700 mb-2">
                                     <i class="fas fa-list mr-2 text-gray-500"></i>Catégorie <span class="text-red-500">*</span>
                                 </label>
-                                <select id="categorie" 
+                                <select id="id_categorie" 
                                         name="categorie" 
                                         required
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                     <option value="">Sélectionner une catégorie</option>
-                                    <option value="Chaussures Homme">Chaussures Homme</option>
-                                    <option value="Chaussures Femme">Chaussures Femme</option>
-                                    <option value="Chaussures Enfant">Chaussures Enfant</option>
-                                    <option value="Sandales Homme">Sandales Homme</option>
-                                    <option value="Sandales Femme">Sandales Femme</option>
-                                    <option value="Sandales Enfant">Sandales Enfant</option>
-                                    <option value="Accessoires">Accessoires</option>
+                                    {% for categorie in categories %}
+                                        <option value="{{ categorie.id }}">{{ categorie.nom }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
 
                             <div>
-                                <label for="couleur" class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-palette mr-2 text-gray-500"></i>Couleur <span class="text-red-500">*</span>
+                                <label for="id_genre" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-user mr-2 text-gray-500"></i>Genre <span class="text-red-500">*</span>
                                 </label>
-                                <input type="text" 
-                                       id="couleur" 
-                                       name="couleur" 
-                                       required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                       placeholder="Ex: Noir, Blanc, Rouge...">
+                                <select id="id_genre" 
+                                        name="genre" 
+                                        required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Sélectionner un genre</option>
+                                    {% for genre in genres %}
+                                        <option value="{{ genre.id }}">{{ genre.nom }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                         </div>
 
-                        <!-- Pointure et phase -->
+                        <!-- Modèle et phase -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label for="pointure" class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-shoe-prints mr-2 text-gray-500"></i>Pointure <span class="text-red-500">*</span>
+                                <label for="id_modele" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-hashtag mr-2 text-gray-500"></i>Modèle <span class="text-red-500">*</span>
                                 </label>
                                 <input type="number" 
-                                       id="pointure" 
-                                       name="pointure" 
+                                       id="id_modele" 
+                                       name="modele" 
                                        required
-                                       min="10" 
-                                       max="60"
+                                       min="1"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                       placeholder="Ex: 42">
-                                <p class="mt-1 text-sm text-gray-500">Taille de 10 à 60</p>
+                                       placeholder="Ex: 1001">
+                                <p class="mt-1 text-sm text-gray-500">Numéro de modèle unique</p>
                             </div>
 
                             <div>
-                                <label for="phase" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="id_phase" class="block text-sm font-medium text-gray-700 mb-2">
                                     <i class="fas fa-cog mr-2 text-gray-500"></i>Phase de commercialisation
                                 </label>
-                                <select id="phase" 
+                                <select id="id_phase" 
                                         name="phase"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                     {% for phase_value, phase_label in article_phases %}
@@ -132,29 +134,28 @@
                             </div>
                         </div>
 
-                        <!-- Prix et quantités -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Prix -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label for="prix_unitaire" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="id_prix_unitaire" class="block text-sm font-medium text-gray-700 mb-2">
                                     <i class="fas fa-money-bill mr-2 text-gray-500"></i>Prix unitaire (DH) <span class="text-red-500">*</span>
                                 </label>
                                 <input type="number" 
-                                       id="prix_unitaire" 
+                                       id="id_prix_unitaire" 
                                        name="prix_unitaire" 
                                        required
                                        step="0.01" 
                                        min="0"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                       placeholder="0.00"
-                                       oninput="calculateStockValue()">
+                                       placeholder="0.00">
                             </div>
 
                             <div>
-                                <label for="prix_achat" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="id_prix_achat" class="block text-sm font-medium text-gray-700 mb-2">
                                     <i class="fas fa-shopping-cart mr-2 text-gray-500"></i>Prix d'achat (DH)
                                 </label>
                                 <input type="number" 
-                                       id="prix_achat" 
+                                       id="id_prix_achat" 
                                        name="prix_achat" 
                                        step="0.01" 
                                        min="0"
@@ -162,33 +163,43 @@
                                        placeholder="0.00">
                                 <p class="mt-1 text-sm text-gray-500">Optionnel</p>
                             </div>
-
-                            <div>
-                                <label for="qte_disponible" class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-boxes mr-2 text-gray-500"></i>Quantité initiale <span class="text-red-500">*</span>
-                                </label>
-                                <input type="number" 
-                                       id="qte_disponible" 
-                                       name="qte_disponible" 
-                                       required
-                                       min="0"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                       placeholder="0"
-                                       oninput="calculateStockValue()">
-                            </div>
                         </div>
 
                         <!-- Description -->
                         <div>
-                            <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="id_description" class="block text-sm font-medium text-gray-700 mb-2">
                                 <i class="fas fa-align-left mr-2 text-gray-500"></i>Description
                             </label>
-                            <textarea id="description" 
+                            <textarea id="id_description" 
                                       name="description" 
                                       rows="4"
                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                       placeholder="Description détaillée du produit (matière, style, caractéristiques...)"></textarea>
                             <p class="mt-1 text-sm text-gray-500">Informations supplémentaires sur le produit</p>
+                        </div>
+
+                        <!-- Gestion des variantes -->
+                        <div class="border-t border-gray-200 pt-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="text-lg font-medium text-gray-900 flex items-center">
+                                    <i class="fas fa-tags mr-2" style="color: var(--preparation-primary);"></i>
+                                    Variantes de l'article
+                                </h4>
+                                <button type="button" 
+                                        onclick="openVarianteModal()"
+                                        class="btn-ajouter-variante inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors">
+                                    <i class="fas fa-plus mr-2"></i>
+                                    Ajouter une variante
+                                </button>
+                            </div>
+                            
+                            <!-- Container pour afficher les variantes -->
+                            <div id="variantesContainer" class="space-y-3">
+                                <div class="variantes-empty-state text-center py-8">
+                                    <i class="fas fa-tags text-4xl mb-4"></i>
+                                    <p class="text-sm text-gray-600 italic">Aucune variante ajoutée pour le moment. Cliquez sur "Ajouter une variante" pour en créer.</p>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Options avancées -->
@@ -197,10 +208,10 @@
                             <div class="space-y-4">
                                 <div class="flex items-center">
                                     <input type="checkbox" 
-                                           id="isUpsell" 
+                                           id="id_isUpsell" 
                                            name="isUpsell"
                                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                    <label for="isUpsell" class="ml-2 block text-sm text-gray-900">
+                                    <label for="id_isUpsell" class="ml-2 block text-sm text-gray-900">
                                         <i class="fas fa-arrow-up mr-2 text-green-600"></i>
                                         Article upsell (vente additionnelle)
                                     </label>
@@ -208,11 +219,11 @@
                                 
                                 <div class="flex items-center">
                                     <input type="checkbox" 
-                                           id="actif" 
+                                           id="id_actif" 
                                            name="actif" 
                                            checked
                                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                    <label for="actif" class="ml-2 block text-sm text-gray-900">
+                                    <label for="id_actif" class="ml-2 block text-sm text-gray-900">
                                         <i class="fas fa-check-circle mr-2 text-green-600"></i>
                                         Article actif (visible dans le catalogue)
                                     </label>
@@ -223,7 +234,8 @@
                         <!-- Boutons d'action -->
                         <div class="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-200">
                             <button type="submit" 
-                                    class="flex-1 inline-flex justify-center items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                    class="flex-1 inline-flex justify-center items-center px-6 py-3 text-white font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors"
+                                    style="background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-light)); border: 1px solid var(--preparation-border-accent);">
                                 <i class="fas fa-save mr-2"></i>
                                 Créer l'Article
                             </button>
@@ -242,9 +254,9 @@
         <div class="lg:col-span-1 space-y-6">
             <!-- Aperçu de la valeur -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="bg-blue-50 px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-                        <i class="fas fa-calculator mr-3 text-blue-600"></i>
+                <div class="px-6 py-4 border-b border-gray-200" style="background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-light));">
+                    <h3 class="text-lg font-semibold text-white flex items-center">
+                        <i class="fas fa-calculator mr-3"></i>
                         Aperçu Financier
                     </h3>
                 </div>
@@ -258,7 +270,7 @@
                         <span class="text-lg font-semibold text-gray-900" id="unitPriceDisplay">0,00 DH</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-600">Quantité :</span>
+                        <span class="text-sm text-gray-600">Quantité totale :</span>
                         <span class="text-lg font-semibold text-gray-900" id="quantityDisplay">0</span>
                     </div>
                     <div class="pt-3 border-t border-gray-200">
@@ -272,9 +284,9 @@
 
             <!-- Conseils et aide -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="bg-yellow-50 px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-                        <i class="fas fa-lightbulb mr-3 text-yellow-600"></i>
+                <div class="px-6 py-4 border-b border-gray-200" style="background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-light));">
+                    <h3 class="text-lg font-semibold text-white flex items-center">
+                        <i class="fas fa-lightbulb mr-3"></i>
                         Conseils
                     </h3>
                 </div>
@@ -294,13 +306,13 @@
                     <div class="flex items-start space-x-3">
                         <i class="fas fa-check-circle text-green-500 mt-1"></i>
                         <div class="text-sm text-gray-700">
-                            <strong>Prix compétitif :</strong> Vérifiez les prix du marché
+                            <strong>Variantes :</strong> Ajoutez au moins une variante (couleur/pointure)
                         </div>
                     </div>
                     <div class="flex items-start space-x-3">
                         <i class="fas fa-check-circle text-green-500 mt-1"></i>
                         <div class="text-sm text-gray-700">
-                            <strong>Stock initial :</strong> Définissez un niveau approprié
+                            <strong>Prix compétitif :</strong> Vérifiez les prix du marché
                         </div>
                     </div>
                 </div>
@@ -331,27 +343,108 @@
     </div>
 </div>
 
+<!-- Modal pour ajouter des variantes -->
+<div id="varianteModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closeVarianteModal()"></div>
+    <div class="relative z-10 max-w-2xl mx-auto mt-20 bg-white rounded-xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b">
+            <h3 class="text-2xl font-bold">Ajouter une variante</h3>
+            <button class="text-gray-500 hover:text-gray-700" onclick="closeVarianteModal()">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="p-6">
+            <form id="varianteForm" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="modal_couleur" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-palette mr-2 text-gray-500"></i>Couleur
+                        </label>
+                        <select id="modal_couleur" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Sélectionner une couleur</option>
+                            {% for couleur in couleurs %}
+                                <option value="{{ couleur.id }}">{{ couleur.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="modal_pointure" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-shoe-prints mr-2 text-gray-500"></i>Pointure
+                        </label>
+                        <select id="modal_pointure" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Sélectionner une pointure</option>
+                            {% for pointure in pointures %}
+                                <option value="{{ pointure.id }}">{{ pointure.pointure }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="modal_quantite" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-boxes mr-2 text-gray-500"></i>Quantité <span class="text-red-500">*</span>
+                    </label>
+                    <input type="number" 
+                           id="modal_quantite" 
+                           min="0"
+                           required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="0">
+                </div>
+
+                <!-- Aperçu de la référence -->
+                <div id="referencePreview" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-barcode mr-2 text-gray-500"></i>Aperçu de la référence
+                    </label>
+                    <div class="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                        <span id="referencePreviewText" class="text-sm font-mono text-gray-700"></span>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" 
+                            onclick="closeVarianteModal()"
+                            class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded-md transition-colors">
+                        Annuler
+                    </button>
+                    <button type="button" 
+                            onclick="addVariante()"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors">
+                        <i class="fas fa-plus mr-2"></i>
+                        Ajouter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/variantes-modal.js' %}"></script>
 <script>
 function calculateStockValue() {
-    const prix = parseFloat(document.getElementById('prix_unitaire').value) || 0;
-    const quantite = parseInt(document.getElementById('qte_disponible').value) || 0;
-    const valeur = prix * quantite;
+    const prix = parseFloat(document.getElementById('id_prix_unitaire').value) || 0;
+    const variantes = window.variantesManager ? window.variantesManager.getVariantes() : [];
+    const quantiteTotale = variantes.reduce((total, variante) => total + (parseInt(variante.quantite) || 0), 0);
+    const valeur = prix * quantiteTotale;
     
     document.getElementById('stockValue').textContent = valeur.toFixed(2) + ' DH';
     document.getElementById('unitPriceDisplay').textContent = prix.toFixed(2) + ' DH';
-    document.getElementById('quantityDisplay').textContent = quantite;
+    document.getElementById('quantityDisplay').textContent = quantiteTotale;
 }
 
 // Validation du formulaire
-document.getElementById('createArticleForm').addEventListener('submit', function(e) {
-    const nom = document.getElementById('nom').value.trim();
-    const categorie = document.getElementById('categorie').value;
-    const couleur = document.getElementById('couleur').value.trim();
-    const pointure = document.getElementById('pointure').value;
-    const prix = document.getElementById('prix_unitaire').value;
-    const quantite = document.getElementById('qte_disponible').value;
+document.getElementById('articleForm').addEventListener('submit', function(e) {
+    const nom = document.getElementById('id_nom').value.trim();
+    const categorie = document.getElementById('id_categorie').value;
+    const genre = document.getElementById('id_genre').value;
+    const modele = document.getElementById('id_modele').value;
+    const prix = document.getElementById('id_prix_unitaire').value;
     
-    if (!nom || !categorie || !couleur || !pointure || !prix || quantite === '') {
+    if (!nom || !categorie || !genre || !modele || !prix) {
         e.preventDefault();
         alert('Veuillez remplir tous les champs obligatoires.');
         return false;
@@ -363,9 +456,10 @@ document.getElementById('createArticleForm').addEventListener('submit', function
         return false;
     }
     
-    if (parseInt(quantite) < 0) {
+    // Vérifier qu'au moins une variante est ajoutée
+    if (window.variantesManager && window.variantesManager.getVariantes().length === 0) {
         e.preventDefault();
-        alert('La quantité ne peut pas être négative.');
+        alert('Veuillez ajouter au moins une variante pour cet article.');
         return false;
     }
 });
@@ -373,6 +467,9 @@ document.getElementById('createArticleForm').addEventListener('submit', function
 // Initialiser le calcul au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
     calculateStockValue();
+    
+    // Écouter les changements de prix pour recalculer
+    document.getElementById('id_prix_unitaire').addEventListener('input', calculateStockValue);
 });
 </script>
 {% endblock %} 

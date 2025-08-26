@@ -320,7 +320,7 @@ class VariantesManager {
                     reference: this.genererReferenceVariante(variante)
                 }));
                 
-                const variantesResponse = await fetch('/article/variantes/creer-ajax/', {
+                const variantesResponse = await fetch('/Superpreparation/stock/variantes/creer-ajax/', {
                     method: 'POST',
                     body: JSON.stringify({
                         article_id: articleResult.article_id,
@@ -376,7 +376,7 @@ class VariantesManager {
                 reference: this.genererReferenceVariante(variante)
             }));
             
-            const response = await fetch('/article/variantes/creer-ajax/', {
+            const response = await fetch('/Superpreparation/stock/variantes/creer-ajax/', {
                 method: 'POST',
                 body: JSON.stringify({
                     article_id: articleId,

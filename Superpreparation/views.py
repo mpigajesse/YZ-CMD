@@ -1369,7 +1369,9 @@ def detail_prepa(request, pk):
                 details = json.loads(operation_livraison_partielle_for_livres.conclusion)
                 if 'articles_livres' in details:
                     for article_livre in details['articles_livres']:
-                        article = Article.objects.filter(id=article_livre.get('article_id')).first()
+                        article_id = article_livre.get('article_id')
+                        if article_id:
+                            article = Article.objects.filter(id=article_id).first()
                         if article:
                             articles_livres.append({
                                 'article': article,
@@ -2346,7 +2348,9 @@ def modifier_commande_prepa(request, commande_id):
             # Populer articles_livres à partir de la conclusion de l'opération de livraison partielle
             if 'articles_livres' in details:
                 for article_livre in details['articles_livres']:
-                    article_obj = Article.objects.filter(id=article_livre.get('article_id')).first()
+                    article_id = article_livre.get('article_id')
+                    if article_id:
+                        article_obj = Article.objects.filter(id=article_id).first()
                     if article_obj:
                         articles_livres.append({
                             'article': article_obj,
@@ -3473,7 +3477,7 @@ def liste_articles(request):
 
     # Calcul des statistiques globales (avant tout filtrage)
     articles_qs = Article.objects.all().annotate(
-        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
+        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible'), 0)
     )
     articles_total = articles_qs.count()
     articles_actifs = articles_qs.filter(actif=True).count()
@@ -3486,7 +3490,7 @@ def liste_articles(request):
 
     # Récupération des articles pour la liste, filtrée
     articles_list = Article.objects.all().annotate(
-        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
+        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible'), 0)
     )
     
     # Filtres de recherche améliorés
@@ -3512,7 +3516,7 @@ def liste_articles(request):
         ).distinct()
     
     # Filtre par catégorie (ID ou nom)
-    if categorie_filter:
+    if categorie_filter and categorie_filter.strip():
         if categorie_filter.isdigit():
             articles_list = articles_list.filter(categorie_id=int(categorie_filter))
         else:
@@ -3711,7 +3715,7 @@ def alertes_stock(request):
     from django.db.models.functions import Coalesce
     
     articles_actifs = Article.objects.filter(actif=True).annotate(
-        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
+        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible'), 0)
     )
     
     # Filtres par niveau d'alerte
@@ -3768,12 +3772,18 @@ def alertes_stock(request):
     # Analyse par catégorie
     categories_alertes = articles_actifs.values('categorie').annotate(
         total=Count('id'),
-        rupture=Count('id', filter=Q(total_qte_disponible__lte=SEUIL_RUPTURE)),
-        faible=Count('id', filter=Q(total_qte_disponible__gt=SEUIL_RUPTURE, total_qte_disponible__lte=SEUIL_STOCK_FAIBLE)),
-        a_commander=Count('id', filter=Q(total_qte_disponible__gt=SEUIL_STOCK_FAIBLE, total_qte_disponible__lte=SEUIL_A_COMMANDER)),
-        stock_moyen=Avg('total_qte_disponible'),
-        valeur_stock=Sum('total_qte_disponible')
-    ).exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('-rupture', '-faible')
+        valeur_stock=Sum('variantes__qte_disponible')
+    ).exclude(categorie__isnull=True)
+    
+    # Calculer les statistiques par catégorie en Python
+    for cat in categories_alertes:
+        articles_cat = articles_actifs.filter(categorie=cat['categorie'])
+        cat['rupture'] = sum(1 for article in articles_cat if (article.total_qte_disponible or 0) <= SEUIL_RUPTURE)
+        cat['faible'] = sum(1 for article in articles_cat if SEUIL_RUPTURE < (article.total_qte_disponible or 0) <= SEUIL_STOCK_FAIBLE)
+        cat['a_commander'] = sum(1 for article in articles_cat if SEUIL_STOCK_FAIBLE < (article.total_qte_disponible or 0) <= SEUIL_A_COMMANDER)
+    
+    # Trier par rupture puis faible
+    categories_alertes = sorted(categories_alertes, key=lambda x: (x['rupture'], x['faible']), reverse=True)
     
     # Historique des mouvements récents
     mouvements_recents = MouvementStock.objects.filter(
@@ -3867,25 +3877,35 @@ def statistiques_stock(request):
     
     # Articles avec annotation du stock total
     articles_qs = articles_qs.annotate(
-        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible', filter=Q(variantes__actif=True)), 0)
+        total_qte_disponible=Coalesce(Sum('variantes__qte_disponible'), 0)
     )
     
     # Valeur totale du stock
-    valeur_stock = articles_qs.aggregate(
-        valeur_totale=Sum(F('total_qte_disponible') * F('prix_unitaire'))
-    )['valeur_totale'] or 0
+    valeur_stock = sum(
+        (article.prix_unitaire or 0) * (article.total_qte_disponible or 0)
+        for article in articles_qs
+    )
     
     # Nombre total d'articles en stock
     articles_en_stock = articles_qs.filter(total_qte_disponible__gt=0).count()
     
     # Articles par niveau de stock
     stats_niveaux = articles_qs.aggregate(
-        total_articles=Count('id'),
-        rupture=Count('id', filter=Q(total_qte_disponible=0)),
-        stock_faible=Count('id', filter=Q(total_qte_disponible__gt=0, total_qte_disponible__lte=10)),
-        stock_normal=Count('id', filter=Q(total_qte_disponible__gt=10, total_qte_disponible__lte=50)),
-        stock_eleve=Count('id', filter=Q(total_qte_disponible__gt=50))
+        total_articles=Count('id')
     )
+    
+    # Calculer les statistiques en Python
+    rupture = sum(1 for article in articles_qs if (article.total_qte_disponible or 0) == 0)
+    stock_faible = sum(1 for article in articles_qs if 0 < (article.total_qte_disponible or 0) <= 10)
+    stock_normal = sum(1 for article in articles_qs if 10 < (article.total_qte_disponible or 0) <= 50)
+    stock_eleve = sum(1 for article in articles_qs if (article.total_qte_disponible or 0) > 50)
+    
+    stats_niveaux.update({
+        'rupture': rupture,
+        'stock_faible': stock_faible,
+        'stock_normal': stock_normal,
+        'stock_eleve': stock_eleve
+    })
     
     # Taux de rupture
     taux_rupture = (stats_niveaux['rupture'] / stats_niveaux['total_articles'] * 100) if stats_niveaux['total_articles'] > 0 else 0
@@ -3893,13 +3913,23 @@ def statistiques_stock(request):
     # Statistiques par catégorie
     stats_categories = articles_qs.values('categorie').annotate(
         total_articles=Count('id'),
-        stock_total=Sum('total_qte_disponible'),
-        valeur_totale=Sum(F('total_qte_disponible') * F('prix_unitaire')),
-        prix_moyen=Avg('prix_unitaire'),
-        stock_moyen=Avg('total_qte_disponible'),
-        articles_rupture=Count('id', filter=Q(total_qte_disponible=0)),
-        articles_faible=Count('id', filter=Q(total_qte_disponible__gt=0, total_qte_disponible__lte=10))
-    ).exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('-valeur_totale')
+        stock_total=Coalesce(Sum('variantes__qte_disponible'), 0),
+        prix_moyen=Avg('prix_unitaire')
+    ).exclude(categorie__isnull=True)
+    
+    # Calculer la valeur totale, le stock moyen et les statistiques en Python
+    for cat in stats_categories:
+        articles_cat = articles_qs.filter(categorie=cat['categorie'])
+        cat['valeur_totale'] = sum(
+            (article.prix_unitaire or 0) * (article.total_qte_disponible or 0)
+            for article in articles_cat
+        )
+        cat['stock_moyen'] = sum(article.total_qte_disponible or 0 for article in articles_cat) / cat['total_articles'] if cat['total_articles'] > 0 else 0
+        cat['articles_rupture'] = sum(1 for article in articles_cat if (article.total_qte_disponible or 0) == 0)
+        cat['articles_faible'] = sum(1 for article in articles_cat if 0 < (article.total_qte_disponible or 0) <= 10)
+    
+    # Trier par valeur totale
+    stats_categories = sorted(stats_categories, key=lambda x: x['valeur_totale'], reverse=True)
     
     # Top articles
     top_articles_valeur = articles_qs.annotate(
@@ -3926,9 +3956,10 @@ def statistiques_stock(request):
     
     for i in range(nb_semaines):
         date_fin = timezone.now() - timedelta(days=i*7)
-        valeur_semaine = articles_qs.aggregate(
-            valeur=Sum(F('total_qte_disponible') * F('prix_unitaire'))
-        )['valeur'] or 0
+        valeur_semaine = sum(
+            (article.prix_unitaire or 0) * (article.total_qte_disponible or 0)
+            for article in articles_qs
+        )
         
         evolution_donnees.append({
             'date': date_fin.strftime('%d/%m'),
@@ -3976,7 +4007,7 @@ def statistiques_stock(request):
         'values': [float((art.qte_disponible or 0) * (art.prix_unitaire or 0)) for art in top_articles_valeur[:5]]
     }
     
-    categories_disponibles = Article.objects.filter(actif=True).values_list('categorie', flat=True).distinct().exclude(categorie__isnull=True).exclude(categorie__exact='').order_by('categorie')
+    categories_disponibles = Article.objects.filter(actif=True).values_list('categorie', flat=True).distinct().exclude(categorie__isnull=True).order_by('categorie')
     
     context = {
         'page_title': 'Statistiques Stock',
@@ -4011,52 +4042,211 @@ def creer_article(request):
         messages.error(request, "Profil opérateur non trouvé.")
         return redirect('login')
     
+    # Récupérer les données nécessaires pour le formulaire
+    from article.models import Categorie, Genre, Couleur, Pointure
+    
+    categories = Categorie.objects.filter(actif=True).order_by('nom')
+    genres = Genre.objects.filter(actif=True).order_by('nom')
+    couleurs = Couleur.objects.filter(actif=True).order_by('nom')
+    pointures = Pointure.objects.filter(actif=True).order_by('ordre', 'pointure')
+    
     if request.method == 'POST':
-        # Récupération des données
-        nom = request.POST.get('nom')
-        reference = request.POST.get('reference')
-        categorie = request.POST.get('categorie')
-        couleur = request.POST.get('couleur')
-        pointure_str = request.POST.get('pointure', '').strip()
-        phase = request.POST.get('phase')
-        prix_str = request.POST.get('prix_unitaire', '').strip().replace(',', '.')
-        description = request.POST.get('description')
-        qte_disponible_str = request.POST.get('qte_disponible', '0').strip()
-        actif = 'actif' in request.POST
-        image = request.FILES.get('image')
+        try:
+            # Récupération des données du formulaire
+            nom = request.POST.get('nom')
+            reference = request.POST.get('reference')
+            categorie_id = request.POST.get('categorie')
+            genre_id = request.POST.get('genre')
+            modele = request.POST.get('modele')
+            phase = request.POST.get('phase')
+            prix_str = request.POST.get('prix_unitaire', '').strip().replace(',', '.')
+            prix_achat_str = request.POST.get('prix_achat', '').strip().replace(',', '.')
+            description = request.POST.get('description')
+            actif = 'actif' in request.POST
+            isUpsell = 'isUpsell' in request.POST
+            image = request.FILES.get('image')
 
-        if not all([nom, reference, categorie, prix_str]):
-            messages.error(request, "Veuillez remplir tous les champs obligatoires (Nom, Référence, Catégorie, Prix).")
-        else:
+            # Validation des champs obligatoires
+            if not all([nom, categorie_id, genre_id, modele, prix_str]):
+                messages.error(request, "Veuillez remplir tous les champs obligatoires (Nom, Catégorie, Genre, Modèle, Prix).")
+                return render(request, 'Superpreparation/stock/creer_article.html', {
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures,
+                    'article_phases': Article.PHASE_CHOICES,
+                    'page_title': "Créer un Nouvel Article",
+                    'page_subtitle': "Ajouter un article au catalogue"
+                })
+
             try:
                 prix_unitaire = float(prix_str)
-                qte_disponible = int(qte_disponible_str) if qte_disponible_str else 0
-                pointure = pointure_str if pointure_str else None
+                if prix_unitaire <= 0:
+                    raise ValueError("Le prix doit être supérieur à 0")
+            except ValueError:
+                messages.error(request, "Le prix unitaire doit être un nombre valide supérieur à 0.")
+                return render(request, 'Superpreparation/stock/creer_article.html', {
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures,
+                    'article_phases': Article.PHASE_CHOICES,
+                    'page_title': "Créer un Nouvel Article",
+                    'page_subtitle': "Ajouter un article au catalogue"
+                })
 
-                article = Article.objects.create(
-                    nom=nom,
-                    reference=reference,
-                    categorie=categorie,
-                    couleur=couleur,
-                    pointure=pointure,
-                    phase=phase,
-                    prix_unitaire=prix_unitaire,
-                    description=description,
-                    qte_disponible=qte_disponible,
-                    actif=actif,
-                    image=image
-                )
-                messages.success(request, f"L'article '{article.nom}' a été créé avec succès.")
-                return redirect('Superpreparation:liste_articles')
-            except (ValueError, TypeError):
-                messages.error(request, "Le prix et la quantité doivent être des nombres valides.")
+            # Vérifier l'unicité du modèle
+            if Article.objects.filter(modele=modele).exists():
+                messages.error(request, f"Un article avec le modèle {modele} existe déjà.")
+                return render(request, 'Superpreparation/stock/creer_article.html', {
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures,
+                    'article_phases': Article.PHASE_CHOICES,
+                    'page_title': "Créer un Nouvel Article",
+                    'page_subtitle': "Ajouter un article au catalogue"
+                })
+
+            # Créer l'article
+            article = Article()
+            article.nom = nom
+            article.reference = reference
+            article.categorie_id = categorie_id
+            article.genre_id = genre_id
+            article.modele = modele
+            article.phase = phase or 'EN_COURS'
+            article.prix_unitaire = prix_unitaire
+            article.description = description
+            article.actif = actif
+            article.isUpsell = isUpsell
+            
+            # Gérer le prix d'achat
+            if prix_achat_str:
+                try:
+                    prix_achat = float(prix_achat_str)
+                    if prix_achat >= 0:
+                        article.prix_achat = prix_achat
+                except ValueError:
+                    pass  # Ignorer les valeurs non numériques
+            
+            # Gérer l'image si elle est fournie
+            if image:
+                article.image = image
+            
+            # Générer automatiquement la référence si elle n'est pas fournie
+            if not reference and categorie_id and genre_id and modele:
+                article.save()
+                article.refresh_from_db()
+                reference_auto = article.generer_reference_automatique()
+                if reference_auto:
+                    article.reference = reference_auto
+            
+            article.save()
+            
+            # Gérer les variantes si elles sont fournies via AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Les variantes seront gérées par le JavaScript
+                return JsonResponse({
+                    'success': True,
+                    'article_id': article.id,
+                    'article_nom': article.nom,
+                    'message': f"Article '{article.nom}' créé avec succès"
+                })
+            
+            messages.success(request, f"L'article '{article.nom}' a été créé avec succès.")
+            return redirect('Superpreparation:liste_articles')
+            
+        except Exception as e:
+            messages.error(request, f"Une erreur est survenue lors de la création de l'article : {str(e)}")
+            return render(request, 'Superpreparation/stock/creer_article.html', {
+                'categories': categories,
+                'genres': genres,
+                'couleurs': couleurs,
+                'pointures': pointures,
+                'article_phases': Article.PHASE_CHOICES,
+                'page_title': "Créer un Nouvel Article",
+                'page_subtitle': "Ajouter un article au catalogue"
+            })
 
     context = {
+        'categories': categories,
+        'genres': genres,
+        'couleurs': couleurs,
+        'pointures': pointures,
         'article_phases': Article.PHASE_CHOICES,
         'page_title': "Créer un Nouvel Article",
         'page_subtitle': "Ajouter un article au catalogue"
     }
     return render(request, 'Superpreparation/stock/creer_article.html', context)
+
+@superviseur_preparation_required
+def creer_variantes_ajax(request):
+    """Créer des variantes pour un article via AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        article_id = data.get('article_id')
+        variantes_data = data.get('variantes', [])
+        
+        if not article_id:
+            return JsonResponse({'success': False, 'error': 'ID de l\'article manquant'})
+        
+        article = get_object_or_404(Article, id=article_id)
+        variantes_crees = 0
+        erreurs = []
+        
+        for variante_data in variantes_data:
+            try:
+                couleur_id = variante_data.get('couleur_id')
+                pointure_id = variante_data.get('pointure_id')
+                quantite = variante_data.get('quantite', 0)
+                reference = variante_data.get('reference')
+                
+                # Vérifier l'unicité de la combinaison
+                if VarianteArticle.objects.filter(
+                    article=article,
+                    couleur_id=couleur_id if couleur_id else None,
+                    pointure_id=pointure_id if pointure_id else None
+                ).exists():
+                    erreurs.append(f"Variante avec cette combinaison couleur/pointure existe déjà")
+                    continue
+                
+                # Créer la variante
+                variante = VarianteArticle()
+                variante.article = article
+                variante.couleur_id = couleur_id if couleur_id else None
+                variante.pointure_id = pointure_id if pointure_id else None
+                variante.qte_disponible = int(quantite) if quantite else 0
+                variante.actif = True
+                
+                # Définir la référence de la variante
+                if reference:
+                    variante.reference_variante = reference
+                else:
+                    # Générer automatiquement la référence
+                    variante.reference_variante = variante.generer_reference_variante_automatique()
+                
+                variante.save()
+                variantes_crees += 1
+                
+            except Exception as e:
+                erreurs.append(f"Erreur lors de la création de la variante: {str(e)}")
+        
+        return JsonResponse({
+            'success': True,
+            'nombre_crees': variantes_crees,
+            'erreurs': erreurs,
+            'message': f'{variantes_crees} variante(s) créée(s) avec succès'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Données JSON invalides'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Erreur serveur: {str(e)}'})
 
 @superviseur_preparation_required
 def modifier_article(request, article_id):
@@ -4196,7 +4386,7 @@ def etats_livraison(request):
         commandes = commandes.filter(date_creation__gte=date_debut)
     if date_fin:
         commandes = commandes.filter(date_creation__lte=date_fin)
-    if region_id:
+    if region_id and region_id.strip():
         commandes = commandes.filter(ville__region_id=region_id)
     if statut:
         commandes = commandes.filter(etats__enum_etat__libelle=statut, etats__date_fin__isnull=True)
@@ -4260,7 +4450,7 @@ def export_envois(request):
         etats__date_fin__isnull=True
     ).select_related('ville__region')
     
-    if region_id:
+    if region_id and region_id.strip():
         commandes_pretes = commandes_pretes.filter(ville__region_id=region_id)
     
     # Statistiques

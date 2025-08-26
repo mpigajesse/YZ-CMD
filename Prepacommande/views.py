@@ -26,6 +26,29 @@ from commande.models import Envoi
 from .forms import ArticleForm, AjusterStockForm
 from .utils import creer_mouvement_stock
 
+# Décorateur pour gérer les erreurs AJAX
+def handle_ajax_errors(view_func):
+    def wrapper(request, *args, **kwargs):
+        print(f"🔍 Décorateur handle_ajax_errors appelé pour {view_func.__name__}")
+        try:
+            result = view_func(request, *args, **kwargs)
+            print(f"🔍 Fonction {view_func.__name__} terminée avec succès")
+            return result
+        except Exception as e:
+            print(f"❌ Erreur globale dans {view_func.__name__}: {str(e)}")
+            import traceback
+            print(f"❌ Traceback: {traceback.format_exc()}")
+            
+            # Si c'est une requête AJAX, retourner JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                print(f"🔍 Retour de réponse JSON pour erreur AJAX")
+                return JsonResponse({"success": False, "error": f"Erreur serveur: {str(e)}"})
+            
+            # Sinon, laisser Django gérer l'erreur normalement
+            print(f"🔍 Relance de l'exception pour gestion normale")
+            raise
+    return wrapper
+
 # Create your views here.
 
 
@@ -1761,24 +1784,36 @@ def api_commande_produits(request, commande_id):
 
 
 @login_required
+@handle_ajax_errors
 def modifier_commande_prepa(request, commande_id):
     """Page de modification complète d'une commande pour les opérateurs de préparation"""
+    print(f"🔍 ===== DÉBUT modifier_commande_prepa =====")
+    print(f"🔍 Méthode: {request.method}")
+    print(f"🔍 Commande ID: {commande_id}")
+    print(f"🔍 URL: {request.path}")
+    
     import json
     from commande.models import Commande, Operation
     from parametre.models import Ville
     
+    print(f"🔍 Récupération de l'opérateur")
+    # Récupérer l'opérateur
     try:
-        # Récupérer l'opérateur
         operateur = Operateur.objects.get(
             user=request.user, type_operateur="PREPARATION"
         )
+        print(f"✅ Opérateur trouvé: {operateur.user.username}")
     except Operateur.DoesNotExist:
+        print(f"❌ Opérateur non trouvé pour l'utilisateur: {request.user.username}")
         messages.error(request, "Profil d'opérateur de préparation non trouvé.")
         return redirect("login")
     
+    print(f"🔍 Récupération de la commande: {commande_id}")
     # Récupérer la commande
     commande = get_object_or_404(Commande, id=commande_id)
+    print(f"✅ Commande trouvée: {commande.id_yz}")
     
+    print(f"🔍 Vérification de l'état de préparation")
     # Vérifier que la commande est affectée à cet opérateur pour la préparation
     etat_preparation = commande.etats.filter(
         Q(enum_etat__libelle="À imprimer") | Q(enum_etat__libelle="En préparation"),
@@ -1786,13 +1821,20 @@ def modifier_commande_prepa(request, commande_id):
         date_fin__isnull=True,
     ).first()
     
+    print(f"🔍 État de préparation trouvé: {etat_preparation}")
+    
     if not etat_preparation:
+        print(f"❌ Commande non affectée à l'opérateur pour la préparation")
         messages.error(
             request, "Cette commande ne vous est pas affectée pour la préparation."
         )
         return redirect("Prepacommande:liste_prepa")
+    
+    print(f"✅ Commande affectée à l'opérateur pour la préparation")
 
     if request.method == "POST":
+        print(f"🔍 Requête POST reçue")
+        print(f"🔍 POST data: {dict(request.POST)}")
         try:
             # ================ GESTION DES ACTIONS AJAX SPÉCIFIQUES ================
             action = request.POST.get("action")
@@ -1817,17 +1859,26 @@ def modifier_commande_prepa(request, commande_id):
             
             if action == "add_article":
                 print(f"🔄 Traitement de l'action add_article (AJAX: {is_ajax})")
+                print(f"🔍 Début du traitement add_article")
+                
                 # Ajouter un nouvel article immédiatement
                 from article.models import Article, Variante
                 from commande.models import Panier
                 
-                article_id = request.POST.get("article_id")
+                # Support both parameter names for backward compatibility
+                article_id = request.POST.get("articleId") or request.POST.get("article_id")
                 quantite = int(request.POST.get("quantite", 1))
-                variante_id = request.POST.get("variante_id")
+                variante_id = request.POST.get("varianteId") or request.POST.get("variante_id")
+                
+                print(f"🔍 Paramètres reçus: article_id={article_id}, quantite={quantite}, variante_id={variante_id}")
+                print(f"🔍 Type des paramètres: article_id={type(article_id)}, quantite={type(quantite)}, variante_id={type(variante_id)}")
                 
                 try:
+                    print(f"🔍 Début du bloc try pour add_article")
+                    print(f"🔍 Vérification des variantes et articles")
                     # Vérifier si une variante spécifique a été sélectionnée
                     if variante_id:
+                        print(f"🔍 Recherche de variante spécifique: {variante_id}")
                         try:
                             variante = Variante.objects.get(id=variante_id)
                             article = variante.article  # Utiliser l'article parent de la variante
@@ -1836,6 +1887,7 @@ def modifier_commande_prepa(request, commande_id):
                             print(f"❌ Variante spécifiée non trouvée: {variante_id}")
                             return JsonResponse({"success": False, "error": "Variante non trouvée"})
                     else:
+                        print(f"🔍 Pas de variante spécifiée, recherche d'article: {article_id}")
                         # Vérifier si l'article_id est une variante ou un article
                         try:
                             # Essayer de trouver une variante d'abord
@@ -1843,17 +1895,22 @@ def modifier_commande_prepa(request, commande_id):
                             article = variante.article  # Utiliser l'article parent de la variante
                             print(f"🔄 Variante trouvée: ID={variante.id}, Article parent: {article.nom}")
                         except Variante.DoesNotExist:
+                            print(f"🔍 Pas une variante, recherche d'article normal: {article_id}")
                             # Si ce n'est pas une variante, c'est un article normal
                             article = Article.objects.get(id=article_id)
                             variante = None
                             print(f"🔄 Article normal trouvé: ID={article.id}, Nom: {article.nom}")
                     
+                    print(f"🔍 Vérification du panier existant")
                     # Vérifier si l'article existe déjà dans la commande
                     panier_existant = Panier.objects.filter(
                         commande=commande, article=article
                     ).first()
                     
+                    print(f"🔍 Panier existant trouvé: {panier_existant is not None}")
+                    
                     if panier_existant:
+                        print(f"🔍 Mise à jour du panier existant")
                         # Si l'article existe déjà, mettre à jour la quantité
                         panier_existant.quantite += quantite
                         panier_existant.save()
@@ -1862,6 +1919,7 @@ def modifier_commande_prepa(request, commande_id):
                             f"🔄 Article existant mis à jour: ID={article.id}, nouvelle quantité={panier.quantite}"
                         )
                     else:
+                        print(f"🔍 Création d'un nouveau panier")
                         # Si l'article n'existe pas, créer un nouveau panier
                         panier = Panier.objects.create(
                             commande=commande,
@@ -1873,20 +1931,24 @@ def modifier_commande_prepa(request, commande_id):
                             f"➕ Nouvel article ajouté: ID={article.id}, quantité={quantite}"
                         )
                     
+                    print(f"🔍 Gestion des variantes et calcul des prix")
                     # Si c'était une variante, stocker l'information de la variante
                     if variante:
+                        print(f"🔍 Stockage des informations de variante")
                         # Vous pouvez ajouter un champ personnalisé au panier pour stocker la variante
                         # Ou utiliser un système de commentaires pour stocker cette information
                         panier.commentaire = f"Variante sélectionnée: {variante.couleur} - {variante.pointure}"
                         panier.save()
                         print(f"📝 Variante stockée: {variante.couleur} - {variante.pointure}")
                     
+                    print(f"🔍 Vérification si article est upsell")
                     # Recalculer le compteur après ajout (logique de confirmation)
                     if (
                         article.isUpsell
                         and hasattr(article, "prix_upsell_1")
                         and article.prix_upsell_1 is not None
                     ):
+                        print(f"🔍 Calcul du compteur upsell")
                         # Compter la quantité totale d'articles upsell (après ajout)
                         total_quantite_upsell = (
                             commande.paniers.filter(article__isUpsell=True).aggregate(
@@ -1894,6 +1956,8 @@ def modifier_commande_prepa(request, commande_id):
                             )["total"]
                             or 0
                         )
+                        
+                        print(f"🔍 Total quantité upsell: {total_quantite_upsell}")
                         
                         # Le compteur ne s'incrémente qu'à partir de 2 unités d'articles upsell
                         # 0-1 unités upsell → compteur = 0
@@ -1903,22 +1967,29 @@ def modifier_commande_prepa(request, commande_id):
                         else:
                             commande.compteur = 0
                         
+                        print(f"🔍 Nouveau compteur: {commande.compteur}")
                         commande.save()
                         
+                        print(f"🔍 Recalcul des totaux upsell")
                         # Recalculer TOUS les articles de la commande avec le nouveau compteur
                         commande.recalculer_totaux_upsell()
                     else:
+                        print(f"🔍 Calcul des prix pour article normal")
                         # Pour les articles normaux, juste calculer le sous-total
                         from commande.templatetags.commande_filters import (
                             get_prix_upsell_avec_compteur,
                         )
 
+                        print(f"🔍 Récupération du prix unitaire")
                         prix_unitaire = get_prix_upsell_avec_compteur(
                             article, commande.compteur
                         )
+                        print(f"🔍 Prix unitaire: {prix_unitaire}")
                         sous_total = prix_unitaire * panier.quantite
+                        print(f"🔍 Sous-total: {sous_total}")
                         panier.sous_total = float(sous_total)
                         panier.save()
+                        print(f"🔍 Panier sauvegardé avec sous-total: {panier.sous_total}")
                     
                     # Recalculer le total de la commande avec frais de livraison
                     total_articles = (
@@ -1966,6 +2037,7 @@ def modifier_commande_prepa(request, commande_id):
                         "variante_info": f"{variante.couleur} - {variante.pointure}" if variante else None,
                     }
 
+                    print(f"🔍 Préparation de la réponse JSON")
                     print(f"✅ Action add_article terminée avec succès, retour de la réponse JSON")
                     return JsonResponse(
                         {
@@ -1992,6 +2064,9 @@ def modifier_commande_prepa(request, commande_id):
                     return JsonResponse(
                         {"success": False, "error": "Article non trouvé"}
                     )
+                except (ValueError, TypeError) as e:
+                    print(f"❌ Erreur de type dans l'action add_article: {str(e)}")
+                    return JsonResponse({"success": False, "error": f"Erreur de type: {str(e)}"})
                 except Exception as e:
                     print(f"❌ Erreur générale dans l'action add_article: {str(e)}")
                     import traceback
@@ -2806,7 +2881,230 @@ def modifier_commande_prepa(request, commande_id):
             print(f"⚠️ Action AJAX non traitée: {action}")
             return JsonResponse({"success": False, "message": f"Action non traitée: {action}"})
     
+    print(f"🔍 ===== FIN modifier_commande_prepa (RENDER) =====")
     return render(request, "Prepacommande/modifier_commande.html", context)
+
+
+@login_required
+def ajouter_article_commande_prepa(request, commande_id):
+    """Ajouter un article à la commande en préparation"""
+    print("🔄 ===== DÉBUT ajouter_article_commande_prepa =====")
+    print(f"📦 Méthode HTTP: {request.method}")
+    print(f"📦 Commande ID: {commande_id}")
+    print(f"📦 User: {request.user}")
+    print(f"📦 POST data: {dict(request.POST)}")
+    print(f"📦 Headers: {dict(request.headers)}")
+    
+    if request.method != 'POST':
+        print("❌ Méthode non autorisée")
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        # Récupérer l'opérateur de préparation
+        operateur = Operateur.objects.get(user=request.user, type_operateur="PREPARATION")
+        print(f"✅ Opérateur trouvé: {operateur.id} - Type: {operateur.type_operateur}")
+    except Operateur.DoesNotExist:
+        print("❌ Profil d'opérateur de préparation non trouvé")
+        return JsonResponse({'error': 'Profil d\'opérateur de préparation non trouvé.'}, status=403)
+    
+    try:
+        with transaction.atomic():
+            print("🔧 Début de la transaction atomique")
+            commande = Commande.objects.select_for_update().get(id=commande_id)
+            print(f"✅ Commande trouvée: {commande.id} - ID YZ: {commande.id_yz}")
+            
+            # Vérifier que la commande est affectée à cet opérateur pour la préparation
+            etat_preparation = commande.etats.filter(
+                Q(enum_etat__libelle="À imprimer") | Q(enum_etat__libelle="En préparation"),
+                operateur=operateur,
+                date_fin__isnull=True,
+            ).first()
+            
+            if not etat_preparation:
+                print("❌ Commande non affectée à l'opérateur pour la préparation")
+                return JsonResponse({'error': 'Cette commande ne vous est pas affectée pour la préparation.'}, status=403)
+            
+            print(f"✅ État de préparation trouvé: {etat_preparation.enum_etat.libelle}")
+            
+            # Support both parameter names for backward compatibility
+            article_id = request.POST.get("articleId") or request.POST.get("article_id")
+            quantite = int(request.POST.get("quantite", 1))
+            variante_id = request.POST.get("varianteId") or request.POST.get("variante_id")
+
+            print("[AJOUT VARIANTE] entrée:", {
+                'commande_id': commande_id,
+                'operateur': getattr(operateur, 'id', None),
+                'article_id': article_id,
+                'quantite': quantite,
+                'variante_id': variante_id,
+            })
+            
+            if not article_id or quantite <= 0:
+                print(f"❌ Données invalides: article_id={article_id}, quantite={quantite}")
+                return JsonResponse({'error': 'Données invalides'}, status=400)
+
+            print(f"✅ Données reçues: article_id={article_id}, quantite={quantite}, variante_id={variante_id}")
+            article = Article.objects.get(id=article_id)
+            print(f"✅ Article trouvé: {article.id} - {article.nom}")
+            
+            # Handle variant if provided
+            variante_obj = None
+            if variante_id:
+                try:
+                    from article.models import Variante
+                    variante_obj = Variante.objects.get(id=int(variante_id), article=article)
+                    print("[AJOUT VARIANTE] variante trouvée:", {
+                        'id': variante_obj.id,
+                        'couleur': getattr(variante_obj, 'couleur', None),
+                        'pointure': getattr(variante_obj, 'pointure', None),
+                        'qte_disponible_avant': variante_obj.qte_disponible,
+                    })
+                except Exception:
+                    variante_obj = None
+                    print("[AJOUT VARIANTE] variante introuvable ou invalide", variante_id)
+            
+            # Décrémenter le stock et créer un mouvement
+            print("[AJOUT VARIANTE] création mouvement stock", {
+                'article': article.id,
+                'quantite': quantite,
+                'type': 'sortie',
+                'variante': getattr(variante_obj, 'id', None),
+            })
+            creer_mouvement_stock(
+                article=article, quantite=quantite, type_mouvement='sortie',
+                commande=commande, operateur=operateur,
+                commentaire=f'Ajout article pendant préparation cmd {commande.id_yz}',
+                variante=variante_obj
+            )
+            
+            # Vérifier si l'article existe déjà dans la commande
+            panier_existant = Panier.objects.filter(
+                commande=commande, article=article
+            ).first()
+            
+            print("[AJOUT VARIANTE] filtre panier:", {
+                'commande': commande.id,
+                'article': article.id,
+                'existant': getattr(panier_existant, 'id', None)
+            })
+            
+            if panier_existant:
+                # Si l'article existe déjà, mettre à jour la quantité
+                panier_existant.quantite += quantite
+                panier_existant.save()
+                panier = panier_existant
+                print(f"[AJOUT VARIANTE] 🔄 panier existant {panier.id} mis à jour, nouvelle_quantite={panier.quantite}")
+            else:
+                # Si l'article n'existe pas, créer un nouveau panier
+                panier = Panier.objects.create(
+                    commande=commande,
+                    article=article,
+                    quantite=quantite,
+                    sous_total=0,
+                )
+                print(f"[AJOUT VARIANTE] ➕ nouveau panier créé id={panier.id}, article={article.id}, quantite={quantite}")
+            
+            # Si c'était une variante, stocker l'information de la variante
+            if variante_obj:
+                panier.commentaire = f"Variante sélectionnée: {variante_obj.couleur} - {variante_obj.pointure}"
+                panier.save()
+                print(f"📝 Variante stockée: {variante_obj.couleur} - {variante_obj.pointure}")
+            
+            # Recalculer le compteur après ajout (logique de confirmation)
+            if article.isUpsell and hasattr(article, 'prix_upsell_1') and article.prix_upsell_1 is not None:
+                # Compter la quantité totale d'articles upsell (après ajout)
+                total_quantite_upsell = commande.paniers.filter(article__isUpsell=True).aggregate(
+                    total=Sum('quantite')
+                )['total'] or 0
+                
+                # Le compteur ne s'incrémente qu'à partir de 2 unités d'articles upsell
+                # 0-1 unités upsell → compteur = 0
+                # 2+ unités upsell → compteur = total_quantite_upsell - 1
+                if total_quantite_upsell >= 2:
+                    commande.compteur = total_quantite_upsell - 1
+                else:
+                    commande.compteur = 0
+                
+                commande.save()
+                
+                # Recalculer TOUS les articles de la commande avec le nouveau compteur
+                commande.recalculer_totaux_upsell()
+            else:
+                # Pour les articles normaux, juste calculer le sous-total
+                from commande.templatetags.commande_filters import get_prix_upsell_avec_compteur
+                prix_unitaire = get_prix_upsell_avec_compteur(article, commande.compteur)
+                sous_total = prix_unitaire * panier.quantite
+                panier.sous_total = float(sous_total)
+                panier.save()
+            
+            # Recalculer le total
+            commande.total_cmd = sum(p.sous_total for p in commande.paniers.all())
+            commande.save()
+            print("[AJOUT VARIANTE] totaux mis à jour:", {
+                'commande_id': commande.id,
+                'total_cmd': commande.total_cmd,
+                'articles_count': commande.paniers.count(),
+            })
+            
+            # Calculer les statistiques upsell
+            articles_upsell = commande.paniers.filter(article__isUpsell=True)
+            total_quantite_upsell = articles_upsell.aggregate(
+                total=Sum('quantite')
+            )['total'] or 0
+            
+            # Déterminer si c'était un ajout ou une mise à jour
+            message = 'Article ajouté avec succès' if not panier_existant else f'Quantité mise à jour ({panier.quantite})'
+            
+            # Préparer les données de l'article pour le frontend
+            article_data = {
+                'panier_id': panier.id,
+                'nom': article.nom,
+                'reference': article.reference,
+                'couleur_fr': variante_obj.couleur if variante_obj else (article.couleur or ""),
+                'couleur_ar': variante_obj.couleur if variante_obj else (article.couleur or ""),
+                'pointure': variante_obj.pointure if variante_obj else (article.pointure or ""),
+                'quantite': panier.quantite,
+                'prix': panier.sous_total / panier.quantite,  # Prix unitaire
+                'sous_total': panier.sous_total,
+                'is_upsell': article.isUpsell,
+                'isUpsell': article.isUpsell,
+                'phase': article.phase,
+                'qte_disponible': article.get_total_qte_disponible(),
+                'has_promo_active': article.has_promo_active if hasattr(article, 'has_promo_active') else False,
+                'description': article.description or "",
+                'variante_info': f"{variante_obj.couleur} - {variante_obj.pointure}" if variante_obj else None,
+            }
+            
+            response_data = {
+                'success': True, 
+                'message': message,
+                'article_id': panier.id,
+                'total_commande': float(commande.total_cmd),
+                'nb_articles': commande.paniers.count(),
+                'compteur': commande.compteur,
+                'was_update': panier_existant is not None,
+                'new_quantity': panier.quantite,
+                'article_data': article_data,
+                'articles_count': commande.paniers.count(),
+                'sous_total_articles': float(sum(p.sous_total for p in commande.paniers.all())),
+                'articles_upsell': articles_upsell.count(),
+                'quantite_totale_upsell': total_quantite_upsell
+            }
+            
+            print("✅ ===== SUCCÈS ajouter_article_commande_prepa =====")
+            print(f"📦 Réponse: {response_data}")
+            
+            return JsonResponse(response_data)
+            
+    except Article.DoesNotExist:
+        print("❌ Article non trouvé")
+        return JsonResponse({'success': False, 'error': 'Article non trouvé'}, status=404)
+    except Exception as e:
+        print(f"❌ ===== ERREUR ajouter_article_commande_prepa =====")
+        print(f"❌ Exception: {str(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        return JsonResponse({'success': False, 'error': f'Erreur interne: {str(e)}'}, status=500)
 
 
 @login_required
@@ -4542,13 +4840,24 @@ def ajouter_article_commande_prepa(request, commande_id):
                     status=403,
                 )
             
-            article_id = request.POST.get("article_id")
+            # Support both parameter names for backward compatibility
+            article_id = request.POST.get("articleId") or request.POST.get("article_id")
             quantite = int(request.POST.get("quantite", 1))
+            variante_id = request.POST.get("varianteId")
             
             if not article_id or quantite <= 0:
                 return JsonResponse({"error": "Données invalides"}, status=400)
 
             article = Article.objects.get(id=article_id)
+            
+            # Handle variant if provided
+            variante = None
+            if variante_id:
+                try:
+                    from article.models import VarianteArticle
+                    variante = VarianteArticle.objects.get(id=variante_id, article=article)
+                except VarianteArticle.DoesNotExist:
+                    return JsonResponse({"error": "Variante non trouvée"}, status=404)
             
             # Décrémenter le stock et créer un mouvement
             creer_mouvement_stock(

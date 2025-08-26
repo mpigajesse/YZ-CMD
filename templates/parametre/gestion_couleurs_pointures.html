@@ -1,0 +1,908 @@
+{% extends 'composant_generale/admin/base.html' %}
+{% load static %}
+
+{% block title %}Gestion des Couleurs & Pointures - Administration{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    /* Tab styles */
+    .tab-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .tab-header {
+        display: flex;
+        background: linear-gradient(to right, #f8f9fa, #e9ecef);
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .tab-button {
+        flex: 1;
+        padding: 1rem 1.5rem;
+        background: none;
+        border: none;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-bottom: 3px solid transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .tab-button:hover {
+        background-color: rgba(102, 204, 204, 0.1);
+        color: var(--admin-color);
+    }
+
+    .tab-button.active {
+        color: var(--admin-color);
+        border-bottom-color: var(--admin-accent-color);
+        background-color: white;
+    }
+
+    .tab-content {
+        display: none;
+        padding: 0;
+    }
+
+    .tab-content.active {
+        display: block;
+        animation: slideInUp 0.3s ease-out;
+    }
+
+    /* Search and filter styles */
+    .search-filter-container {
+        background: #f8f9fa;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 1.5rem;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 0.75rem center;
+        background-size: 1rem;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--admin-accent-color);
+        box-shadow: 0 0 0 3px rgba(102, 204, 204, 0.1);
+    }
+
+    /* Pagination styles */
+    .pagination-container {
+        background: white;
+        border-top: 1px solid #e5e7eb;
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .pagination-info {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .pagination-select {
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background: white;
+    }
+
+    .pagination-button {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #d1d5db;
+        background: white;
+        color: #374151;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .pagination-button:hover:not(:disabled) {
+        background: #f3f4f6;
+        border-color: #9ca3af;
+    }
+
+    .pagination-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .pagination-button.active {
+        background: var(--admin-color);
+        color: white;
+        border-color: var(--admin-color);
+    }
+
+    /* Search and filter styles */
+    .search-filter-container {
+        background: #f8f9fa;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 1.5rem;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 0.75rem center;
+        background-size: 1rem;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--admin-accent-color);
+        box-shadow: 0 0 0 3px rgba(102, 204, 204, 0.1);
+    }
+
+    /* Pagination styles */
+    .pagination-container {
+        background: white;
+        border-top: 1px solid #e5e7eb;
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .pagination-info {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .pagination-select {
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background: white;
+    }
+
+    .pagination-button {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #d1d5db;
+        background: white;
+        color: #374151;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .pagination-button:hover:not(:disabled) {
+        background: #f3f4f6;
+        border-color: #9ca3af;
+    }
+
+    .pagination-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .pagination-button.active {
+        background: var(--admin-color);
+        color: white;
+        border-color: var(--admin-color);
+    }
+
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 0;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        animation: slideInUp 0.3s ease-out;
+    }
+
+    .modal-header {
+        background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-title {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .close {
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: opacity 0.3s;
+    }
+
+    .close:hover {
+        opacity: 0.7;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+        padding: 0 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--admin-accent-color);
+        box-shadow: 0 0 0 3px rgba(102, 204, 204, 0.1);
+    }
+
+    .form-control[type="number"] {
+        -moz-appearance: textfield;
+    }
+
+    .form-control[type="number"]::-webkit-outer-spin-button,
+    .form-control[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    textarea.form-control {
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .form-control[type="checkbox"] {
+        width: auto;
+        margin-right: 0.5rem;
+    }
+
+    .modal-footer {
+        padding: 1.5rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--admin-gradient-start), var(--admin-gradient-end));
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(2, 53, 53, 0.3);
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-palette mr-3" style="color: var(--admin-accent-color);"></i>
+                Gestion des Couleurs & Pointures
+            </h1>
+            <p style="color: var(--admin-accent-color);">Gérez les couleurs et pointures disponibles pour les articles</p>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Total Couleurs -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-blue-300 animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-palette text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Couleurs</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600">{{ couleurs_count }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Pointures -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 hover:border-green-300 animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-shoe-prints text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Pointures</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ pointures_count }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Système d'onglets -->
+    <div class="tab-container animate-slideInUp" style="animation-delay: 0.3s;">
+        <!-- En-têtes des onglets -->
+        <div class="tab-header">
+            <button class="tab-button active" onclick="switchTab('couleurs')">
+                <i class="fas fa-palette"></i>
+                Couleurs ({{ couleurs_count }})
+            </button>
+            <button class="tab-button" onclick="switchTab('pointures')">
+                <i class="fas fa-shoe-prints"></i>
+                Pointures ({{ pointures_count }})
+            </button>
+        </div>
+
+        <!-- Contenu de l'onglet Couleurs -->
+        <div id="couleurs-tab" class="tab-content active">
+            <!-- Barre de recherche et filtres -->
+            <div class="search-filter-container">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
+                        <input type="text" 
+                               id="searchCouleur" 
+                               class="search-input" 
+                               placeholder="Rechercher une couleur par nom, description ou code hex..."
+                               value="{{ search_couleur }}"
+                               onkeyup="handleSearch('couleur', this.value)">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" onclick="openModal('couleur', 'add')">
+                            <i class="fas fa-plus mr-2"></i>Ajouter
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- En-tête de la section -->
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-palette mr-3" style="color: var(--admin-color);"></i>
+                        Liste des Couleurs
+                    </h2>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Nom</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Code Hex</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Statut</th>
+                            <th scope="col" class="relative px-6 py-3">
+                                <span class="sr-only text-white">Actions</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for couleur in couleurs %}
+                        <tr class="hover:bg-gray-50 transition-colors duration-200">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ couleur.nom }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {% if couleur.code_hex %}
+                                    <div class="flex items-center">
+                                        <div class="w-6 h-6 rounded-full border border-gray-300 mr-2" style="background-color: {{ couleur.code_hex }};"></div>
+                                        {{ couleur.code_hex }}
+                                    </div>
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500">
+                                {{ couleur.description|default:"-"|truncatechars:50 }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {% if couleur.actif %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                    {% if couleur.actif %}Actif{% else %}Inactif{% endif %}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button class="text-indigo-600 hover:text-indigo-900 mr-3" onclick="openModal('couleur', 'edit', {{ couleur.id }}, '{{ couleur.nom }}', {nom: '{{ couleur.nom }}', code_hex: '{{ couleur.code_hex|default:"" }}', description: '{{ couleur.description|default:""|escapejs }}', actif: {{ couleur.actif|lower }}})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="text-red-600 hover:text-red-900" onclick="confirmDelete('couleur', {{ couleur.id }}, '{{ couleur.nom }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                {% if search_couleur %}
+                                    Aucune couleur trouvée pour "{{ search_couleur }}"
+                                {% else %}
+                                    Aucune couleur enregistrée
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination pour les couleurs -->
+            {% if couleurs.has_other_pages %}
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    Affichage de {{ couleurs.start_index }} à {{ couleurs.end_index }} sur {{ total_couleurs }} couleurs
+                </div>
+                <div class="pagination-controls">
+                    <select class="pagination-select" onchange="changeItemsPerPage(this.value)">
+                        <option value="5" {% if items_per_page == '5' %}selected{% endif %}>5 par page</option>
+                        <option value="10" {% if items_per_page == '10' %}selected{% endif %}>10 par page</option>
+                        <option value="15" {% if items_per_page == '15' %}selected{% endif %}>15 par page</option>
+                        <option value="20" {% if items_per_page == '20' %}selected{% endif %}>20 par page</option>
+                    </select>
+                    
+                    {% if couleurs.has_previous %}
+                        <button class="pagination-button" onclick="goToPage('couleur', 1)">«</button>
+                        <button class="pagination-button" onclick="goToPage('couleur', {{ couleurs.previous_page_number }})">‹</button>
+                    {% endif %}
+                    
+                    {% for num in couleurs.paginator.page_range %}
+                        {% if couleurs.number == num %}
+                            <button class="pagination-button active">{{ num }}</button>
+                        {% elif num > couleurs.number|add:'-3' and num < couleurs.number|add:'3' %}
+                            <button class="pagination-button" onclick="goToPage('couleur', {{ num }})">{{ num }}</button>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if couleurs.has_next %}
+                        <button class="pagination-button" onclick="goToPage('couleur', {{ couleurs.next_page_number }})">›</button>
+                        <button class="pagination-button" onclick="goToPage('couleur', {{ couleurs.paginator.num_pages }})">»</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Contenu de l'onglet Pointures -->
+        <div id="pointures-tab" class="tab-content">
+            <!-- Barre de recherche et filtres -->
+            <div class="search-filter-container">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
+                        <input type="text" 
+                               id="searchPointure" 
+                               class="search-input" 
+                               placeholder="Rechercher une pointure par nom ou description..."
+                               value="{{ search_pointure }}"
+                               onkeyup="handleSearch('pointure', this.value)">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" onclick="openModal('pointure', 'add')">
+                            <i class="fas fa-plus mr-2"></i>Ajouter
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- En-tête de la section -->
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-shoe-prints mr-3" style="color: var(--admin-color);"></i>
+                        Liste des Pointures
+                    </h2>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50" style="background-color: var(--admin-color);">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Pointure</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ordre</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Statut</th>
+                            <th scope="col" class="relative px-6 py-3">
+                                <span class="sr-only text-white">Actions</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for pointure in pointures %}
+                        <tr class="hover:bg-gray-50 transition-colors duration-200">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ pointure.pointure }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ pointure.ordre }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-500">
+                                {{ pointure.description|default:"-"|truncatechars:50 }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {% if pointure.actif %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                    {% if pointure.actif %}Actif{% else %}Inactif{% endif %}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button class="text-indigo-600 hover:text-indigo-900 mr-3" onclick="openModal('pointure', 'edit', {{ pointure.id }}, '{{ pointure.pointure }}', {pointure: '{{ pointure.pointure }}', ordre: {{ pointure.ordre }}, description: '{{ pointure.description|default:""|escapejs }}', actif: {{ pointure.actif|lower }}})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="text-red-600 hover:text-red-900" onclick="confirmDelete('pointure', {{ pointure.id }}, '{{ pointure.pointure }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                {% if search_pointure %}
+                                    Aucune pointure trouvée pour "{{ search_pointure }}"
+                                {% else %}
+                                    Aucune pointure enregistrée
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination pour les pointures -->
+            {% if pointures.has_other_pages %}
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    Affichage de {{ pointures.start_index }} à {{ pointures.end_index }} sur {{ total_pointures }} pointures
+                </div>
+                <div class="pagination-controls">
+                    <select class="pagination-select" onchange="changeItemsPerPage(this.value)">
+                        <option value="5" {% if items_per_page == '5' %}selected{% endif %}>5 par page</option>
+                        <option value="10" {% if items_per_page == '10' %}selected{% endif %}>10 par page</option>
+                        <option value="15" {% if items_per_page == '15' %}selected{% endif %}>15 par page</option>
+                        <option value="20" {% if items_per_page == '20' %}selected{% endif %}>20 par page</option>
+                    </select>
+                    
+                    {% if pointures.has_previous %}
+                        <button class="pagination-button" onclick="goToPage('pointure', 1)">«</button>
+                        <button class="pagination-button" onclick="goToPage('pointure', {{ pointures.previous_page_number }})">‹</button>
+                    {% endif %}
+                    
+                    {% for num in pointures.paginator.page_range %}
+                        {% if pointures.number == num %}
+                            <button class="pagination-button active">{{ num }}</button>
+                        {% elif num > pointures.number|add:'-3' and num < pointures.number|add:'3' %}
+                            <button class="pagination-button" onclick="goToPage('pointure', {{ num }})">{{ num }}</button>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pointures.has_next %}
+                        <button class="pagination-button" onclick="goToPage('pointure', {{ pointures.next_page_number }})">›</button>
+                        <button class="pagination-button" onclick="goToPage('pointure', {{ pointures.paginator.num_pages }})">»</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour ajouter/modifier une couleur -->
+<div id="couleurModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="couleurModalTitle">Ajouter une couleur</h3>
+            <span class="close" onclick="closeModal('couleur')">&times;</span>
+        </div>
+        <form id="couleurForm" method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="couleurNom" class="form-label">Nom de la couleur *</label>
+                <input type="text" class="form-control" id="couleurNom" name="nom" required>
+            </div>
+            <div class="form-group">
+                <label for="couleurCodeHex" class="form-label">Code hexadécimal</label>
+                <input type="text" class="form-control" id="couleurCodeHex" name="code_hex" placeholder="#FF0000">
+                <small class="text-gray-500">Format: #RRGGBB (ex: #FF0000 pour rouge)</small>
+            </div>
+            <div class="form-group">
+                <label for="couleurDescription" class="form-label">Description</label>
+                <textarea class="form-control" id="couleurDescription" name="description" rows="3" placeholder="Description optionnelle de la couleur"></textarea>
+            </div>
+            <div class="form-group">
+                <div class="flex items-center">
+                    <input type="checkbox" id="couleurActif" name="actif" class="mr-2" checked>
+                    <label for="couleurActif" class="form-label mb-0">Actif</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeModal('couleur')">Annuler</button>
+                <button type="submit" class="btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal pour ajouter/modifier une pointure -->
+<div id="pointureModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="pointureModalTitle">Ajouter une pointure</h3>
+            <span class="close" onclick="closeModal('pointure')">&times;</span>
+        </div>
+        <form id="pointureForm" method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="pointureNom" class="form-label">Nom de la pointure *</label>
+                <input type="text" class="form-control" id="pointureNom" name="pointure" required>
+            </div>
+            <div class="form-group">
+                <label for="pointureOrdre" class="form-label">Ordre d'affichage</label>
+                <input type="number" class="form-control" id="pointureOrdre" name="ordre" value="0" min="0">
+                <small class="text-gray-500">Ordre d'affichage des pointures (plus petit = affiché en premier)</small>
+            </div>
+            <div class="form-group">
+                <label for="pointureDescription" class="form-label">Description</label>
+                <textarea class="form-control" id="pointureDescription" name="description" rows="3" placeholder="Description optionnelle de la pointure"></textarea>
+            </div>
+            <div class="form-group">
+                <div class="flex items-center">
+                    <input type="checkbox" id="pointureActif" name="actif" class="mr-2" checked>
+                    <label for="pointureActif" class="form-label mb-0">Actif</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeModal('pointure')">Annuler</button>
+                <button type="submit" class="btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Formulaire de suppression caché -->
+<form id="deleteForm" method="POST" style="display: none;">
+    {% csrf_token %}
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let searchTimeout;
+
+    function switchTab(tabName) {
+        // Masquer tous les contenus d'onglets
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+        });
+
+        // Désactiver tous les boutons d'onglets
+        const tabButtons = document.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+            button.classList.remove('active');
+        });
+
+        // Afficher le contenu de l'onglet sélectionné
+        document.getElementById(tabName + '-tab').classList.add('active');
+
+        // Activer le bouton de l'onglet sélectionné
+        event.target.classList.add('active');
+    }
+
+    function handleSearch(type, value) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.set('search_' + type, value);
+            currentUrl.searchParams.set('page_' + type, '1'); // Reset to first page
+            window.location.href = currentUrl.toString();
+        }, 500); // Délai de 500ms pour éviter trop de requêtes
+    }
+
+    function goToPage(type, page) {
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('page_' + type, page);
+        window.location.href = currentUrl.toString();
+    }
+
+    function changeItemsPerPage(value) {
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('items_per_page', value);
+        currentUrl.searchParams.set('page_couleur', '1');
+        currentUrl.searchParams.set('page_pointure', '1');
+        window.location.href = currentUrl.toString();
+    }
+
+    function openModal(type, action, id = null, nom = '', data = {}) {
+        const modal = document.getElementById(type + 'Modal');
+        const title = document.getElementById(type + 'ModalTitle');
+        const form = document.getElementById(type + 'Form');
+        
+        if (action === 'add') {
+            title.textContent = `Ajouter une ${type}`;
+            if (type === 'couleur') {
+                form.action = "{% url 'app_admin:creer_couleur' %}";
+                // Reset tous les champs
+                document.getElementById('couleurNom').value = '';
+                document.getElementById('couleurCodeHex').value = '';
+                document.getElementById('couleurDescription').value = '';
+                document.getElementById('couleurActif').checked = true;
+            } else if (type === 'pointure') {
+                form.action = "{% url 'app_admin:creer_pointure' %}";
+                // Reset tous les champs
+                document.getElementById('pointureNom').value = '';
+                document.getElementById('pointureOrdre').value = '0';
+                document.getElementById('pointureDescription').value = '';
+                document.getElementById('pointureActif').checked = true;
+            }
+        } else if (action === 'edit') {
+            title.textContent = `Modifier la ${type}`;
+            if (type === 'couleur') {
+                form.action = "{% url 'app_admin:modifier_couleur' 0 %}".replace('0', id);
+                // Remplir les champs avec les données existantes
+                document.getElementById('couleurNom').value = data.nom || '';
+                document.getElementById('couleurCodeHex').value = data.code_hex || '';
+                document.getElementById('couleurDescription').value = data.description || '';
+                document.getElementById('couleurActif').checked = data.actif !== false;
+            } else if (type === 'pointure') {
+                form.action = "{% url 'app_admin:modifier_pointure' 0 %}".replace('0', id);
+                // Remplir les champs avec les données existantes
+                document.getElementById('pointureNom').value = data.pointure || '';
+                document.getElementById('pointureOrdre').value = data.ordre || '0';
+                document.getElementById('pointureDescription').value = data.description || '';
+                document.getElementById('pointureActif').checked = data.actif !== false;
+            }
+        }
+        
+        modal.style.display = 'block';
+        // Focus sur le premier champ
+        if (type === 'couleur') {
+            document.getElementById('couleurNom').focus();
+        } else {
+            document.getElementById('pointureNom').focus();
+        }
+    }
+    
+    function closeModal(type) {
+        const modal = document.getElementById(type + 'Modal');
+        modal.style.display = 'none';
+    }
+    
+    function confirmDelete(type, id, nom) {
+        if (confirm(`Êtes-vous sûr de vouloir supprimer la ${type} "${nom}" ?`)) {
+            const form = document.getElementById('deleteForm');
+            if (type === 'couleur') {
+                form.action = "{% url 'app_admin:supprimer_couleur' 0 %}".replace('0', id);
+            } else if (type === 'pointure') {
+                form.action = "{% url 'app_admin:supprimer_pointure' 0 %}".replace('0', id);
+            }
+            form.submit();
+        }
+    }
+    
+    // Fermer les modals en cliquant à l'extérieur
+    window.onclick = function(event) {
+        const couleurModal = document.getElementById('couleurModal');
+        const pointureModal = document.getElementById('pointureModal');
+        
+        if (event.target === couleurModal) {
+            closeModal('couleur');
+        }
+        if (event.target === pointureModal) {
+            closeModal('pointure');
+        }
+    }
+    
+    // Fermer les modals avec la touche Escape
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeModal('couleur');
+            closeModal('pointure');
+        }
+    });
+</script>
+{% endblock %}
