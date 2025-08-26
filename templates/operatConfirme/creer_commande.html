@@ -57,7 +57,7 @@
 
     .panier-section {
         background: linear-gradient(135deg, #4B352A, #6d4b3b);
-        color: white;
+        color: #f7d9c4;
         border-radius: 0.5rem;
         padding: 1rem;
         margin-bottom: 0.75rem;
@@ -92,6 +92,19 @@
         padding: 0.75rem;
         margin-bottom: 0.5rem;
         border: 1px solid #f7d9c4;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .panier-item .font-semibold {
+        color: #1f2937 !important;
+    }
+
+    .panier-item .text-xs {
+        color: #4b5563 !important;
+    }
+
+    .panier-item .text-sm {
+        color: #1f2937 !important;
     }
 
     .btn-action {
@@ -900,13 +913,13 @@
         articleElement.innerHTML = `
             <div class="flex justify-between items-center">
                 <div class="flex-1">
-                    <div class="font-semibold">${nom}</div>
-                    <div class="text-xs text-gray-200">Réf: ${reference}</div>
+                    <div class="font-semibold text-gray-800">${nom}</div>
+                    <div class="text-xs text-gray-600">Réf: ${reference}</div>
                 </div>
                 <div class="flex items-center gap-2">
                     <input type="number" min="1" value="1" class="quantite-input w-16 p-1 text-center rounded bg-white/90 text-gray-800" 
                            data-price="${prix}" data-article-id="${id}">
-                    <div class="text-sm font-semibold whitespace-nowrap">${prix.toFixed(2)} DH</div>
+                    <div class="text-sm font-semibold whitespace-nowrap text-gray-800">${prix.toFixed(2)} DH</div>
                     <button type="button" class="btn-action btn-danger remove-article">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -1107,7 +1120,7 @@ function chargerArticlesDisponibles() {
         
         if (articlesDisponibles.length === 0) {
             select.innerHTML = '<option value="">-- Aucun article disponible --</option>';
-            tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Aucun article disponible</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Aucun article disponible</td></tr>`;
             console.warn('⚠️ Aucun article trouvé dans la base de données');
             showNotification('⚠️ Aucun article disponible', 'error');
             return;
@@ -1278,7 +1291,7 @@ function appliquerFiltreTableau(typeFiltre) {
     tableBody.innerHTML = '';
     
     if (!articlesDisponibles || articlesDisponibles.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Aucun article disponible</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Aucun article disponible</td></tr>`;
         return;
     }
     
@@ -1338,8 +1351,6 @@ function appliquerFiltreTableau(typeFiltre) {
                                 <div class="text-xs text-gray-500">Réf: ${article.reference || '-'}</div>
                                 <div class="mt-1">${badgeHtml}</div>
                                 <div class="mt-1 flex flex-wrap gap-2 text-xs">
-                                    ${article.pointure ? `<span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class="fas fa-ruler-vertical mr-1"></i>${article.pointure}</span>` : ''}
-                                    ${article.couleur ? `<span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full"><i class="fas fa-palette mr-1"></i>${article.couleur}</span>` : ''}
                                     ${typeof article.categorie === 'string' ? `<span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full"><i class="fas fa-tag mr-1"></i>${article.categorie}</span>` : ''}
                                 </div>
                             </div>
@@ -1351,13 +1362,7 @@ function appliquerFiltreTableau(typeFiltre) {
                             ${stock <= 0 ? 'Épuisé' : stock + ' unités'}
                         </span>
                     </td>
-                    <td class="px-4 py-3">
-                        <div class="flex items-center justify-center gap-2">
-                            <button type="button" class="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded" onclick="changerQteLigne(this,-1)">-</button>
-                            <input type="number" min="1" value="1" class="w-16 text-center border rounded px-2 py-1" />
-                            <button type="button" class="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded" onclick="changerQteLigne(this,1)">+</button>
-                        </div>
-                    </td>
+
                     <td class="px-4 py-3 text-center">
                         <button type="button" class="px-3 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg" onclick="ajouterDepuisLigne(this)">
                             <i class="fas fa-plus mr-1"></i>Ajouter
@@ -1402,22 +1407,13 @@ function compterArticlesParType(typeFiltre) {
     return articlesDisponibles.filter(article => correspondAuFiltre(article, typeFiltre)).length;
 }
 
-// Fonction pour changer la quantité dans une ligne
-function changerQteLigne(button, delta) {
-    const input = button.parentNode.querySelector('input[type="number"]');
-    if (input) {
-        let newValue = parseInt(input.value) + delta;
-        if (newValue < 1) newValue = 1;
-        input.value = newValue;
-    }
-}
+
 
 // Fonction pour ajouter un article depuis une ligne du tableau
 function ajouterDepuisLigne(button) {
     const row = button.closest('tr');
     const articleData = JSON.parse(row.dataset.article || '{}');
-    const quantiteInput = row.querySelector('input[type="number"]');
-    const quantite = quantiteInput ? parseInt(quantiteInput.value) || 1 : 1;
+    const quantite = 1; // Quantité par défaut puisque la colonne quantité a été supprimée
     
     console.log('➕ Ouverture modal variantes pour article:', {
         article: articleData.nom,
@@ -2002,9 +1998,9 @@ function ajouterVarianteAuPanierDetaille(articleData, variante, quantiteInitiale
     varianteElement.innerHTML = `
         <div class="flex justify-between items-center">
             <div class="flex-1">
-                <div class="font-semibold">${articleData.nom}</div>
-                <div class="text-xs text-gray-200">Réf: ${articleData.reference || 'N/A'}</div>
-                <div class="text-xs text-gray-300 mt-1">
+                <div class="font-semibold text-gray-800">${articleData.nom}</div>
+                <div class="text-xs text-gray-600">Réf: ${articleData.reference || 'N/A'}</div>
+                <div class="text-xs text-gray-700 mt-1">
                     <span class="inline-block mr-2">🎨 ${variante.couleur}</span>
                     <span class="inline-block">👟 ${variante.pointure}</span>
                 </div>
@@ -2015,7 +2011,7 @@ function ajouterVarianteAuPanierDetaille(articleData, variante, quantiteInitiale
                        data-price="${variante.prix_actuel}" 
                        data-article-id="${articleData.id}"
                        data-variante-id="${variante.id}">
-                <div class="text-sm font-semibold whitespace-nowrap">${variante.prix_actuel?.toFixed(2) || '0.00'} DH</div>
+                <div class="text-sm font-semibold whitespace-nowrap text-gray-800">${variante.prix_actuel?.toFixed(2) || '0.00'} DH</div>
                 <button type="button" class="btn-action btn-danger remove-article">
                     <i class="fas fa-trash"></i>
                 </button>

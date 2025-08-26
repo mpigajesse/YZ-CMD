@@ -528,6 +528,12 @@ def commandes_confirmees(request):
     from datetime import timedelta
     
     try:
+        # Vérifier que l'utilisateur est connecté
+        if not request.user.is_authenticated:
+            from django.contrib import messages
+            messages.error(request, 'Vous devez être connecté pour accéder à cette page.')
+            return redirect('login')
+        
         # Récupérer l'objet Operateur correspondant à l'utilisateur connecté
         operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
         
@@ -568,7 +574,7 @@ def commandes_confirmees(request):
         ).count()
         
     except Operateur.DoesNotExist:
-        # Si l'utilisateur n'est pas un opérateur, liste vide
+        # Si l'utilisateur n'est pas un opérateur de confirmation, afficher notification JS
         mes_commandes_confirmees = Commande.objects.none()
         stats = {
             'total_confirmees': 0,
@@ -576,6 +582,14 @@ def commandes_confirmees(request):
             'confirmees_semaine': 0,
             'confirmees_aujourdhui': 0
         }
+        # Ajouter un flag pour déclencher la notification côté client
+        context = {
+            'mes_commandes_confirmees': mes_commandes_confirmees,
+            'stats': stats,
+            'show_unauthorized_message': True,
+            'user_username': request.user.username
+        }
+        return render(request, 'operatConfirme/commandes_confirmees.html', context)
     
     context = {
         'mes_commandes_confirmees': mes_commandes_confirmees,
@@ -2618,13 +2632,14 @@ def api_panier_commande(request, commande_id):
                 pk=commande_id
             )
             
-            # Vérifier que la commande est affectée à cet opérateur ou qu'il peut la voir
-            etat_actuel = commande.etats.filter(
-                operateur=operateur,
-                date_fin__isnull=True
+            # Vérifier que l'opérateur peut voir cette commande
+            # Soit elle lui est actuellement affectée (date_fin=null)
+            # Soit il l'a déjà traitée (peu importe date_fin)
+            etat_operateur = commande.etats.filter(
+                operateur=operateur
             ).first()
             
-            if not etat_actuel:
+            if not etat_operateur:
                 return JsonResponse({'error': 'Cette commande ne vous est pas affectée'}, status=403)
             
             # Préparer les données pour le template
