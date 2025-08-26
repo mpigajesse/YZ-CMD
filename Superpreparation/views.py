@@ -6645,16 +6645,37 @@ def export_commandes_envoi_excel(request, envoi_id):
                 'error': f'Erreur d\'import openpyxl: {import_error}'
             }, status=500)
         
-        # Récupérer les commandes préparées de la région de cet envoi
-        commandes = Commande.objects.filter(
-            ville__region=envoi.region,
-            etats__enum_etat__libelle='Préparée',
-            etats__date_fin__isnull=True
-        ).select_related(
-            'client', 'ville', 'ville__region'
-        ).prefetch_related(
-            'paniers__article', 'paniers__variante'
-        ).distinct()
+        # Récupérer les commandes associées à cet envoi. Si aucune n'est encore liée,
+        # fallback: prendre les commandes "Préparée" de la région de l'envoi.
+        commandes = (
+            Commande.objects.filter(envoi=envoi)
+            .select_related('client', 'ville', 'ville__region')
+            .prefetch_related(
+                'paniers__article',
+                'paniers__variante',
+                'paniers__variante__couleur',
+                'paniers__variante__pointure',
+            )
+            .distinct()
+        )
+
+        if not commandes.exists():
+            print("🔎 Aucun lien direct commande→envoi. Fallback sur commandes 'Préparée' de la région.")
+            commandes = (
+                Commande.objects.filter(
+                    ville__region=envoi.region,
+                    etats__enum_etat__libelle='Préparée',
+                    etats__date_fin__isnull=True,
+                )
+                .select_related('client', 'ville', 'ville__region')
+                .prefetch_related(
+                    'paniers__article',
+                    'paniers__variante',
+                    'paniers__variante__couleur',
+                    'paniers__variante__pointure',
+                )
+                .distinct()
+            )
         
         print(f"🔍 DEBUG - Nombre de commandes trouvées: {commandes.count()}")
         
@@ -6677,7 +6698,7 @@ def export_commandes_envoi_excel(request, envoi_id):
             ws['A3'] = f"Date: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
             
             # En-têtes des colonnes
-            headers = ['N° Commande', 'Client', 'Ville', 'Articles']
+            headers = ['N° Commande', 'Client', 'Téléphone', 'Adresse', 'Ville', 'Région', 'Total', 'Panier']
             for col, header in enumerate(headers, 1):
                 ws.cell(row=5, column=col, value=header)
             
@@ -6687,16 +6708,49 @@ def export_commandes_envoi_excel(request, envoi_id):
             row = 6
             for commande in commandes:
                 try:
-                    client_nom = f"{commande.client.nom} {commande.client.prenom}" if commande.client else "N/A"
-                    ville_nom = commande.ville.nom_ville if commande.ville else "N/A"
-                    nb_articles = commande.paniers.count()
-                    
+                    # Données de base
+                    client_nom = (
+                        f"{(commande.client.prenom or '').strip()} {(commande.client.nom or '').strip()}".strip()
+                        if commande.client else "N/A"
+                    )
+                    adresse_livraison = commande.adresse or (commande.client.adresse if getattr(commande, 'client', None) else '') or ""
+                    ville_nom = commande.ville.nom if commande.ville else "N/A"
+                    region_nom = commande.ville.region.nom_region if getattr(commande, 'ville', None) and commande.ville.region else (
+                        envoi.region.nom_region if envoi and envoi.region else "N/A"
+                    )
+
+                    # Détails du panier (items)
+                    items_texts = []
+                    for p in commande.paniers.all():
+                        try:
+                            article_nom = p.article.nom if p.article else "Article N/A"
+                            variante_text = ""
+                            if p.variante:
+                                couleur = getattr(p.variante.couleur, 'nom', None)
+                                pointure = getattr(p.variante.pointure, 'pointure', None)
+                                details = [v for v in [couleur, pointure] if v]
+                                if details:
+                                    variante_text = f" ({' - '.join(details)})"
+                            items_texts.append(f"{p.quantite}x {article_nom}{variante_text}")
+                        except Exception as p_err:
+                            print(f"⚠️ ERREUR panier commande {commande.id}: {p_err}")
+                            continue
+                    panier_str = "\n".join(items_texts) if items_texts else ""
+
+                    # Ecrire la ligne
                     ws.cell(row=row, column=1, value=commande.num_cmd)
                     ws.cell(row=row, column=2, value=client_nom)
-                    ws.cell(row=row, column=3, value=ville_nom)
-                    ws.cell(row=row, column=4, value=nb_articles)
+                    ws.cell(row=row, column=3, value=getattr(commande.client, 'numero_tel', '') if commande.client else '')
+                    ws.cell(row=row, column=4, value=adresse_livraison)
+                    ws.cell(row=row, column=5, value=ville_nom)
+                    ws.cell(row=row, column=6, value=region_nom)
+                    # Total commande (montant total des articles)
+                    ws.cell(row=row, column=7, value=float(getattr(commande, 'total_cmd', 0) or 0))
+                    panier_cell = ws.cell(row=row, column=8, value=panier_str)
+                    panier_cell.alignment = Alignment(wrap_text=True, vertical='top')
+
                     row += 1
-                    
+
                 except Exception as row_error:
                     print(f"🚫 ERREUR - Ligne commande {commande.id}: {row_error}")
                     continue
