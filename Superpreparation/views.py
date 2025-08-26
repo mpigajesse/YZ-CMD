@@ -4947,8 +4947,61 @@ def cloturer_envoi(request):
         if not envoi.status:  # False = déjà clôturé
             return JsonResponse({'success': False, 'message': 'Cet envoi est déjà clôturé'}, status=400)
 
-        # Marquer l'envoi comme livré (clôturé)
-        envoi.marquer_comme_livre(getattr(request.user, 'profil_operateur', None))
+        from django.db import transaction
+        from django.utils import timezone
+        from commande.models import Commande, EtatCommande, EnumEtatCmd
+
+        with transaction.atomic():
+            # Passer toutes les commandes liées à l'envoi en "En livraison"
+            # On cible explicitement les commandes dont l'état courant est "Préparée"
+            commandes = Commande.objects.filter(
+                envoi=envoi,
+                etats__enum_etat__libelle='Préparée',
+                etats__date_fin__isnull=True,
+            ).distinct()
+            if not commandes.exists():
+                # Fallback: prendre les commandes 'Préparée' de la région de l'envoi
+                commandes = (
+                    Commande.objects.filter(
+                        ville__region=envoi.region,
+                        etats__enum_etat__libelle='Préparée',
+                        etats__date_fin__isnull=True,
+                    )
+                    .select_related('client', 'ville')
+                    .distinct()
+                )
+            etat_enum, _ = EnumEtatCmd.objects.get_or_create(
+                libelle='En livraison',
+                defaults={'ordre': 17, 'couleur': '#8B5CF6'}
+            )
+
+            for commande in commandes:
+                try:
+                    # Lier la commande à cet envoi si ce n'est pas déjà fait
+                    if commande.envoi_id != envoi.id:
+                        commande.envoi = envoi
+                        commande.save(update_fields=['envoi'])
+                    
+                    # Fermer l'état courant "Préparée" s'il existe
+                    etat_actuel = commande.etats.filter(date_fin__isnull=True).order_by('-date_debut').first()
+                    if etat_actuel and etat_actuel.enum_etat.libelle == 'Préparée':
+                        etat_actuel.date_fin = timezone.now()
+                        etat_actuel.save(update_fields=['date_fin'])
+
+                    # Créer le nouvel état
+                    EtatCommande.objects.create(
+                        commande=commande,
+                        enum_etat=etat_enum,
+                        operateur=getattr(request.user, 'profil_operateur', None),
+                        date_debut=timezone.now(),
+                        commentaire=f"Envoi clôturé: {envoi.numero_envoi}"
+                    )
+                except Exception as state_err:
+                    print(f"⚠️ Erreur transition état commande {commande.id}: {state_err}")
+                    continue
+
+            # Marquer l'envoi comme livré (clôturé)
+            envoi.marquer_comme_livre(getattr(request.user, 'profil_operateur', None))
 
         return JsonResponse({
             'success': True, 
