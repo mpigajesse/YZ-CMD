@@ -79,12 +79,7 @@
                         Toutes les commandes
                         <span class="ml-2 bg-gray-100 text-gray-900 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ stats.total_affectees }}</span>
                     </a>
-                    <a href="{% url 'Superpreparation:liste_prepa' %}?filter=affectees_admin{% if search_query %}&search={{ search_query }}{% endif %}&items_per_page={{ items_per_page|default:10 }}" 
-                       class="{% if filter_type == 'affectees_admin' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
-                        <i class="fas fa-user-shield mr-2"></i>
-                        Affectées par Admin
-                        <span class="ml-2 bg-green-100 text-green-900 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ stats_par_type.affectees_admin|default:0 }}</span>
-                    </a>
+
 
                     <a href="{% url 'Superpreparation:liste_prepa' %}?filter=affectees_moi{% if search_query %}&search={{ search_query }}{% endif %}&items_per_page={{ items_per_page|default:10 }}" 
                        class="{% if filter_type == 'affectees_moi' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
@@ -108,9 +103,7 @@
         <!-- Description de la page -->
         <div class="mb-4">
             <p class="text-gray-700 mb-2">
-                {% if filter_type == 'affectees_admin' %}
-                    Commandes affectées directement par l'administrateur.
-                {% elif filter_type == 'renvoyees_logistique' %}
+                {% if filter_type == 'renvoyees_logistique' %}
                     Commandes renvoyées par les opérateurs logistiques.
                 {% else %}
                     Liste des commandes qui vous sont affectées.
@@ -319,7 +312,7 @@
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Affectation</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Code-barres</th>
+
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
                         <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
@@ -393,13 +386,7 @@
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
                             </td>
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                {% if commande.barcode_base64 %}
-                                    <img src="data:image/png;base64,{{ commande.barcode_base64 }}" alt="Code-barres" style="height: 30px;">
-                                {% else %}
-                                    <span class="text-xs text-gray-400">N/A</span>
-                                {% endif %}
-                            </td>
+
                             <td class="px-4 py-4 whitespace-nowrap">
                                 {% with etat_actuel=commande.etat_actuel %}
                                     <div class="flex items-center">
@@ -493,66 +480,238 @@
                                 {% endwith %}
                             </td>
                             <!-- Colonne État Préparation -->
-                            <td class="px-4 py-4 whitespace-nowrap">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm">
                                 <div class="flex flex-col space-y-1">
-                                    <!-- Étape 1: En préparation (toujours active) -->
+                                    <!-- État actuel avec icône d'information -->
                                     <div class="flex items-center">
-                                        <span class="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center mr-2">
-                                            <i class="fas fa-check text-white text-xs"></i>
-                                        </span>
-                                        <span class="text-xs text-blue-600 font-medium">En préparation</span>
+                                        {% if commande.etat_actuel_preparation.enum_etat.libelle == 'À imprimer' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                <i class="fas fa-print mr-1"></i>
+                                                À imprimer
+                                            </span>
+                                        {% elif commande.etat_actuel_preparation.enum_etat.libelle == 'En préparation' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                <i class="fas fa-box-open mr-1"></i>
+                                                En préparation
+                                            </span>
+                                        {% elif commande.etat_actuel_preparation.enum_etat.libelle == 'Collectée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                <i class="fas fa-box mr-1"></i>
+                                                Collectée
+                                            </span>
+                                        {% elif commande.etat_actuel_preparation.enum_etat.libelle == 'Emballée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                                <i class="fas fa-boxes mr-1"></i>
+                                                Emballée
+                                            </span>
+                                        {% elif commande.etat_actuel_preparation.enum_etat.libelle == 'Préparée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                <i class="fas fa-check-circle mr-1"></i>
+                                                Préparée
+                                            </span>
+                                        {% else %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                <i class="fas fa-info-circle mr-1"></i>
+                                                {{ commande.etat_actuel_preparation.enum_etat.libelle }}
+                                            </span>
+                                        {% endif %}
+                                        
+                                        <!-- Bouton pour afficher/masquer les détails d'état -->
+                                        <button onclick="toggleEtatDetails('{{ commande.id }}')" 
+                                                class="ml-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                                                title="Afficher/masquer les détails d'état">
+                                            <i class="fas fa-info text-gray-600 text-xs"></i>
+                                        </button>
                                     </div>
                                     
-                                    <!-- Étape 2: Collectée -->
-                                    {% if commande.etat_actuel.enum_etat.libelle == 'Collectée' or commande.etat_actuel.enum_etat.libelle == 'Emballée' or commande.etat_actuel.enum_etat.libelle == 'Validée' %}
-                                        <div class="flex items-center">
-                                            <span class="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center mr-2">
-                                                <i class="fas fa-check text-white text-xs"></i>
+                                    <!-- Détails d'état (masqués par défaut) -->
+                                    <div id="etat-details-{{ commande.id }}" class="hidden mt-2 space-y-1">
+                                        <!-- Affichage de l'état précédent (si applicable) -->
+                                        {% if commande.etat_precedent %}
+                                            {% if commande.etat_precedent.enum_etat.libelle == 'En cours de livraison' %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                    <i class="fas fa-truck mr-1"></i>
+                                                    Renvoyée depuis livraison
+                                                </span>
+                                                <div class="text-xs text-red-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% elif commande.etat_precedent.enum_etat.libelle == 'Préparée' %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                    <i class="fas fa-undo mr-1"></i>
+                                                    Renvoyée depuis préparation
+                                                </span>
+                                                <div class="text-xs text-yellow-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% elif commande.etat_precedent.enum_etat.libelle == 'Confirmée' %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                    <i class="fas fa-check-circle mr-1"></i>
+                                                    Depuis confirmation
+                                                </span>
+                                                <div class="text-xs text-green-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% else %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                    <i class="fas fa-history mr-1"></i>
+                                                    {{ commande.etat_precedent.enum_etat.libelle }}
+                                                </span>
+                                                <div class="text-xs text-gray-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                        
+                                        <!-- Affichage de l'état de confirmation -->
+                                        {% if commande.etat_confirmation and commande.etat_confirmation.enum_etat.libelle == 'Confirmée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                                <i class="fas fa-user-tie mr-1"></i>
+                                                Confirmée par admin
                                             </span>
-                                            <span class="text-xs text-green-600 font-medium">Collectée</span>
+                                            <div class="text-xs text-purple-600 mt-1">
+                                                <i class="fas fa-calendar mr-1"></i>
+                                                {{ commande.etat_confirmation.date_debut|date:"d/m/Y H:i" }}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Affichage des étapes de préparation -->
+                                        <div class="mt-2 pt-2 border-t border-gray-200">
+                                            <div class="text-xs font-medium text-gray-700 mb-1">Étapes de préparation :</div>
+                                            
+                                            <!-- Étape 1: En préparation -->
+                                            <div class="flex items-center mb-1">
+                                                <span class="w-3 h-3 rounded-full bg-blue-500 flex items-center justify-center mr-2">
+                                                    <i class="fas fa-check text-white text-xs"></i>
+                                                </span>
+                                                <span class="text-xs text-blue-600">En préparation</span>
+                                                <span class="text-xs text-blue-500 ml-2">
+                                                    <i class="fas fa-clock mr-1"></i>En cours
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Étape 2: Collectée -->
+                                            <div class="flex items-center mb-1">
+                                                {% if commande.etat_actuel_preparation.enum_etat.libelle == 'Collectée' or commande.etat_actuel_preparation.enum_etat.libelle == 'Emballée' or commande.etat_actuel_preparation.enum_etat.libelle == 'Préparée' %}
+                                                    <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                        <i class="fas fa-check text-white text-xs"></i>
+                                                    </span>
+                                                    <span class="text-xs text-green-600">Collectée</span>
+                                                    <span class="text-xs text-green-500 ml-2">
+                                                        <i class="fas fa-check mr-1"></i>Terminé
+                                                    </span>
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                                                        <i class="fas fa-circle text-gray-400 text-xs"></i>
+                                                    </span>
+                                                    <span class="text-xs text-gray-400">Collectée</span>
+                                                    <span class="text-xs text-gray-500 ml-2">
+                                                        <i class="fas fa-clock mr-1"></i>En attente
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Étape 3: Emballée -->
+                                            <div class="flex items-center mb-1">
+                                                {% if commande.etat_actuel_preparation.enum_etat.libelle == 'Emballée' or commande.etat_actuel_preparation.enum_etat.libelle == 'Préparée' %}
+                                                    <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                        <i class="fas fa-check text-white text-xs"></i>
+                                                    </span>
+                                                    <span class="text-xs text-green-600">Emballée</span>
+                                                    <span class="text-xs text-green-500 ml-2">
+                                                        <i class="fas fa-check mr-1"></i>Terminé
+                                                    </span>
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                                                        <i class="fas fa-circle text-gray-400 text-xs"></i>
+                                                    </span>
+                                                    <span class="text-xs text-gray-400">Emballée</span>
+                                                    <span class="text-xs text-gray-500 ml-2">
+                                                        <i class="fas fa-clock mr-1"></i>En attente
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Étape 4: Préparée (finalisée par superviseur) -->
+                                            <div class="flex items-center">
+                                                {% if commande.etat_actuel_preparation.enum_etat.libelle == 'Préparée' %}
+                                                    <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                        <i class="fas fa-check text-white text-xs"></i>
+                                                    </span>
+                                                    <span class="text-xs text-green-600">Préparée</span>
+                                                    <span class="text-xs text-green-500 ml-2">
+                                                        <i class="fas fa-check mr-1"></i>Terminé
+                                                    </span>
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                                                        <i class="fas fa-circle text-gray-400 text-xs"></i>
+                                                    </span>
+                                                    <span class="text-xs text-gray-400">Préparée</span>
+                                                    <span class="text-xs text-gray-500 ml-2">
+                                                        <i class="fas fa-clock mr-1"></i>En attente
+                                                    </span>
+                                                {% endif %}
+                                            </div>
                                         </div>
-                                    {% else %}
-                                        <div class="flex items-center">
-                                            <span class="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center mr-2">
-                                                <i class="fas fa-circle text-gray-400 text-xs"></i>
-                                            </span>
-                                            <span class="text-xs text-gray-400">Collectée</span>
-                                        </div>
-                                    {% endif %}
-                                    
-                                    <!-- Étape 3: Emballée -->
-                                    {% if commande.etat_actuel.enum_etat.libelle == 'Emballée' or commande.etat_actuel.enum_etat.libelle == 'Validée' %}
-                                        <div class="flex items-center">
-                                            <span class="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center mr-2">
-                                                <i class="fas fa-check text-white text-xs"></i>
-                                            </span>
-                                            <span class="text-xs text-green-600 font-medium">Emballée</span>
-                                        </div>
-                                    {% else %}
-                                        <div class="flex items-center">
-                                            <span class="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center mr-2">
-                                                <i class="fas fa-circle text-gray-400 text-xs"></i>
-                                            </span>
-                                            <span class="text-xs text-gray-400">Emballée</span>
-                                        </div>
-                                    {% endif %}
-                                    
-                                    <!-- Étape 4: Préparée (finalisée par superviseur) -->
-                                    {% if commande.etat_actuel.enum_etat.libelle == 'Préparée' %}
-                                        <div class="flex items-center">
-                                            <span class="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center mr-2">
-                                                <i class="fas fa-check text-white text-xs"></i>
-                                            </span>
-                                            <span class="text-xs text-green-600 font-medium">Préparée</span>
-                                        </div>
-                                    {% else %}
-                                        <div class="flex items-center">
-                                            <span class="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center mr-2">
-                                                <i class="fas fa-circle text-gray-400 text-xs"></i>
-                                            </span>
-                                            <span class="text-xs text-gray-400">Préparée</span>
-                                        </div>
-                                    {% endif %}
+                                        
+                                        <!-- Affichage de l'affectation aux opérateurs de supervision -->
+                                        {% if commande.operations.all %}
+                                            <div class="mt-2 pt-2 border-t border-gray-200">
+                                                <div class="text-xs font-medium text-gray-700 mb-1">Affectations :</div>
+                                                {% for operation in commande.operations.all %}
+                                                    {% if operation.type_operation == 'AFFECTATION_SUPERVISION' or operation.type_operation == 'REAFFECTATION_SUPERVISION' %}
+                                                        <div class="flex items-center mb-1">
+                                                            <span class="w-3 h-3 rounded-full bg-indigo-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-user-shield text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-indigo-600">
+                                                                {% if operation.type_operation == 'AFFECTATION_SUPERVISION' %}
+                                                                    Affectée par le supervision
+                                                                {% else %}
+                                                                    Réaffectée par le supervision
+                                                                {% endif %}
+                                                            </span>
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                <i class="fas fa-calendar mr-1"></i>
+                                                                {{ operation.date_operation|date:"d/m/Y H:i" }}
+                                                            </span>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Affichage des changements d'état de préparation -->
+                                        {% if commande.operations.all %}
+                                            <div class="mt-2 pt-2 border-t border-gray-200">
+                                                <div class="text-xs font-medium text-gray-700 mb-1">Changements d'état :</div>
+                                                {% for operation in commande.operations.all %}
+                                                    {% if operation.type_operation == 'CHANGEMENT_ETAT_COLLECTEE' or operation.type_operation == 'CHANGEMENT_ETAT_EMBALLEE' %}
+                                                        <div class="flex items-center mb-1">
+                                                            <span class="w-3 h-3 rounded-full bg-orange-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-{% if operation.type_operation == 'CHANGEMENT_ETAT_COLLECTEE' %}box{% else %}boxes{% endif %} text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-orange-600">
+                                                                {% if operation.type_operation == 'CHANGEMENT_ETAT_COLLECTEE' %}
+                                                                    Marquée comme collectée
+                                                                {% else %}
+                                                                    Marquée comme emballée
+                                                                {% endif %}
+                                                            </span>
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                <i class="fas fa-calendar mr-1"></i>
+                                                                {{ operation.date_operation|date:"d/m/Y H:i" }}
+                                                            </span>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap text-center" style="min-width: 96px;">
@@ -587,7 +746,7 @@
                                         <span class="sr-only">Modifier</span>
                                     </a>
                                     <!-- Finaliser (icône seule) - pour les commandes emballées -->
-                                    {% if commande.etat_actuel.enum_etat.libelle == 'Emballée' %}
+                                    {% if commande.etat_actuel_preparation.enum_etat.libelle == 'Emballée' %}
                                     <button onclick="finaliserCommande({{ commande.id }})"
                                        class="inline-flex items-center justify-center w-9 h-9 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
                                        style="background-color: #10b981; hover:background-color: #059669;"
@@ -1234,6 +1393,112 @@ function showErrorMessage(message) {
     setTimeout(() => {
         errorMsg.style.display = 'none';
     }, 5000);
+}
+
+// Fonction pour afficher/masquer les détails d'état
+function toggleEtatDetails(commandeId) {
+    const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+    if (detailsElement) {
+        detailsElement.classList.toggle('hidden');
+    }
+}
+
+// Fonction pour finaliser une commande depuis la liste
+function finaliserCommande(commandeId) {
+    if (!confirm('Êtes-vous sûr de vouloir finaliser cette commande emballée ?')) {
+        return;
+    }
+    
+    // Afficher un indicateur de chargement
+    const button = event.target.closest('button');
+    const originalContent = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i>';
+    button.disabled = true;
+    
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch(`/operateur-supervision/api/finaliser-preparation/${commandeId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Mettre à jour l'interface en temps réel
+            updateCommandeEtat(commandeId, 'Préparée');
+            
+            // Afficher une notification de succès
+            showSuccessMessage(`La préparation de la commande a été finalisée avec succès.`);
+            
+            // Recharger la page après un délai pour mettre à jour les statistiques
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Erreur lors de la finalisation');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de la finalisation:', error);
+        showErrorMessage(`Erreur lors de la finalisation: ${error.message}`);
+        
+        // Restaurer le bouton
+        button.innerHTML = originalContent;
+        button.disabled = false;
+    });
+}
+
+// Fonction pour mettre à jour l'état de la commande en temps réel
+function updateCommandeEtat(commandeId, nouvelEtat) {
+    const row = document.querySelector(`tr[data-commande-id="${commandeId}"]`);
+    if (!row) return;
+    
+    // Mettre à jour l'état dans la colonne État Préparation
+    const etatCell = row.querySelector('td:nth-child(12)'); // Colonne État Préparation
+    if (etatCell) {
+        const etatSpan = etatCell.querySelector('span');
+        if (etatSpan) {
+            // Mettre à jour le texte et la classe selon le nouvel état
+            if (nouvelEtat === 'Préparée') {
+                etatSpan.className = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800';
+                etatSpan.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Préparée';
+            }
+        }
+    }
+    
+    // Mettre à jour les étapes de préparation dans les détails
+    const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+    if (detailsElement) {
+        // Mettre à jour l'étape "Préparée" pour qu'elle soit cochée
+        const etapePreparée = detailsElement.querySelector('.flex.items-center:last-child');
+        if (etapePreparée) {
+            const checkIcon = etapePreparée.querySelector('.w-3.h-3');
+            const statusText = etapePreparée.querySelector('.text-xs.text-gray-500');
+            
+            if (checkIcon && statusText) {
+                checkIcon.className = 'w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2';
+                checkIcon.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
+                
+                const etatText = etapePreparée.querySelector('.text-xs.text-gray-400, .text-xs.text-green-600');
+                if (etatText) {
+                    etatText.className = 'text-xs text-green-600';
+                    etatText.textContent = 'Préparée';
+                }
+                
+                statusText.innerHTML = '<i class="fas fa-check mr-1"></i>Terminé';
+                statusText.className = 'text-xs text-green-500 ml-2';
+            }
+        }
+    }
 }
 </script>
 {% endblock %} 

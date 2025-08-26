@@ -723,10 +723,11 @@ window.fermerModalArticles = function() {
 window.etiquettesModal = new EtiquettesArticlesModal();
 
 // Fonctions d'impression
-window.imprimerEtiquettesCommande = function(commandeId) {
-    // Rediriger vers la page d'impression avec l'ID de la commande
-    window.open(`/Superpreparation/etiquettes-articles/?ids=${commandeId}`, '_blank');
-};
+// Fonction supprimée - maintenant gérée depuis "Suivi des Commandes Confirmées"
+// window.imprimerEtiquettesCommande = function(commandeId) {
+//     // Rediriger vers la page d'impression avec l'ID de la commande
+//     window.open(`/Superpreparation/etiquettes-articles/?ids=${commandeId}`, '_blank');
+// };
 
 window.imprimerToutesEtiquettes = function() {
     window.print();

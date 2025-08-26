@@ -342,6 +342,7 @@
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Confirmation</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur Conf.</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
                     <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
@@ -983,6 +984,189 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Les fonctions d'impression sont maintenant gérées par impression-modals.js
+
+// Fonction pour afficher/masquer les détails d'état
+function toggleEtatDetails(commandeId) {
+    const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+    if (detailsElement) {
+        detailsElement.classList.toggle('hidden');
+    }
+}
+
+// Fonction pour finaliser la préparation (changer l'état vers "Préparée")
+function finaliserPreparation(commandeId, idYz) {
+    if (!confirm(`Êtes-vous sûr de vouloir finaliser la préparation de la commande ${idYz} ?`)) {
+        return;
+    }
+    
+    // Afficher un indicateur de chargement
+    const button = event.target.closest('button');
+    const originalContent = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i>';
+    button.disabled = true;
+    
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch(`/operateur-supervision/api/finaliser-preparation/${commandeId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Mettre à jour l'interface en temps réel
+            updateCommandeEtat(commandeId, 'Préparée');
+            
+            // Afficher une notification de succès
+            showNotification('Succès', `La préparation de la commande ${idYz} a été finalisée avec succès.`, 'success');
+            
+            // Recharger la page après un délai pour mettre à jour les statistiques
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Erreur lors de la finalisation');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de la finalisation:', error);
+        showNotification('Erreur', `Erreur lors de la finalisation: ${error.message}`, 'error');
+        
+        // Restaurer le bouton
+        button.innerHTML = originalContent;
+        button.disabled = false;
+    });
+}
+
+// Fonction pour mettre à jour l'état de la commande en temps réel
+function updateCommandeEtat(commandeId, nouvelEtat) {
+    const row = document.querySelector(`tr[data-id-yz="${commandeId}"]`);
+    if (!row) return;
+    
+    // Mettre à jour l'état dans la colonne État Préparation
+    const etatCell = row.querySelector('td:nth-child(10)'); // Colonne État Préparation
+    if (etatCell) {
+        const etatSpan = etatCell.querySelector('span');
+        if (etatSpan) {
+            // Mettre à jour le texte et la classe selon le nouvel état
+            if (nouvelEtat === 'Préparée') {
+                etatSpan.className = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800';
+                etatSpan.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Préparée';
+            }
+        }
+    }
+    
+    // Mettre à jour les étapes de préparation dans les détails
+    const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+    if (detailsElement) {
+        // Mettre à jour l'étape "Préparée" pour qu'elle soit cochée
+        const etapePreparée = detailsElement.querySelector('.flex.items-center:last-child');
+        if (etapePreparée) {
+            const checkIcon = etapePreparée.querySelector('.w-3.h-3');
+            const statusText = etapePreparée.querySelector('.text-xs.text-gray-500');
+            
+            if (checkIcon && statusText) {
+                checkIcon.className = 'w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2';
+                checkIcon.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
+                
+                const etatText = etapePreparée.querySelector('.text-xs.text-gray-400, .text-xs.text-green-600');
+                if (etatText) {
+                    etatText.className = 'text-xs text-green-600';
+                    etatText.textContent = 'Préparée';
+                }
+                
+                statusText.innerHTML = '<i class="fas fa-check mr-1"></i>Terminé';
+                statusText.className = 'text-xs text-green-500 ml-2';
+            }
+        }
+    }
+}
+
+// Fonction pour afficher les notifications
+function showNotification(title, message, type = 'info') {
+    // Créer l'élément de notification
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 translate-x-full`;
+    
+    // Définir les couleurs selon le type
+    let bgColor, textColor, icon;
+    switch (type) {
+        case 'success':
+            bgColor = 'bg-green-500';
+            textColor = 'text-white';
+            icon = 'fas fa-check-circle';
+            break;
+        case 'error':
+            bgColor = 'bg-red-500';
+            textColor = 'text-white';
+            icon = 'fas fa-exclamation-circle';
+            break;
+        case 'warning':
+            bgColor = 'bg-yellow-500';
+            textColor = 'text-white';
+            icon = 'fas fa-exclamation-triangle';
+            break;
+        default:
+            bgColor = 'bg-blue-500';
+            textColor = 'text-white';
+            icon = 'fas fa-info-circle';
+    }
+    
+    notification.className += ` ${bgColor} ${textColor}`;
+    
+    notification.innerHTML = `
+        <div class="flex items-center">
+            <i class="${icon} mr-3"></i>
+            <div>
+                <div class="font-semibold">${title}</div>
+                <div class="text-sm opacity-90">${message}</div>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    // Ajouter à la page
+    document.body.appendChild(notification);
+    
+    // Animation d'entrée
+    setTimeout(() => {
+        notification.classList.remove('translate-x-full');
+    }, 100);
+    
+    // Auto-suppression après 5 secondes
+    setTimeout(() => {
+        notification.classList.add('translate-x-full');
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 300);
+    }, 5000);
+}
+
+// Fonction pour rafraîchir automatiquement les données (optionnel)
+function startAutoRefresh() {
+    // Rafraîchir les données toutes les 30 secondes
+    setInterval(() => {
+        // Ici on pourrait faire un appel AJAX pour récupérer les nouvelles données
+        // Pour l'instant, on recharge la page
+        // window.location.reload();
+    }, 30000);
+}
+
+// Démarrer le rafraîchissement automatique
+// startAutoRefresh();
 </script>
 
 <!-- Inclure la modale de choix d'impression -->

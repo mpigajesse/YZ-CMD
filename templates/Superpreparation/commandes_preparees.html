@@ -172,11 +172,106 @@
                                 <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
                             </td>
                             <!-- Colonne État -->
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    <i class="fas fa-check-circle mr-1"></i>
-                                    Préparée
-                                </span>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                <div class="flex flex-col space-y-1">
+                                    <!-- État actuel avec icône d'information -->
+                                    <div class="flex items-center">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            <i class="fas fa-check-circle mr-1"></i>
+                                            Préparée
+                                        </span>
+                                        
+                                        <!-- Bouton pour afficher/masquer les détails d'état -->
+                                        <button onclick="toggleEtatDetails('{{ commande.id }}')" 
+                                                class="ml-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                                                title="Afficher/masquer les détails d'état">
+                                            <i class="fas fa-info text-gray-600 text-xs"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Détails d'état (masqués par défaut) -->
+                                    <div id="etat-details-{{ commande.id }}" class="hidden mt-2 space-y-1">
+                                        <!-- Affichage des étapes de préparation -->
+                                        <div class="mt-2 pt-2 border-t border-gray-200">
+                                            <div class="text-xs font-medium text-gray-700 mb-1">Étapes de préparation :</div>
+                                            
+                                            <!-- Étape 1: En préparation -->
+                                            <div class="flex items-center mb-1">
+                                                <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                    <i class="fas fa-check text-white text-xs"></i>
+                                                </span>
+                                                <span class="text-xs text-green-600">En préparation</span>
+                                                <span class="text-xs text-green-500 ml-2">
+                                                    <i class="fas fa-check mr-1"></i>Terminé
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Étape 2: Collectée -->
+                                            <div class="flex items-center mb-1">
+                                                <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                    <i class="fas fa-check text-white text-xs"></i>
+                                                </span>
+                                                <span class="text-xs text-green-600">Collectée</span>
+                                                <span class="text-xs text-green-500 ml-2">
+                                                    <i class="fas fa-check mr-1"></i>Terminé
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Étape 3: Emballée -->
+                                            <div class="flex items-center mb-1">
+                                                <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                    <i class="fas fa-check text-white text-xs"></i>
+                                                </span>
+                                                <span class="text-xs text-green-600">Emballée</span>
+                                                <span class="text-xs text-green-500 ml-2">
+                                                    <i class="fas fa-check mr-1"></i>Terminé
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Étape 4: Préparée (finalisée par superviseur) -->
+                                            <div class="flex items-center">
+                                                <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                    <i class="fas fa-check text-white text-xs"></i>
+                                                </span>
+                                                <span class="text-xs text-green-600">Préparée</span>
+                                                <span class="text-xs text-green-500 ml-2">
+                                                    <i class="fas fa-check mr-1"></i>Terminé
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Affichage des affectations -->
+                                        <div class="mt-2 pt-2 border-t border-gray-200">
+                                            <div class="text-xs font-medium text-gray-700 mb-1">Affectations :</div>
+                                            {% for etat in commande.etats.all %}
+                                                {% if etat.enum_etat.libelle == 'Préparée' and not etat.date_fin %}
+                                                    <div class="text-xs text-gray-600">
+                                                        <i class="fas fa-user-check mr-1"></i>
+                                                        Finalisée par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                        <span class="text-gray-500">({{ etat.date_debut|date:"d/m/Y H:i" }})</span>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                        
+                                        <!-- Affichage des changements d'état -->
+                                        <div class="mt-2 pt-2 border-t border-gray-200">
+                                            <div class="text-xs font-medium text-gray-700 mb-1">Changements d'état :</div>
+                                            {% for etat in commande.etats.all %}
+                                                {% if etat.enum_etat.libelle in 'En préparation,Collectée,Emballée,Préparée' %}
+                                                    <div class="text-xs text-gray-600">
+                                                        <i class="fas fa-arrow-right mr-1"></i>
+                                                        {{ etat.enum_etat.libelle }}
+                                                        {% if etat.operateur %}
+                                                            par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                        {% endif %}
+                                                        <span class="text-gray-500">({{ etat.date_debut|date:"d/m/Y H:i" }})</span>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
                             <!-- Colonne Articles -->
                             <td class="px-4 py-4 whitespace-nowrap text-center" style="min-width: 96px;">
@@ -460,5 +555,13 @@
             closePanierModal();
         }
     });
+
+    // Fonction pour afficher/masquer les détails d'état
+    function toggleEtatDetails(commandeId) {
+        const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+        if (detailsElement) {
+            detailsElement.classList.toggle('hidden');
+        }
+    }
 </script>
 {% endblock %}

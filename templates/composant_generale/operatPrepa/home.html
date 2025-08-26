@@ -25,68 +25,10 @@
     </div>
 </div>
 
-<!-- Statistiques rapides avec animations - Thème Préparation -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.1s; border-color: var(--preparation-border-accent);">
-        <div class="flex items-center space-x-3">
-            <div class="p-4 rounded-full bg-gradient-to-r from-teal-100 to-teal-200 text-teal-600 transition-all duration-300 group-hover:from-teal-500 group-hover:to-teal-600 group-hover:text-white group-hover:scale-110">
-                <i class="fas fa-box-open text-2xl"></i>
-            </div>
-            <div>
-                <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300 mb-1">À Préparer</p>
-                <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-teal-600" id="attente-count">{{ stats.commandes_a_preparer }}</p>
-            </div>
-        </div>
-    </div>
-    
-    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.2s; border-color: var(--preparation-border-accent);">
-        <div class="flex items-center space-x-3">
-            <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
-                <i class="fas fa-check-double text-2xl"></i>
-            </div>
-            <div>
-                <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300 mb-1">Préparées</p>
-                <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600" id="confirmees-count">{{ stats.commandes_preparees_today }}</p>
-                <div class="text-green-500 text-xs font-semibold bg-green-50 px-2 py-1 rounded-full inline-block mt-1">
-                    Aujourd'hui
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s; border-color: var(--preparation-border-accent);">
-        <div class="flex items-center space-x-3">
-            <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
-                <i class="fas fa-cog text-2xl"></i>
-            </div>
-            <div>
-                <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300 mb-1">En Cours</p>
-                <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-blue-600" id="rejetees-count">{{ stats.commandes_en_preparation }}</p>
-                <div class="text-blue-500 text-xs font-semibold bg-blue-50 px-2 py-1 rounded-full inline-block mt-1">
-                    Préparation
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.4s; border-color: var(--preparation-border-accent);">
-        <div class="flex items-center space-x-3">
-            <div class="p-4 rounded-full transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-light)); color: var(--preparation-text-light);">
-                <i class="fas fa-user-check text-2xl"></i>
-            </div>
-            <div>
-                <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300 mb-1">Ma Performance</p>
-                <p class="text-3xl font-bold transition-all duration-300" style="color: var(--preparation-primary);" id="ma-performance-count">{{ stats.ma_performance_today }}</p>
-                <div class="text-xs font-semibold px-2 py-1 rounded-full inline-block mt-1" style="background: var(--preparation-light); color: var(--preparation-text-light);">
-                    Aujourd'hui
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- Actions rapides avec animations -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     <!-- Commandes à Préparer -->
     <div class="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl border border-gray-100 animate-slideInLeft" style="border-color: var(--preparation-border-accent);">
         <div class="flex items-center justify-between mb-4">
@@ -129,24 +71,51 @@
         </div>
     </div>
 
+    <!-- Retours -->
+    <div class="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl border border-gray-100 animate-slideInUp" style="border-color: var(--preparation-border-accent); animation-delay: 0.3s;">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                <i class="fas fa-undo text-red-500 mr-2"></i>
+                Retours
+            </h3>
+            {% if stats.commandes_retournees > 0 %}
+            <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">{{ stats.commandes_retournees }}</span>
+            {% endif %}
+        </div>
+        <div class="text-center py-6">
+            <div class="text-3xl font-bold text-red-600 mb-2">{{ stats.commandes_retournees|default:0 }}</div>
+            <p class="text-gray-500 text-sm mb-4">Commandes retournées</p>
+            <a href="{% url 'Prepacommande:commandes_retournees' %}" class="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg text-sm inline-block">
+                <i class="fas fa-undo mr-1"></i>
+                Traiter
+            </a>
+        </div>
+    </div>
+
+    <!-- Partielles -->
+    <div class="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl border border-gray-100 animate-slideInUp" style="border-color: var(--preparation-border-accent); animation-delay: 0.5s;">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                <i class="fas fa-exclamation-triangle text-orange-500 mr-2"></i>
+                Partielles
+            </h3>
+            {% if stats.commandes_livrees_partiellement > 0 %}
+            <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">{{ stats.commandes_livrees_partiellement }}</span>
+            {% endif %}
+        </div>
+        <div class="text-center py-6">
+            <div class="text-3xl font-bold text-orange-600 mb-2">{{ stats.commandes_livrees_partiellement|default:0 }}</div>
+            <p class="text-gray-500 text-sm mb-4">Livrées partiellement</p>
+            <a href="{% url 'Prepacommande:commandes_livrees_partiellement' %}" class="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg text-sm inline-block">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                Traiter
+            </a>
+        </div>
+    </div>
+
 </div>
 
-<!-- Actions rapides -->
-<div class="grid grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
-    <a href="{% url 'Prepacommande:commandes_retournees' %}" class="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white rounded-xl p-4 transition-all duration-300 transform hover:scale-105 shadow-lg">
-        <div class="text-center">
-            <i class="fas fa-undo text-2xl mb-2"></i>
-            <div class="text-sm font-medium">Retours</div>
-        </div>
-    </a>
-    
-    <a href="{% url 'Prepacommande:commandes_livrees_partiellement' %}" class="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl p-4 transition-all duration-300 transform hover:scale-105 shadow-lg">
-        <div class="text-center">
-            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-            <div class="text-sm font-medium">Partielles</div>
-        </div>
-    </a>
-</div>
+
 
 <!-- Performance de la journée -->
 <div class="mt-8 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl p-6 border border-teal-100">
@@ -284,6 +253,22 @@
     to { transform: rotate(360deg); }
 }
 
+@keyframes pulse-glow {
+    0%, 100% { 
+        box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
+        transform: scale(1.05);
+    }
+}
+
+@keyframes bounce-gentle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
 .animate-slideInUp {
     animation: slideInUp 0.6s ease-out forwards;
     opacity: 0;
@@ -301,6 +286,25 @@
 
 .animate-spin-slow {
     animation: spin-slow 3s linear infinite;
+}
+
+.animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-bounce-gentle {
+    animation: bounce-gentle 2s ease-in-out infinite;
+}
+
+/* Effet hover amélioré pour les cartes */
+.bg-white:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Animation des icônes au hover */
+.bg-white:hover i {
+    animation: bounce-gentle 1s ease-in-out infinite;
 }
 </style>
 

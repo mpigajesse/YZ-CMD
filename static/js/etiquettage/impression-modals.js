@@ -142,6 +142,81 @@ class ImpressionModals {
     }
 
     /**
+     * Imprimer le ticket de commande
+     */
+    imprimerTicketCommande() {
+        this.hideImpressionChoiceModal();
+        
+        // Afficher une notification de chargement
+        this.showNotification('Chargement du ticket de commande...', 'info');
+        
+        // Récupérer les données du ticket
+        fetch(`/Superpreparation/api/ticket-commande/?ids=${this.currentCommandeIdYz}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.showTicketModal(data);
+                } else {
+                    this.showNotification(`Erreur: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement du ticket:', error);
+                this.showNotification('Erreur lors du chargement du ticket', 'error');
+            });
+    }
+
+    /**
+     * Imprimer les tickets de plusieurs commandes
+     */
+    imprimerTicketsMultiples(commandeIds) {
+        this.hideImpressionChoiceModal();
+        
+        // Afficher une notification de chargement
+        this.showNotification('Chargement des tickets de commande...', 'info');
+        
+        // Récupérer les données des tickets
+        fetch(`/Superpreparation/api/ticket-commande/?ids=${commandeIds.join(',')}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.showTicketModal(data);
+                } else {
+                    this.showNotification(`Erreur: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des tickets:', error);
+                this.showNotification('Erreur lors du chargement des tickets', 'error');
+            });
+    }
+
+    /**
+     * Imprimer le ticket de commande multiple
+     */
+    imprimerTicketCommandeMultiple() {
+        this.hideImpressionChoiceModal();
+        
+        // Afficher une notification de chargement
+        this.showNotification('Chargement des tickets de commande multiples...', 'info');
+        
+        // Récupérer les données des tickets multiples (toutes les commandes confirmées)
+        fetch('/Superpreparation/api/ticket-commande-multiple/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.showTicketMultipleModal(data);
+                } else {
+                    this.showNotification(`Erreur: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des tickets multiples:', error);
+                this.showNotification('Erreur lors du chargement des tickets multiples', 'error');
+            });
+    }
+
+    /**
      * Afficher la modale de choix de format pour les étiquettes
      */
     showFormatChoiceModal() {
@@ -309,6 +384,66 @@ class ImpressionModals {
     }
 
     /**
+     * Afficher la modale du ticket de commande
+     */
+    showTicketModal(data) {
+        // Créer ou récupérer la modale
+        let modal = document.getElementById('ticketModal');
+        if (!modal) {
+            modal = this.createTicketModal();
+        }
+        
+        // Mettre à jour le contenu
+        const content = modal.querySelector('#ticketContent');
+        if (content) {
+            content.innerHTML = data.html || 'Aucun contenu disponible';
+        }
+        
+        // Afficher la modale
+        modal.classList.remove('hidden');
+    }
+
+    /**
+     * Afficher la modale du ticket de commande multiple
+     */
+    showTicketMultipleModal(data) {
+        // Créer ou récupérer la modale
+        let modal = document.getElementById('ticketMultipleModal');
+        if (!modal) {
+            modal = this.createTicketMultipleModal();
+        }
+        
+        // Mettre à jour le contenu
+        const content = modal.querySelector('#ticketMultipleContent');
+        if (content) {
+            content.innerHTML = data.html || 'Aucun contenu disponible';
+            
+            // Forcer l'affichage en grille
+            const ticketContainer = content.querySelector('.ticket-commande-container');
+            if (ticketContainer) {
+                ticketContainer.style.display = 'grid';
+                ticketContainer.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                ticketContainer.style.gap = '15px';
+                ticketContainer.style.padding = '15px';
+                ticketContainer.style.maxWidth = '100%';
+                ticketContainer.style.width = '100%';
+                
+                // Forcer aussi les styles des tickets individuels
+                const tickets = ticketContainer.querySelectorAll('.ticket-commande');
+                tickets.forEach(ticket => {
+                    ticket.style.width = '100%';
+                    ticket.style.minWidth = '280px';
+                    ticket.style.maxWidth = '350px';
+                    ticket.style.margin = '0 auto';
+                });
+            }
+        }
+        
+        // Afficher la modale
+        modal.classList.remove('hidden');
+    }
+
+    /**
      * Créer la modale des codes-barres des commandes
      */
     createCodesBarresModal() {
@@ -443,6 +578,140 @@ class ImpressionModals {
     }
 
     /**
+     * Créer la modale du ticket de commande
+     */
+    createTicketModal() {
+        const modal = document.createElement('div');
+        modal.id = 'ticketModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+        
+        modal.innerHTML = `
+            <div class="relative p-6 bg-white w-full max-w-4xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down">
+                <!-- En-tête du modal -->
+                <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-6">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--preparation-light);">
+                            <i class="fas fa-receipt text-white text-xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold" style="color: var(--preparation-light);">Ticket de Commande</h3>
+                    </div>
+                    <button onclick="impressionModals.hideTicketModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Contrôles de sélection -->
+                <div class="flex justify-between items-center mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center space-x-4">
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" id="selectAllTickets" class="form-checkbox h-4 w-4 text-purple-600 rounded" onchange="impressionModals.toggleSelectAllTickets()">
+                            <span class="text-sm font-medium text-gray-700">Sélectionner tout</span>
+                        </label>
+                        <span id="ticketsSelectionCount" class="text-sm text-gray-500">0 sélectionné(s)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="impressionModals.printSelectedTickets()" 
+                                class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-all duration-200 flex items-center space-x-1">
+                            <i class="fas fa-print text-xs"></i>
+                            <span>Imprimer sélection</span>
+                        </button>
+                        <button onclick="impressionModals.printAllTickets()" 
+                                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-all duration-200 flex items-center space-x-1">
+                            <i class="fas fa-print text-xs"></i>
+                            <span>Imprimer tout</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Contenu du modal -->
+                <div id="ticketContent" class="flex-1 overflow-y-auto">
+                    <!-- Le contenu sera chargé ici -->
+                </div>
+                
+                <!-- Boutons d'action -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button onclick="impressionModals.hideTicketModal()" 
+                            class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        return modal;
+    }
+
+    /**
+     * Créer la modale du ticket de commande multiple
+     */
+    createTicketMultipleModal() {
+        const modal = document.createElement('div');
+        modal.id = 'ticketMultipleModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+        
+        modal.innerHTML = `
+            <div class="relative p-6 bg-white w-full max-w-7xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down">
+                <!-- En-tête du modal -->
+                <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-6">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--preparation-light);">
+                            <i class="fas fa-receipt text-white text-xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold" style="color: var(--preparation-light);">Tickets de Commande Multiple</h3>
+                    </div>
+                    <button onclick="impressionModals.hideTicketMultipleModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Contrôles de sélection -->
+                <div class="flex justify-between items-center mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center space-x-4">
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" id="selectAllTicketsMultiple" class="form-checkbox h-4 w-4 text-orange-600 rounded" onchange="impressionModals.toggleSelectAllTicketsMultiple()">
+                            <span class="text-sm font-medium text-gray-700">Sélectionner tout</span>
+                        </label>
+                        <span id="ticketsMultipleSelectionCount" class="text-sm text-gray-500">0 sélectionné(s)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="impressionModals.printSelectedTicketsMultiple()" 
+                                class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-lg transition-all duration-200 flex items-center space-x-1">
+                            <i class="fas fa-print text-xs"></i>
+                            <span>Imprimer sélection</span>
+                        </button>
+                        <button onclick="impressionModals.printAllTicketsMultiple()" 
+                                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-all duration-200 flex items-center space-x-1">
+                            <i class="fas fa-print text-xs"></i>
+                            <span>Imprimer tout</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Contenu du modal -->
+                <div id="ticketMultipleContent" class="flex-1 overflow-y-auto">
+                    <!-- Le contenu sera chargé ici -->
+                </div>
+                
+                <!-- Boutons d'action -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button onclick="impressionModals.hideTicketMultipleModal()" 
+                            class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        return modal;
+    }
+
+    /**
      * Fermer la modale des codes-barres
      */
     hideCodesBarresModal() {
@@ -459,6 +728,298 @@ class ImpressionModals {
         const modal = document.getElementById('etiquettesArticlesModal');
         if (modal) {
             modal.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Fermer la modale du ticket de commande
+     */
+    hideTicketModal() {
+        const modal = document.getElementById('ticketModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Fermer la modale du ticket de commande multiple
+     */
+    hideTicketMultipleModal() {
+        const modal = document.getElementById('ticketMultipleModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Basculer la sélection de tous les tickets multiples
+     */
+    toggleSelectAllTicketsMultiple() {
+        const selectAllCheckbox = document.getElementById('selectAllTicketsMultiple');
+        const ticketCheckboxes = document.querySelectorAll('#ticketMultipleContent .ticket-checkbox');
+        
+        ticketCheckboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+        
+        this.updateTicketMultipleSelectionCount();
+    }
+
+    /**
+     * Mettre à jour le compteur de sélection des tickets multiples
+     */
+    updateTicketMultipleSelectionCount() {
+        const selectedTickets = document.querySelectorAll('#ticketMultipleContent .ticket-checkbox:checked');
+        const countElement = document.getElementById('ticketsMultipleSelectionCount');
+        
+        if (countElement) {
+            countElement.textContent = `${selectedTickets.length} sélectionné(s)`;
+        }
+    }
+
+    /**
+     * Imprimer les tickets multiples sélectionnés
+     */
+    printSelectedTicketsMultiple() {
+        const selectedTickets = document.querySelectorAll('#ticketMultipleContent .ticket-checkbox:checked');
+        if (selectedTickets.length === 0) {
+            this.showNotification('Veuillez sélectionner au moins un ticket', 'warning');
+            return;
+        }
+        
+        const ticketsToPrint = [];
+        selectedTickets.forEach(checkbox => {
+            const ticketElement = checkbox.closest('.ticket-commande');
+            if (ticketElement) {
+                ticketsToPrint.push(ticketElement.outerHTML);
+            }
+        });
+        
+        this.printTickets(ticketsToPrint);
+    }
+
+    /**
+     * Imprimer tous les tickets multiples
+     */
+    printAllTicketsMultiple() {
+        const allTickets = document.querySelectorAll('#ticketMultipleContent .ticket-commande');
+        const ticketsToPrint = [];
+        
+        allTickets.forEach(ticketElement => {
+            ticketsToPrint.push(ticketElement.outerHTML);
+        });
+        
+        this.printTickets(ticketsToPrint);
+    }
+
+    /**
+     * Basculer la sélection de tous les tickets
+     */
+    toggleSelectAllTickets() {
+        const selectAllCheckbox = document.getElementById('selectAllTickets');
+        const ticketCheckboxes = document.querySelectorAll('.ticket-checkbox');
+        
+        ticketCheckboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+        
+        this.updateTicketSelectionCount();
+    }
+
+    /**
+     * Mettre à jour le compteur de sélection des tickets
+     */
+    updateTicketSelectionCount() {
+        const selectedTickets = document.querySelectorAll('.ticket-checkbox:checked');
+        const countElement = document.getElementById('ticketsSelectionCount');
+        
+        if (countElement) {
+            countElement.textContent = `${selectedTickets.length} sélectionné(s)`;
+        }
+    }
+
+    /**
+     * Imprimer les tickets sélectionnés
+     */
+    printSelectedTickets() {
+        const selectedTickets = document.querySelectorAll('.ticket-checkbox:checked');
+        if (selectedTickets.length === 0) {
+            this.showNotification('Veuillez sélectionner au moins un ticket', 'warning');
+            return;
+        }
+        
+        const ticketsToPrint = [];
+        selectedTickets.forEach(checkbox => {
+            const ticketElement = checkbox.closest('.ticket-commande');
+            if (ticketElement) {
+                ticketsToPrint.push(ticketElement.outerHTML);
+            }
+        });
+        
+        this.printTickets(ticketsToPrint);
+    }
+
+    /**
+     * Imprimer tous les tickets
+     */
+    printAllTickets() {
+        const allTickets = document.querySelectorAll('.ticket-commande');
+        const ticketsToPrint = [];
+        
+        allTickets.forEach(ticketElement => {
+            ticketsToPrint.push(ticketElement.outerHTML);
+        });
+        
+        this.printTickets(ticketsToPrint);
+    }
+
+    /**
+     * Imprimer les tickets (fonction générique)
+     */
+    printTickets(ticketsHtml) {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Tickets de Commande</title>
+                    <style>
+                        @page { size: A4; margin: 10mm; }
+                        body { 
+                            margin: 0; 
+                            padding: 0; 
+                            font-family: Arial, sans-serif; 
+                            -webkit-print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        * {
+                            -webkit-print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        .ticket-commande-container {
+                            display: grid;
+                            grid-template-columns: repeat(2, 1fr);
+                            gap: 5mm;
+                            width: 100%;
+                            max-width: 160mm;
+                            margin: 0 auto;
+                            padding: 5mm;
+                        }
+                        .ticket-commande {
+                            width: 75mm;
+                            border: 1px solid black;
+                            font-family: Arial, sans-serif;
+                            font-size: 8px;
+                            background: white;
+                            page-break-inside: avoid;
+                            margin: 0;
+                            overflow: hidden;
+                        }
+                        .ticket-header {
+                            background-color: #000000 !important;
+                            color: #ffffff !important;
+                            padding: 2mm;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            font-weight: bold;
+                            font-size: 9px;
+                            -webkit-print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            background: #000000 !important;
+                            color: #ffffff !important;
+                        }
+                        .ticket-body {
+                            padding: 2mm;
+                        }
+                        .info-line {
+                            display: flex;
+                            align-items: center;
+                            margin-bottom: 1mm;
+                            padding-bottom: 1mm;
+                            border-bottom: 1px dashed #ccc;
+                        }
+                        .info-icon {
+                            margin-right: 2mm;
+                            font-size: 10px;
+                            width: 12px;
+                            text-align: center;
+                        }
+                        .info-text {
+                            font-size: 7px;
+                            flex: 1;
+                        }
+                        .ticket-footer {
+                            background-color: #000000 !important;
+                            color: #ffffff !important;
+                            padding: 2mm;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            font-weight: bold;
+                            font-size: 8px;
+                            -webkit-print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            background: #000000 !important;
+                            color: #ffffff !important;
+                        }
+                        .ticket-contact {
+                            background: #f8f8f8 !important;
+                            padding: 2mm;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            font-size: 6px;
+                            border-top: 1px solid #000000 !important;
+                            -webkit-print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            background-color: #f8f8f8 !important;
+                            color: #000000 !important;
+                        }
+                        .contact-name {
+                            font-weight: bold;
+                            font-size: 8px;
+                            color: #000000 !important;
+                            -webkit-print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        .contact-info {
+                            text-align: right;
+                            font-weight: bold;
+                            font-size: 6px;
+                            color: #000000 !important;
+                            -webkit-print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        .ticket-checkbox {
+                            display: none;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="ticket-commande-container">
+                        ${ticketsHtml.join('')}
+                    </div>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    }
+
+    /**
+     * Imprimer le ticket de commande (fonction legacy)
+     */
+    printTicket() {
+        const ticketContent = document.querySelector('#ticketContent .ticket-commande');
+        if (ticketContent) {
+            this.printTickets([ticketContent.outerHTML]);
         }
     }
 
@@ -1002,6 +1563,14 @@ function imprimerEtiquettesArticles() {
     impressionModals.imprimerEtiquettesArticles();
 }
 
+function imprimerTicketCommande() {
+    impressionModals.imprimerTicketCommande();
+}
+
+function imprimerTicketCommandeMultiple() {
+    impressionModals.imprimerTicketCommandeMultiple();
+}
+
 // Fonctions pour les modales de contenu
 function hideCodesBarresModal() {
     impressionModals.hideCodesBarresModal();
@@ -1055,4 +1624,453 @@ function printSelectedEtiquettes() {
 
 function printAllEtiquettes() {
     impressionModals.printAllEtiquettes();
+}
+
+// Fonctions pour les tickets
+function toggleSelectAllTickets() {
+    impressionModals.toggleSelectAllTickets();
+}
+
+function updateTicketSelectionCount() {
+    impressionModals.updateTicketSelectionCount();
+}
+
+function printSelectedTickets() {
+    impressionModals.printSelectedTickets();
+}
+
+function printAllTickets() {
+    impressionModals.printAllTickets();
+}
+
+// Fonctions pour les tickets multiples
+function toggleSelectAllTicketsMultiple() {
+    impressionModals.toggleSelectAllTicketsMultiple();
+}
+
+function updateTicketMultipleSelectionCount() {
+    impressionModals.updateTicketMultipleSelectionCount();
+}
+
+function printSelectedTicketsMultiple() {
+    impressionModals.printSelectedTicketsMultiple();
+}
+
+function printAllTicketsMultiple() {
+    impressionModals.printAllTicketsMultiple();
+}
+
+function hideTicketMultipleModal() {
+    impressionModals.hideTicketMultipleModal();
+}
+
+/**
+ * Impression directe des tickets multiples (sans modale)
+ */
+function imprimerTicketsMultipleDirect() {
+    // Afficher un indicateur de chargement
+    impressionModals.showNotification('Préparation de l\'impression des tickets...', 'info');
+    
+    // Récupérer les données des tickets multiples (avec paramètre pour impression directe)
+    fetch('/Superpreparation/api/ticket-commande-multiple/?direct_print=true')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Créer une nouvelle fenêtre pour l'impression
+                const printWindow = window.open('', '_blank', 'width=800,height=600');
+                
+                // HTML pour l'impression - Utiliser exactement la même structure que la modale
+                const printHTML = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Impression Tickets de Commande Multiple</title>
+                        <meta charset="utf-8">
+                        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+                        <style>
+                            @page {
+                                size: A4;
+                                margin: 5mm;
+                            }
+
+                            body, html {
+                                margin: 0;
+                                padding: 0;
+                                background: white !important;
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                            
+                            .no-print {
+                                display: none !important;
+                            }
+                            
+                            /* Container pour les tickets */
+                            .ticket-commande-container {
+                                display: grid !important;
+                                grid-template-columns: repeat(2, 1fr) !important;
+                                gap: 3mm !important;
+                                width: 100% !important;
+                                max-width: 180mm !important;
+                                margin: 0 auto !important;
+                                padding: 3mm !important;
+                            }
+                            
+                            /* Format compact du ticket */
+                            .ticket-commande {
+                                width: 85mm !important;
+                                height: 60mm !important;
+                                border: 1px solid black !important;
+                                font-family: Arial, sans-serif !important;
+                                font-size: 8px !important;
+                                background: white !important;
+                                page-break-inside: avoid !important;
+                                margin: 0 !important;
+                                overflow: hidden;
+                                display: flex !important;
+                                flex-direction: column !important;
+                            }
+                            
+                            .ticket-commande * {
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                            
+                            /* En-tête noir */
+                            .ticket-header {
+                                background-color: #000000 !important;
+                                color: #ffffff !important;
+                                padding: 2mm !important;
+                                font-size: 9px !important;
+                                font-weight: bold !important;
+                                display: flex !important;
+                                justify-content: space-between !important;
+                                align-items: center !important;
+                            }
+                            
+                            .ticket-number {
+                                font-weight: bold !important;
+                                display: flex !important;
+                                align-items: center !important;
+                            }
+                            
+                            .ticket-date {
+                                font-weight: bold !important;
+                            }
+                            
+                            /* Corps du ticket */
+                            .ticket-body {
+                                padding: 2mm !important;
+                                flex-grow: 1 !important;
+                                display: flex !important;
+                                flex-direction: column !important;
+                                justify-content: space-between !important;
+                            }
+                            
+                            /* Informations client */
+                            .client-info {
+                                margin-bottom: 2mm !important;
+                            }
+                            
+                            .info-line {
+                                margin-bottom: 1mm !important;
+                                padding-bottom: 1mm !important;
+                                display: flex !important;
+                                align-items: center !important;
+                            }
+                            
+                            .info-icon {
+                                font-size: 8px !important;
+                                margin-right: 2mm !important;
+                                width: 10px !important;
+                                font-weight: bold !important;
+                            }
+                            
+                            .info-text {
+                                font-size: 7px !important;
+                                font-weight: normal !important;
+                                word-break: break-word !important;
+                                flex: 1 !important;
+                            }
+                            
+                            /* Description des articles */
+                            .articles-description {
+                                margin-top: 2mm !important;
+                            }
+                            
+                            /* Pied de page noir */
+                            .ticket-footer {
+                                background-color: #000000 !important;
+                                color: #ffffff !important;
+                                padding: 2mm !important;
+                                font-size: 8px !important;
+                                font-weight: bold !important;
+                                display: flex !important;
+                                justify-content: space-between !important;
+                                align-items: center !important;
+                            }
+                            
+                            .ticket-price {
+                                font-weight: bold !important;
+                            }
+                            
+                            .ticket-city {
+                                font-weight: bold !important;
+                            }
+                            
+                            /* Informations de contact */
+                            .ticket-contact {
+                                background: #f8f8f8 !important;
+                                padding: 2mm !important;
+                                font-size: 6px !important;
+                                display: flex !important;
+                                justify-content: space-between !important;
+                                align-items: center !important;
+                                border-top: 1px solid #000000 !important;
+                            }
+                            
+                            .contact-name {
+                                font-size: 8px !important;
+                                font-weight: bold !important;
+                                color: #000000 !important;
+                            }
+                            
+                            .contact-info {
+                                text-align: right !important;
+                                color: #000000 !important;
+                                font-weight: bold !important;
+                                font-size: 6px !important;
+                            }
+                            
+                            .contact-info div {
+                                line-height: 1.2 !important;
+                            }
+                            
+                            .label-checkbox {
+                                display: none !important;
+                            }
+                            
+                            .articles-count-badge {
+                                display: inline-flex !important;
+                                background: white !important;
+                                color: #000 !important;
+                                border-radius: 50% !important;
+                                width: 20px !important;
+                                height: 20px !important;
+                                align-items: center !important;
+                                justify-content: center !important;
+                                margin-left: 8px !important;
+                                font-size: 10px !important;
+                                font-weight: bold !important;
+                                border: 1px solid #000 !important;
+                                text-align: center !important;
+                                line-height: 1 !important;
+                            }
+                            
+                            .count-number {
+                                font-size: 10px !important;
+                                font-weight: bold !important;
+                                line-height: 1 !important;
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                display: flex !important;
+                                align-items: center !important;
+                                justify-content: center !important;
+                                width: 100% !important;
+                                height: 100% !important;
+                            }
+                            
+                            @media print {
+                                body {
+                                    -webkit-print-color-adjust: exact !important;
+                                    color-adjust: exact !important;
+                                    print-color-adjust: exact !important;
+                                }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="ticket-commande-container">
+                            ${data.html}
+                        </div>
+                        <script>
+                            // Lancer l'impression automatiquement
+                            window.onload = function() {
+                                setTimeout(function() {
+                                    window.print();
+                                    setTimeout(function() {
+                                        window.close();
+                                    }, 1000);
+                                }, 500);
+                            };
+                        </script>
+                    </body>
+                    </html>
+                `;
+                
+                // Écrire le contenu dans la nouvelle fenêtre
+                printWindow.document.write(printHTML);
+                printWindow.document.close();
+                
+                impressionModals.showNotification('Impression lancée !', 'success');
+            } else {
+                impressionModals.showNotification(`Erreur: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de l\'impression directe:', error);
+            impressionModals.showNotification('Erreur lors de l\'impression', 'error');
+        });
+}
+
+/**
+ * Impression directe des codes QR des articles (sans modale)
+ */
+function imprimerCodesQRArticlesDirect() {
+    // Afficher un indicateur de chargement
+    impressionModals.showNotification('Préparation de l\'impression des codes QR...', 'info');
+    
+    // Récupérer les données des codes QR des articles (toutes les commandes confirmées)
+    fetch('/Superpreparation/api/etiquettes-articles-multiple/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Créer une nouvelle fenêtre pour l'impression
+                const printWindow = window.open('', '_blank', 'width=800,height=600');
+                
+                // HTML pour l'impression - Utiliser exactement la même structure que la modale
+                const printHTML = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Impression Codes QR Articles</title>
+                        <meta charset="utf-8">
+                        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+                        <style>
+                            @page {
+                                size: A4;
+                                margin: 5mm;
+                            }
+
+                            body, html {
+                                margin: 0;
+                                padding: 0;
+                                background: white !important;
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                            
+                            .no-print {
+                                display: none !important;
+                            }
+                            
+                            /* Container pour les étiquettes */
+                            .etiquettes-container {
+                                display: grid !important;
+                                grid-template-columns: repeat(2, 1fr) !important;
+                                gap: 3mm !important;
+                                width: 100% !important;
+                                max-width: 180mm !important;
+                                margin: 0 auto !important;
+                                padding: 3mm !important;
+                            }
+                            
+                            /* Format compact de l'étiquette */
+                            .etiquette-article {
+                                width: 85mm !important;
+                                height: 60mm !important;
+                                border: 1px solid black !important;
+                                font-family: Arial, sans-serif !important;
+                                font-size: 8px !important;
+                                background: white !important;
+                                page-break-inside: avoid !important;
+                                margin: 0 !important;
+                                overflow: hidden;
+                                display: flex !important;
+                                flex-direction: column !important;
+                                align-items: center !important;
+                                justify-content: center !important;
+                                text-align: center !important;
+                            }
+                            
+                            .etiquette-article * {
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                            
+                            /* QR Code */
+                            .qr-code {
+                                margin-bottom: 2mm !important;
+                            }
+                            
+                            .qr-code img {
+                                width: 25mm !important;
+                                height: 25mm !important;
+                                border: 1px solid #000 !important;
+                            }
+                            
+                            /* Informations article */
+                            .article-info {
+                                padding: 2mm !important;
+                                font-size: 7px !important;
+                                line-height: 1.2 !important;
+                            }
+                            
+                            .article-name {
+                                font-weight: bold !important;
+                                margin-bottom: 1mm !important;
+                                word-break: break-word !important;
+                            }
+                            
+                            .article-variant {
+                                font-size: 6px !important;
+                                color: #666 !important;
+                                word-break: break-word !important;
+                            }
+                            
+                            @media print {
+                                body {
+                                    -webkit-print-color-adjust: exact !important;
+                                    color-adjust: exact !important;
+                                    print-color-adjust: exact !important;
+                                }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="etiquettes-container">
+                            ${data.html}
+                        </div>
+                        <script>
+                            // Lancer l'impression automatiquement
+                            window.onload = function() {
+                                setTimeout(function() {
+                                    window.print();
+                                    setTimeout(function() {
+                                        window.close();
+                                    }, 1000);
+                                }, 500);
+                            };
+                        </script>
+                    </body>
+                    </html>
+                `;
+                
+                // Écrire le contenu dans la nouvelle fenêtre
+                printWindow.document.write(printHTML);
+                printWindow.document.close();
+                
+                impressionModals.showNotification('Impression lancée !', 'success');
+            } else {
+                impressionModals.showNotification(`Erreur: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de l\'impression directe des codes QR:', error);
+            impressionModals.showNotification('Erreur lors de l\'impression', 'error');
+        });
 }

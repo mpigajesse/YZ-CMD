@@ -53,13 +53,7 @@ def home_view(request):
         return redirect('login')
 
     # STATISTIQUES GLOBALES DE SUPERVISION
-    # 1. Commandes à imprimer (tous opérateurs)
-    commandes_a_imprimer = Commande.objects.filter(
-        etats__enum_etat__libelle='En préparation',
-        etats__date_fin__isnull=True
-    ).distinct().count()
-    
-    # 2. Commandes à préparer (affectées mais pas encore commencées)
+    # 1. Commandes à préparer (affectées mais pas encore commencées)
     commandes_a_preparer = Commande.objects.filter(
         etats__enum_etat__libelle='À imprimer',
         etats__date_fin__isnull=True
@@ -154,7 +148,7 @@ def home_view(request):
     ).distinct().count()
     
     # Total global des commandes actives
-    total_commandes_actives = commandes_a_imprimer + commandes_en_cours + commandes_livrees_partiellement + commandes_retournees
+    total_commandes_actives = commandes_en_cours + commandes_livrees_partiellement + commandes_retournees
     
     # Performance globale (toutes les préparations terminées aujourd'hui)
     performance_globale_today = EtatCommande.objects.filter(
@@ -191,18 +185,17 @@ def home_view(request):
             'url': 'Superpreparation:commandes_livrees_partiellement'
         })
     
-    if commandes_a_imprimer > 10:
+
         alertes.append({
             'type': 'urgent',
             'icon': 'fas fa-fire',
-            'message': f'{commandes_a_imprimer} commandes en attente d\'impression',
-            'url': 'Superpreparation:commandes_a_imprimer'
+            
         })
     
     # Préparer les statistiques de supervision
     stats = {
         # Statistiques principales de supervision
-        'commandes_a_imprimer': commandes_a_imprimer,
+
         'commandes_a_preparer': commandes_a_preparer,
         'commandes_en_cours': commandes_en_cours,
         'commandes_livrees_partiellement': commandes_livrees_partiellement,
@@ -302,12 +295,16 @@ def liste_prepa(request):
     elif filter_type == 'retournees':
         # Obsolète: rediriger vers la page dédiée
         return redirect('Superpreparation:commandes_retournees')
-    elif filter_type == 'affectees_admin':
-        # Filtrer les commandes affectées directement par l'admin
-        # Inclure les commandes en "À imprimer" ET "En préparation"
+
+    else:  # filter_type == 'all'
+        # Pour "Toutes les commandes", afficher TOUTES les commandes en préparation (quel que soit leur état)
         commandes_affectees = []
         commandes_base = Commande.objects.filter(
-            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
+            Q(etats__enum_etat__libelle='À imprimer') | 
+            Q(etats__enum_etat__libelle='En préparation') |
+            Q(etats__enum_etat__libelle='Collectée') |
+            Q(etats__enum_etat__libelle='Emballée') |
+            Q(etats__enum_etat__libelle='Préparée'),
             etats__date_fin__isnull=True
         ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
         
@@ -315,86 +312,26 @@ def liste_prepa(request):
             etats_commande = commande.etats.all().order_by('date_debut')
             etat_prepa_actuel = None
             
-            # Trouver l'état actuel de préparation
+            # Trouver l'état actuel de préparation (peu importe l'état)
             for etat in etats_commande:
-                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée', 'Préparée'] and not etat.date_fin:
                     etat_prepa_actuel = etat
                     break
             
             if etat_prepa_actuel:
-                # Vérifier s'il y a des états ultérieurs problématiques
-                a_etats_ultérieurs_problematiques = False
-                for etat in etats_commande:
-                    if (etat.date_debut > etat_prepa_actuel.date_debut and 
-                        etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
-                        a_etats_ultérieurs_problematiques = True
-                        break
-                
-                if a_etats_ultérieurs_problematiques:
-                    continue
-                
-                # Vérifier les opérations de renvoi
-                operation_renvoi = Operation.objects.filter(
-                    commande=commande,
-                    type_operation='RENVOI_PREPARATION'
-                ).first()
-                
-                if operation_renvoi:
-                    continue  # Exclure les commandes renvoyées par logistique
-                
-                # Vérifier si c'est une commande de renvoi créée lors d'une livraison partielle
-                if commande.num_cmd and commande.num_cmd.startswith('RENVOI-'):
-                    # Chercher la commande originale
-                    num_cmd_original = commande.num_cmd.replace('RENVOI-', '')
-                    commande_originale = Commande.objects.filter(
-                        num_cmd=num_cmd_original,
-                        etats__enum_etat__libelle='Livrée Partiellement'
-                    ).first()
-                    
-                    if commande_originale:
-                        continue  # Exclure les commandes de renvoi livraison partielle
-                
-                # Vérifier l'historique pour renvoi depuis livraison
-                has_return_from_delivery = False
-                for etat in reversed(etats_commande):
-                    if etat.date_fin and etat.date_fin < etat_prepa_actuel.date_debut:
-                        if etat.enum_etat.libelle in ['En cours de livraison', 'Livrée Partiellement']:
-                            has_return_from_delivery = True
+                # Vérifier s'il y a des états ultérieurs problématiques (seulement si l'état actuel n'est pas "Préparée")
+                if etat_prepa_actuel.enum_etat.libelle != 'Préparée':
+                    a_etats_ultérieurs_problematiques = False
+                    for etat in etats_commande:
+                        if (etat.date_debut > etat_prepa_actuel.date_debut and 
+                                etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'En cours de livraison']):
+                            a_etats_ultérieurs_problematiques = True
                             break
                 
-                if not has_return_from_delivery:
-                    commandes_affectees.append(commande)
-    else:  # filter_type == 'all'
-        # Pour "Toutes les commandes", afficher toutes les commandes des 3 autres onglets
-        commandes_affectees = []
-        commandes_base = Commande.objects.filter(
-            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation'),
-            etats__date_fin__isnull=True
-        ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
-        
-        for commande in commandes_base:
-            etats_commande = commande.etats.all().order_by('date_debut')
-            etat_prepa_actuel = None
-            
-            # Trouver l'état actuel de préparation
-            for etat in etats_commande:
-                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
-                    etat_prepa_actuel = etat
-                    break
-            
-            if etat_prepa_actuel:
-                # Vérifier s'il y a des états ultérieurs problématiques
-                a_etats_ultérieurs_problematiques = False
-                for etat in etats_commande:
-                    if (etat.date_debut > etat_prepa_actuel.date_debut and 
-                        etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
-                        a_etats_ultérieurs_problematiques = True
-                        break
-                
                 if a_etats_ultérieurs_problematiques:
                     continue
                 
-                # Inclure toutes les commandes valides (pas d'exclusion basée sur le type)
+                # Inclure toutes les commandes valides (tous les états de préparation)
                 commandes_affectees.append(commande)
     
     # Pour les commandes renvoyées par la logistique, respecter l'affectation spécifique à chaque opérateur
@@ -475,10 +412,10 @@ def liste_prepa(request):
         # Récupérer tous les états de la commande dans l'ordre chronologique
         etats_commande = commande.etats.all().order_by('date_debut')
         
-        # Trouver l'état actuel (À imprimer ou En préparation)
+        # Trouver l'état actuel (tous les états de préparation)
         etat_actuel = None
         for etat in etats_commande:
-            if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+            if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée', 'Préparée'] and not etat.date_fin:
                 etat_actuel = etat
                 break
         
@@ -487,7 +424,7 @@ def liste_prepa(request):
             etat_precedent = None
             for etat in reversed(etats_commande):
                 if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
-                    if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
+                    if etat.enum_etat.libelle not in ['À imprimer', 'En préparation', 'Collectée', 'Emballée', 'Préparée']:
                         etat_precedent = etat
                         break
             
@@ -505,6 +442,9 @@ def liste_prepa(request):
                 etat_conf_any = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('date_debut').first()
                 commande.etat_confirmation = etat_conf_any
     
+            # Ajouter l'état actuel pour l'affichage des étapes de préparation
+            commande.etat_actuel_preparation = etat_actuel
+    
     # Si aucune commande trouvée avec la méthode stricte, essayer une approche plus large
     if isinstance(commandes_affectees, list):
         has_commandes = len(commandes_affectees) > 0
@@ -512,13 +452,16 @@ def liste_prepa(request):
         has_commandes = commandes_affectees.exists()
     
     if not has_commandes:
-        # Chercher toutes les commandes en préparation
-        # et qui n'ont pas encore d'état "Préparée" ou "En cours de livraison"
+        # Chercher toutes les commandes en préparation (tous les états)
         commandes_affectees = Commande.objects.filter(
-            Q(etats__enum_etat__libelle='À imprimer') | Q(etats__enum_etat__libelle='En préparation')
+            Q(etats__enum_etat__libelle='À imprimer') | 
+            Q(etats__enum_etat__libelle='En préparation') |
+            Q(etats__enum_etat__libelle='Collectée') |
+            Q(etats__enum_etat__libelle='Emballée') |
+            Q(etats__enum_etat__libelle='Préparée')
         ).exclude(
-            # Exclure les commandes qui ont déjà un état ultérieur actif
-            Q(etats__enum_etat__libelle__in=['Préparée', 'En cours de livraison', 'Livrée', 'Annulée'], etats__date_fin__isnull=True)
+            # Exclure seulement les commandes qui ont déjà un état ultérieur actif (livraison, etc.)
+            Q(etats__enum_etat__libelle__in=['En cours de livraison', 'Livrée', 'Annulée'], etats__date_fin__isnull=True)
         ).select_related('client', 'ville', 'ville__region').prefetch_related('paniers__article', 'etats').distinct()
         
         # Pour chaque commande, ajouter l'état précédent pour comprendre d'où elle vient
@@ -526,10 +469,10 @@ def liste_prepa(request):
             # Récupérer tous les états de la commande dans l'ordre chronologique
             etats_commande = commande.etats.all().order_by('date_debut')
             
-            # Trouver l'état actuel (À imprimer ou En préparation)
+            # Trouver l'état actuel (tous les états de préparation)
             etat_actuel = None
             for etat in etats_commande:
-                if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
+                if etat.enum_etat.libelle in ['À imprimer', 'En préparation', 'Collectée', 'Emballée', 'Préparée'] and not etat.date_fin:
                     etat_actuel = etat
                     break
             
@@ -538,7 +481,7 @@ def liste_prepa(request):
                 etat_precedent = None
                 for etat in reversed(etats_commande):
                     if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
-                        if etat.enum_etat.libelle not in ['À imprimer', 'En préparation']:
+                        if etat.enum_etat.libelle not in ['À imprimer', 'En préparation', 'Collectée', 'Emballée', 'Préparée']:
                             etat_precedent = etat
                             break
                 
@@ -555,6 +498,9 @@ def liste_prepa(request):
                 else:
                     etat_conf_any = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('date_debut').first()
                     commande.etat_confirmation = etat_conf_any
+                
+                # Ajouter l'état actuel pour l'affichage des étapes de préparation
+                commande.etat_actuel_preparation = etat_actuel
     
     # Suppression du filtre 'nouvelles' car redondant avec l'affectation automatique
     # Suppression du filtre 'renvoyees_preparation' car non nécessaire
@@ -587,9 +533,13 @@ def liste_prepa(request):
     else:
         commandes_affectees = commandes_affectees.order_by('-etats__date_debut')
 
-    # Générer les codes-barres pour chaque commande
+    # Générer les codes-barres pour chaque commande et s'assurer que etat_actuel_preparation est défini
     code128 = barcode.get_barcode_class('code128')
     for commande in commandes_affectees:
+        # S'assurer que etat_actuel_preparation est défini
+        if not hasattr(commande, 'etat_actuel_preparation') or commande.etat_actuel_preparation is None:
+            commande.etat_actuel_preparation = commande.etat_actuel
+        
         if commande.id_yz:
             barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
             buffer = BytesIO()
@@ -624,7 +574,6 @@ def liste_prepa(request):
         'renvoyees_logistique': 0,
         'livrees_partiellement': 0,
         'retournees': 0,
-        'affectees_admin': 0,
         'affectees_moi': 0,
     }
     
@@ -717,69 +666,9 @@ def liste_prepa(request):
     # Mettre à jour le compteur avec la valeur correcte
     stats_par_type['livrees_partiellement'] = livrees_partiellement_count
     
-    # Calculer le compteur des commandes affectées par l'admin
-    # Ce sont les commandes qui ne sont ni renvoyées par logistique ni livrées partiellement
-    affectees_admin_count = 0
-    for cmd in toutes_commandes:
-        # Vérifier si c'est une commande renvoyée par la logistique
-        operation_renvoi = Operation.objects.filter(
-            commande=cmd,
-            type_operation='RENVOI_PREPARATION'
-        ).first()
-        
-        if operation_renvoi:
-            continue  # Déjà comptée dans renvoyees_logistique
-        
-        # Vérifier si c'est une commande de renvoi créée lors d'une livraison partielle
-        if cmd.num_cmd and cmd.num_cmd.startswith('RENVOI-'):
-            # Chercher la commande originale
-            num_cmd_original = cmd.num_cmd.replace('RENVOI-', '')
-            commande_originale = Commande.objects.filter(
-                num_cmd=num_cmd_original,
-                etats__enum_etat__libelle='Livrée Partiellement'
-            ).first()
-            
-            if commande_originale:
-                continue  # Déjà comptée dans livrees_partiellement
-        
-        # Vérifier l'historique des états
-        etats_commande = cmd.etats.all().order_by('date_debut')
-        etat_actuel = None
-        
-        # Trouver l'état actuel
-        for etat in etats_commande:
-            if etat.enum_etat.libelle in ['À imprimer', 'En préparation'] and not etat.date_fin:
-                etat_actuel = etat
-                break
-        
-        if etat_actuel:
-            # Vérifier s'il y a des états ultérieurs problématiques
-            a_etats_ultérieurs_problematiques = False
-            for etat in etats_commande:
-                if (etat.date_debut > etat_actuel.date_debut and 
-                    etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'Préparée', 'En cours de livraison']):
-                    a_etats_ultérieurs_problematiques = True
-                    break
-            
-            if a_etats_ultérieurs_problematiques:
-                continue
-            
-            # Vérifier l'historique pour renvoi depuis livraison
-            has_return_from_delivery = False
-            for etat in reversed(etats_commande):
-                if etat.date_fin and etat.date_fin < etat_actuel.date_debut:
-                    if etat.enum_etat.libelle == 'En cours de livraison':
-                        has_return_from_delivery = True
-                        break
-                    elif etat.enum_etat.libelle == 'Livrée Partiellement':
-                        has_return_from_delivery = True
-                        break
-            
-            if not has_return_from_delivery:
-                affectees_admin_count += 1
+
     
-    # Mettre à jour le compteur des commandes affectées par l'admin
-    stats_par_type['affectees_admin'] = affectees_admin_count
+
 
     # Compter les commandes affectées par le superviseur connecté
     try:
@@ -792,10 +681,9 @@ def liste_prepa(request):
             etats__commentaire__icontains=f"Affectée à la préparation par {superviseur_nom}"
         ).distinct().count()
     
-    # Pour l'onglet "Toutes les commandes", le total doit être la somme des 3 autres onglets
+    # Pour l'onglet "Toutes les commandes", le total doit être la somme des 2 autres onglets
     if filter_type == 'all':
         total_affectees = (
-            stats_par_type['affectees_admin'] +
             stats_par_type['affectees_moi'] +
             stats_par_type['renvoyees_logistique'] +
             stats_par_type['livrees_partiellement']
@@ -904,55 +792,7 @@ def commandes_preparees(request):
     }
     return render(request, 'Superpreparation/commandes_preparees.html', context)
 
-@superviseur_preparation_required
-def commandes_a_imprimer(request):
-    """Page de suivi (lecture seule) des commandes à imprimer"""
-    try:
-        operateur_profile = request.user.profil_operateur
-        # Autoriser superviseur ou équipe préparation
-        if not (operateur_profile.is_preparation or operateur_profile.is_superviseur_preparation):
-            messages.error(request, "Accès non autorisé. Réservé à l'équipe préparation.")
-            return redirect('Superpreparation:home')
-    except Operateur.DoesNotExist:
-        messages.error(request, "Profil opérateur non trouvé.")
-        return redirect('Superpreparation:home')
 
-    # Récupérer TOUTES les commandes en préparation (pas seulement celles de l'opérateur connecté)
-    commandes = Commande.objects.filter(
-        etats__enum_etat__libelle='En préparation',
-        etats__date_fin__isnull=True
-    ).select_related('client', 'ville', 'ville__region').prefetch_related('etats__operateur').order_by('-etats__date_debut').distinct()
-
-    # Recherche
-    search_query = request.GET.get('search', '')
-    if search_query:
-        commandes = commandes.filter(
-            Q(id_yz__icontains=search_query) |
-            Q(num_cmd__icontains=search_query) |
-            Q(client__nom__icontains=search_query) |
-            Q(client__prenom__icontains=search_query) |
-            Q(client__numero_tel__icontains=search_query)
-        ).distinct()
-
-    # Statistiques
-    stats = {
-        'total_commandes': commandes.count(),
-        'commandes_urgentes': commandes.filter(
-            etats__date_debut__lt=timezone.now() - timedelta(days=1)
-        ).count(),
-        'valeur_totale': commandes.aggregate(total=Sum('total_cmd'))['total'] or 0
-    }
-
-    context = {
-        'commandes': commandes,
-        'search_query': search_query,
-        'stats': stats,
-        'page_title': 'Suivi - Commandes à Imprimer',
-        'page_subtitle': f'Suivi en temps réel de {commandes.count()} commande(s) prêtes pour impression',
-        'is_readonly': True,
-        'is_tracking_page': True
-    }
-    return render(request, 'Superpreparation/commandes_a_imprimer.html', context)
 
 @superviseur_preparation_required
 def commandes_en_preparation(request):
@@ -1680,141 +1520,9 @@ def detail_prepa(request, pk):
     }
     return render(request, 'Superpreparation/detail_prepa.html', context)
 
-@superviseur_preparation_required
-def etiquette_view(request):
-    """
-    Page de gestion des étiquettes pour les commandes.
-    - Si des IDs sont passés en GET, affiche les étiquettes pour ces commandes (En préparation).
-    - Sinon, affiche les commandes déjà préparées par l'opérateur.
-    """
-    try:
-        operateur_profile = request.user.profil_operateur
-        if not operateur_profile.is_preparation:
-            messages.error(request, "Accès non autorisé.")
-            return redirect('login')
-    except Operateur.DoesNotExist:
-        messages.error(request, "Votre profil opérateur n'existe pas.")
-        return redirect('login')
-
-    commande_ids_str = request.GET.get('ids')
-    commandes_a_imprimer = []
-
-    if commande_ids_str:
-        commande_ids = [int(id) for id in commande_ids_str.split(',') if id.isdigit()]
-        # Les commandes sont maintenant déjà en "En préparation" - pas besoin de changement d'état
-        commandes_a_imprimer = Commande.objects.filter(
-            id__in=commande_ids, 
-            etats__operateur=operateur_profile,
-            etats__enum_etat__libelle='En préparation',
-            etats__date_fin__isnull=True
-        ).distinct()
-        
-        page_title = "Impression des Étiquettes"
-        page_subtitle = f"{len(commandes_a_imprimer)} étiquette(s) à imprimer"
-
-    else:
-        # Récupérer uniquement les commandes avec l'état "Confirmée"
-        commandes_a_imprimer = Commande.objects.filter(
-            etats__enum_etat__libelle='Confirmée'
-        ).select_related('client', 'ville', 'ville__region').order_by('-date_creation').distinct()
-
-        # Ajouter la date de confirmation pour chaque commande
-        for commande in commandes_a_imprimer:
-            etat_confirmee = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('-date_debut').first()
-            if etat_confirmee:
-                commande.date_confirmation = etat_confirmee.date_debut
-            else:
-                # Fallback: utiliser la date de création
-                commande.date_confirmation = commande.date_creation
-
-        page_title = 'Codes-barres des Commandes'
-        page_subtitle = f'Impression des étiquettes de commandes - {commandes_a_imprimer.count()} commande(s)'
-    
-    # Générer les codes-barres
-    code128 = barcode.get_barcode_class('code128')
-    for commande in commandes_a_imprimer:
-        barcode_instance = code128(str(commande.id_yz), writer=ImageWriter())
-        buffer = BytesIO()
-        barcode_instance.write(buffer, options={'write_text': False, 'module_height': 15.0, 'module_width': 0.3})
-        barcode_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        commande.barcode_base64 = barcode_base64
-    
-    context = {
-        'page_title': page_title,
-        'page_subtitle': page_subtitle,
-        'commandes_preparees': commandes_a_imprimer, # Le template utilise ce nom de variable
-        'operateur_profile': operateur_profile,
-    }
-    return render(request, 'Superpreparation/etiquette.html', context)
-
-@superviseur_preparation_required
-def etiquettes_articles_view(request):
-    """
-    Page de gestion des étiquettes d'articles et variantes pour les commandes.
-    Affiche les codes-barres des articles et variantes de chaque commande.
-    """
-    try:
-        operateur_profile = request.user.profil_operateur
-        if not operateur_profile.is_preparation:
-            messages.error(request, "Accès non autorisé.")
-            return redirect('login')
-    except Operateur.DoesNotExist:
-        messages.error(request, "Votre profil opérateur n'existe pas.")
-        return redirect('login')
-
-    commande_ids_str = request.GET.get('ids')
-    search_query = request.GET.get('search', '')
-    commandes_a_imprimer = []
-
-    if commande_ids_str:
-        # Impression spécifique d'une ou plusieurs commandes
-        commande_ids = [int(id) for id in commande_ids_str.split(',') if id.isdigit()]
-        commandes_a_imprimer = Commande.objects.filter(
-            id__in=commande_ids,
-            etats__operateur=operateur_profile
-        ).select_related('client', 'ville', 'ville__region').prefetch_related(
-            'paniers__article', 'paniers__variantes'
-        ).distinct()
-        
-        page_title = "Impression des Étiquettes Articles"
-        page_subtitle = f"{len(commandes_a_imprimer)} commande(s) - Étiquettes articles"
-    else:
-        # Affichage uniquement des commandes avec l'état "Confirmée"
-        commandes_a_imprimer = Commande.objects.filter(
-            etats__enum_etat__libelle='Confirmée'
-        ).select_related('client', 'ville', 'ville__region').prefetch_related(
-            'paniers__article', 'paniers__variante'
-        ).distinct()
-
-        # Appliquer la recherche si fournie
-        if search_query:
-            commandes_a_imprimer = commandes_a_imprimer.filter(
-                Q(id_yz__icontains=search_query) |
-                Q(client__nom__icontains=search_query) |
-                Q(client__prenom__icontains=search_query) |
-                Q(num_cmd__icontains=search_query)
-            )
-
-        # Trier par date de création (plus récentes en premier)
-        commandes_a_imprimer = commandes_a_imprimer.order_by('-date_creation')
-
-        page_title = 'Étiquettes des Articles et Variantes'
-        page_subtitle = f'Codes-barres des articles pour {commandes_a_imprimer.count()} commande(s)'
-
-    # Ajouter la date de confirmation pour chaque commande
-    for commande in commandes_a_imprimer:
-        etat_confirmee = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('-date_debut').first()
-        if etat_confirmee:
-            commande.date_confirmation = etat_confirmee.date_debut
-    
-    context = {
-        'page_title': page_title,
-        'page_subtitle': page_subtitle,
-        'commandes_preparees': commandes_a_imprimer,
-        'operateur_profile': operateur_profile,
-        'search_query': search_query,
-    }
-    return render(request, 'Superpreparation/etiquettes_articles.html', context)
+# Vues supprimées - fonctionnalités maintenant gérées depuis "Suivi des Commandes Confirmées"
+# def etiquette_view(request):
+# def etiquettes_articles_view(request):
 
 @superviseur_preparation_required
 def api_commandes_confirmees(request):
@@ -3138,7 +2846,8 @@ def api_articles_disponibles_prepa(request):
         
         # Appliquer les filtres selon le type
         if filter_type == 'disponible':
-            articles = articles.filter(qte_disponible__gt=0)
+            # Filtrer les articles qui ont au moins une variante avec stock > 0
+            articles = articles.filter(variantes__qte_disponible__gt=0, variantes__actif=True).distinct()
         elif filter_type == 'upsell':
             articles = articles.filter(isUpsell=True)
         elif filter_type == 'liquidation':
@@ -3286,8 +2995,22 @@ def api_articles_disponibles_prepa(request):
                         'display_text': f"{article.nom} - {variante.couleur.nom if variante.couleur else ''} - {variante.pointure.pointure if variante.pointure else ''} ({float(article.prix_actuel or article.prix_unitaire):.2f} DH)"
                     })
         
-        # Retourner directement le tableau d'articles comme dans l'interface de confirmation
-        return JsonResponse(articles_data, safe=False)
+        # Calculer les statistiques pour la réponse
+        stats = {
+            "total": len(articles_data),
+            "disponible": len([a for a in articles_data if a.get('qte_disponible', 0) > 0]),
+            "upsell": len([a for a in articles_data if a.get('isUpsell', False)]),
+            "liquidation": len([a for a in articles_data if a.get('phase') == 'LIQUIDATION']),
+            "test": len([a for a in articles_data if a.get('phase') == 'EN_TEST']),
+            "promo": len([a for a in articles_data if a.get('has_promo_active', False)])
+        }
+        
+        # Retourner le format attendu par le frontend
+        return JsonResponse({
+            'success': True,
+            'articles': articles_data,
+            'stats': stats
+        })
         
     except Exception as e:
         import traceback
@@ -6262,13 +5985,22 @@ def api_codes_barres_commandes(request):
         
         print(f"🔍 Recherche de la commande avec id_yz: {ids}")
         
-        # Récupérer la commande
+        # Récupérer la commande confirmée avec des articles
         try:
-            commande = Commande.objects.get(id_yz=ids)
-            print(f"✅ Commande trouvée: {commande.id_yz}")
-        except Commande.DoesNotExist:
-            print(f"❌ Commande non trouvée avec id_yz: {ids}")
-            return JsonResponse({'error': f'Commande avec ID YZ {ids} non trouvée'}, status=404)
+            commande = Commande.objects.filter(
+                id_yz=ids,
+                etats__enum_etat__libelle='Confirmée',
+                paniers__isnull=False
+            ).distinct().first()
+            
+            if not commande:
+                print(f"❌ Commande {ids} non trouvée ou non confirmée ou sans articles")
+                return JsonResponse({'error': f'Commande {ids} non confirmée ou sans articles'}, status=404)
+            
+            print(f"✅ Commande confirmée trouvée: {commande.id_yz}")
+        except Exception as e:
+            print(f"❌ Erreur lors de la recherche de la commande {ids}: {str(e)}")
+            return JsonResponse({'error': f'Erreur lors de la recherche de la commande {ids}'}, status=500)
         
         # Générer le code-barres
         try:
@@ -6317,6 +6049,100 @@ def api_codes_barres_commandes(request):
         }, status=500)
 
 @superviseur_preparation_required
+def api_ticket_commande(request):
+    """
+    API pour récupérer le contenu HTML du ticket de commande
+    """
+    try:
+        ids = request.GET.get('ids')
+        if not ids:
+            return JsonResponse({'error': 'IDs des commandes requis'}, status=400)
+        
+        # Supporter plusieurs IDs séparés par des virgules
+        id_list = [id.strip() for id in ids.split(',') if id.strip()]
+        
+        print(f"🔍 Recherche des commandes avec id_yz: {id_list} pour ticket")
+        
+        all_tickets_html = []
+        commandes_data = []
+        
+        for commande_id in id_list:
+            try:
+                commande = Commande.objects.filter(
+                    id_yz=commande_id,
+                    etats__enum_etat__libelle='Confirmée',
+                    paniers__isnull=False
+                ).distinct().first()
+                
+                if not commande:
+                    print(f"❌ Commande {commande_id} non trouvée ou non confirmée ou sans articles")
+                    continue
+                
+                print(f"✅ Commande confirmée trouvée: {commande.id_yz}")
+            except Exception as e:
+                print(f"❌ Erreur lors de la recherche de la commande {commande_id}: {str(e)}")
+                continue
+            
+            # Préparer la description des articles
+            articles_description = ""
+            total_articles = 0
+            paniers = commande.paniers.all().select_related('article', 'variante')
+            for panier in paniers:
+                article = panier.article
+                variante = panier.variante
+                total_articles += panier.quantite  # Ajouter la quantité au total
+                if articles_description:
+                    articles_description += " + "
+                articles_description += f"{article.nom} {variante.couleur if variante else ''} , P{panier.quantite}"
+            
+            # Préparer les données de la commande
+            commande_data = {
+                'id_yz': commande.id_yz,
+                'num_cmd': commande.num_cmd,
+                'client_nom': f"{commande.client.nom} {commande.client.prenom}" if commande.client else "Client non défini",
+                'client_telephone': commande.client.numero_tel if commande.client else "",
+                'ville_client': commande.ville_init or (commande.ville.nom if commande.ville else ""),
+                'adresse': commande.client.adresse if commande.client else "",
+                'total': commande.total_cmd,
+                'date_confirmation': commande.date_creation,
+                'articles_description': articles_description,
+                'total_articles': total_articles
+            }
+            
+            # Rendre le template HTML pour cette commande
+            ticket_html = render_to_string('Superpreparation/partials/_ticket_commande.html', {
+                'commande': commande_data
+            })
+            
+            all_tickets_html.append(ticket_html)
+            commandes_data.append(commande_data)
+        
+        if not all_tickets_html:
+            return JsonResponse({'error': 'Aucune commande valide trouvée'}, status=404)
+        
+        # Combiner tous les tickets avec un conteneur de grille
+        combined_html = f'''
+        <div class="ticket-commande-container" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 15px; max-width: 100%; width: 100%; -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important;">
+            {''.join(all_tickets_html)}
+        </div>
+        '''
+        
+        return JsonResponse({
+            'success': True,
+            'html': combined_html,
+            'commandes': commandes_data
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur dans api_ticket_commande: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur lors de la génération du ticket: {str(e)}'
+        }, status=500)
+
+@superviseur_preparation_required
 def api_etiquettes_articles(request):
     """
     API pour récupérer le contenu HTML des étiquettes des articles
@@ -6330,13 +6156,22 @@ def api_etiquettes_articles(request):
         
         print(f"🔍 Recherche de la commande avec id_yz: {ids} pour format: {format_type}")
         
-        # Récupérer la commande et ses articles
+        # Récupérer la commande confirmée avec des articles
         try:
-            commande = Commande.objects.get(id_yz=ids)
-            print(f"✅ Commande trouvée: {commande.id_yz}")
-        except Commande.DoesNotExist:
-            print(f"❌ Commande non trouvée avec id_yz: {ids}")
-            return JsonResponse({'error': f'Commande avec ID YZ {ids} non trouvée'}, status=404)
+            commande = Commande.objects.filter(
+                id_yz=ids,
+                etats__enum_etat__libelle='Confirmée',
+                paniers__isnull=False
+            ).distinct().first()
+            
+            if not commande:
+                print(f"❌ Commande {ids} non trouvée ou non confirmée ou sans articles")
+                return JsonResponse({'error': f'Commande {ids} non confirmée ou sans articles'}, status=404)
+            
+            print(f"✅ Commande confirmée trouvée: {commande.id_yz}")
+        except Exception as e:
+            print(f"❌ Erreur lors de la recherche de la commande {ids}: {str(e)}")
+            return JsonResponse({'error': f'Erreur lors de la recherche de la commande {ids}'}, status=500)
         articles = commande.paniers.all().select_related('article', 'variante')
         
         articles_data = []
@@ -6381,7 +6216,8 @@ def api_etiquettes_articles(request):
                 'couleur': variante.couleur.nom if variante and variante.couleur else "Standard",
                 'pointure': variante.pointure.pointure if variante and variante.pointure else "Standard",
                 'qr_image': qr_base64,
-                'barcode_image': barcode_base64
+                'barcode_image': barcode_base64,
+                'commande_id': commande.id_yz
             }
             articles_data.append(article_data)
         
@@ -6409,4 +6245,316 @@ def api_etiquettes_articles(request):
         return JsonResponse({
             'success': False,
             'error': f'Erreur lors de la génération des étiquettes: {str(e)}'
+        }, status=500)
+
+@superviseur_preparation_required
+def api_etiquettes_articles_multiple(request):
+    """
+    API pour récupérer le contenu HTML des étiquettes de tous les articles de toutes les commandes confirmées
+    """
+    try:
+        format_type = request.GET.get('format', 'qr')  # 'qr' ou 'barcode'
+        
+        print(f"🔍 Récupération de tous les articles pour étiquettes multiples, format: {format_type}")
+        
+        # Récupérer uniquement les commandes confirmées avec des articles dans leur panier
+        commandes = Commande.objects.filter(
+            etats__enum_etat__libelle='Confirmée',
+            paniers__isnull=False
+        ).distinct().prefetch_related('paniers__article', 'paniers__variante__couleur', 'paniers__variante__pointure')
+        
+        print(f"📊 Nombre de commandes confirmées avec paniers: {commandes.count()}")
+        
+        all_articles_data = []
+        
+        for commande in commandes:
+            print(f"📋 Traitement de la commande: {commande.id_yz}")
+            articles = commande.paniers.all()
+            print(f"  📦 Nombre de paniers: {articles.count()}")
+            
+            if articles.count() == 0:
+                print(f"  ⚠️ Aucun panier trouvé pour la commande {commande.id_yz}")
+                continue
+            
+            for panier in articles:
+                article = panier.article
+                variante = panier.variante
+                
+                # Générer le QR code pour l'article
+                try:
+                    import qrcode
+                    qr_data = f"ART{article.id}_{variante.id if variante else 'NO_VAR'}"
+                    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                    qr.add_data(qr_data)
+                    qr.make(fit=True)
+                    qr_img = qr.make_image(fill_color="black", back_color="white")
+                    
+                    # Convertir en base64
+                    buffer = BytesIO()
+                    qr_img.save(buffer, format='PNG')
+                    qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+                except ImportError:
+                    # Fallback si qrcode n'est pas installé
+                    qr_base64 = ""
+                    print("Warning: qrcode library not installed, QR codes will not be generated")
+                
+                # Générer le code-barres pour l'article
+                barcode_data = f"ART{article.reference}_{variante.reference_variante if variante else 'NO_VAR'}"
+                barcode_image = barcode.Code128(barcode_data, writer=ImageWriter())
+                buffer = BytesIO()
+                barcode_image.write(buffer)
+                barcode_base64 = base64.b64encode(buffer.getvalue()).decode()
+                
+                # Calculer le prix unitaire à partir du sous_total et de la quantité
+                prix_unitaire = panier.sous_total / panier.quantite if panier.quantite > 0 else 0
+                
+                article_data = {
+                    'id': article.id,
+                    'nom': article.nom,
+                    'reference': article.reference,
+                    'prix': float(prix_unitaire),
+                    'quantite': panier.quantite,
+                    'couleur': variante.couleur.nom if variante and variante.couleur else "Standard",
+                    'pointure': variante.pointure.pointure if variante and variante.pointure else "Standard",
+                    'qr_image': qr_base64,
+                    'barcode_image': barcode_base64,
+                    'commande_id': commande.id_yz
+                }
+                all_articles_data.append(article_data)
+        
+        print(f"📦 Nombre total d'articles: {len(all_articles_data)}")
+        
+        if not all_articles_data:
+            return JsonResponse({'error': 'Aucun article trouvé dans les commandes confirmées'}, status=404)
+        
+        # Rendre le template HTML avec le format spécifié
+        html_content = render_to_string('Superpreparation/partials/_etiquettes_articles.html', {
+            'articles': all_articles_data,
+            'commande': {
+                'id_yz': 'MULTIPLE',
+                'client_nom': 'Toutes les commandes confirmées'
+            },
+            'format_type': format_type
+        })
+        
+        return JsonResponse({
+            'success': True,
+            'html': html_content,
+            'articles': all_articles_data,
+            'format_type': format_type,
+            'total_articles': len(all_articles_data)
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur dans api_etiquettes_articles_multiple: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur lors de la génération des étiquettes multiples: {str(e)}'
+        }, status=500)
+
+@superviseur_preparation_required
+def api_ticket_commande_multiple(request):
+    """
+    API pour récupérer le contenu HTML des tickets de commande multiples
+    """
+    try:
+        # Vérifier si c'est pour l'impression directe
+        direct_print = request.GET.get('direct_print', 'false').lower() == 'true'
+        # Récupérer uniquement les commandes confirmées avec des articles dans leur panier
+        commandes = Commande.objects.filter(
+            etats__enum_etat__libelle='Confirmée',
+            paniers__isnull=False
+        ).distinct().select_related('client', 'ville').prefetch_related(
+            'paniers__article', 
+            'paniers__variante__couleur', 
+            'paniers__variante__pointure'
+        )
+        
+        print(f"🔍 Récupération des commandes confirmées avec paniers pour tickets multiples")
+        
+        # Log pour debug - voir combien de commandes confirmées
+        print(f"📊 Nombre de commandes confirmées avec paniers: {commandes.count()}")
+        
+        all_tickets_html = []
+        commandes_data = []
+        
+        for commande in commandes:
+            print(f"✅ Traitement de la commande: {commande.id_yz}")
+            
+            # Préparer la description des articles avec les vraies variantes
+            articles_description = ""
+            total_articles = 0
+            # Utiliser les paniers déjà préchargés
+            paniers = commande.paniers.all()
+            print(f"📦 Nombre de paniers pour {commande.id_yz}: {paniers.count()}")
+            
+            if paniers.count() == 0:
+                print(f"  ⚠️ Aucun panier trouvé pour la commande {commande.id_yz}")
+                articles_description = "Aucun article"
+                total_articles = 0
+            else:
+                for panier in paniers:
+                    article = panier.article
+                    variante = panier.variante
+                    total_articles += panier.quantite  # Ajouter la quantité au total
+                    
+                    print(f"  📋 Article: {article.nom}, Variante: {variante}, Quantité: {panier.quantite}")
+                    
+                if articles_description:
+                    articles_description += " + "
+                
+                # Construire la description détaillée
+                if variante and variante.couleur and variante.pointure:
+                    articles_description += f"{article.nom} {variante.couleur.nom} P{variante.pointure.pointure} , Q{panier.quantite}"
+                elif variante and variante.couleur:
+                    articles_description += f"{article.nom} {variante.couleur.nom} , Q{panier.quantite}"
+                elif variante and variante.pointure:
+                    articles_description += f"{article.nom} P{variante.pointure.pointure} , Q{panier.quantite}"
+                else:
+                    articles_description += f"{article.nom} , Q{panier.quantite}"
+            
+            print(f"  📝 Description finale: '{articles_description}'")
+            print(f"  🔢 Total articles: {total_articles}")
+            
+            # Préparer les données de la commande
+            commande_data = {
+                'id_yz': commande.id_yz,
+                'num_cmd': commande.num_cmd,
+                'client_nom': f"{commande.client.nom} {commande.client.prenom}" if commande.client else "Client non défini",
+                'client_telephone': commande.client.numero_tel if commande.client else "",
+                'ville_client': commande.ville_init or (commande.ville.nom if commande.ville else ""),
+                'adresse': commande.client.adresse if commande.client else "",
+                'total': commande.total_cmd,
+                'date_confirmation': commande.date_creation,
+                'articles_description': articles_description,
+                'total_articles': total_articles
+            }
+            
+            # Rendre le template HTML pour cette commande
+            ticket_html = render_to_string('Superpreparation/partials/_ticket_commande.html', {
+                'commande': commande_data
+            })
+            
+            # Si c'est pour l'impression directe, supprimer les checkboxes mais garder les badges
+            if direct_print:
+                import re
+                # Supprimer les checkboxes du HTML
+                ticket_html = re.sub(r'<input[^>]*class="[^"]*ticket-checkbox[^"]*"[^>]*>', '', ticket_html)
+                # S'assurer que les badges d'articles sont visibles
+                ticket_html = ticket_html.replace('class="articles-count-badge"', 'class="articles-count-badge" style="display: inline-block !important;"')
+            
+            all_tickets_html.append(ticket_html)
+            commandes_data.append(commande_data)
+        
+        if not all_tickets_html:
+            return JsonResponse({'error': 'Aucune commande confirmée trouvée'}, status=404)
+        
+        print(f"✅ {len(all_tickets_html)} tickets générés avec succès")
+        
+        # Combiner tous les tickets avec un conteneur de grille
+        combined_html = f'''
+        <div class="ticket-commande-container" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 15px; max-width: 100%; width: 100%; -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important;">
+            {''.join(all_tickets_html)}
+        </div>
+        '''
+        
+        return JsonResponse({
+            'success': True,
+            'html': combined_html,
+            'commandes': commandes_data
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur dans api_ticket_commande_multiple: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur lors de la génération des tickets multiples: {str(e)}'
+        }, status=500)
+
+
+@superviseur_preparation_required
+@transaction.atomic
+def api_finaliser_preparation(request, commande_id):
+    """
+    API pour finaliser la préparation d'une commande (changer l'état vers "Préparée")
+    Seul le superviseur peut finaliser la préparation
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        # Récupérer la commande
+        commande = get_object_or_404(Commande, id=commande_id)
+        
+        # Vérifier que l'opérateur est bien un superviseur
+        operateur = request.user.profil_operateur
+        if not operateur or operateur.type_operateur != 'SUPERVISEUR_PREPARATION':
+            return JsonResponse({
+                'success': False, 
+                'error': 'Seuls les superviseurs de préparation peuvent finaliser la préparation'
+            }, status=403)
+        
+        # Vérifier que la commande est dans l'état "Emballée"
+        etat_actuel = commande.etat_actuel
+        if not etat_actuel or etat_actuel.enum_etat.libelle != 'Emballée':
+            return JsonResponse({
+                'success': False, 
+                'error': 'La commande doit être dans l\'état "Emballée" pour être finalisée'
+            }, status=400)
+        
+        # Récupérer l'état "Préparée"
+        try:
+            etat_preparee = EnumEtatCmd.objects.get(libelle='Préparée')
+        except EnumEtatCmd.DoesNotExist:
+            return JsonResponse({
+                'success': False, 
+                'error': 'L\'état "Préparée" n\'existe pas dans le système'
+            }, status=500)
+        
+        # Fermer l'état actuel (Emballée)
+        etat_actuel.date_fin = timezone.now()
+        etat_actuel.save()
+        
+        # Créer le nouvel état (Préparée)
+        nouvel_etat = EtatCommande.objects.create(
+            commande=commande,
+            enum_etat=etat_preparee,
+            operateur=operateur,
+            date_debut=timezone.now(),
+            date_fin=None  # État actif
+        )
+        
+        # Créer une opération pour tracer l'action
+        Operation.objects.create(
+            commande=commande,
+            type_operation='FINALISATION_PREPARATION',
+            operateur=operateur,
+            date_operation=timezone.now(),
+            description=f'Préparation finalisée par le superviseur {operateur.nom} {operateur.prenom}'
+        )
+        
+        print(f"✅ Préparation finalisée pour la commande {commande.id_yz} par {operateur.nom}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'La préparation de la commande {commande.id_yz} a été finalisée avec succès',
+            'nouvel_etat': 'Préparée',
+            'operateur': f'{operateur.nom} {operateur.prenom}',
+            'date_finalisation': timezone.now().strftime('%d/%m/%Y %H:%M')
+        })
+        
+    except Commande.DoesNotExist:
+        return JsonResponse({
+            'success': False, 
+            'error': 'Commande non trouvée'
+        }, status=404)
+    except Exception as e:
+        print(f"Erreur lors de la finalisation de la préparation: {str(e)}")
+        return JsonResponse({
+            'success': False, 
+            'error': f'Erreur lors de la finalisation: {str(e)}'
         }, status=500)

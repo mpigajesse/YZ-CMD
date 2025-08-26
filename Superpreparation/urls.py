@@ -11,7 +11,7 @@ urlpatterns = [
 
      #Gestion des commandes 
     path('liste-prepa/', views.liste_prepa, name='liste_prepa'),
-    path('commandes-a-imprimer/', views.commandes_a_imprimer, name='commandes_a_imprimer'),
+
     path('commandes-en-preparation/', views.commandes_en_preparation, name='commandes_en_preparation'),
     path('commandes-emballees/', views.commandes_emballees, name='commandes_emballees'),
     path('commandes-preparees/', views.commandes_preparees, name='commandes_preparees'),
@@ -25,8 +25,9 @@ urlpatterns = [
     path('modifier-profile/', views.modifier_profile_view, name='modifier_profile'),
     path('changer-mot-de-passe/', views.changer_mot_de_passe_view, name='changer_mot_de_passe'),
     path('detail-prepa/<int:pk>/', views.detail_prepa, name='detail_prepa'),
-    path('etiquettes/', views.etiquette_view, name='etiquette'),
-    path('etiquettes-articles/', views.etiquettes_articles_view, name='etiquettes_articles'),
+    # URLs supprimées - fonctionnalités maintenant gérées depuis "Suivi des Commandes Confirmées"
+    # path('etiquettes/', views.etiquette_view, name='etiquette'),
+    # path('etiquettes-articles/', views.etiquettes_articles_view, name='etiquettes_articles'),
     path('api/commande/<int:commande_id>/articles/', views.api_articles_commande, name='api_articles_commande'),
     path('api/commandes-confirmees/', views.api_commandes_confirmees, name='api_commandes_confirmees'),
     # Impression supprimée (gérée par Gestion des étiquettes)
@@ -55,7 +56,11 @@ urlpatterns = [
     
     # URLs pour les modales d'impression
     path('api/codes-barres-commandes/', views.api_codes_barres_commandes, name='api_codes_barres_commandes'),
+    path('api/ticket-commande/', views.api_ticket_commande, name='api_ticket_commande'),
+    path('api/ticket-commande-multiple/', views.api_ticket_commande_multiple, name='api_ticket_commande_multiple'),
     path('api/etiquettes-articles/', views.api_etiquettes_articles, name='api_etiquettes_articles'),
+    path('api/etiquettes-articles-multiple/', views.api_etiquettes_articles_multiple, name='api_etiquettes_articles_multiple'),
+    path('api/finaliser-preparation/<int:commande_id>/', views.api_finaliser_preparation, name='api_finaliser_preparation'),
 
     # URLs pour la gestion de stock
     path('stock/articles/', views.liste_articles, name='liste_articles'),

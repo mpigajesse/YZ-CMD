@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/commande/<int:commande_id>/panier-livraison/', views.api_panier_commande_livraison, name='api_panier_commande_livraison'),
     path('api/commande/<int:commande_id>/articles-livree-partiellement/', views.api_articles_commande_livree_partiellement, name='api_articles_commande_livree_partiellement'),
     path('api/traiter-commande-retournee/<int:commande_id>/', views.traiter_commande_retournee_api, name='traiter_commande_retournee_api'),
+    path('api/changer-etat-commande/<int:commande_id>/', views.api_changer_etat_commande, name='api_changer_etat_commande'),
 
     # URL pour le diagnostic du compteur upsell
     path('commande/<int:commande_id>/diagnostiquer-compteur/', views.diagnostiquer_compteur, name='diagnostiquer_compteur'),

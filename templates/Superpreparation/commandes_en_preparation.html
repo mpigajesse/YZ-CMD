@@ -82,8 +82,9 @@
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Début</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Code-barres</th>
+
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
                         <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
                     </tr>
                 </thead>
@@ -155,18 +156,82 @@
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
                             </td>
-                            <td class="px-4 py-4 whitespace-nowrap">
-                                {% if commande.barcode_base64 %}
-                                    <img src="data:image/png;base64,{{ commande.barcode_base64 }}" alt="Code-barres" style="height: 30px;">
-                                {% else %}
-                                    <span class="text-xs text-gray-400">N/A</span>
-                                {% endif %}
-                            </td>
+
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
                                     <i class="fas fa-cog fa-spin mr-1"></i>
                                     En préparation
                                 </span>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                <div class="flex flex-col space-y-1">
+                                    <!-- État actuel avec icône d'information -->
+                                    <div class="flex items-center">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            <i class="fas fa-box-open mr-1"></i>
+                                            En préparation
+                                        </span>
+                                        
+                                        <!-- Bouton pour afficher/masquer les détails d'état -->
+                                        <button onclick="toggleEtatDetails('{{ commande.id }}')" 
+                                                class="ml-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                                                title="Afficher/masquer les détails d'état">
+                                            <i class="fas fa-info text-gray-600 text-xs"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Détails d'état (masqués par défaut) -->
+                                    <div id="etat-details-{{ commande.id }}" class="hidden mt-2 space-y-1">
+                                        <!-- Affichage des étapes de préparation -->
+                                        <div class="mt-2 pt-2 border-t border-gray-200">
+                                            <div class="text-xs font-medium text-gray-700 mb-1">Étapes de préparation :</div>
+                                            
+                                            <!-- Étape 1: En préparation -->
+                                            <div class="flex items-center mb-1">
+                                                <span class="w-3 h-3 rounded-full bg-blue-500 flex items-center justify-center mr-2">
+                                                    <i class="fas fa-check text-white text-xs"></i>
+                                                </span>
+                                                <span class="text-xs text-blue-600">En préparation</span>
+                                                <span class="text-xs text-blue-500 ml-2">
+                                                    <i class="fas fa-clock mr-1"></i>En cours
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Étape 2: Collectée -->
+                                            <div class="flex items-center mb-1">
+                                                <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                                                    <i class="fas fa-circle text-gray-400 text-xs"></i>
+                                                </span>
+                                                <span class="text-xs text-gray-400">Collectée</span>
+                                                <span class="text-xs text-gray-500 ml-2">
+                                                    <i class="fas fa-clock mr-1"></i>En attente
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Étape 3: Emballée -->
+                                            <div class="flex items-center mb-1">
+                                                <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                                                    <i class="fas fa-circle text-gray-400 text-xs"></i>
+                                                </span>
+                                                <span class="text-xs text-gray-400">Emballée</span>
+                                                <span class="text-xs text-gray-500 ml-2">
+                                                    <i class="fas fa-clock mr-1"></i>En attente
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Étape 4: Préparée (finalisée par superviseur) -->
+                                            <div class="flex items-center">
+                                                <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                                                    <i class="fas fa-circle text-gray-400 text-xs"></i>
+                                                </span>
+                                                <span class="text-xs text-gray-400">Préparée</span>
+                                                <span class="text-xs text-gray-500 ml-2">
+                                                    <i class="fas fa-clock mr-1"></i>En attente
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap text-center">
                                 <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" 
@@ -203,6 +268,78 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log("Page de suivi des commandes en préparation chargée.");
 });
+
+// Fonction pour afficher/masquer les détails d'état
+function toggleEtatDetails(commandeId) {
+    const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+    if (detailsElement) {
+        detailsElement.classList.toggle('hidden');
+    }
+}
+
+// Fonction pour afficher les notifications
+function showNotification(title, message, type = 'info') {
+    // Créer l'élément de notification
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 translate-x-full`;
+    
+    // Définir les couleurs selon le type
+    let bgColor, textColor, icon;
+    switch (type) {
+        case 'success':
+            bgColor = 'bg-green-500';
+            textColor = 'text-white';
+            icon = 'fas fa-check-circle';
+            break;
+        case 'error':
+            bgColor = 'bg-red-500';
+            textColor = 'text-white';
+            icon = 'fas fa-exclamation-circle';
+            break;
+        case 'warning':
+            bgColor = 'bg-yellow-500';
+            textColor = 'text-white';
+            icon = 'fas fa-exclamation-triangle';
+            break;
+        default:
+            bgColor = 'bg-blue-500';
+            textColor = 'text-white';
+            icon = 'fas fa-info-circle';
+    }
+    
+    notification.className += ` ${bgColor} ${textColor}`;
+    
+    notification.innerHTML = `
+        <div class="flex items-center">
+            <i class="${icon} mr-3"></i>
+            <div>
+                <div class="font-semibold">${title}</div>
+                <div class="text-sm opacity-90">${message}</div>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    // Ajouter à la page
+    document.body.appendChild(notification);
+    
+    // Animation d'entrée
+    setTimeout(() => {
+        notification.classList.remove('translate-x-full');
+    }, 100);
+    
+    // Auto-suppression après 5 secondes
+    setTimeout(() => {
+        notification.classList.add('translate-x-full');
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 300);
+    }, 5000);
+}
 </script>
 
 <!-- Script de recherche intelligente -->

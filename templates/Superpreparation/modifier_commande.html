@@ -1778,22 +1778,56 @@ document.addEventListener('DOMContentLoaded', function() {
     // Variable globale pour stocker l'article sélectionné avec variante
     let selectedArticleWithVariant = null;
 
-    window.selectionnerArticle = function(articleId, articleName, varianteId = null) {
-        const quantiteInput = document.getElementById(`qte-article-${articleId}`);
-        if (!quantiteInput) return;
-        const quantite = parseInt(quantiteInput.value, 10);
-        if (isNaN(quantite) || quantite <= 0) {
-            Swal.fire('Quantité invalide', 'Veuillez entrer une quantité valide.', 'warning');
-            return;
+    // Fonction globale pour sélectionner un article
+    window.selectionnerArticle = function(articleId, articleName, varianteId) {
+        console.log(`🎯 Sélection de l'article ${articleId}: "${articleName}"`);
+        
+        // Marquer l'article comme sélectionné (quantité sera définie lors de la sélection de variante)
+        window.selectedArticleWithVariant = {
+            articleId: articleId,
+            articleName: articleName,
+            quantite: 1, // Quantité par défaut, sera modifiée lors de la sélection de variante
+            variante_id: null
+        };
+        
+        // Masquer le bouton "Sélectionner" et afficher le bouton "Choisir variante"
+        const btnSelectionner = document.getElementById(`btn-selectionner-${articleId}`);
+        const btnVariantes = document.getElementById(`btn-variantes-${articleId}`);
+        
+        if (btnSelectionner) {
+            btnSelectionner.classList.add('hidden');
         }
         
-        // Si on a un article avec variante sélectionné, l'utiliser
-        if (selectedArticleWithVariant && selectedArticleWithVariant.id == articleId) {
-            ouvrirModalConfirmation(`Ajouter ${quantite} x "${articleName}" (${selectedArticleWithVariant.couleur || 'N/A'} - ${selectedArticleWithVariant.pointure || 'N/A'}) au panier ?`, 
-                () => ajouterArticleAuPanier(articleId, quantite, selectedArticleWithVariant.variante_id));
-            selectedArticleWithVariant = null; // Réinitialiser après utilisation
+        if (btnVariantes) {
+            btnVariantes.classList.remove('hidden');
+            btnVariantes.classList.add('inline-flex');
+        }
+        
+        // Vérifier si l'article a des variantes
+        try {
+            const data = (window.articlesDisponibles || []).find(a => a.id === articleId);
+            const hasVar = data && Array.isArray(data.variantes_all) && data.variantes_all.length > 0;
+            
+            if (hasVar) {
+                // Si l'article a des variantes, afficher le bouton "Choisir variante"
+                showNotificationToast(`Article "${articleName}" sélectionné. Cliquez sur "Choisir variante" pour continuer.`, 'info');
         } else {
-        ouvrirModalConfirmation(`Ajouter ${quantite} x "${articleName}" au panier ?`, () => ajouterArticleAuPanier(articleId, quantite));
+                // Si l'article n'a pas de variantes, afficher directement le bouton "Ajouter au panier"
+                const btnAjouterPanier = document.getElementById(`btn-ajouter-panier-${articleId}`);
+                if (btnAjouterPanier) {
+                    btnAjouterPanier.classList.remove('hidden');
+                    btnAjouterPanier.classList.add('inline-flex');
+                }
+                showNotificationToast(`Article "${articleName}" sélectionné. Cliquez sur "Ajouter au panier" pour confirmer.`, 'info');
+            }
+        } catch(e) { 
+            console.warn('⚠️ Erreur détection variantes', e);
+            // En cas d'erreur, afficher directement le bouton "Ajouter au panier"
+            const btnAjouterPanier = document.getElementById(`btn-ajouter-panier-${articleId}`);
+            if (btnAjouterPanier) {
+                btnAjouterPanier.classList.remove('hidden');
+                btnAjouterPanier.classList.add('inline-flex');
+            }
         }
     };
 
@@ -2138,38 +2172,90 @@ document.addEventListener('DOMContentLoaded', function() {
         if(fraisDisplay) fraisDisplay.value = `${frais || 0} DH`;
     }
 
-    function chargerArticlesDisponibles(filterType = 'tous') {
+    // Fonction pour charger les articles disponibles
+    window.chargerArticlesDisponibles = function(filterType = 'tous') {
+        console.log(`🔄 Chargement des articles avec filtre: ${filterType}`);
         const url = new URL("{% url 'Superpreparation:api_articles_disponibles_prepa' %}", window.location.origin);
         url.searchParams.set('filter', filterType);
+        console.log(`🌐 URL de l'API: ${url.toString()}`);
         
         fetch(url)
-            .then(response => response.json())
+            .then(response => {
+                console.log(`📡 Réponse reçue, status: ${response.status}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
-                if (data.success) {
-                    articlesDisponibles = data.articles;
-                    afficherArticles(articlesDisponibles);
-                    mettreAJourStatistiques(data.stats);
-                    mettreAJourFiltreActif(filterType);
+                console.log('📥 Données brutes reçues:', data);
+                
+                // Gestion des deux formats possibles (tableau direct ou objet avec propriété articles)
+                let articles = [];
+                if (Array.isArray(data)) {
+                    articles = data;
+                    console.log(`📦 ${articles.length} article(s) trouvé(s) (format tableau)`);
+                } else if (data.success && data.articles) {
+                    articles = data.articles;
+                    console.log(`📦 ${articles.length} article(s) trouvé(s) (format objet)`);
+                } else {
+                    console.warn('⚠️ Format de données inattendu:', data);
+                    console.log('🔍 Propriétés disponibles:', Object.keys(data));
+                    return;
+                }
+                
+                console.log(`🎯 Articles à afficher:`, articles);
+                window.articlesDisponibles = articles;
+                if (typeof window.afficherArticles === 'function') {
+                    window.afficherArticles(articles);
+                } else {
+                    console.error('❌ Fonction afficherArticles non trouvée');
+                }
+                
+                // Calculer les statistiques basiques si pas fournies
+                if (!data.stats) {
+                    const stats = {
+                        'tous': articles.length,
+                        'disponible': articles.filter(a => a.qte_disponible > 0).length,
+                        'upsell': articles.filter(a => a.isUpsell).length,
+                        'promo': articles.filter(a => a.has_reduction).length,
+                        'liquidation': articles.filter(a => a.phase === 'LIQUIDATION').length,
+                        'test': articles.filter(a => a.phase === 'EN_TEST').length
+                    };
+                    if (typeof window.mettreAJourStatistiques === 'function') {
+                        window.mettreAJourStatistiques(stats);
+                    }
+                } else {
+                    if (typeof window.mettreAJourStatistiques === 'function') {
+                        window.mettreAJourStatistiques(data.stats);
+                    }
+                }
+                
+                if (typeof window.mettreAJourFiltreActif === 'function') {
+                    window.mettreAJourFiltreActif(filterType);
                 }
             }).catch(error => console.error('Erreur de chargement des articles:', error));
-    }
+    };
 
-    function mettreAJourStatistiques(stats) {
+    window.mettreAJourStatistiques = function(stats) {
+        console.log('📊 Mise à jour des statistiques:', stats);
         if (!stats) {
-            console.warn('Stats non définies');
+            console.warn('⚠️ Stats non définies');
             return;
         }
         Object.keys(stats).forEach(key => {
             const element = document.getElementById(`count-${key}`);
             if (element) {
                 element.textContent = stats[key];
+                console.log(`✅ Stat ${key}: ${stats[key]}`);
             } else {
-                console.warn(`Element count-${key} non trouvé`);
+                console.warn(`⚠️ Element count-${key} non trouvé`);
             }
         });
-    }
+    };
 
-    function mettreAJourFiltreActif(filterType) {
+    window.mettreAJourFiltreActif = function(filterType) {
+        console.log(`🎯 Mise à jour du filtre actif: ${filterType}`);
         // Retirer la classe active de tous les boutons
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.classList.remove('active', 'bg-blue-600', 'text-white');
@@ -2181,26 +2267,43 @@ document.addEventListener('DOMContentLoaded', function() {
         if (activeBtn) {
             activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
             activeBtn.classList.add('active', 'bg-blue-600', 'text-white');
+            console.log(`✅ Filtre ${filterType} activé`);
+        } else {
+            console.warn(`⚠️ Bouton pour le filtre ${filterType} non trouvé`);
         }
-    }
+    };
 
     window.filtrerArticles = function(filterType) {
         chargerArticlesDisponibles(filterType);
     };
 
-    function afficherArticles(articles) {
+    // Fonction pour afficher les articles
+    window.afficherArticles = function(articles) {
         const container = document.getElementById('articlesList');
         if (!container) {
             console.warn('Container articlesList non trouvé');
             return;
         }
         
-        // Stocker les articles dans une variable globale pour pouvoir les réutiliser
-        window.articlesList = articles;
+        // Filtrer les doublons basés sur l'ID de l'article
+        const articlesUniques = [];
+        const articlesIds = new Set();
+        
+        articles.forEach(article => {
+            if (!articlesIds.has(article.id)) {
+                articlesIds.add(article.id);
+                articlesUniques.push(article);
+            }
+        });
+        
+        console.log(`📊 Articles originaux: ${articles.length}, Articles uniques: ${articlesUniques.length}`);
+        
+        // Stocker les articles uniques dans une variable globale pour pouvoir les réutiliser
+        window.articlesList = articlesUniques;
         
         container.innerHTML = '';
         
-        if (articles.length === 0) {
+        if (articlesUniques.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-8 text-gray-500">
                     <i class="fas fa-search text-4xl mb-4"></i>
@@ -2219,17 +2322,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Article</th>
                             <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Prix</th>
-                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Stock</th>
-                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Quantité</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Stock Général</th>
                             <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white">
-                        ${articles.map(article => {
+                        ${articlesUniques.map(article => {
             // Badge de type d'article
             const typeBadge = article.article_type !== 'normal' ? `
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${article.type_color.replace('text-', 'bg-').replace('-600', '-100')} ${article.type_color} ml-2">
-                    <i class="${article.type_icon} mr-1"></i>
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${article.type_color ? article.type_color.replace('text-', 'bg-').replace('-600', '-100') : 'bg-blue-100 text-blue-600'} ${article.type_color || 'text-blue-600'} ml-2">
+                    <i class="${article.type_icon || 'fas fa-tag'} mr-1"></i>
                     ${article.article_type.toUpperCase()}
                 </span>
             ` : '';
@@ -2245,10 +2347,54 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="text-sm font-semibold text-green-600">${article.prix} DH</div>
             `;
             
-            // Statut du stock
-            const stockStatus = article.qte_disponible > 0 ? 
-                `<span class="font-semibold text-green-600">${article.qte_disponible}</span>` : 
-                `<span class="font-semibold text-red-600">Rupture</span>`;
+            // Calculer le stock général (somme de tous les stocks des variantes)
+            let stockGeneral = 0;
+            let variantesEnRupture = [];
+            
+            if (article.variantes_all && Array.isArray(article.variantes_all)) {
+                console.log(`🔍 Calcul stock général pour ${article.nom} - ${article.variantes_all.length} variantes:`);
+                stockGeneral = article.variantes_all.reduce((total, variante) => {
+                    const stockVariante = parseInt(variante.qte_disponible || variante.stock) || 0;
+                    console.log(`  - Variante ${variante.id}: ${stockVariante} unités`);
+                    if (stockVariante === 0) {
+                        variantesEnRupture.push(variante);
+                    }
+                    return total + stockVariante;
+                }, 0);
+                console.log(`✅ Stock général calculé: ${stockGeneral} unités (${variantesEnRupture.length} variantes en rupture)`);
+            } else {
+                // Si pas de variantes, utiliser le stock de l'article principal
+                stockGeneral = parseInt(article.qte_disponible) || 0;
+            }
+            
+            // Statut du stock général amélioré
+            let stockStatus;
+            if (stockGeneral > 0) {
+                const totalVariantes = article.variantes_all ? article.variantes_all.length : 1;
+                const variantesDisponibles = totalVariantes - variantesEnRupture.length;
+                
+                if (variantesEnRupture.length === 0) {
+                    // Toutes les variantes sont disponibles
+                    stockStatus = `<span class="font-semibold text-green-600">${stockGeneral}</span>`;
+                } else {
+                    // Certaines variantes en rupture, d'autres disponibles
+                    stockStatus = `<div class="text-center">
+                        <span class="font-semibold text-green-600">${stockGeneral}</span>
+                        <div class="text-xs text-orange-600 mt-1">
+                            ${variantesDisponibles}/${totalVariantes} variantes disp.
+                        </div>
+                    </div>`;
+                }
+            } else {
+                // Rupture totale
+                stockStatus = `<span class="font-semibold text-red-600">Rupture</span>`;
+            }
+            
+            // Icône d'information pour les variantes en rupture (si applicable)
+            const infoIcon = variantesEnRupture.length > 0 && stockGeneral > 0 ? 
+                `<button type="button" class="ml-2 text-blue-500 hover:text-blue-700" onclick="afficherVariantesEnRupture(${article.id}, ${JSON.stringify(variantesEnRupture).replace(/"/g, '&quot;')})" title="${variantesEnRupture.length} variante(s) en rupture">
+                    <i class="fas fa-info-circle"></i>
+                </button>` : '';
             
             return `
                 <tr class="hover:bg-gray-50 transition-colors">
@@ -2265,25 +2411,29 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${prixDisplay}
                     </td>
                     <td class="px-4 py-3 text-center border-2 border-gray-300">
+                        <div class="flex items-center justify-center">
                         <span class="text-sm text-gray-900">${stockStatus}</span>
-                    </td>
-                    <td class="px-4 py-3 text-center border-2 border-gray-300">
-                        <div class="flex items-center justify-center gap-2">
-                        <button type="button" onclick="changeQuantite(${article.id}, -1)" class="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">-</button>
-                        <input type="number" id="qte-article-${article.id}" class="w-16 p-2 border rounded-lg text-center" value="1" min="1" max="${article.qte_disponible}" ${article.qte_disponible <= 0 ? 'disabled' : ''}>
-                        <button type="button" onclick="changeQuantite(${article.id}, 1)" class="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">+</button>
+                            ${infoIcon}
                     </div>
                     </td>
                     <td class="px-4 py-3 text-center border-2 border-gray-300">
                         <div class="flex items-center justify-center gap-2">
                             <button type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" 
-                                    onclick="ouvrirModalVariantes(${JSON.stringify(article).replace(/"/g, '&quot;')})">
-                                <i class="fas fa-layer-group mr-1"></i>Variantes
+                                    onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')" 
+                                    id="btn-selectionner-${article.id}">
+                                <i class="fas fa-check mr-1"></i>Sélectionner
                             </button>
-                            <button type="button" class="btn-prepa px-3 py-2 rounded-lg text-sm font-medium transition-colors ${article.qte_disponible <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-90'}" 
-                            onclick="selectionnerArticle(${article.id}, '${article.nom.replace(/'/g, "\\'")}')" 
-                            ${article.qte_disponible <= 0 ? 'disabled' : ''}>
-                        <i class="fas fa-plus mr-1"></i>Ajouter
+                            <button type="button" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors hidden" 
+                                    id="btn-variantes-${article.id}"
+                                    onclick="ouvrirModalVariantes(${JSON.stringify(article).replace(/"/g, '&quot;')})">
+                                <i class="fas fa-layer-group mr-1"></i>Choisir variante
+                            </button>
+                            <button type="button" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors hidden btn-ajouter-panier" 
+                                    id="btn-ajouter-panier-${article.id}"
+                                    data-article-id="${article.id}"
+                                    onclick="ajouterArticleAuPanierDepuisBouton(${article.id})"
+                                    ${stockGeneral <= 0 ? 'disabled' : ''}>
+                                <i class="fas fa-shopping-cart mr-1"></i>Ajouter au panier
                     </button>
                         </div>
                     </td>
@@ -2296,7 +2446,149 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         container.innerHTML = tableHTML;
-    }
+    };
+
+    // Fonction pour afficher les variantes en rupture
+    window.afficherVariantesEnRupture = function(articleId, variantesEnRupture) {
+        console.log('📋 Affichage des variantes en rupture pour l\'article', articleId, variantesEnRupture);
+        
+        // Créer le contenu HTML pour le modal
+        let variantesHTML = '';
+        if (variantesEnRupture && variantesEnRupture.length > 0) {
+            variantesHTML = `
+                <div class="space-y-3">
+                    ${variantesEnRupture.map(variante => `
+                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
+                                            ${variante.couleur || 'N/A'}
+                                        </span>
+                                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
+                                            ${variante.pointure || 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div class="text-sm text-gray-600">
+                                        Réf: ${variante.reference_variante || 'N/A'}
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-semibold text-red-600">Rupture</div>
+                                    <div class="text-xs text-gray-500">Stock: 0</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } else {
+            variantesHTML = `
+                <div class="text-center py-4 text-gray-500">
+                    <i class="fas fa-info-circle text-2xl mb-2"></i>
+                    <p>Aucune variante en rupture</p>
+                </div>
+            `;
+        }
+        
+        // Afficher le modal avec SweetAlert2
+        Swal.fire({
+            title: '<div class="flex items-center gap-2"><i class="fas fa-exclamation-triangle text-red-500"></i><span>Variantes en rupture</span></div>',
+            html: `
+                <div class="text-left">
+                    <p class="mb-4 text-sm text-gray-600">Les variantes suivantes sont actuellement en rupture de stock :</p>
+                    ${variantesHTML}
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonText: 'Compris',
+            confirmButtonColor: '#3085d6',
+            width: '600px'
+        });
+    };
+
+    // Fonction pour ajouter un article au panier depuis le bouton
+    window.ajouterArticleAuPanierDepuisBouton = function(articleId) {
+        console.log('🔄 ===== DÉBUT ajouterArticleAuPanierDepuisBouton =====');
+        console.log('📦 articleId reçu:', articleId);
+        console.log('📦 Type de articleId:', typeof articleId);
+        console.log('📦 window.selectedArticleWithVariant:', window.selectedArticleWithVariant);
+        console.log('📦 window._varianteSelection:', window._varianteSelection);
+        console.log('🔍 Vérification des fonctions critiques:');
+        console.log('- ouvrirModalConfirmation:', typeof window.ouvrirModalConfirmation);
+        console.log('- ajouterArticleAuPanier:', typeof window.ajouterArticleAuPanier);
+        
+        // Récupérer la quantité depuis la sélection de variante ou utiliser 1 par défaut
+        let quantite = 1;
+        let articleName = 'Article';
+        
+        // Si une variante a été sélectionnée, récupérer la quantité depuis le modal de variantes
+        console.log('🔍 Vérification selectedArticleWithVariant...');
+        if (window.selectedArticleWithVariant && window.selectedArticleWithVariant.articleId === articleId) {
+            quantite = window.selectedArticleWithVariant.quantite || 1;
+            articleName = window.selectedArticleWithVariant.articleName || 'Article';
+            console.log('✅ Quantité récupérée depuis selectedArticleWithVariant:', quantite);
+            console.log('✅ Nom de l\'article récupéré:', articleName);
+        } else {
+            console.log('⚠️ Aucune variante sélectionnée pour cet article');
+            // Sinon, récupérer le nom de l'article depuis le tableau
+            const row = document.querySelector(`[onclick*="selectionnerArticle(${articleId}"]`)?.closest('tr');
+            console.log('🔍 Recherche de la ligne dans le tableau:', row);
+            if (row) {
+                articleName = row.querySelector('.text-sm.font-medium')?.textContent || 'Article';
+                console.log('✅ Nom de l\'article trouvé dans le tableau:', articleName);
+            } else {
+                console.log('⚠️ Ligne non trouvée dans le tableau');
+            }
+            console.log('⚠️ Utilisation de la quantité par défaut (1)');
+        }
+        
+        console.log('📊 Données finales:', { quantite, articleName });
+        
+        // Ouvrir le modal de confirmation
+        console.log('🔍 Tentative d\'ouverture du modal de confirmation...');
+        if (typeof window.ouvrirModalConfirmation === 'function') {
+            console.log('✅ Fonction ouvrirModalConfirmation trouvée, ouverture du modal...');
+            window.ouvrirModalConfirmation(`Ajouter ${quantite} x "${articleName}" au panier ?`, () => {
+                console.log('🔄 Callback du modal de confirmation exécuté');
+                if (typeof window.ajouterArticleAuPanier === 'function') {
+                    console.log('✅ Fonction ajouterArticleAuPanier trouvée, appel...');
+                    window.ajouterArticleAuPanier(articleId, quantite);
+                } else {
+                    console.error('❌ Fonction ajouterArticleAuPanier non trouvée');
+                }
+                
+                // Réinitialiser l'affichage après ajout
+                const btnAjouterPanier = document.getElementById(`btn-ajouter-panier-${articleId}`);
+                const btnVariantes = document.getElementById(`btn-variantes-${articleId}`);
+                const btnSelectionner = document.getElementById(`btn-selectionner-${articleId}`);
+                
+                if (btnAjouterPanier) {
+                    btnAjouterPanier.classList.add('hidden');
+                    btnAjouterPanier.classList.remove('inline-flex');
+                }
+                
+                if (btnVariantes) {
+                    btnVariantes.classList.add('hidden');
+                    btnVariantes.classList.remove('inline-flex');
+                }
+                
+                if (btnSelectionner) {
+                    btnSelectionner.classList.remove('hidden');
+                }
+                
+                // Réinitialiser les variables globales après l'ajout
+                window.selectedArticleWithVariant = null;
+                if (window._varianteSelection && window._varianteSelection[articleId]) {
+                    delete window._varianteSelection[articleId];
+                }
+            });
+        } else {
+            console.error('❌ Fonction ouvrirModalConfirmation non trouvée');
+            console.error('❌ ===== FIN ajouterArticleAuPanierDepuisBouton (ERREUR) =====');
+        }
+        console.log('✅ ===== FIN ajouterArticleAuPanierDepuisBouton =====');
+    };
 
     function changeQuantite(articleId, delta) {
         const input = document.getElementById(`qte-article-${articleId}`);
@@ -2855,6 +3147,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Variante</th>
                             <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Prix</th>
                             <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Stock</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Quantité</th>
                             <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Référence</th>
                             <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-2 border-gray-300 bg-gray-200">Action</th>
                         </tr>
@@ -2881,12 +3174,23 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <span class="text-sm ${stockClass}">${stockStatus}</span>
                                     </td>
                                     <td class="px-4 py-3 text-center border-2 border-gray-300">
+                                        ${stockVariante > 0 ? `
+                                            <div class="flex items-center justify-center gap-2">
+                                                <button type="button" onclick="changeQuantiteVariante(${variant.id}, -1)" class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">-</button>
+                                                <input type="number" id="qte-variante-${variant.id}" class="w-16 p-2 border rounded-lg text-center text-sm" value="1" min="1" max="${stockVariante}">
+                                                <button type="button" onclick="changeQuantiteVariante(${variant.id}, 1)" class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">+</button>
+                                            </div>
+                                        ` : `
+                                            <span class="text-red-500 text-sm font-medium">-</span>
+                                        `}
+                                    </td>
+                                    <td class="px-4 py-3 text-center border-2 border-gray-300">
                                         <div class="text-sm text-gray-600">${variant.reference_variante || 'N/A'}</div>
                                     </td>
                                     <td class="px-4 py-3 text-center border-2 border-gray-300">
                                         ${stockVariante > 0 ? `
                                             <button type="button" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" 
-                                                    onclick="selectionnerVariante(${JSON.stringify(variant).replace(/"/g, '&quot;')}, ${JSON.stringify(article).replace(/"/g, '&quot;')})">
+                                                    onclick="selectionnerVariante(${variant.id}, ${article.id})">
                                                 <i class="fas fa-check mr-1"></i>Sélectionner
                                             </button>
                                         ` : `
@@ -2904,12 +3208,59 @@ document.addEventListener('DOMContentLoaded', function() {
         variantsList.innerHTML = tableHTML;
     }
 
-    function selectionnerVariante(variant, article) {
+    window.selectionnerVariante = function(variantId, articleId) {
+        console.log('🔄 ===== DÉBUT selectionnerVariante =====');
+        console.log('📦 Variante ID reçu:', variantId);
+        console.log('📦 Article ID reçu:', articleId);
+        console.log('📦 Type de variantId:', typeof variantId);
+        console.log('📦 Type de articleId:', typeof articleId);
+        
         try {
+            // Récupérer les objets complets depuis les données stockées
+            const article = window.articlesList ? window.articlesList.find(a => a.id === parseInt(articleId)) : null;
+            const variant = article && article.variantes_all ? article.variantes_all.find(v => v.id === parseInt(variantId)) : null;
+            
+            console.log('🔍 Article trouvé:', article);
+            console.log('🔍 Variante trouvée:', variant);
+            
+            if (!article || !variant) {
+                console.error('❌ Article ou variante non trouvé');
+                return;
+            }
+            
             console.log('🎯 Sélection de variante:', variant);
             
             // Fermer le modal des variantes
             fermerModalVariantes();
+            
+            // Récupérer la quantité depuis l'input de la variante
+            const quantiteInput = document.getElementById(`qte-variante-${variant.id}`);
+            if (!quantiteInput) {
+                console.error(`❌ Input de quantité non trouvé pour la variante ${variant.id}`);
+                return;
+            }
+            
+            const quantite = parseInt(quantiteInput.value, 10);
+            if (isNaN(quantite) || quantite <= 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Quantité invalide',
+                    text: 'Veuillez entrer une quantité valide (minimum 1).',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+            
+            // Vérifier que la quantité ne dépasse pas le stock disponible
+            if (quantite > variant.stock) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Quantité trop élevée',
+                    text: `La quantité demandée (${quantite}) dépasse le stock disponible (${variant.stock}).`,
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
             
             // Créer un article combiné avec les données de la variante
             const articleAvecVariante = {
@@ -2919,72 +3270,165 @@ document.addEventListener('DOMContentLoaded', function() {
                 pointure: variant.pointure,
                 // Utiliser les prix et stock de la variante
                 prix_actuel: variant.prix_actuel,
-                qte_disponible: variant.qte_disponible || variant.stock,
+                qte_disponible: variant.stock,
                 // Ajouter l'ID de la variante pour référence
                 variante_id: variant.id,
-                reference_variante: variant.reference_variante
+                reference_variante: variant.reference_variante,
+                // Ajouter la quantité sélectionnée
+                quantite: quantite
             };
             
             console.log('🔄 Article avec variante créé:', articleAvecVariante);
             
             // Stocker l'article avec variante pour l'utiliser lors de l'ajout
-            selectedArticleWithVariant = articleAvecVariante;
+            window.selectedArticleWithVariant = articleAvecVariante;
             
-            // Réinitialiser l'affichage de tous les articles d'abord
-            const allArticleElements = document.querySelectorAll('[onclick*="selectionnerArticle"]');
-            allArticleElements.forEach(element => {
-                const row = element.closest('tr');
-                if (row) {
-                    const articleInfo = row.querySelector('.text-sm.text-gray-500');
-                    const addButton = element;
-                    if (articleInfo) {
-                        // Extraire l'ID de l'article depuis l'onclick
-                        const onclickAttr = addButton.getAttribute('onclick');
-                        const articleIdMatch = onclickAttr.match(/selectionnerArticle\((\d+)/);
-                        if (articleIdMatch) {
-                            const articleId = articleIdMatch[1];
-                            // Trouver l'article correspondant dans la liste
-                            const articleData = window.articlesList ? window.articlesList.find(a => a.id == articleId) : null;
-                            if (articleData) {
-                                articleInfo.innerHTML = `Réf: ${articleData.reference || 'N/A'}`;
-                            }
-                        }
-                    }
-                    if (addButton) {
-                        addButton.innerHTML = '<i class="fas fa-plus mr-1"></i>Ajouter';
-                        addButton.classList.remove('bg-green-600', 'hover:bg-green-700');
-                        addButton.classList.add('btn-prepa');
-                    }
-                }
+            // Mettre à jour la variante sélectionnée dans la sélection globale
+            window._varianteSelection = window._varianteSelection || {};
+            window._varianteSelection[article.id] = variant.id;
+            
+            // Masquer le bouton "Choisir variante" et afficher le bouton "Ajouter au panier"
+            console.log('🔧 Recherche des boutons pour article ID:', article.id);
+            const btnVariantes = document.getElementById(`btn-variantes-${article.id}`);
+            const btnAjouterPanier = document.getElementById(`btn-ajouter-panier-${article.id}`);
+            
+            console.log('🔍 Boutons trouvés:', {
+                btnVariantes: btnVariantes ? 'OUI' : 'NON',
+                btnAjouterPanier: btnAjouterPanier ? 'OUI' : 'NON'
             });
             
+            if (btnVariantes) {
+                btnVariantes.classList.add('hidden');
+                btnVariantes.classList.remove('inline-flex');
+                console.log('✅ Bouton variantes masqué');
+            } else {
+                console.error('❌ Bouton variantes non trouvé');
+            }
+            
+            if (btnAjouterPanier) {
+                btnAjouterPanier.classList.remove('hidden');
+                btnAjouterPanier.classList.add('inline-flex');
+                
+                // Utiliser uniquement l'attribut onclick qui fonctionne
+                const articleId = btnAjouterPanier.getAttribute('data-article-id');
+                
+                // Modifier le contenu AVANT d'ajouter l'onclick
+                btnAjouterPanier.innerHTML = `
+                    <i class="fas fa-shopping-cart mr-1"></i>Ajouter variante au panier
+                `;
+                
+                // Ajouter l'onclick APRÈS avoir modifié le contenu
+                btnAjouterPanier.setAttribute('onclick', `console.log('🖱️ Clic sur bouton principal pour article ${articleId}'); ajouterArticleAuPanierDepuisBouton(${articleId})`);
+                
+                // Ajouter également un event listener comme fallback
+                btnAjouterPanier.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🖱️ Event listener déclenché pour article', articleId);
+                    if (typeof window.ajouterArticleAuPanierDepuisBouton === 'function') {
+                        window.ajouterArticleAuPanierDepuisBouton(articleId);
+                    } else {
+                        console.error('❌ Fonction ajouterArticleAuPanierDepuisBouton non trouvée');
+                    }
+                });
+                
+                console.log('✅ Onclick ajouté au bouton principal pour article', articleId);
+                console.log('✅ Event listener ajouté comme fallback pour article', articleId);
+                console.log('🔍 Onclick final:', btnAjouterPanier.getAttribute('onclick'));
+                
+                // Vérifier l'état final du bouton
+                console.log('🔍 État final du bouton:');
+                console.log('  - Visible:', !btnAjouterPanier.classList.contains('hidden'));
+                console.log('  - Classes:', btnAjouterPanier.className);
+                console.log('  - ID:', btnAjouterPanier.id);
+                console.log('  - data-article-id:', btnAjouterPanier.getAttribute('data-article-id'));
+                console.log('  - onclick:', btnAjouterPanier.getAttribute('onclick'));
+                console.log('  - innerHTML:', btnAjouterPanier.innerHTML);
+                
+                console.log('✅ Bouton ajouter panier affiché avec event listener ajouté pour article', articleId);
+                
+                // Test manuel du bouton après 1 seconde
+                setTimeout(() => {
+                    console.log('🧪 Test manuel du bouton pour article', articleId);
+                    const testBtn = document.getElementById(`btn-ajouter-panier-${articleId}`);
+                    if (testBtn) {
+                        console.log('🔍 Bouton trouvé pour test, déclenchement du clic...');
+                        
+                        // Vérifier si le bouton est réellement visible
+                        const rect = testBtn.getBoundingClientRect();
+                        console.log('📐 Position du bouton de test:', {
+                            top: rect.top,
+                            left: rect.left,
+                            width: rect.width,
+                            height: rect.height,
+                            visible: rect.width > 0 && rect.height > 0
+                        });
+                        
+                        // Vérifier si le bouton est dans le viewport
+                        const isInViewport = rect.top >= 0 && rect.left >= 0 && 
+                                           rect.bottom <= window.innerHeight && 
+                                           rect.right <= window.innerWidth;
+                        console.log('👁️ Bouton dans le viewport:', isInViewport);
+                        
+                        // Essayer de cliquer sur le bouton
+                        testBtn.click();
+                        
+                        // Si le clic ne fonctionne pas, essayer de déclencher l'événement manuellement
+                        setTimeout(() => {
+                            console.log('🔄 Tentative de déclenchement manuel de l\'événement...');
+                            const clickEvent = new MouseEvent('click', {
+                                bubbles: true,
+                                cancelable: true,
+                                view: window
+                            });
+                            testBtn.dispatchEvent(clickEvent);
+                        }, 100);
+                        
+                    } else {
+                        console.error('❌ Bouton non trouvé pour test manuel');
+                    }
+                }, 1000);
+            } else {
+                console.error('❌ Bouton ajouter panier non trouvé');
+            }
+            
             // Modifier l'affichage de l'article dans la liste pour montrer la variante sélectionnée
-            const articleElement = document.querySelector(`[onclick*="selectionnerArticle(${article.id}"]`);
-            if (articleElement) {
-                const row = articleElement.closest('tr');
-                if (row) {
-                    const articleInfo = row.querySelector('.text-sm.text-gray-500');
-                    if (articleInfo) {
-                        articleInfo.innerHTML = `Réf: ${article.reference || 'N/A'} | <span class="text-blue-600 font-medium">${variant.couleur || 'N/A'}</span> | <span class="text-blue-600 font-medium">${variant.pointure || 'N/A'}</span> <span class="text-green-600">(Variante sélectionnée)</span>`;
-                    }
-                    
-                    // Modifier le bouton "Ajouter" pour montrer qu'une variante est sélectionnée
-                    const addButton = articleElement;
-                    if (addButton) {
-                        addButton.innerHTML = '<i class="fas fa-plus mr-1"></i>Ajouter variante';
-                        addButton.classList.add('bg-green-600', 'hover:bg-green-700');
-                        addButton.classList.remove('btn-prepa');
-                    }
+            const row = document.querySelector(`[onclick*="selectionnerArticle(${article.id}"]`)?.closest('tr');
+            if (row) {
+                const articleInfo = row.querySelector('.text-sm.text-gray-500');
+                if (articleInfo) {
+                    articleInfo.innerHTML = `Réf: ${article.reference || 'N/A'} | <span class="text-blue-600 font-medium">${variant.couleur || 'N/A'}</span> | <span class="text-blue-600 font-medium">${variant.pointure || 'N/A'}</span> | <span class="text-orange-600 font-medium">Qte: ${quantite}</span> <span class="text-green-600">(Variante sélectionnée)</span>`;
                 }
             }
             
-            showToast(`✅ Variante sélectionnée: ${variant.couleur || 'N/A'} - ${variant.pointure || 'N/A'}`, 'success');
+            // Afficher une notification de succès
+            if (typeof showNotificationToast === 'function') {
+                showNotificationToast(`✅ Variante sélectionnée: ${variant.couleur || 'N/A'} - ${variant.pointure || 'N/A'} (${quantite} unités). Cliquez sur "Ajouter variante au panier" pour confirmer.`, 'success');
+            }
+            
+            console.log('✅ ===== FIN selectionnerVariante (SUCCÈS) =====');
             
         } catch (e) {
-            console.error('❌ Erreur sélection variante:', e);
-            showToast('❌ Erreur lors de la sélection de la variante', 'error');
+            console.error('❌ ===== ERREUR selectionnerVariante =====');
+            console.error('❌ Exception:', e);
+            console.error('❌ Stack trace:', e.stack);
+            if (typeof showNotificationToast === 'function') {
+                showNotificationToast('❌ Erreur lors de la sélection de la variante', 'error');
+            }
         }
-    }
+    };
+    
+    // Fonction pour changer la quantité d'une variante
+    window.changeQuantiteVariante = function(variantId, delta) {
+        const input = document.getElementById(`qte-variante-${variantId}`);
+        if (input) {
+            const newValue = Math.max(1, parseInt(input.value) + delta);
+            const maxStock = parseInt(input.getAttribute('max')) || 99;
+            if (newValue <= maxStock) {
+                input.value = newValue;
+            }
+        }
+    };
 });
 </script>
 
