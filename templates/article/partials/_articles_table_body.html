@@ -1,4 +1,5 @@
 {% load commande_filters %}
+<!-- DEBUG: Nombre d'articles dans page_obj: {{ page_obj|length }} -->
 {% for article in page_obj %}
 <tr class="hover:bg-gray-50 transition-colors">
     <td class="px-4 py-4 whitespace-nowrap text-sm border-r border-gray-200">
@@ -22,7 +23,6 @@
 
     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
         <div class="flex flex-col">
-            {% with article|get_prix_avec_phase_simple as prix_info %}
             <div class="flex items-center gap-2">
                 {% if article.has_promo_active %}
                 <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
@@ -31,13 +31,9 @@
                 {% elif article.phase == 'EN_TEST' %}
                 <span class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">TEST</span>
                 {% endif %}
-                <span class="font-bold {{ prix_info.couleur_classe }}">{{ prix_info.prix|floatformat:2 }} DH</span>
+                <span class="font-bold text-gray-900">{{ article.prix_unitaire|default:0|floatformat:2 }} DH</span>
             </div>
-            <span class="text-xs {{ prix_info.couleur_classe }}">{{ prix_info.libelle }}</span>
-            {% if article.has_promo_active or article.phase == 'LIQUIDATION' %}
-            <span class="text-sm text-gray-500 line-through">{{ article.prix_unitaire|floatformat:2 }} DH</span>
-            {% endif %}
-            {% endwith %}
+            <span class="text-xs text-gray-500">Prix standard</span>
         </div>
     </td>
     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.qte_disponible }}</td>

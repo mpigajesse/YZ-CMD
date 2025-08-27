@@ -314,8 +314,41 @@
     <div id="paginationInfoContainer">
         {% include 'commande/partials/_confirmees_pagination_info.html' %}
     </div>
+    {% else %}
+    <!-- Message si aucun résultat -->
+    <div id="noResultsMessage" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    <span id="noResultsText">
+                        {% if search_query %}
+                            Aucune commande confirmée trouvée pour la recherche "{{ search_query }}".
+                        {% else %}
+                            Aucune commande confirmée trouvée.
+                        {% endif %}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
     {% endif %}
 </div>
+
+<!-- ✅ Spinner de chargement identique à liste.html -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+        <p class="text-white text-lg mt-4">Chargement...</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
 
 <!-- Modal d'affectation aux opérateurs de préparation -->
 <div id="affectationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
@@ -442,6 +475,23 @@
     let commandeToAffect = null;
     let bulkAffect = false;
     let selectedOperateurId = null;
+    let isLoading = false;
+
+    // Éléments DOM
+    const loadingOverlay = document.getElementById('loadingOverlay');
+
+    // ✅ Fonctions de chargement identiques à liste.html
+    function showLoading() {
+        if (loadingOverlay) {
+            loadingOverlay.classList.remove('hidden');
+        }
+    }
+
+    function hideLoading() {
+        if (loadingOverlay) {
+            loadingOverlay.classList.add('hidden');
+        }
+    }
 
     function showAffectationModal(commandeId, commandeIdYz, isBulk = false) {
         bulkAffect = isBulk;
@@ -653,6 +703,15 @@
 
     // Fonction pour charger les données via AJAX
     function loadData(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+        // ✅ Éviter les requêtes simultanées
+        if (isLoading) {
+            console.warn('Une requête est déjà en cours...');
+            return;
+        }
+        
+        isLoading = true;
+        showLoading(); // ✅ Afficher le spinner
+        
         const url = buildUrl(page, itemsPerPage, startRange, endRange, searchQuery);
         
         fetch(url, {
@@ -684,6 +743,31 @@
                 if (paginationInfoContainer) {
                     paginationInfoContainer.innerHTML = data.html_pagination_info;
                 }
+
+                // ✅ Gestion du message "aucun résultat" comme dans liste.html
+                const noResultsMessage = document.getElementById('noResultsMessage');
+                const tableContainer = document.getElementById('commandTableBody')?.closest('.overflow-x-auto')?.parentElement;
+                
+                if (data.total_commands_count === 0) {
+                    // Masquer le tableau et afficher le message
+                    if (tableContainer) tableContainer.style.display = 'none';
+                    if (noResultsMessage) {
+                        noResultsMessage.classList.remove('hidden');
+                        const noResultsText = document.getElementById('noResultsText');
+                        if (noResultsText) {
+                            const searchValue = searchQuery || '';
+                            if (searchValue) {
+                                noResultsText.textContent = `Aucune commande confirmée trouvée pour la recherche "${searchValue}".`;
+                            } else {
+                                noResultsText.textContent = 'Aucune commande confirmée trouvée.';
+                            }
+                        }
+                    }
+                } else {
+                    // Afficher le tableau et masquer le message
+                    if (tableContainer) tableContainer.style.display = '';
+                    if (noResultsMessage) noResultsMessage.classList.add('hidden');
+                }
                 
                 // Mettre à jour l'URL
                 updateUrl(page, itemsPerPage, startRange, endRange, searchQuery);
@@ -703,6 +787,12 @@
         })
         .catch(error => {
             console.error('Erreur:', error);
+            alert('Erreur lors du chargement des données: ' + error.message);
+        })
+        .finally(() => {
+            // ✅ Toujours masquer le spinner et réinitialiser l'état
+            hideLoading();
+            isLoading = false;
         });
     }
 

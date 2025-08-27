@@ -205,24 +205,24 @@
     </div>
 
     <!-- Message si aucun résultat -->
-    {% if not page_obj %}
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-8 rounded-lg">
+    <div id="noResultsMessage" class="{% if not page_obj.object_list %}block{% else %}hidden{% endif %} bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
         <div class="flex">
             <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
+                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
             </div>
             <div class="ml-3">
-                <p class="text-sm text-blue-700">
-                    {% if search_query %}
-                        Aucune commande non affectée trouvée pour la recherche "{{ search_query }}".
-                    {% else %}
-                        Toutes les commandes sont actuellement affectées ! 🎉
-                    {% endif %}
+                <p class="text-sm text-yellow-700">
+                    <span id="noResultsText">
+                        {% if search_query %}
+                            Aucune commande non affectée trouvée pour la recherche "{{ search_query }}".
+                        {% else %}
+                            Aucune commande non affectée trouvée.
+                        {% endif %}
+                    </span>
                 </p>
             </div>
         </div>
     </div>
-    {% endif %}
 
     <!-- Tableau des commandes non affectées -->
     {% if page_obj %}
@@ -246,101 +246,7 @@
                 </tr>
             </thead>
             <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
-            <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
-                {% for commande in page_obj %}
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <input type="checkbox" class="commande-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-commande-id="{{ commande.pk }}" />
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium" style="color: var(--admin-color);">
-                            {{ commande.id_yz }}
-                        </div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {% if commande.num_cmd != commande.id_yz|stringformat:"s" %}
-                            {{ commande.num_cmd }}
-                        {% else %}
-                            <span class="text-gray-400 italic">Auto</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">
-                            {% if commande.client.nom or commande.client.prenom %}
-                                {{ commande.client.prenom }} {{ commande.client.nom }}
-                            {% else %}
-                                Client {{ commande.client.numero_tel }}
-                            {% endif %}
-                        </div>
-                        {% if commande.client.email %}
-                        <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <a href="tel:{{ commande.client.numero_tel }}" class="flex items-center text-blue-600 hover:text-blue-800">
-                            <i class="fas fa-phone mr-1"></i>
-                            {{ commande.client.numero_tel }}
-                        </a>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {% if commande.ville %}
-                            {{ commande.ville.nom }}
-                        {% else %}
-                            {{ commande.ville_init|default:"Non spécifiée" }}
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ commande.date_cmd|date:"d/m/Y" }}
-                        <div class="text-xs text-gray-400">{{ commande.date_creation|date:"H:i" }}</div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium" style="color: var(--admin-color);">
-                        {{ commande.total_cmd|floatformat:2 }} DH
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        {% if commande.etat_actuel %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if commande.etat_actuel.enum_etat.libelle == 'En attente' %} bg-orange-100 text-orange-800
-                            {% elif commande.etat_actuel.enum_etat.libelle == 'Nouvelle' %} bg-blue-100 text-blue-800
-                            {% elif commande.etat_actuel.enum_etat.libelle == 'Erronée' %} bg-red-100 text-red-800
-                            {% else %} bg-gray-100 text-gray-800
-                            {% endif %}">
-                            {{ commande.etat_actuel.enum_etat.libelle }}
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Aucun état</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-center">
-                        <button type="button" onclick="viewCart({{ commande.pk }})" class="text-green-500 hover:text-green-700 transition-colors" title="Voir le panier">
-                            <i class="fas fa-shopping-basket text-lg"></i>
-                            {% if commande.panier.articles.count > 0 %}
-                                <span class="ml-1 bg-green-500 text-white text-xs rounded-full px-1.5 py-0.5">{{ commande.panier.articles.count }}</span>
-                            {% endif %}
-                        </button>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-center">
-                        <div class="flex justify-center space-x-2">
-                            <a href="{% url 'commande:detail' commande.pk %}" class="text-blue-500 hover:text-blue-700 transition-colors" title="Voir Détails">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            <a href="{% url 'commande:modifier' commande.pk %}" class="text-green-500 hover:text-green-700 transition-colors" title="Modifier">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <button type="button" onclick="openAffectationModal({{ commande.pk }}, '{{ commande.id_yz|escapejs }}')" class="text-blue-500 hover:text-blue-700 transition-colors" title="Affecter à un opérateur">
-                                <i class="fas fa-user-plus"></i>
-                            </button>
-                            {% if commande.etat_actuel.enum_etat.libelle != 'Annulée' %}
-                            <button type="button" class="text-red-500 hover:text-red-700 transition-colors annuler-commande-btn" 
-                                    data-commande-id="{{ commande.pk }}" 
-                                    data-commande-numero="{{ commande.id_yz }}" 
-                                    title="Annuler avec motif">
-                                <i class="fas fa-ban"></i>
-                            </button>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
+                {% include 'commande/partials/_non_affectees_table_body.html' with page_obj=page_obj %}
             </tbody>
         </table>
     </div>
@@ -428,62 +334,10 @@
         </div>
     </div>
 
-    <!-- Pagination améliorée -->
-    {% if page_obj.has_other_pages %}
-    <div id="paginationControls" class="flex justify-center mt-6">
-        <nav aria-label="Navigation des commandes" class="bg-white rounded-xl shadow-lg border border-gray-100 p-4">
-            <ul class="flex items-center -space-x-px">
-            {% if page_obj.has_previous %}
-                <li>
-                    <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
-                       class="px-3 py-2 leading-tight bg-white border rounded-l-lg hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
-                       style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
-                        <i class="fas fa-angle-double-left"></i>
-                    </a>
-                </li>
-                <li>
-                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
-                       class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
-                       style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
-                        <i class="fas fa-angle-left"></i>
-                    </a>
-                </li>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-                {% if page_obj.number == num %}
-                    <li>
-                        <span class="px-3 py-2 leading-tight text-white border font-semibold" style="background-color: var(--admin-color); border-color: var(--admin-color);">{{ num }}</span>
-                    </li>
-                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                    <li>
-                        <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
-                           class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
-                           style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">{{ num }}</a>
-                    </li>
-                {% endif %}
-            {% endfor %}
-
-            {% if page_obj.has_next %}
-                <li>
-                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
-                       class="px-3 py-2 leading-tight bg-white border hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
-                       style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
-                        <i class="fas fa-angle-right"></i>
-                    </a>
-                </li>
-                <li>
-                    <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}{% if start_range %}&start_range={{ start_range }}{% endif %}{% if end_range %}&end_range={{ end_range }}{% endif %}" 
-                       class="px-3 py-2 leading-tight bg-white border rounded-r-lg hover:bg-gray-100 transition-all duration-200 transform hover:scale-105" 
-                       style="color: var(--admin-color); border-color: var(--admin-light-accent); hover:text-gray-700;">
-                        <i class="fas fa-angle-double-right"></i>
-                    </a>
-                </li>
-            {% endif %}
-            </ul>
-        </nav>
+    <!-- Pagination -->
+    <div id="paginationControls" class="flex justify-center mt-8">
+        {% include 'commande/partials/_non_affectees_pagination.html' %}
     </div>
-    {% endif %}
 
     <!-- Informations de pagination -->
     <div id="paginationInfoContainer">
@@ -580,7 +434,13 @@
     </div>
 </div>
 
-
+<!-- ✅ Spinner de chargement identique à liste.html -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+        <p class="text-white text-lg mt-4">Chargement...</p>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -590,6 +450,23 @@
 <script>
 let currentCommandeId = null;
 let selectedOperateurId = null;
+let isLoading = false;
+
+// Éléments DOM
+const loadingOverlay = document.getElementById('loadingOverlay');
+
+// ✅ Fonctions de chargement identiques à liste.html
+function showLoading() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.remove('hidden');
+    }
+}
+
+function hideLoading() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('hidden');
+    }
+}
 
 // Déclarations de variables globales pour les éléments DOM
 const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
@@ -653,14 +530,6 @@ function showToast(message, type = 'info') {
     }, 5000);
 }
 
-                // Fonctions de chargement simples comme dans la page Liste des Commandes
-        function showLoading() {
-            // Pas d'indicateur de chargement pour une expérience plus fluide
-        }
-
-        function hideLoading() {
-            // Pas d'indicateur de chargement pour une expérience plus fluide
-}
 
 // Données des opérateurs depuis Django
 const operateursData = {
@@ -676,8 +545,17 @@ const operateursData = {
     ]
 };
 
-// Fonction pour charger les données via AJAX (simplifiée comme dans Liste des Commandes)
+// ✅ Fonction pour charger les données via AJAX avec gestion d'erreurs robuste
 async function loadNonAffecteesData(params = {}) {
+    // ✅ Éviter les requêtes simultanées
+    if (isLoading) {
+        console.warn('Une requête est déjà en cours...');
+        return;
+    }
+    
+    isLoading = true;
+    showLoading(); // ✅ Spinner identique à liste.html
+    
     const url = new URL(window.location.origin + window.location.pathname);
     
     // Ajouter les paramètres de recherche existants
@@ -707,32 +585,66 @@ async function loadNonAffecteesData(params = {}) {
 
         const data = await response.json();
         
-        // Mettre à jour le contenu du tableau
-        if (commandTableBody) {
-            commandTableBody.innerHTML = data.html_table_body;
-        }
-        
-        // Mettre à jour la pagination
-        if (paginationControlsContainer) {
-            paginationControlsContainer.innerHTML = data.html_pagination;
-        }
-        
-        // Mettre à jour les informations de pagination
-        const paginationInfoContainer = document.getElementById('paginationInfoContainer');
-        if (paginationInfoContainer && data.html_pagination_info) {
-            paginationInfoContainer.innerHTML = data.html_pagination_info;
-        }
+        if (data.success) {
+            // Mettre à jour le contenu du tableau
+            if (commandTableBody) {
+                commandTableBody.innerHTML = data.html_table_body;
+            }
+            
+            // Mettre à jour la pagination
+            if (paginationControlsContainer) {
+                paginationControlsContainer.innerHTML = data.html_pagination;
+            }
+            
+            // Mettre à jour les informations de pagination
+            const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+            if (paginationInfoContainer && data.html_pagination_info) {
+                paginationInfoContainer.innerHTML = data.html_pagination_info;
+            }
 
-        // Mettre à jour l'URL sans recharger la page
-        window.history.pushState({}, '', url.toString());
+            // ✅ Gestion du message "aucun résultat" comme dans liste.html
+            const noResultsMessage = document.getElementById('noResultsMessage');
+            const tableContainer = commandTableBody?.closest('.overflow-x-auto')?.parentElement;
+            
+            if (data.total_commands_count === 0) {
+                // Masquer le tableau et afficher le message
+                if (tableContainer) tableContainer.style.display = 'none';
+                if (noResultsMessage) {
+                    noResultsMessage.classList.remove('hidden');
+                    const noResultsText = document.getElementById('noResultsText');
+                    if (noResultsText) {
+                        const searchValue = searchInput?.value || '';
+                        if (searchValue) {
+                            noResultsText.textContent = `Aucune commande non affectée trouvée pour la recherche "${searchValue}".`;
+                        } else {
+                            noResultsText.textContent = 'Aucune commande non affectée trouvée.';
+                        }
+                    }
+                }
+            } else {
+                // Afficher le tableau et masquer le message
+                if (tableContainer) tableContainer.style.display = '';
+                if (noResultsMessage) noResultsMessage.classList.add('hidden');
+            }
 
-        // Réinitialiser les checkboxes et ré-attacher les event listeners
-        initializeCheckboxes();
-        attachPaginationListeners();
+            // Mettre à jour l'URL sans recharger la page
+            window.history.pushState({}, '', url.toString());
+
+            // Réinitialiser les checkboxes et ré-attacher les event listeners
+            initializeCheckboxes();
+            attachPaginationListeners();
+        } else {
+            console.error('Erreur dans la réponse:', data.error);
+            showToast('Erreur lors du chargement des données: ' + (data.error || 'Erreur inconnue'), 'error');
+        }
 
     } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
         showToast('Erreur lors du chargement des données: ' + error.message, 'error');
+    } finally {
+        // ✅ Toujours masquer le spinner et réinitialiser l'état
+        hideLoading();
+        isLoading = false;
     }
 }
 
@@ -785,25 +697,24 @@ function attachPaginationListeners() {
     // Supprimer les anciens écouteurs avant d'en ajouter de nouveaux
     document.querySelectorAll('#paginationControls a').forEach(link => {
         link.removeEventListener('click', handlePaginationClick);
-    });
-
-    // Ajouter les nouveaux écouteurs
-    document.querySelectorAll('#paginationControls a').forEach(link => {
         link.addEventListener('click', handlePaginationClick);
     });
 }
 
-        // Fonction pour gérer les clics sur la pagination
-        function handlePaginationClick(e) {
-            e.preventDefault();
-            const url = new URL(this.href);
-            const page = url.searchParams.get('page');
-            // Récupérer tous les paramètres de l'URL actuelle et ajouter/modifier la page
-            const currentParams = new URLSearchParams(window.location.search);
-            currentParams.set('page', page);
-            // Pagination instantanée sans indicateur de chargement
-            loadNonAffecteesData(Object.fromEntries(currentParams));
-        }
+// Fonction pour gérer les clics sur la pagination
+function handlePaginationClick(e) {
+    e.preventDefault();
+    const url = new URL(this.href);
+    const page = url.searchParams.get('page');
+    changePage(page);
+}
+
+// Fonction pour changer de page
+function changePage(page) {
+    const currentParams = new URLSearchParams(window.location.search);
+    currentParams.set('page', page);
+    loadNonAffecteesData(Object.fromEntries(currentParams));
+}
 
 
 // Exécuté une seule fois au chargement initial de la page

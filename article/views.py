@@ -151,38 +151,72 @@ def liste_articles(request):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         from django.template.loader import render_to_string
         
-        # Rendre les templates partiels pour AJAX
-        html_cards_body = render_to_string('article/partials/_articles_cards_body.html', {
-            'page_obj': page_obj
-        }, request=request)
-        
-        html_table_body = render_to_string('article/partials/_articles_table_body.html', {
-            'page_obj': page_obj
-        }, request=request)
-        
-        html_pagination = render_to_string('article/partials/_articles_pagination.html', {
-            'page_obj': page_obj,
-            'search': search,
-            'filtre_phase': filtre_phase,
-            'filtre_promotion': filtre_promotion,
-            'filtre_stock': filtre_stock,
-            'items_per_page': items_per_page,
-            'start_range': start_range,
-            'end_range': end_range
-        }, request=request)
-        
-        html_pagination_info = render_to_string('article/partials/_articles_pagination_info.html', {
-            'page_obj': page_obj
-        }, request=request)
-        
-        return JsonResponse({
-            'success': True,
-            'html_cards_body': html_cards_body,
-            'html_table_body': html_table_body,
-            'html_pagination': html_pagination,
-            'html_pagination_info': html_pagination_info,
-            'total_count': articles_non_pagines.count()
-        })
+        try:
+            # Debug: Vérifier les données de page_obj  
+            items_in_page = list(page_obj.object_list)  # Éviter de consommer l'itérateur
+            print(f"🔍 DEBUG - Page: {page_obj.number}, Total items: {page_obj.paginator.count}, Items in page: {len(items_in_page)}")
+            
+            # Rendre les templates partiels pour AJAX
+            html_cards_body = render_to_string('article/partials/_articles_cards_body.html', {
+                'page_obj': page_obj
+            }, request=request)
+            print(f"📄 Cards body length: {len(html_cards_body)}")
+            
+            html_table_body = render_to_string('article/partials/_articles_table_body.html', {
+                'page_obj': page_obj
+            }, request=request)
+            print(f"📄 Table body length: {len(html_table_body)}")
+            
+            # Vue grille
+            html_grid_body = render_to_string('article/partials/_articles_grid_body.html', {
+                'page_obj': page_obj
+            }, request=request)
+            
+            html_pagination = render_to_string('article/partials/_articles_pagination.html', {
+                'page_obj': page_obj,
+                'search': search,
+                'filtre_phase': filtre_phase,
+                'filtre_promotion': filtre_promotion,
+                'filtre_stock': filtre_stock,
+                'items_per_page': items_per_page,
+                'start_range': start_range,
+                'end_range': end_range
+            }, request=request)
+            print(f"📄 Pagination length: {len(html_pagination)}")
+            
+            html_pagination_info = render_to_string('article/partials/_articles_pagination_info.html', {
+                'page_obj': page_obj
+            }, request=request)
+            print(f"📄 Pagination info length: {len(html_pagination_info)}")
+            
+            response_data = {
+                'success': True,
+                'html_cards_body': html_cards_body,
+                'html_table_body': html_table_body,
+                'html_grid_body': html_grid_body,
+                'html_pagination': html_pagination,
+                'html_pagination_info': html_pagination_info,
+                'total_count': articles_non_pagines.count(),
+                'debug_info': {
+                    'page_number': page_obj.number,
+                    'total_items': page_obj.paginator.count,
+                    'items_in_page': len(list(page_obj)),
+                    'has_previous': page_obj.has_previous(),
+                    'has_next': page_obj.has_next(),
+                }
+            }
+            
+            print(f"✅ JSON Response ready: {len(str(response_data))} chars")
+            return JsonResponse(response_data)
+            
+        except Exception as e:
+            print(f"❌ Erreur dans la vue AJAX: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            return JsonResponse({
+                'success': False,
+                'error': f'Erreur dans la génération des templates: {str(e)}'
+            }, status=500)
 
     context = {
         'page_obj': page_obj,
@@ -826,17 +860,15 @@ def modifier_article(request, id):
     return render(request, 'article/modifier.html', context)
 
 @login_required
+@require_POST
 def supprimer_article(request, id):
     """Supprimer un article (méthode POST requise)"""
     article = get_object_or_404(Article, id=id)
-    if request.method == 'POST':
-        try:
-            article.delete()
-            messages.success(request, f"L'article '{article.nom}' a été supprimé avec succès.")
-        except Exception as e:
-            messages.error(request, f"Une erreur est survenue lors de la suppression de l'article : {e}")
-        return redirect('article:liste')
-    # Si la méthode n'est pas POST, on redirige simplement vers la liste
+    try:
+        article.delete()
+        messages.success(request, f"L'article '{article.nom}' a été supprimé avec succès.")
+    except Exception as e:
+        messages.error(request, f"Une erreur est survenue lors de la suppression de l'article : {e}")
     return redirect('article:liste')
 
 @require_POST
@@ -1534,6 +1566,11 @@ def liste_variantes(request):
             'page_obj': page_obj
         }, request=request)
         
+        # Vue grille pour variantes
+        html_grid_body = render_to_string('article/partials/variantes_articles_grid_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
         html_pagination = render_to_string('article/partials/_articles_pagination.html', {
             'page_obj': page_obj,
             'search': search,
@@ -1553,6 +1590,7 @@ def liste_variantes(request):
             'success': True,
             'html_cards_body': html_cards_body,
             'html_table_body': html_table_body,
+            'html_grid_body': html_grid_body,
             'html_pagination': html_pagination,
             'html_pagination_info': html_pagination_info,
             'total_count': variantes_non_paginees.count()

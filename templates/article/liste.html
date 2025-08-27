@@ -483,6 +483,14 @@
 </div>
 
 {% include "article/promotion_modal.html" %}
+
+<!-- ✅ Spinner de chargement identique aux commandes -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+        <p class="text-white text-lg mt-4">Chargement...</p>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -709,6 +717,54 @@
     let currentFiltrePhase = '{{ filtre_phase|default:"" }}';
     let currentFiltrePromotion = '{{ filtre_promotion|default:"" }}';
     let currentFiltreStock = '{{ filtre_stock|default:"" }}';
+    let isLoading = false; // ✅ État global de chargement
+
+    // ✅ Fonctions de chargement identiques aux commandes
+    const loadingOverlay = document.getElementById('loadingOverlay');
+
+    function showLoading() {
+        if (loadingOverlay) {
+            loadingOverlay.classList.remove('hidden');
+        }
+    }
+
+    function hideLoading() {
+        if (loadingOverlay) {
+            loadingOverlay.classList.add('hidden');
+        }
+    }
+
+    // ✅ Fonction pour afficher les messages d'erreur
+    function showToast(message, type = 'error') {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-4 right-4 z-50 max-w-md p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+        
+        if (type === 'error') {
+            toast.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-circle mr-3 text-red-500"></i>
+                    <p class="text-sm">${message}</p>
+                </div>
+            `;
+        } else if (type === 'success') {
+            toast.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-check-circle mr-3 text-green-500"></i>
+                    <p class="text-sm">${message}</p>
+                </div>
+            `;
+        }
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => toast.classList.remove('translate-x-full'), 100);
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => document.body.removeChild(toast), 300);
+        }, 5000);
+    }
 
     // Fonction pour mettre à jour l'URL sans recharger la page
     function updateUrl(page, itemsPerPage, startRange, endRange, search, filtrePhase, filtrePromotion, filtreStock) {
@@ -726,104 +782,132 @@
         window.history.pushState({}, '', url.toString());
     }
 
-    // Fonction pour charger les données via AJAX
-    function loadData(page, itemsPerPage, startRange, endRange, search, filtrePhase, filtrePromotion, filtreStock) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('page', page);
+    // ✅ Fonction simplifiée basée sur commande/liste.html
+    async function applyFilters(page = 1) {
+        showLoading();
         
-        if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
-        if (startRange !== null) url.searchParams.set('start_range', startRange);
-        if (endRange !== null) url.searchParams.set('end_range', endRange);
-        if (search !== null) url.searchParams.set('search', search);
-        if (filtrePhase !== null) url.searchParams.set('filtre_phase', filtrePhase);
-        if (filtrePromotion !== null) url.searchParams.set('filtre_promotion', filtrePromotion);
-        if (filtreStock !== null) url.searchParams.set('filtre_stock', filtreStock);
-        
-        // Ajouter le header AJAX
-        fetch(url.toString(), {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+        const params = new URLSearchParams();
+        params.append('page', page);
+        params.append('items_per_page', currentItemsPerPage);
+        if (currentStartRange) params.append('start_range', currentStartRange);
+        if (currentEndRange) params.append('end_range', currentEndRange);
+        if (currentSearch) params.append('search', currentSearch);
+        if (currentFiltrePhase) params.append('filtre_phase', currentFiltrePhase);
+        if (currentFiltrePromotion) params.append('filtre_promotion', currentFiltrePromotion);
+        if (currentFiltreStock) params.append('filtre_stock', currentFiltreStock);
+
+        try {
+            const response = await fetch(`{% url 'article:liste' %}?${params.toString()}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
             }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Mettre à jour la vue grille (on garde le contenu statique pour la grille)
-                // La grille sera mise à jour par rechargement de page pour l'instant
-                
-                // Mettre à jour la vue liste (cartes)
+
+            const data = await response.json();
+            console.log('📊 Structure des données reçues:', {
+                success: data.success,
+                hasTableBody: !!data.html_table_body,
+                hasCardsBody: !!data.html_cards_body,
+                hasGridBody: !!data.html_grid_body,
+                hasPagination: !!data.html_pagination,
+                hasPaginationInfo: !!data.html_pagination_info,
+                totalCount: data.total_count
+            });
+            
+            // Mettre à jour la vue grille si disponible
+            if (data.html_grid_body) {
+                const gridView = document.getElementById('gridView');
+                console.log('🔍 GridView element:', gridView);
+                if (gridView) {
+                    gridView.innerHTML = data.html_grid_body;
+                    console.log('✅ GridView mis à jour');
+                }
+            }
+            
+            // Mettre à jour la vue liste (cartes)
+            if (data.html_cards_body) {
                 const listView = document.getElementById('listView');
+                console.log('🔍 ListView element:', listView);
                 if (listView) {
                     listView.innerHTML = data.html_cards_body;
+                    console.log('✅ ListView mis à jour');
                 }
-                
-                // Mettre à jour le tableau
+            }
+            
+            // Mettre à jour le tableau
+            if (data.html_table_body) {
                 const tableBody = document.getElementById('articlesTableBody');
+                console.log('🔍 TableBody element:', tableBody);
+                console.log('🔍 Current content length:', tableBody ? tableBody.innerHTML.length : 'null');
+                console.log('🔍 New content length:', data.html_table_body.length);
+                console.log('🔍 New content preview:', data.html_table_body.substring(0, 200));
                 if (tableBody) {
                     tableBody.innerHTML = data.html_table_body;
+                    console.log('✅ TableBody mis à jour, nouveau contenu:', tableBody.innerHTML.length, 'chars');
+                    
+                    // Vérifier si la vue table est visible
+                    const tableView = document.getElementById('tableView');
+                    console.log('🔍 TableView visible:', tableView && !tableView.classList.contains('hidden'));
                 }
-                
-                // Mettre à jour la pagination
-                const paginationControls = document.getElementById('paginationControls');
-                if (paginationControls) {
-                    paginationControls.innerHTML = data.html_pagination;
-                }
-                
-                // Mettre à jour les informations de pagination
-                const paginationInfoContainer = document.getElementById('paginationInfoContainer');
-                if (paginationInfoContainer) {
-                    paginationInfoContainer.innerHTML = data.html_pagination_info;
-                }
-                
-                // Mettre à jour l'URL
-                updateUrl(page, itemsPerPage, startRange, endRange, search, filtrePhase, filtrePromotion, filtreStock);
-                
-                // Mettre à jour les variables globales
-                currentPage = page;
-                if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
-                if (startRange !== null) currentStartRange = startRange;
-                if (endRange !== null) currentEndRange = endRange;
-                if (search !== null) currentSearch = search;
-                if (filtrePhase !== null) currentFiltrePhase = filtrePhase;
-                if (filtrePromotion !== null) currentFiltrePromotion = filtrePromotion;
-                if (filtreStock !== null) currentFiltreStock = filtreStock;
-                
-                // Réattacher les event listeners
-                attachEventListeners();
-            } else {
-                console.error('Erreur lors du chargement des données:', data.error);
             }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-        });
+            
+            // Mettre à jour la pagination
+            const paginationControls = document.getElementById('paginationControls');
+            console.log('🔍 PaginationControls element:', paginationControls);
+            if (paginationControls && data.html_pagination) {
+                paginationControls.innerHTML = data.html_pagination;
+                console.log('✅ Pagination mise à jour');
+            }
+            
+            // Mettre à jour les informations de pagination
+            const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+            console.log('🔍 PaginationInfoContainer element:', paginationInfoContainer);
+            if (paginationInfoContainer && data.html_pagination_info) {
+                paginationInfoContainer.innerHTML = data.html_pagination_info;
+                console.log('✅ PaginationInfo mise à jour');
+            }
+
+            // Re-attacher les event listeners à la nouvelle pagination
+            attachEventListeners();
+
+        } catch (error) {
+            console.error('Erreur lors du filtrage AJAX:', error);
+            showToast('Erreur lors du chargement des articles: ' + error.message, 'error');
+        } finally {
+            hideLoading();
+        }
     }
 
-    // Fonction pour changer de page
+    // Fonction pour changer de page - simplifiée
     function changePage(page) {
-        loadData(page, currentItemsPerPage, currentStartRange, currentEndRange, 
-                 currentSearch, currentFiltrePhase, currentFiltrePromotion, currentFiltreStock);
+        applyFilters(page);
     }
 
-    // Fonction pour changer le nombre d'éléments par page
+    // Fonction pour changer le nombre d'éléments par page - simplifiée
     function changeItemsPerPage(itemsPerPage) {
-        loadData(1, itemsPerPage, currentStartRange, currentEndRange, 
-                 currentSearch, currentFiltrePhase, currentFiltrePromotion, currentFiltreStock);
+        currentItemsPerPage = itemsPerPage;
+        applyFilters(1);
     }
 
-    // Fonction pour appliquer une plage personnalisée
+    // Fonction pour appliquer une plage personnalisée - simplifiée
     function applyCustomRange(startRange, endRange) {
-        loadData(1, null, startRange, endRange, 
-                 currentSearch, currentFiltrePhase, currentFiltrePromotion, currentFiltreStock);
+        currentStartRange = startRange;
+        currentEndRange = endRange;
+        applyFilters(1);
     }
 
-    // Fonction pour effacer la plage personnalisée
+    // Fonction pour effacer la plage personnalisée - simplifiée
     function clearCustomRange() {
-        loadData(1, currentItemsPerPage, '', '', 
-                 currentSearch, currentFiltrePhase, currentFiltrePromotion, currentFiltreStock);
+        currentStartRange = '';
+        currentEndRange = '';
+        applyFilters(1);
     }
 
-    // Fonction pour attacher les event listeners
+    // ✅ Fonction pour attacher les event listeners avec gestion pagination
     function attachEventListeners() {
         // Event listener pour le select des éléments par page
         const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
@@ -845,6 +929,20 @@
             clearRangeBtn.removeEventListener('click', handleClearRange);
             clearRangeBtn.addEventListener('click', handleClearRange);
         }
+
+        // ✅ Event listeners pour les liens de pagination
+        document.querySelectorAll('#paginationControls a').forEach(link => {
+            link.removeEventListener('click', handlePaginationClick);
+            link.addEventListener('click', handlePaginationClick);
+        });
+    }
+
+    // ✅ Fonction simplifiée pour gérer les clics sur la pagination - comme commande/liste.html
+    function handlePaginationClick(e) {
+        e.preventDefault();
+        const url = new URL(this.href);
+        const page = url.searchParams.get('page');
+        applyFilters(page);
     }
 
     // Handlers pour les event listeners

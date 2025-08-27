@@ -791,9 +791,14 @@ def commandes_affectees(request):
     from .models import EtatCommande
     
     # Récupérer SEULEMENT les commandes avec un état "Affectée" exact et actuel
+    # ✅ Optimisation : select_related pour éviter les N+1 queries
     commandes_affectees = Commande.objects.filter(
         etats__enum_etat__libelle__exact='Affectée',
         etats__date_fin__isnull=True
+    ).select_related(
+        'client', 'ville', 'ville__region'
+    ).prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
     ).distinct().order_by('-date_cmd')
     
     # Filtrage par recherche
@@ -841,27 +846,41 @@ def commandes_affectees(request):
         paginator = Paginator(commandes_affectees, items_per_page)
     page_obj = paginator.get_page(page_number)
     
-    # Statistiques
-    total_affectees = commandes_affectees.count()
-    total_montant = sum(cmd.total_cmd for cmd in commandes_affectees)
+    # ✅ Optimisation : Statistiques calculées en base de données
+    stats_data = commandes_affectees.aggregate(
+        total_count=Count('id'),
+        total_montant=Sum('total_cmd')
+    )
+    total_affectees = stats_data['total_count'] or 0
+    total_montant = stats_data['total_montant'] or 0
     
-    # Statistiques par opérateur (pour les commandes affectées)
-    operateurs_stats = {}
-    for commande in commandes_affectees:
-        etat_actuel = commande.etat_actuel
-        if etat_actuel and etat_actuel.operateur:
-            operateur_nom = etat_actuel.operateur.get_full_name()
-            if operateur_nom not in operateurs_stats:
-                operateurs_stats[operateur_nom] = {'count': 0, 'montant': 0}
-            operateurs_stats[operateur_nom]['count'] += 1
-            operateurs_stats[operateur_nom]['montant'] += commande.total_cmd
+    # ✅ Optimisation : Statistiques par opérateur en une seule requête
+    operateurs_stats = commandes_affectees.filter(
+        etats__date_fin__isnull=True,
+        etats__operateur__isnull=False
+    ).values(
+        'etats__operateur__nom', 
+        'etats__operateur__prenom'
+    ).annotate(
+        count=Count('id'),
+        montant=Sum('total_cmd')
+    ).order_by('-count')
+    
+    # Transformer en dictionnaire pour compatibilité avec le template
+    operateurs_dict = {}
+    for stat in operateurs_stats:
+        nom_complet = f"{stat['etats__operateur__prenom']} {stat['etats__operateur__nom']}"
+        operateurs_dict[nom_complet] = {
+            'count': stat['count'],
+            'montant': stat['montant']
+        }
     
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
         'total_affectees': total_affectees,
         'total_montant': total_montant,
-        'operateurs_stats': operateurs_stats,
+        'operateurs_stats': operateurs_dict,
         'items_per_page': items_per_page,
         'start_range': start_range,
         'end_range': end_range,
@@ -873,33 +892,56 @@ def commandes_affectees(request):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         from django.template.loader import render_to_string
         
-        # Rendre le tableau des commandes
-        html_table_body = render_to_string('commande/partials/_affectees_table_body.html', {
+        # ✅ Optimisation : Rendu groupé des templates avec contexte unifié
+        ajax_context = {
             'page_obj': page_obj,
-            'request': request
-        }, request=request)
-        
-        # Rendre la pagination (navigation seulement)
-        html_pagination = render_to_string('commande/partials/_affectees_pagination.html', {
-            'page_obj': page_obj,
+            'request': request,
             'search_query': search_query,
             'items_per_page': items_per_page,
             'start_range': start_range,
             'end_range': end_range
-        }, request=request)
+        }
         
-        # Rendre les informations de pagination
-        html_pagination_info = render_to_string('commande/partials/_affectees_pagination_info.html', {
-            'page_obj': page_obj
-        }, request=request)
+        # Templates à rendre
+        templates_data = {
+            'html_table_body': 'commande/partials/_affectees_table_body.html',
+            'html_pagination': 'commande/partials/_affectees_pagination.html',
+            'html_pagination_info': 'commande/partials/_affectees_pagination_info.html'
+        }
         
-        return JsonResponse({
-            'html_table_body': html_table_body,
-            'html_pagination': html_pagination,
-            'html_pagination_info': html_pagination_info,
+        # Rendu optimisé en une seule boucle avec gestion d'erreurs détaillée
+        rendered_data = {}
+        try:
+            for key, template_path in templates_data.items():
+                try:
+                    rendered_data[key] = render_to_string(template_path, ajax_context, request=request)
+                except Exception as template_error:
+                    # ✅ Erreur spécifique au template
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Erreur dans le template {template_path}: {str(template_error)}'
+                    }, status=500)
+        except Exception as e:
+            # ✅ Gestion d'erreurs générales
+            return JsonResponse({
+                'success': False,
+                'error': f'Erreur générale de rendu: {str(e)}'
+            }, status=500)
+        
+        # ✅ Réponse JSON enrichie avec gestion d'erreurs
+        response_data = {
+            'success': True,
+            **rendered_data,
             'total_commands_count': total_affectees,
-            'total_commands_display': f"Affichage de {page_obj.start_index} à {page_obj.end_index} sur {page_obj.paginator.count} commandes affectées."
-        })
+            'total_commands_display': f"Affichage de {page_obj.start_index} à {page_obj.end_index} sur {page_obj.paginator.count} commandes affectées.",
+            'stats': {
+                'total_affectees': total_affectees,
+                'total_montant': float(total_montant),
+                'moyenne_montant': float(total_montant / total_affectees) if total_affectees > 0 else 0
+            }
+        }
+        
+        return JsonResponse(response_data)
     
     return render(request, 'commande/affectees.html', context)
 
@@ -908,10 +950,15 @@ def commandes_annulees(request):
     """Page des commandes annulées"""
     from .models import EtatCommande
     
-    # Récupérer les commandes avec un état "Annulée" actuel
+    # ✅ Optimisation : Récupérer les commandes avec un état "Annulée" actuel
+    # Avec select_related pour éviter les N+1 queries
     commandes_annulees = Commande.objects.filter(
         etats__enum_etat__libelle__icontains='Annulée',
         etats__date_fin__isnull=True
+    ).select_related(
+        'client', 'ville', 'ville__region'
+    ).prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
     ).distinct().order_by('-date_cmd')
     
     # Filtrage par recherche
@@ -970,15 +1017,24 @@ def commandes_annulees(request):
             page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
-    # Statistiques
-    total_annulees = commandes_annulees.count()
-    total_montant_perdu = sum(cmd.total_cmd for cmd in commandes_annulees)
+    # ✅ Optimisation : Statistiques calculées en base de données
+    stats_data = commandes_annulees.aggregate(
+        total_count=Count('id'),
+        total_montant_perdu=Sum('total_cmd')
+    )
+    total_annulees = stats_data['total_count'] or 0
+    total_montant_perdu = stats_data['total_montant_perdu'] or 0
     
-    # Statistiques par motif d'annulation
+    # ✅ Optimisation : Statistiques par motif en une seule requête
+    motifs_stats = commandes_annulees.values('motif_annulation').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Transformer en dictionnaire pour compatibilité avec le template
     motifs_annulation = {}
-    for commande in commandes_annulees:
-        motif = commande.motif_annulation or 'Non spécifié'
-        motifs_annulation[motif] = motifs_annulation.get(motif, 0) + 1
+    for stat in motifs_stats:
+        motif = stat['motif_annulation'] or 'Non spécifié'
+        motifs_annulation[motif] = stat['count']
     
     # Vérifier si c'est une requête AJAX
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -999,12 +1055,19 @@ def commandes_annulees(request):
             'page_obj': page_obj
         }, request=request)
         
+        # ✅ Réponse JSON enrichie avec statistiques
         return JsonResponse({
             'success': True,
             'html_table_body': html_table_body,
             'html_pagination': html_pagination,
             'html_pagination_info': html_pagination_info,
-            'total_count': total_annulees
+            'total_commands_count': total_annulees,
+            'total_commands_display': f"Affichage de {page_obj.start_index} à {page_obj.end_index} sur {page_obj.paginator.count} commandes annulées.",
+            'stats': {
+                'total_annulees': total_annulees,
+                'total_montant_perdu': float(total_montant_perdu),
+                'moyenne_montant_perdu': float(total_montant_perdu / total_annulees) if total_annulees > 0 else 0
+            }
         })
     
     context = {
@@ -1025,26 +1088,32 @@ def commandes_annulees(request):
 def commandes_non_affectees(request):
     """Page des commandes non affectées"""
     from .models import EtatCommande
+    from django.db.models import Q, OuterRef, Exists
     
-    # Récupérer les IDs des commandes avec état "Non affectée" actuel
-    commandes_avec_etat_non_affectee_ids = Commande.objects.filter(
-        etats__enum_etat__libelle__exact='Non affectée',
-        etats__date_fin__isnull=True
-    ).values_list('id', flat=True)
-    
-    # Récupérer les IDs des commandes sans état actuel (nouvelles commandes)
-    commandes_avec_etat_ids = EtatCommande.objects.filter(
+    # ✅ Optimisation : Requête unifiée avec subquery pour les commandes non affectées
+    # Sous-requête pour identifier les commandes avec un état actuel
+    commandes_avec_etat_actuel = EtatCommande.objects.filter(
+        commande=OuterRef('pk'),
         date_fin__isnull=True
-    ).values_list('commande_id', flat=True).distinct()
+    )
     
-    commandes_sans_etat_ids = Commande.objects.exclude(
-        id__in=commandes_avec_etat_ids
-    ).values_list('id', flat=True)
-    
-    # Combiner les IDs et récupérer les commandes
-    tous_les_ids = list(commandes_avec_etat_non_affectee_ids) + list(commandes_sans_etat_ids)
+    # Récupérer les commandes soit :
+    # 1. Avec état "Non affectée" actuel
+    # 2. Sans état actuel (nouvelles commandes)
     commandes_non_affectees = Commande.objects.filter(
-        id__in=tous_les_ids
+        Q(
+            # Commandes avec état "Non affectée" actuel
+            etats__enum_etat__libelle__exact='Non affectée',
+            etats__date_fin__isnull=True
+        ) |
+        Q(
+            # Commandes sans état actuel (nouvelles)
+            ~Exists(commandes_avec_etat_actuel)
+        )
+    ).select_related(
+        'client', 'ville', 'ville__region'
+    ).prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
     ).distinct().order_by('-date_cmd')
     
     # Filtrage par recherche
@@ -1107,13 +1176,23 @@ def commandes_non_affectees(request):
     paginator = Paginator(commandes_non_affectees, items_per_page)
     page_obj = paginator.get_page(page_number)
     
-    # Statistiques
-    total_non_affectees = commandes_non_affectees.count()
-    total_montant = sum(cmd.total_cmd for cmd in commandes_non_affectees)
+    # ✅ Optimisation : Statistiques calculées en base de données
+    stats_data = commandes_non_affectees.aggregate(
+        total_count=Count('id'),
+        total_montant=Sum('total_cmd')
+    )
+    total_non_affectees = stats_data['total_count'] or 0
+    total_montant = stats_data['total_montant'] or 0
     
-    # Statistiques détaillées des commandes non affectées
-    commandes_avec_etat_non_affectee_count = len(commandes_avec_etat_non_affectee_ids)
-    commandes_sans_etat_count = len(commandes_sans_etat_ids)
+    # ✅ Optimisation : Statistiques détaillées avec requêtes optimisées
+    # Compter les commandes avec état "Non affectée"
+    commandes_avec_etat_non_affectee_count = Commande.objects.filter(
+        etats__enum_etat__libelle__exact='Non affectée',
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    # Compter les nouvelles commandes (sans état)
+    commandes_sans_etat_count = total_non_affectees - commandes_avec_etat_non_affectee_count
     
     # Statistiques des commandes affectées pour comparaison
     total_affectees = Commande.objects.filter(
@@ -1176,6 +1255,7 @@ def commandes_non_affectees(request):
         }, request=request)
         
         return JsonResponse({
+            'success': True,
             'html_table_body': html_table_body,
             'html_pagination': html_pagination,
             'html_pagination_info': html_pagination_info,
@@ -2192,30 +2272,39 @@ def commandes_confirmees(request):
             
             paginator = Paginator(commandes_confirmees, items_per_page)
             page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
+            page_obj = paginator.get_page(page_number)
     
     # Statistiques
     today = timezone.now().date()
     week_start = today - timedelta(days=today.weekday())
     month_start = today.replace(day=1)
     
-    # Confirmées aujourd'hui
-    confirmees_aujourd_hui = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_debut__date=today
-    ).distinct().count()
+    # ✅ Optimisation : Statistiques temporelles en une seule requête avec annotations
+    from django.db.models import Case, When, IntegerField
     
-    # Confirmées cette semaine
-    confirmees_semaine = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_debut__date__gte=week_start
-    ).distinct().count()
+    stats_temporelles = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée'
+    ).aggregate(
+        confirmees_aujourd_hui=Count(
+            'id',
+            filter=Q(etats__date_debut__date=today),
+            distinct=True
+        ),
+        confirmees_semaine=Count(
+            'id', 
+            filter=Q(etats__date_debut__date__gte=week_start),
+            distinct=True
+        ),
+        confirmees_mois=Count(
+            'id',
+            filter=Q(etats__date_debut__date__gte=month_start),
+            distinct=True
+        )
+    )
     
-    # Confirmées ce mois
-    confirmees_mois = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_debut__date__gte=month_start
-    ).distinct().count()
+    confirmees_aujourd_hui = stats_temporelles['confirmees_aujourd_hui'] or 0
+    confirmees_semaine = stats_temporelles['confirmees_semaine'] or 0
+    confirmees_mois = stats_temporelles['confirmees_mois'] or 0
     
     # Total des commandes confirmées (utiliser les données non paginées)
     total_confirmees = commandes_non_paginees.count()

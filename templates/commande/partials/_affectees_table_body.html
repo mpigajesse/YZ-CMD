@@ -7,35 +7,22 @@
         {{ commande.num_cmd|default:"-" }}
     </td>
     <td class="px-4 py-3 text-sm text-gray-900 border-r border-b border-gray-200">
-        <div class="font-medium">{{ commande.client.nom }} {{ commande.client.prenom }}</div>
-        <div class="text-gray-500">{{ commande.client.numero_tel }}</div>
+        <div class="font-medium">{{ commande.client.nom|default:"" }} {{ commande.client.prenom|default:"" }}</div>
+        <div class="text-gray-500">{{ commande.client.numero_tel|default:"-" }}</div>
     </td>
     <td class="px-4 py-3 text-sm text-gray-500 border-r border-b border-gray-200">
         {{ commande.date_cmd|date:"d/m/Y" }}
     </td>
     <td class="px-4 py-3 text-sm text-gray-500 border-r border-b border-gray-200">
-        {{ commande.ville.nom|default:"-" }}
+        {% if commande.ville %}{{ commande.ville.nom }}{% else %}-{% endif %}
     </td>
     <td class="px-4 py-3 text-sm font-medium text-gray-900 border-r border-b border-gray-200">
         {{ commande.total_cmd|floatformat:2 }} DH
     </td>
     <td class="px-4 py-3 text-sm border-r border-b border-gray-200">
-        {% with etat=commande.etat_actuel %}
-            {% if etat %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    {{ etat.enum_etat.libelle }}
-                </span>
-                {% if etat.operateur %}
-                    <div class="text-xs text-gray-500 mt-1">
-                        Assignée à: {{ etat.operateur.get_full_name }}
-                    </div>
-                {% endif %}
-            {% else %}
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                    Nouveau
-                </span>
-            {% endif %}
-        {% endwith %}
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            Affectée
+        </span>
     </td>
     <td class="px-4 py-3 text-sm text-gray-500 border-b border-gray-200">
         <div class="flex space-x-2">

@@ -146,7 +146,10 @@
                     <a href="{% url 'article:modifier' article.id %}" class="inline-flex items-center bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg">
                         <i class="fas fa-edit mr-2"></i>Modifier
                     </a>
-                    <button type="button" onclick="showCustomConfirmModal('{% url 'article:supprimer' article.id %}', 'l\'article &quot;{{ article.nom|escapejs }}&quot;')" class="inline-flex items-center bg-red-500 hover:bg-red-600 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg">
+                    <form id="deleteArticleForm" method="POST" action="{% url 'article:supprimer' article.id %}" class="hidden">
+                        {% csrf_token %}
+                    </form>
+                    <button type="button" onclick="confirmDeleteArticleDetail()" class="inline-flex items-center bg-red-500 hover:bg-red-600 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg">
                         <i class="fas fa-trash mr-2"></i>Supprimer
                     </button>
                 </div>
@@ -323,6 +326,51 @@
 
 {% block extra_js %}
 <script>
+    // CSRF helpers and safe confirm+POST for delete
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    function getCsrfToken() {
+        const fromCookie = getCookie('csrftoken');
+        if (fromCookie) return fromCookie;
+        const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (input && input.value) return input.value;
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) return meta.getAttribute('content');
+        return '';
+    }
+
+    // Confirm delete using an existing hidden form with a server-rendered CSRF token
+    function confirmDeleteArticleDetail() {
+        const description = `l'article "{{ article.nom|escapejs }}"`;
+        const form = document.getElementById('deleteArticleForm');
+        const customModal = document.getElementById('customConfirmModal');
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        const modalText = document.getElementById('confirmModalText');
+        if (customModal && confirmBtn && modalText) {
+            modalText.innerHTML = `Êtes-vous sûr de vouloir supprimer <strong>${description}</strong> ? Cette action est irréversible.`;
+            customModal.classList.remove('hidden');
+            confirmBtn.onclick = function() {
+                form.submit();
+            };
+        } else {
+            if (window.confirm(`Êtes-vous sûr de vouloir supprimer ${description} ?`)) {
+                form.submit();
+            }
+        }
+    }
+
     function openLiquidationModal() {
         const modal = document.getElementById('liquidationModal');
         const modalContent = document.getElementById('liquidationModalContent');

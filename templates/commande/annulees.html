@@ -288,23 +288,41 @@
         </div>
         
         {% else %}
-        <div class="text-center py-12">
-            <i class="fas fa-times-circle text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-medium text-gray-900 mb-2">Aucune commande annulée</h3>
-            <p class="text-gray-500">
-                {% if search_query %}
-                    Aucune commande annulée ne correspond à votre recherche.
-                {% else %}
-                    Il n'y a actuellement aucune commande annulée.
-                {% endif %}
-            </p>
+        <!-- Message si aucun résultat -->
+        <div id="noResultsMessage" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        <span id="noResultsText">
+                            {% if search_query %}
+                                Aucune commande annulée trouvée pour la recherche "{{ search_query }}".
+                            {% else %}
+                                Aucune commande annulée trouvée.
+                            {% endif %}
+                        </span>
+                    </p>
+                </div>
+            </div>
         </div>
         {% endif %}
     </div>
+</div>
+
+<!-- ✅ Spinner de chargement identique à liste.html -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+        <p class="text-white text-lg mt-4">Chargement...</p>
     </div>
+</div>
 
+{% endblock %}
 
-
+{% block extra_js %}
+{{ block.super }}
 <script>
 // Variables globales pour la pagination
 let currentPage = 1;
@@ -313,6 +331,23 @@ let currentStartRange = '{{ start_range|default:"" }}';
 let currentEndRange = '{{ end_range|default:"" }}';
 let currentSearchQuery = '{{ search_query|default:"" }}';
 let searchTimeout;
+let isLoading = false;
+
+// Éléments DOM
+const loadingOverlay = document.getElementById('loadingOverlay');
+
+// ✅ Fonctions de chargement identiques à liste.html
+function showLoading() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.remove('hidden');
+    }
+}
+
+function hideLoading() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('hidden');
+    }
+}
 
 // Fonction pour construire l'URL avec les paramètres de pagination
 function buildUrl(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
@@ -336,6 +371,15 @@ function updateUrl(page = 1, itemsPerPage = null, startRange = null, endRange = 
 
 // Fonction pour charger les données via AJAX
 function loadData(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+    // ✅ Éviter les requêtes simultanées
+    if (isLoading) {
+        console.warn('Une requête est déjà en cours...');
+        return;
+    }
+    
+    isLoading = true;
+    showLoading(); // ✅ Afficher le spinner
+    
     const url = buildUrl(page, itemsPerPage, startRange, endRange, searchQuery);
     
     fetch(url, {
@@ -367,6 +411,31 @@ function loadData(page = 1, itemsPerPage = null, startRange = null, endRange = n
             if (paginationInfoContainer) {
                 paginationInfoContainer.innerHTML = data.html_pagination_info;
             }
+
+            // ✅ Gestion du message "aucun résultat" comme dans liste.html
+            const noResultsMessage = document.getElementById('noResultsMessage');
+            const tableContainer = document.getElementById('commandTableBody')?.closest('.overflow-x-auto')?.parentElement;
+            
+            if (data.total_commands_count === 0) {
+                // Masquer le tableau et afficher le message
+                if (tableContainer) tableContainer.style.display = 'none';
+                if (noResultsMessage) {
+                    noResultsMessage.classList.remove('hidden');
+                    const noResultsText = document.getElementById('noResultsText');
+                    if (noResultsText) {
+                        const searchValue = searchQuery || '';
+                        if (searchValue) {
+                            noResultsText.textContent = `Aucune commande annulée trouvée pour la recherche "${searchValue}".`;
+                        } else {
+                            noResultsText.textContent = 'Aucune commande annulée trouvée.';
+                        }
+                    }
+                }
+            } else {
+                // Afficher le tableau et masquer le message
+                if (tableContainer) tableContainer.style.display = '';
+                if (noResultsMessage) noResultsMessage.classList.add('hidden');
+            }
             
             // Mettre à jour l'URL
             updateUrl(page, itemsPerPage, startRange, endRange, searchQuery);
@@ -386,6 +455,12 @@ function loadData(page = 1, itemsPerPage = null, startRange = null, endRange = n
     })
     .catch(error => {
         console.error('Erreur:', error);
+        alert('Erreur lors du chargement des données: ' + error.message);
+    })
+    .finally(() => {
+        // ✅ Toujours masquer le spinner et réinitialiser l'état
+        hideLoading();
+        isLoading = false;
     });
 }
 

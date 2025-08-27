@@ -233,16 +233,24 @@
         </div>
         
         {% else %}
-        <div class="text-center py-12">
-            <i class="fas fa-user-check text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-medium text-gray-900 mb-2">Aucune commande affectée</h3>
-            <p class="text-gray-500">
-                {% if search_query %}
-                    Aucune commande affectée ne correspond à votre recherche.
-                {% else %}
-                    Il n'y a actuellement aucune commande affectée.
-                {% endif %}
-            </p>
+        <!-- Message si aucun résultat -->
+        <div id="noResultsMessage" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        <span id="noResultsText">
+                            {% if search_query %}
+                                Aucune commande affectée trouvée pour la recherche "{{ search_query }}".
+                            {% else %}
+                                Aucune commande affectée trouvée.
+                            {% endif %}
+                        </span>
+                    </p>
+                </div>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -288,12 +296,21 @@
     </div>
 </div>
 
+<!-- ✅ Spinner de chargement identique à liste.html -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+        <p class="text-white text-lg mt-4">Chargement...</p>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
 <script>
 let currentCommandeId = null;
+let isLoading = false; // ✅ État global de chargement
 
 // Déclarations de variables globales pour les éléments DOM
 const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
@@ -304,18 +321,77 @@ const clearRangeBtn = document.getElementById('clearRangeBtn');
 const commandTableBody = document.getElementById('commandTableBody');
 const paginationControlsContainer = document.getElementById('paginationControls');
 const searchInput = document.querySelector('input[name="search"]');
+const loadingOverlay = document.getElementById('loadingOverlay');
 
-// Fonctions de chargement simples comme dans la page Liste des Commandes
+// ✅ Fonctions de chargement identiques à liste.html
 function showLoading() {
-    // Pas d'indicateur de chargement pour une expérience plus fluide
+    if (loadingOverlay) {
+        loadingOverlay.classList.remove('hidden');
+    }
 }
 
 function hideLoading() {
-    // Pas d'indicateur de chargement pour une expérience plus fluide
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('hidden');
+    }
 }
 
-// Fonction pour charger les données via AJAX (simplifiée comme dans Liste des Commandes)
+// ✅ Fonction pour afficher les messages d'erreur
+function showErrorMessage(message, type = 'error') {
+    const errorContainer = document.createElement('div');
+    errorContainer.className = `fixed top-4 right-4 z-50 max-w-md p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+    
+    if (type === 'error') {
+        errorContainer.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+        errorContainer.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-circle mr-3 text-red-500"></i>
+                <div>
+                    <h4 class="font-bold">Erreur</h4>
+                    <p class="text-sm">${message}</p>
+                </div>
+            </div>
+        `;
+    } else if (type === 'warning') {
+        errorContainer.classList.add('bg-yellow-100', 'border-yellow-500', 'text-yellow-700');
+        errorContainer.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-triangle mr-3 text-yellow-500"></i>
+                <div>
+                    <h4 class="font-bold">Attention</h4>
+                    <p class="text-sm">${message}</p>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.body.appendChild(errorContainer);
+    
+    // Animation d'entrée
+    setTimeout(() => {
+        errorContainer.classList.remove('translate-x-full');
+    }, 100);
+    
+    // Suppression automatique
+    setTimeout(() => {
+        errorContainer.classList.add('translate-x-full');
+        setTimeout(() => {
+            document.body.removeChild(errorContainer);
+        }, 300);
+    }, 5000);
+}
+
+// ✅ Fonction pour charger les données via AJAX avec gestion d'erreurs robuste
 async function loadAffecteesData(params = {}) {
+    // ✅ Éviter les requêtes simultanées
+    if (isLoading) {
+        console.warn('Une requête est déjà en cours...');
+        return;
+    }
+    
+    isLoading = true;
+    showLoading(); // Spinner identique à liste.html
+    
     const url = new URL(window.location.origin + window.location.pathname);
     
     // Ajouter les paramètres de recherche existants
@@ -332,48 +408,185 @@ async function loadAffecteesData(params = {}) {
         }
     });
 
+    // ✅ Controller pour timeout et annulation
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+    }, 15000); // 15 secondes timeout
+
     try {
+        console.log('🚀 Envoi requête AJAX vers:', url.toString());
         const response = await fetch(url.toString(), {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
-            }
+            },
+            signal: controller.signal
         });
+        
+        console.log('📡 Réponse reçue:', response.status, response.statusText);
 
+        clearTimeout(timeoutId);
+
+        // ✅ Gestion détaillée des erreurs HTTP
         if (!response.ok) {
-            throw new Error(`Erreur HTTP: ${response.status}`);
+            let errorMessage = 'Erreur de connexion au serveur';
+            
+            switch (response.status) {
+                case 400:
+                    errorMessage = 'Paramètres de requête invalides';
+                    break;
+                case 401:
+                    errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+                    setTimeout(() => window.location.reload(), 2000);
+                    break;
+                case 403:
+                    errorMessage = 'Accès non autorisé';
+                    break;
+                case 404:
+                    errorMessage = 'Page non trouvée';
+                    break;
+                case 500:
+                    errorMessage = 'Erreur interne du serveur';
+                    break;
+                case 502:
+                case 503:
+                    errorMessage = 'Service temporairement indisponible';
+                    break;
+                default:
+                    errorMessage = `Erreur HTTP ${response.status}: ${response.statusText}`;
+            }
+            
+            throw new Error(errorMessage);
         }
 
-        const data = await response.json();
-        
-        // Mettre à jour le contenu du tableau
-        if (commandTableBody) {
-            commandTableBody.innerHTML = data.html_table_body;
-        }
-        
-        // Mettre à jour la pagination
-        if (paginationControlsContainer) {
-            paginationControlsContainer.innerHTML = data.html_pagination;
-        }
-        
-        // Mettre à jour les informations de pagination
-        const paginationInfoContainer = document.getElementById('paginationInfoContainer');
-        if (paginationInfoContainer && data.html_pagination_info) {
-            paginationInfoContainer.innerHTML = data.html_pagination_info;
+        // ✅ Validation du contenu JSON
+        let data;
+        try {
+            data = await response.json();
+            console.log('📊 Données JSON reçues:', data);
+        } catch (jsonError) {
+            console.error('❌ Erreur parsing JSON:', jsonError);
+            const responseText = await response.text();
+            console.error('📄 Contenu brut de la réponse:', responseText);
+            throw new Error('Réponse du serveur invalide (format JSON attendu)');
         }
 
-        // Mettre à jour l'URL sans recharger la page
-        window.history.pushState({}, '', url.toString());
+        // ✅ Validation de la structure de données
+        if (data.success === false) {
+            throw new Error(data.error || 'Erreur inconnue du serveur');
+        }
 
-        // Ré-attacher les event listeners
-        attachPaginationListeners();
+        if (!data.html_table_body || !data.html_pagination) {
+            throw new Error('Données incomplètes reçues du serveur');
+        }
+        
+        // ✅ Mise à jour sécurisée de l'interface
+        try {
+            // Mettre à jour le contenu du tableau
+            if (commandTableBody) {
+                commandTableBody.innerHTML = data.html_table_body;
+            }
+            
+            // Mettre à jour la pagination
+            if (paginationControlsContainer) {
+                paginationControlsContainer.innerHTML = data.html_pagination;
+            }
+            
+            // Mettre à jour les informations de pagination
+            const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+            if (paginationInfoContainer && data.html_pagination_info) {
+                paginationInfoContainer.innerHTML = data.html_pagination_info;
+            }
+
+            // ✅ Gestion du message "aucun résultat" comme dans liste.html
+            const noResultsMessage = document.getElementById('noResultsMessage');
+            const tableContainer = commandTableBody?.closest('.overflow-x-auto')?.parentElement;
+            
+            if (data.total_commands_count === 0 || (data.stats && data.stats.total_affectees === 0)) {
+                // Masquer le tableau et afficher le message
+                if (tableContainer) tableContainer.style.display = 'none';
+                if (noResultsMessage) {
+                    noResultsMessage.classList.remove('hidden');
+                    const noResultsText = document.getElementById('noResultsText');
+                    if (noResultsText) {
+                        const searchValue = searchInput?.value || '';
+                        if (searchValue) {
+                            noResultsText.textContent = `Aucune commande affectée trouvée pour la recherche "${searchValue}".`;
+                        } else {
+                            noResultsText.textContent = 'Aucune commande affectée trouvée.';
+                        }
+                    }
+                }
+            } else {
+                // Afficher le tableau et masquer le message
+                if (tableContainer) tableContainer.style.display = '';
+                if (noResultsMessage) noResultsMessage.classList.add('hidden');
+            }
+
+            // ✅ Mettre à jour les statistiques si disponibles
+            if (data.stats) {
+                updateStatsDisplay(data.stats);
+            }
+
+            // Mettre à jour l'URL sans recharger la page
+            window.history.pushState({}, '', url.toString());
+
+            // Ré-attacher les event listeners
+            attachPaginationListeners();
+
+        } catch (domError) {
+            throw new Error('Erreur lors de la mise à jour de l\'interface: ' + domError.message);
+        }
 
     } catch (error) {
-        console.error('Erreur lors du chargement des données:', error);
-        alert('Erreur lors du chargement des données: ' + error.message);
+        console.error('❌ Erreur lors du chargement des données:', error);
+        console.error('❌ Type d\'erreur:', error.name);
+        console.error('❌ Message d\'erreur:', error.message);
+        console.error('❌ Stack trace:', error.stack);
+        
+        // ✅ Gestion spécifique des erreurs
+        if (error.name === 'AbortError') {
+            console.warn('⏱️ Timeout de requête');
+            showErrorMessage('La requête a pris trop de temps. Veuillez réessayer.', 'warning');
+        } else if (error.message.includes('Failed to fetch')) {
+            console.warn('🌐 Problème de connexion réseau');
+            showErrorMessage('Problème de connexion réseau. Vérifiez votre connexion internet.', 'error');
+        } else {
+            console.error('🔥 Erreur générique:', error.message);
+            showErrorMessage(error.message, 'error');
+        }
+        
+        // ✅ Restaurer l'état précédent en cas d'erreur
+        // (optionnel: conserver les données précédentes affichées)
+        
+    } finally {
+        // ✅ Nettoyage systématique
+        clearTimeout(timeoutId);
+        hideLoading();
+        isLoading = false;
     }
 }
 
-// Fonction pour attacher les event listeners à la pagination
+// ✅ Fonction pour mettre à jour l'affichage des statistiques
+function updateStatsDisplay(stats) {
+    try {
+        // Mettre à jour le montant total
+        const totalMontantEl = document.querySelector('.text-3xl.font-bold.text-gray-900.transition-all.duration-300.group-hover\\:text-green-600');
+        if (totalMontantEl && stats.total_montant !== undefined) {
+            totalMontantEl.textContent = `${parseFloat(stats.total_montant).toFixed(2)} DH`;
+        }
+        
+        // Mettre à jour la moyenne
+        const moyenneEl = document.querySelector('.text-3xl.font-bold.text-gray-900.transition-all.duration-300.group-hover\\:text-purple-600');
+        if (moyenneEl && stats.moyenne_montant !== undefined) {
+            moyenneEl.textContent = `${parseFloat(stats.moyenne_montant).toFixed(2)} DH`;
+        }
+    } catch (error) {
+        console.warn('Erreur lors de la mise à jour des statistiques:', error);
+    }
+}
+
+// ✅ Fonction pour attacher les event listeners à la pagination avec debounce
 function attachPaginationListeners() {
     // Supprimer les anciens écouteurs avant d'en ajouter de nouveaux
     document.querySelectorAll('#paginationControls a').forEach(link => {
@@ -386,16 +599,41 @@ function attachPaginationListeners() {
     });
 }
 
-// Fonction pour gérer les clics sur la pagination
+// ✅ Fonction pour gérer les clics sur la pagination avec validation
 function handlePaginationClick(e) {
     e.preventDefault();
-    const url = new URL(this.href);
-    const page = url.searchParams.get('page');
-    // Récupérer tous les paramètres de l'URL actuelle et ajouter/modifier la page
-    const currentParams = new URLSearchParams(window.location.search);
-    currentParams.set('page', page);
-    // Pagination instantanée sans indicateur de chargement
-    loadAffecteesData(Object.fromEntries(currentParams));
+    
+    // ✅ Validation du lien
+    if (!this.href) {
+        console.warn('Lien de pagination invalide');
+        return;
+    }
+    
+    try {
+        const url = new URL(this.href);
+        const page = url.searchParams.get('page');
+        
+        // ✅ Validation du numéro de page
+        if (!page || isNaN(page) || parseInt(page) < 1) {
+            showErrorMessage('Numéro de page invalide', 'warning');
+            return;
+        }
+        
+        // Récupérer tous les paramètres de l'URL actuelle et ajouter/modifier la page
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.set('page', page);
+        
+        // ✅ Validation supplémentaire des paramètres
+        const paramsObject = Object.fromEntries(currentParams);
+        console.log('Navigation vers page:', page, 'avec paramètres:', paramsObject);
+        
+        // Chargement avec indicateurs et gestion d'erreurs
+        loadAffecteesData(paramsObject);
+        
+    } catch (urlError) {
+        console.error('Erreur URL de pagination:', urlError);
+        showErrorMessage('Erreur lors de la navigation', 'error');
+    }
 }
 
 // Fonction pour construire le HTML du panier
@@ -664,14 +902,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Event listener for search input for dynamic updates, with a debounce for performance
+    // ✅ Event listener optimisé pour la recherche avec gestion d'erreurs
     let searchTimeout;
     if (searchInput) {
-        searchInput.addEventListener('keyup', () => {
+        searchInput.addEventListener('keyup', (e) => {
             clearTimeout(searchTimeout);
+            
+            // ✅ Éviter les requêtes pour les touches de navigation
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+                return;
+            }
+            
             searchTimeout = setTimeout(() => {
-                loadAffecteesData({ 'page': '1' }); // Reset to page 1 on search change
+                try {
+                    loadAffecteesData({ 'page': '1' }); // Reset to page 1 on search change
+                } catch (error) {
+                    console.error('Erreur lors de la recherche:', error);
+                    showErrorMessage('Erreur lors de la recherche', 'error');
+                }
             }, 300); // Même délai que dans Liste des Commandes
+        });
+        
+        // ✅ Gestion de la recherche sur Enter
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                loadAffecteesData({ 'page': '1' });
+            }
         });
     }
 

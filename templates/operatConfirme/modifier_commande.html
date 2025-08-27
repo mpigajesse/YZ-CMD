@@ -3387,13 +3387,6 @@ function ouvrirModalVariantes(article) {
         document.getElementById('articleNom').textContent = article.nom || 'Article';
         document.getElementById('articleReference').textContent = `Réf: ${article.reference || ''}`;
         
-        // Réinitialiser l'état du modal AVANT de définir l'article
-        reinitialiserModalVariantes();
-        
-        // Stocker l'article actuel APRÈS la réinitialisation
-        window.currentArticle = article;
-        console.log('🔍 DEBUG ouvrirModalVariantes - window.currentArticle défini:', window.currentArticle);
-        
         // Charger les variantes de l'article
         chargerVariantesArticle(article);
         
@@ -3411,62 +3404,29 @@ function ouvrirModalVariantes(article) {
 }
 
 function fermerModalVariantes() {
-    console.log('🔍 DEBUG fermerModalVariantes - avant nettoyage, window.currentArticle:', window.currentArticle);
-    
     const modal = document.getElementById('variantModal');
     if (modal) {
         modal.style.display = 'none';
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
-    
-    // Réinitialiser les informations des variantes sélectionnées
-    const selectedVariantsInfo = document.getElementById('selectedVariantsInfo');
-    const addSelectedVariantsBtn = document.getElementById('addSelectedVariantsBtn');
-    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
-    
-    if (selectedVariantsInfo) selectedVariantsInfo.classList.add('hidden');
-    if (addSelectedVariantsBtn) addSelectedVariantsBtn.classList.add('hidden');
-    if (clearSelectionBtn) clearSelectionBtn.classList.add('hidden');
-    
-    // Nettoyer les variables globales
-    window.selectedVariants = [];
-    window.currentArticle = null;
-    window.variantsData = null;
-    console.log('🔍 DEBUG fermerModalVariantes - après nettoyage, window.currentArticle:', window.currentArticle);
-}
-
-function reinitialiserModalVariantes() {
-    // Réinitialiser les informations des variantes sélectionnées
-    const selectedVariantsInfo = document.getElementById('selectedVariantsInfo');
-    const addSelectedVariantsBtn = document.getElementById('addSelectedVariantsBtn');
-    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
-    
-    if (selectedVariantsInfo) selectedVariantsInfo.classList.add('hidden');
-    if (addSelectedVariantsBtn) addSelectedVariantsBtn.classList.add('hidden');
-    if (clearSelectionBtn) clearSelectionBtn.classList.add('hidden');
-    
-    // Nettoyer les variables globales
-    window.selectedVariants = [];
-    window.currentArticle = null;
-    window.variantsData = null;
 }
 
 function chargerVariantesArticle(article) {
     try {
-        const variantsTableContainer = document.getElementById('variantsTableContainer');
-        if (!variantsTableContainer) return;
+        const variantsList = document.getElementById('variantsList');
+        if (!variantsList) return;
         
         console.log('🔍 Chargement des variantes pour l\'article:', article);
         console.log('🔍 ID de l\'article:', article.id, 'Type:', typeof article.id);
         
         if (!article.id) {
             console.error('❌ ID d\'article manquant');
-            variantsTableContainer.innerHTML = '<div class="text-center py-4 text-red-500">❌ ID d\'article manquant</div>';
+            variantsList.innerHTML = '<div class="text-center py-4 text-red-500">❌ ID d\'article manquant</div>';
             return;
         }
         
-        variantsTableContainer.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Chargement des variantes...</div>';
+        variantsList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Chargement des variantes...</div>';
         
         const url = `/operateur-confirme/get-article-variants/${article.id}/`;
         console.log('📡 URL de requête:', url);
@@ -3484,12 +3444,12 @@ function chargerVariantesArticle(article) {
                     afficherVariantes(data.variants, article);
                 } else {
                     console.log('❌ Aucune variante ou erreur:', data.error);
-                    variantsTableContainer.innerHTML = '<div class="text-center py-4 text-gray-500">Aucune variante disponible</div>';
+                    variantsList.innerHTML = '<div class="text-center py-4 text-gray-500">Aucune variante disponible</div>';
                 }
             })
             .catch(error => {
                 console.error('❌ Erreur chargement variantes:', error);
-                variantsTableContainer.innerHTML = '<div class="text-center py-4 text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>Erreur lors du chargement</div>';
+                variantsList.innerHTML = '<div class="text-center py-4 text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>Erreur lors du chargement</div>';
             });
     } catch (e) {
         console.error('❌ Erreur chargerVariantesArticle:', e);
@@ -3497,452 +3457,40 @@ function chargerVariantesArticle(article) {
 }
 
 function afficherVariantes(variants, article) {
-    const variantsTableContainer = document.getElementById('variantsTableContainer');
-    if (!variantsTableContainer) return;
+    const variantsList = document.getElementById('variantsList');
+    if (!variantsList) return;
     
     if (variants.length === 0) {
-        variantsTableContainer.innerHTML = '<div class="text-center py-4 text-gray-500">Aucune variante disponible</div>';
+        variantsList.innerHTML = '<div class="text-center py-4 text-gray-500">Aucune variante disponible</div>';
         return;
     }
     
-    // Analyser les variantes pour créer le tableau croisé
-    const { tableHtml, variantMap } = creerTableauCroise(variants);
-    variantsTableContainer.innerHTML = tableHtml;
-    
-    // Stocker les données des variantes pour la sélection
-    window.variantsData = variantMap;
-    // window.currentArticle est déjà défini dans ouvrirModalVariantes
-    
-    // Ajouter les event listeners pour les checkboxes
-    ajouterEventListenersCheckboxes();
-}
-
-function creerTableauCroise(variants) {
-    // Extraire les valeurs uniques pour chaque attribut
-    const couleurs = [...new Set(variants.map(v => v.couleur).filter(Boolean))];
-    const pointures = [...new Set(variants.map(v => v.pointure).filter(Boolean))];
-    const tailles = [...new Set(variants.map(v => v.taille).filter(Boolean))];
-    
-    // Déterminer les dimensions du tableau
-    let dimension1, dimension2, valeurs1, valeurs2;
-    
-    if (couleurs.length > 0 && pointures.length > 0) {
-        dimension1 = 'couleur';
-        dimension2 = 'pointure';
-        valeurs1 = couleurs;
-        valeurs2 = pointures;
-    } else if (couleurs.length > 0 && tailles.length > 0) {
-        dimension1 = 'couleur';
-        dimension2 = 'taille';
-        valeurs1 = couleurs;
-        valeurs2 = tailles;
-    } else if (pointures.length > 0 && tailles.length > 0) {
-        dimension1 = 'pointure';
-        dimension2 = 'taille';
-        valeurs1 = pointures;
-        valeurs2 = tailles;
-    } else if (couleurs.length > 0) {
-        // Seulement des couleurs
-        dimension1 = 'couleur';
-        dimension2 = null;
-        valeurs1 = couleurs;
-        valeurs2 = [];
-    } else if (pointures.length > 0) {
-        // Seulement des pointures
-        dimension1 = 'pointure';
-        dimension2 = null;
-        valeurs1 = pointures;
-        valeurs2 = [];
-    } else if (tailles.length > 0) {
-        // Seulement des tailles
-        dimension1 = 'taille';
-        dimension2 = null;
-        valeurs1 = tailles;
-        valeurs2 = [];
-    } else {
-        // Aucune dimension claire, afficher en liste simple
-        return creerListeSimple(variants);
-    }
-    
-    // Créer une map pour accéder rapidement aux variantes
-    const variantMap = {};
-    
-    // Si on n'a qu'une dimension, créer un tableau simple
-    if (!dimension2) {
-        return creerTableauSimple(variants, dimension1, valeurs1, variantMap);
-    }
-    
-    let tableHtml = `
-        <div class="overflow-x-auto">
-            <table class="variant-table min-w-full rounded-lg overflow-hidden">
-                <thead>
-                    <tr>
-                        <th>
-                            ${dimension1.charAt(0).toUpperCase() + dimension1.slice(1)} / ${dimension2.charAt(0).toUpperCase() + dimension2.slice(1)}
-                        </th>
-    `;
-    
-    // En-têtes de colonnes
-    valeurs2.forEach(val2 => {
-        tableHtml += `
-            <th>
-                ${val2 || 'N/A'}
-            </th>
-        `;
-    });
-    
-    tableHtml += '</tr></thead><tbody>';
-    
-    // Lignes du tableau
-    valeurs1.forEach(val1 => {
-        tableHtml += `
-            <tr>
-                <td class="font-medium">
-                    ${val1 || 'N/A'}
-                </td>
-        `;
+    const variantsHtml = variants.map(variant => {
+        const stockClass = variant.stock > 0 ? 'text-green-600' : 'text-red-600';
+        const stockText = variant.stock > 0 ? `${variant.stock} en stock` : 'Rupture de stock';
+        const disabledClass = variant.stock <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-50 cursor-pointer';
         
-        valeurs2.forEach(val2 => {
-            // Trouver la variante correspondante
-            const variant = variants.find(v => {
-                const v1 = dimension1 === 'couleur' ? v.couleur : (dimension1 === 'pointure' ? v.pointure : v.taille);
-                const v2 = dimension2 === 'couleur' ? v.couleur : (dimension2 === 'pointure' ? v.pointure : v.taille);
-                return v1 === val1 && v2 === val2;
-            });
-            
-            if (variant) {
-                const stockClass = variant.stock > 0 ? 'stock-disponible' : 'stock-rupture';
-                const stockText = variant.stock > 0 ? `${variant.stock} en stock` : 'Rupture';
-                const checkboxDisabled = variant.stock <= 0 ? 'disabled' : '';
-                
-                // Créer une clé unique pour cette variante
-                const variantKey = `${variant.id}`;
-                variantMap[variantKey] = variant;
-                
-                tableHtml += `
-                    <td>
-                        <div class="space-y-2">
-                            <div class="flex justify-center items-center">
-                                <input type="checkbox" name="variantSelection" value="${variantKey}" 
-                                       id="variant_${variantKey}" class="variant-checkbox" ${checkboxDisabled}
-                                       onchange="selectionnerVarianteFromTable('${variantKey}', this.checked)">
-                                <label for="variant_${variantKey}" class="ml-2 text-sm font-medium ${variant.stock > 0 ? 'cursor-pointer' : 'cursor-not-allowed'}">
-                                    ${variant.prix_unitaire} DH
-                                </label>
-                            </div>
-                            <div class="text-xs ${stockClass} font-medium">${stockText}</div>
+        return `
+            <div class="border rounded-lg p-4 ${disabledClass}" onclick="${variant.stock > 0 ? `selectionnerVariante(${JSON.stringify(variant).replace(/"/g, '&quot;')}, ${JSON.stringify(article).replace(/"/g, '&quot;')})` : ''}">
+                <div class="flex justify-between items-center">
+                    <div class="flex-1">
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            ${variant.couleur ? `<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">Couleur: ${variant.couleur}</span>` : ''}
+                            ${variant.pointure ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">Pointure: ${variant.pointure}</span>` : ''}
+                            ${variant.taille ? `<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Taille: ${variant.taille}</span>` : ''}
                         </div>
-                    </td>
-                `;
-            } else {
-                tableHtml += `
-                    <td class="bg-gray-100">
-                        <span class="text-gray-400 text-xs">-</span>
-                    </td>
-                `;
-            }
-        });
-        
-        tableHtml += '</tr>';
-    });
-    
-    tableHtml += '</tbody></table></div>';
-    
-    return { tableHtml, variantMap };
-}
-
-function creerTableauSimple(variants, dimension, valeurs, variantMap) {
-    let tableHtml = `
-        <div class="overflow-x-auto">
-            <table class="variant-table min-w-full rounded-lg overflow-hidden">
-                <thead>
-                    <tr>
-                        <th>${dimension.charAt(0).toUpperCase() + dimension.slice(1)}</th>
-                        <th>Prix</th>
-                        <th>Stock</th>
-                        <th>Sélection</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-    
-    valeurs.forEach(val => {
-        const variant = variants.find(v => {
-            const v1 = dimension === 'couleur' ? v.couleur : (dimension === 'pointure' ? v.pointure : v.taille);
-            return v1 === val;
-        });
-        
-        if (variant) {
-            const stockClass = variant.stock > 0 ? 'stock-disponible' : 'stock-rupture';
-            const stockText = variant.stock > 0 ? `${variant.stock} en stock` : 'Rupture';
-            const checkboxDisabled = variant.stock <= 0 ? 'disabled' : '';
-            
-            const variantKey = `${variant.id}`;
-            variantMap[variantKey] = variant;
-            
-            tableHtml += `
-                <tr>
-                    <td class="font-medium">${val || 'N/A'}</td>
-                    <td class="font-semibold">${variant.prix_unitaire} DH</td>
-                    <td class="${stockClass}">${stockText}</td>
-                    <td class="text-center">
-                        <input type="checkbox" name="variantSelection" value="${variantKey}" 
-                               id="variant_${variantKey}" class="variant-checkbox" ${checkboxDisabled}
-                               onchange="selectionnerVarianteFromTable('${variantKey}', this.checked)">
-                    </td>
-                </tr>
-            `;
-        }
-    });
-    
-    tableHtml += '</tbody></table></div>';
-    return { tableHtml, variantMap };
-}
-
-function creerListeSimple(variants) {
-    const variantMap = {};
-    
-    let tableHtml = `
-        <div class="overflow-x-auto">
-            <table class="variant-table min-w-full rounded-lg overflow-hidden">
-                <thead>
-                    <tr>
-                        <th>Variante</th>
-                        <th>Prix</th>
-                        <th>Stock</th>
-                        <th>Sélection</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-    
-    variants.forEach((variant, index) => {
-        const stockClass = variant.stock > 0 ? 'stock-disponible' : 'stock-rupture';
-        const stockText = variant.stock > 0 ? `${variant.stock} en stock` : 'Rupture';
-        const checkboxDisabled = variant.stock <= 0 ? 'disabled' : '';
-        
-        const variantKey = `${variant.id}`;
-        variantMap[variantKey] = variant;
-        
-        const variantInfo = [
-            variant.couleur ? `Couleur: ${variant.couleur}` : '',
-            variant.pointure ? `Pointure: ${variant.pointure}` : '',
-            variant.taille ? `Taille: ${variant.taille}` : ''
-        ].filter(Boolean).join(' | ');
-        
-        tableHtml += `
-            <tr>
-                <td class="font-medium">${variantInfo || 'Variante ' + (index + 1)}</td>
-                <td class="font-semibold">${variant.prix_unitaire} DH</td>
-                <td class="${stockClass}">${stockText}</td>
-                <td class="text-center">
-                    <input type="checkbox" name="variantSelection" value="${variantKey}" 
-                           id="variant_${variantKey}" class="variant-checkbox" ${checkboxDisabled}
-                           onchange="selectionnerVarianteFromTable('${variantKey}', this.checked)">
-                </td>
-            </tr>
-        `;
-    });
-    
-    tableHtml += '</tbody></table></div>';
-    return { tableHtml, variantMap };
-}
-
-function ajouterEventListenersCheckboxes() {
-    const checkboxes = document.querySelectorAll('.variant-checkbox');
-    checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            // Pas besoin de décocher les autres pour les checkboxes multiples
-            // La logique est gérée dans selectionnerVarianteFromTable
-        });
-    });
-}
-
-function selectionnerVarianteFromTable(variantKey, isChecked) {
-    if (!window.variantsData || !window.variantsData[variantKey]) {
-        console.error('❌ Variante non trouvée:', variantKey);
-        return;
-    }
-    
-    const variant = window.variantsData[variantKey];
-    
-    // Initialiser le tableau des variantes sélectionnées s'il n'existe pas
-    if (!window.selectedVariants) {
-        window.selectedVariants = [];
-    }
-    
-    if (isChecked) {
-        // Ajouter la variante à la sélection
-        if (!window.selectedVariants.find(v => v.id === variant.id)) {
-            window.selectedVariants.push(variant);
-        }
-    } else {
-        // Retirer la variante de la sélection
-        window.selectedVariants = window.selectedVariants.filter(v => v.id !== variant.id);
-    }
-    
-    // Mettre à jour l'affichage des informations
-    mettreAJourAffichageVariantesSelectionnees();
-    
-    // Afficher un message de confirmation
-    if (isChecked) {
-        showToast(`✅ Variante ajoutée à la sélection (${window.selectedVariants.length} sélectionnée(s))`, 'success');
-    } else {
-        showToast(`🔄 Variante retirée de la sélection (${window.selectedVariants.length} sélectionnée(s))`, 'info');
-    }
-}
-
-function mettreAJourAffichageVariantesSelectionnees() {
-    const selectedVariantsInfo = document.getElementById('selectedVariantsInfo');
-    const selectedVariantsDetails = document.getElementById('selectedVariantsDetails');
-    const addSelectedVariantsBtn = document.getElementById('addSelectedVariantsBtn');
-    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
-    
-    if (!selectedVariantsInfo || !selectedVariantsDetails || !addSelectedVariantsBtn || !clearSelectionBtn) {
-        return;
-    }
-    
-    if (window.selectedVariants && window.selectedVariants.length > 0) {
-        // Afficher les informations des variantes sélectionnées
-        let details = `<div class="mb-3"><strong>${window.selectedVariants.length} variante(s) sélectionnée(s):</strong></div>`;
-        
-        window.selectedVariants.forEach((variant, index) => {
-            const stockStatus = variant.stock > 0 ? 
-                `<span class="text-green-600">${variant.stock} en stock</span>` : 
-                '<span class="text-red-600">Rupture</span>';
-            
-            details += `
-                <div class="border-l-4 border-blue-200 pl-3 mb-2 ${index > 0 ? 'mt-3' : ''}">
-                    <div class="font-medium">Variante ${index + 1}</div>
-                    <div class="text-sm text-gray-600">
-                        <strong>Prix:</strong> ${variant.prix_unitaire} DH | 
-                        <strong>Stock:</strong> ${stockStatus}
+                        <div class="text-lg font-semibold">${variant.prix_unitaire} DH</div>
                     </div>
-                    <div class="text-xs text-gray-500">
-                        ${variant.couleur ? `Couleur: ${variant.couleur} | ` : ''}
-                        ${variant.pointure ? `Pointure: ${variant.pointure} | ` : ''}
-                        ${variant.taille ? `Taille: ${variant.taille}` : ''}
+                    <div class="text-right">
+                        <div class="text-sm ${stockClass} font-medium">${stockText}</div>
+                        ${variant.stock > 0 ? '<button class="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm">Sélectionner</button>' : ''}
                     </div>
                 </div>
-            `;
-        });
-        
-        selectedVariantsDetails.innerHTML = details;
-        selectedVariantsInfo.classList.remove('hidden');
-        addSelectedVariantsBtn.classList.remove('hidden');
-        clearSelectionBtn.classList.remove('hidden');
-        
-        // Mettre à jour le texte du bouton d'ajout
-        addSelectedVariantsBtn.innerHTML = `<i class="fas fa-plus mr-2"></i>Ajouter ${window.selectedVariants.length} variante(s)`;
-    } else {
-        // Masquer les informations si aucune variante n'est sélectionnée
-        selectedVariantsInfo.classList.add('hidden');
-        addSelectedVariantsBtn.classList.add('hidden');
-        clearSelectionBtn.classList.add('hidden');
-    }
-}
-
-function effacerSelectionVariantes() {
-    // Décocher tous les checkboxes
-    const checkboxes = document.querySelectorAll('.variant-checkbox');
-    checkboxes.forEach(cb => cb.checked = false);
+            </div>
+        `;
+    }).join('');
     
-    // Masquer les informations des variantes sélectionnées
-    const selectedVariantsInfo = document.getElementById('selectedVariantsInfo');
-    const addSelectedVariantsBtn = document.getElementById('addSelectedVariantsBtn');
-    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
-    
-    if (selectedVariantsInfo) selectedVariantsInfo.classList.add('hidden');
-    if (addSelectedVariantsBtn) addSelectedVariantsBtn.classList.add('hidden');
-    if (clearSelectionBtn) clearSelectionBtn.classList.add('hidden');
-    
-    // Nettoyer la variante sélectionnée
-    window.selectedVariants = [];
-    
-    showToast('🔄 Sélection effacée', 'info');
-}
-
-function ajouterVariantesSelectionnees() {
-    console.log('🔍 DEBUG ajouterVariantesSelectionnees - window.currentArticle:', window.currentArticle);
-    console.log('🔍 DEBUG ajouterVariantesSelectionnees - window.selectedVariants:', window.selectedVariants);
-    
-    if (!window.selectedVariants || window.selectedVariants.length === 0) {
-        showToast('❌ Aucune variante sélectionnée', 'error');
-        return;
-    }
-    
-    if (!window.currentArticle) {
-        console.error('❌ Article parent non trouvé - window.currentArticle est:', window.currentArticle);
-        console.error('🔍 DEBUG - Toutes les variables globales:');
-        console.error('  - window.selectedVariants:', window.selectedVariants);
-        console.error('  - window.variantsData:', window.variantsData);
-        showToast('❌ Erreur: Article parent non trouvé', 'error');
-        return;
-    }
-    
-    try {
-        // Ajouter chaque variante sélectionnée
-        let ajoutees = 0;
-        window.selectedVariants.forEach(variant => {
-            try {
-                // Créer un article combiné avec les données de la variante
-                const articleAvecVariante = {
-                    ...window.currentArticle,
-                    ...variant,
-                    id: variant.id,
-                    article_id: window.currentArticle.id,  // ID de l'article parent
-                    variante_id: variant.id, // ID de la variante
-                    prix_actuel: variant.prix_unitaire,
-                    prix_unitaire: variant.prix_unitaire,
-                    stock_disponible: variant.stock
-                };
-                
-                // Utiliser la logique existante pour ajouter l'article
-                const hiddenSelect = document.getElementById('articleSelect');
-                if (!hiddenSelect) return;
-                
-                hiddenSelect.value = variant.id;
-                const qteInput = document.getElementById('quantiteInput');
-                if (qteInput) qteInput.value = '1';
-                
-                // Créer ou mettre à jour l'option dans le select
-                let opt = Array.from(hiddenSelect.options).find(o => String(o.value) === String(variant.id));
-                if (!opt) {
-                    opt = new Option('', variant.id);
-                    hiddenSelect.appendChild(opt);
-                }
-                opt.dataset.article = JSON.stringify(articleAvecVariante);
-                hiddenSelect.selectedIndex = opt.index;
-                
-                afficherInfosArticle(articleAvecVariante);
-                isEditingArticle = false;
-                saveArticle();
-                
-                ajoutees++;
-                
-            } catch (e) {
-                console.error('❌ Erreur ajout variante individuelle:', e);
-            }
-        });
-        
-        if (ajoutees > 0) {
-            showToast(`✅ ${ajoutees} variante(s) ajoutée(s) avec succès`, 'success');
-        } else {
-            showToast('❌ Aucune variante n\'a pu être ajoutée', 'error');
-        }
-        
-        // Fermer le modal des variantes après le traitement
-        fermerModalVariantes();
-        
-        // Nettoyer les variables globales
-        window.selectedVariants = [];
-        window.currentArticle = null;
-        window.variantsData = null;
-        
-    } catch (e) {
-        console.error('❌ Erreur ajout variantes:', e);
-        showToast('❌ Erreur lors de l\'ajout des variantes', 'error');
-    }
+    variantsList.innerHTML = variantsHtml;
 }
 
 function selectionnerVariante(variant, article) {
@@ -6687,86 +6235,6 @@ function modifierArticle(panierId) {
     .animate-fade-in-down {
         animation: fade-in-down 0.4s ease-out;
     }
-    
-    /* Styles pour le tableau croisé des variantes */
-    .variant-table {
-        border-collapse: collapse;
-        width: 100%;
-    }
-    
-    .variant-table th,
-    .variant-table td {
-        border: 1px solid #d1d5db;
-        padding: 0.75rem;
-        text-align: center;
-    }
-    
-    .variant-table th {
-        background-color: #f9fafb;
-        font-weight: 600;
-        color: #374151;
-    }
-    
-    .variant-table td {
-        background-color: white;
-    }
-    
-    .variant-table tr:nth-child(even) td:first-child {
-        background-color: #f9fafb;
-    }
-    
-    .variant-checkbox {
-        width: 1.2rem;
-        height: 1.2rem;
-        cursor: pointer;
-    }
-    
-    .variant-checkbox:disabled {
-        cursor: not-allowed;
-        opacity: 0.5;
-    }
-    
-    .variant-table .stock-rupture {
-        background-color: #fef2f2;
-        color: #dc2626;
-    }
-    
-    .variant-table .stock-disponible {
-        background-color: #f0fdf4;
-        color: #16a34a;
-    }
-    
-    /* Responsive design pour le tableau */
-    @media (max-width: 768px) {
-        .variant-table {
-            font-size: 0.875rem;
-        }
-        
-        .variant-table th,
-        .variant-table td {
-            padding: 0.5rem;
-        }
-        
-        .variant-checkbox {
-            width: 1rem;
-            height: 1rem;
-        }
-    }
-    
-    /* Animation pour la sélection */
-    .variant-checkbox:checked + label {
-        color: #2563eb;
-        font-weight: 600;
-    }
-    
-    /* Hover effects */
-    .variant-table tr:hover td {
-        background-color: #f8fafc;
-    }
-    
-    .variant-table tr:hover td:first-child {
-        background-color: #f1f5f9;
-    }
 </style>
 
 <!-- Modal de Stock Insuffisant Tailwind -->
@@ -6995,11 +6463,11 @@ function modifierArticle(panierId) {
 
 <!-- Modal de sélection des variantes -->
 <div id="variantModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50" style="backdrop-filter: blur(8px); display: none;">
-    <div class="bg-white rounded-xl p-6 w-full max-w-6xl mx-4 shadow-2xl">
+    <div class="bg-white rounded-xl p-6 w-full max-w-4xl mx-4 shadow-2xl">
         <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
             <div class="flex items-center">
-                <i class="fas fa-table text-blue-500 mr-3"></i>
-                <span>Sélectionner des variantes - Tableau croisé</span>
+                <i class="fas fa-th-list text-blue-500 mr-3"></i>
+                <span>Sélectionner une variante</span>
             </div>
             <span class="text-gray-500 hover:text-gray-700 cursor-pointer transition-colors" onclick="fermerModalVariantes()">
                 <i class="fas fa-times text-xl"></i>
@@ -7012,36 +6480,16 @@ function modifierArticle(panierId) {
             <p id="articleReference" class="text-sm text-gray-600"></p>
         </div>
 
-        <!-- Tableau croisé des variantes -->
-        <div id="variantsTableContainer" class="mb-4">
-            <div class="text-center py-8 text-gray-500">
-                <i class="fas fa-table text-4xl mb-4 text-gray-300"></i>
-                <p class="text-lg">Sélectionnez un article pour voir ses variantes</p>
-            </div>
+        <!-- Liste des variantes -->
+        <div id="variantsList" class="space-y-3 max-h-96 overflow-y-auto">
+            <!-- Les variantes seront chargées dynamiquement ici -->
         </div>
 
-        <!-- Informations des variantes sélectionnées -->
-        <div id="selectedVariantsInfo" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg hidden">
-            <h5 class="font-medium text-blue-900 mb-2">Variantes sélectionnées:</h5>
-            <div id="selectedVariantsDetails" class="text-sm text-blue-800"></div>
-        </div>
-
-        <div class="flex justify-between items-center mt-6">
-            <button type="button" id="clearSelectionBtn" onclick="effacerSelectionVariantes()" 
-                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors hidden">
-                <i class="fas fa-times mr-2"></i>Effacer la sélection
+        <div class="flex justify-end space-x-3 mt-6">
+            <button type="button" onclick="fermerModalVariantes()" 
+                    class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors">
+                Annuler
             </button>
-            
-            <div class="flex space-x-3">
-                <button type="button" id="addSelectedVariantsBtn" onclick="ajouterVariantesSelectionnees()" 
-                        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors hidden">
-                    <i class="fas fa-plus mr-2"></i>Ajouter les variantes sélectionnées
-                </button>
-                <button type="button" onclick="fermerModalVariantes()" 
-                        class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors">
-                    Annuler
-                </button>
-            </div>
         </div>
     </div>
 </div>

@@ -320,9 +320,11 @@ def liste_prepa(request):
                     break
             
             if etat_prepa_actuel:
+                # Initialiser la variable
+                a_etats_ultérieurs_problematiques = False
+                
                 # Vérifier s'il y a des états ultérieurs problématiques (seulement si l'état actuel n'est pas "Préparée")
                 if etat_prepa_actuel.enum_etat.libelle != 'Préparée':
-                    a_etats_ultérieurs_problematiques = False
                     for etat in etats_commande:
                         if (etat.date_debut > etat_prepa_actuel.date_debut and 
                                 etat.enum_etat.libelle in ['Livrée', 'Livrée Partiellement', 'En cours de livraison']):
