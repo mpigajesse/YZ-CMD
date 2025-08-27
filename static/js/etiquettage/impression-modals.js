@@ -1511,13 +1511,44 @@ function hideTicketMultipleModal() {
  * Impression directe des tickets multiples (sans modale)
  */
 function imprimerTicketsMultipleDirect() {
+    console.log('🚀 === DÉBUT IMPRESSION TICKETS MULTIPLE ===');
+    
     // Afficher un indicateur de chargement
     impressionModals.showNotification('Préparation de l\'impression des tickets...', 'info');
     
+    // Récupérer les IDs des commandes sélectionnées
+    const selectedIds = getSelectedCommandeIds();
+    console.log('📋 IDs récupérés par getSelectedCommandeIds():', selectedIds);
+    
+    let url = '/Superpreparation/api/ticket-commande-multiple/?direct_print=true';
+    
+    // Si des commandes sont sélectionnées, les passer en paramètre
+    if (selectedIds && selectedIds.length > 0) {
+        url += `&selected_ids=${selectedIds.join(',')}`;
+        console.log(`🖨️ Impression des tickets pour ${selectedIds.length} commandes sélectionnées:`, selectedIds);
+        console.log('🔗 Paramètres ajoutés à l\'URL');
+    } else {
+        console.log('🖨️ Impression des tickets pour toutes les commandes confirmées');
+        console.log('⚠️ Aucune sélection détectée');
+    }
+    
+    console.log('🖨️ URL finale complète:', url);
+    console.log('🌐 Envoi de la requête fetch...');
+    
     // Récupérer les données des tickets multiples (avec paramètre pour impression directe)
-    fetch('/Superpreparation/api/ticket-commande-multiple/?direct_print=true')
-        .then(response => response.json())
+    fetch(url)
+        .then(response => {
+            console.log('📡 Réponse reçue du serveur');
+            console.log('📊 Status:', response.status);
+            console.log('📊 StatusText:', response.statusText);
+            console.log('📊 Headers:', response.headers);
+            return response.json();
+        })
         .then(data => {
+            console.log('📦 Données reçues:', data);
+            console.log('✅ Success:', data.success);
+            console.log('📊 Nombre de commandes dans la réponse:', data.commandes ? data.commandes.length : 'Non défini');
+            
             if (data.success) {
                 // Créer une nouvelle fenêtre pour l'impression
                 const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -1775,8 +1806,20 @@ function imprimerCodesQRArticlesDirect() {
     // Afficher un indicateur de chargement
     impressionModals.showNotification('Préparation de l\'impression des codes QR...', 'info');
     
-    // Récupérer les données des codes QR des articles (toutes les commandes confirmées)
-    fetch('/Superpreparation/api/etiquettes-articles-multiple/')
+    // Récupérer les IDs des commandes sélectionnées
+    const selectedIds = getSelectedCommandeIds();
+    let url = '/Superpreparation/api/etiquettes-articles-multiple/';
+    
+    // Si des commandes sont sélectionnées, les passer en paramètre
+    if (selectedIds && selectedIds.length > 0) {
+        url += `?selected_ids=${selectedIds.join(',')}`;
+        console.log(`🖨️ Impression des codes QR pour ${selectedIds.length} commandes sélectionnées:`, selectedIds);
+    } else {
+        console.log('🖨️ Impression des codes QR pour tous les articles des commandes confirmées');
+    }
+    
+    // Récupérer les données des codes QR des articles (selon la sélection)
+    fetch(url)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -2331,6 +2374,41 @@ window.impressionMultipleFusionnee = function() {
         });
 };
 
+// Fonction pour récupérer les IDs des commandes sélectionnées
+function getSelectedCommandeIds() {
+    try {
+        // Récupérer tous les checkboxes de commandes cochés
+        const selectedCheckboxes = document.querySelectorAll('.commande-checkbox:checked');
+        
+        console.log('🔍 Checkboxes trouvés:', selectedCheckboxes.length);
+        console.log('🔍 Checkboxes:', selectedCheckboxes);
+        
+        if (selectedCheckboxes.length === 0) {
+            console.log('📋 Aucune commande sélectionnée');
+            return [];
+        }
+        
+        // Extraire les IDs des commandes sélectionnées
+        const selectedIds = Array.from(selectedCheckboxes).map(checkbox => {
+            const commandeId = checkbox.getAttribute('data-commande-id');
+            console.log('🔍 Checkbox:', checkbox, 'data-commande-id:', commandeId);
+            if (commandeId) {
+                return commandeId;
+            } else {
+                console.warn('⚠️ Checkbox sans data-commande-id:', checkbox);
+                return null;
+            }
+        }).filter(id => id !== null);
+        
+        console.log(`📋 ${selectedIds.length} commandes sélectionnées:`, selectedIds);
+        return selectedIds;
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de la récupération des IDs sélectionnés:', error);
+        return [];
+    }
+}
+
 // S'assurer que la fonction est disponible globalement
 if (typeof window !== 'undefined') {
     window.impressionMultipleFusionnee = window.impressionMultipleFusionnee || function() {
@@ -2339,4 +2417,7 @@ if (typeof window !== 'undefined') {
             window.impressionModals.showNotification('Erreur', 'La fonction d\'impression multiple n\'est pas encore disponible', 'error');
         }
     };
+    
+    // Rendre la fonction getSelectedCommandeIds disponible globalement
+    window.getSelectedCommandeIds = getSelectedCommandeIds;
 }

@@ -1324,7 +1324,10 @@
             <!-- Bouton Impression Multiple Fusionné -->
             <button id="bulkPrintBtn" class="px-3 py-1.5 rounded-lg font-medium transition-all shadow-sm bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white flex items-center gap-2 text-sm">
                 <i class="fas fa-print"></i> Impression multiple
+                <span id="selectionCount" class="ml-1 px-2 py-0.5 text-xs bg-white bg-opacity-20 rounded-full hidden">0</span>
             </button>
+            
+
         </div>
         
         <!-- Barre de progression pour l'impression multiple -->
@@ -2052,6 +2055,20 @@ document.addEventListener('DOMContentLoaded', function() {
         bulkPrintBtn.addEventListener('click', function() {
             console.log('🖱️ Clic sur bouton impression multiple détecté');
             
+            // Récupérer les IDs des commandes sélectionnées
+            const selectedIds = window.getSelectedCommandeIds();
+            console.log('📋 IDs sélectionnés pour impression:', selectedIds);
+            
+            // Construire l'URL avec les paramètres
+            let url = '/Superpreparation/api/ticket-commande-multiple/?direct_print=true';
+            if (selectedIds && selectedIds.length > 0) {
+                url += `&selected_ids=${selectedIds.join(',')}`;
+                console.log(`🖨️ Impression pour ${selectedIds.length} commandes sélectionnées`);
+            } else {
+                console.log('🖨️ Impression pour toutes les commandes confirmées');
+            }
+            console.log('🌐 URL finale:', url);
+            
             // Désactiver le bouton
             bulkPrintBtn.disabled = true;
             bulkPrintBtn.classList.add('opacity-50', 'cursor-not-allowed');
@@ -2095,15 +2112,59 @@ document.addEventListener('DOMContentLoaded', function() {
                     step1Icon.innerHTML = '<i class="fas fa-spinner fa-spin text-white text-xs"></i>';
                 }
                 
-                // Lancer l'impression des tickets
-                if (typeof imprimerTicketsMultipleDirect === 'function') {
-                    imprimerTicketsMultipleDirect();
-                } else {
-                    console.error('Fonction imprimerTicketsMultipleDirect non disponible');
-                    alert('La fonction d\'impression des tickets n\'est pas disponible');
-                    resetPrintProgress();
-                    return;
-                }
+                // Lancer l'impression des tickets avec notre URL personnalisée
+                console.log('🚀 Lancement impression tickets avec URL:', url);
+                
+                // Récupérer le contenu HTML via fetch et l'injecter dans l'iframe
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.html) {
+                            console.log('✅ Données tickets récupérées, création iframe...');
+                            
+                            // Créer une iframe cachée
+                            const ticketIframe = document.createElement('iframe');
+                            ticketIframe.style.display = 'none';
+                            ticketIframe.style.width = '800px';
+                            ticketIframe.style.height = '600px';
+                            document.body.appendChild(ticketIframe);
+                            
+                            // Écrire le HTML dans l'iframe
+                            const iframeDoc = ticketIframe.contentDocument || ticketIframe.contentWindow.document;
+                            iframeDoc.open();
+                            iframeDoc.write(data.html);
+                            iframeDoc.close();
+                            
+                            // Lancer l'impression après un court délai
+                            setTimeout(() => {
+                                try {
+                                    ticketIframe.contentWindow.print();
+                                    console.log('✅ Impression tickets lancée');
+                                } catch (error) {
+                                    console.error('❌ Erreur impression tickets:', error);
+                                    // Fallback : ouvrir dans une nouvelle fenêtre
+                                    const fallbackWindow = window.open('data:text/html;charset=utf-8,' + encodeURIComponent(data.html), '_blank', 'width=800,height=600');
+                                    if (fallbackWindow) {
+                                        fallbackWindow.onload = function() {
+                                            fallbackWindow.print();
+                                        };
+                                    }
+                                }
+                            }, 500);
+                        } else {
+                            console.error('❌ Données invalides reçues:', data);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Erreur lors de la récupération des tickets:', error);
+                        // Fallback : ouvrir directement l'URL
+                        const fallbackWindow = window.open(url, '_blank', 'width=800,height=600');
+                        if (fallbackWindow) {
+                            fallbackWindow.onload = function() {
+                                fallbackWindow.print();
+                            };
+                        }
+                    });
                 
                 // Étape 2 : Impression des codes QR (50% à 100%)
                 setTimeout(() => {
@@ -2121,12 +2182,63 @@ document.addEventListener('DOMContentLoaded', function() {
                         step2Icon.innerHTML = '<i class="fas fa-spinner fa-spin text-white text-xs"></i>';
                     }
                     
-                    if (typeof imprimerCodesQRArticlesDirect === 'function') {
-                        imprimerCodesQRArticlesDirect();
-                    } else {
-                        console.error('Fonction imprimerCodesQRArticlesDirect non disponible');
-                        alert('La fonction d\'impression des codes QR n\'est pas disponible');
+                    // Lancer l'impression des codes QR avec notre URL personnalisée
+                    let qrUrl = '/Superpreparation/api/etiquettes-articles-multiple/';
+                    if (selectedIds && selectedIds.length > 0) {
+                        qrUrl += `?selected_ids=${selectedIds.join(',')}`;
                     }
+                    console.log('🚀 Lancement impression codes QR avec URL:', qrUrl);
+                    
+                    // Récupérer le contenu HTML via fetch et l'injecter dans l'iframe
+                    fetch(qrUrl)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.html) {
+                                console.log('✅ Données codes QR récupérées, création iframe...');
+                                
+                                // Créer une iframe cachée
+                                const qrIframe = document.createElement('iframe');
+                                qrIframe.style.display = 'none';
+                                qrIframe.style.width = '800px';
+                                qrIframe.style.height = '600px';
+                                document.body.appendChild(qrIframe);
+                                
+                                // Écrire le HTML dans l'iframe
+                                const iframeDoc = qrIframe.contentDocument || qrIframe.contentWindow.document;
+                                iframeDoc.open();
+                                iframeDoc.write(data.html);
+                                iframeDoc.close();
+                                
+                                // Lancer l'impression après un court délai
+                                setTimeout(() => {
+                                    try {
+                                        qrIframe.contentWindow.print();
+                                        console.log('✅ Impression codes QR lancée');
+                                    } catch (error) {
+                                        console.error('❌ Erreur impression codes QR:', error);
+                                        // Fallback : ouvrir dans une nouvelle fenêtre
+                                        const fallbackWindow = window.open('data:text/html;charset=utf-8,' + encodeURIComponent(data.html), '_blank', 'width=800,height=600');
+                                        if (fallbackWindow) {
+                                            fallbackWindow.onload = function() {
+                                                fallbackWindow.print();
+                                            };
+                                        }
+                                    }
+                                }, 500);
+                            } else {
+                                console.error('❌ Données invalides reçues:', data);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('❌ Erreur lors de la récupération des codes QR:', error);
+                            // Fallback : ouvrir directement l'URL
+                            const fallbackWindow = window.open(qrUrl, '_blank', 'width=800,height=600');
+                            if (fallbackWindow) {
+                                fallbackWindow.onload = function() {
+                                    fallbackWindow.print();
+                                };
+                            }
+                        });
                     
                     // Finalisation
                     setTimeout(() => {
@@ -2405,6 +2517,127 @@ function startAutoRefresh() {
 
 // Démarrer le rafraîchissement automatique
 // startAutoRefresh();
+
+// Gestion de la sélection des commandes pour l'impression multiple
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const commandeCheckboxes = document.querySelectorAll('.commande-checkbox');
+    const selectionCount = document.getElementById('selectionCount');
+    const bulkPrintBtn = document.getElementById('bulkPrintBtn');
+    
+    // Fonction pour mettre à jour le compteur de sélection
+    function updateSelectionCount() {
+        const checkedCount = document.querySelectorAll('.commande-checkbox:checked').length;
+        
+        if (checkedCount > 0) {
+            selectionCount.textContent = checkedCount;
+            selectionCount.classList.remove('hidden');
+            
+            // Mettre à jour le texte du bouton pour indiquer la sélection
+            const printIcon = bulkPrintBtn.querySelector('i');
+            const printText = bulkPrintBtn.childNodes[2]; // Le texte après l'icône
+            
+            if (printText.nodeType === Node.TEXT_NODE) {
+                printText.textContent = ` Impression multiple (${checkedCount} sélectionnée${checkedCount > 1 ? 's' : ''})`;
+            }
+        } else {
+            selectionCount.classList.add('hidden');
+            
+            // Remettre le texte original
+            const printIcon = bulkPrintBtn.querySelector('i');
+            const printText = bulkPrintBtn.childNodes[2];
+            
+            if (printText.nodeType === Node.TEXT_NODE) {
+                printText.textContent = ' Impression multiple';
+            }
+        }
+    }
+    
+    // Gérer la sélection/désélection de toutes les commandes
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            
+            commandeCheckboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            
+            updateSelectionCount();
+        });
+    }
+    
+    // Gérer la sélection/désélection des commandes individuelles
+    commandeCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateSelectionCount();
+            
+            // Mettre à jour l'état de "Sélectionner tout"
+            if (selectAllCheckbox) {
+                const allChecked = Array.from(commandeCheckboxes).every(cb => cb.checked);
+                const someChecked = Array.from(commandeCheckboxes).some(cb => cb.checked);
+                
+                selectAllCheckbox.checked = allChecked;
+                selectAllCheckbox.indeterminate = someChecked && !allChecked;
+            }
+        });
+    });
+    
+    // Initialiser le compteur
+    updateSelectionCount();
+    
+    // Ajouter un indicateur visuel pour les commandes sélectionnées
+    commandeCheckboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                row.classList.add('bg-blue-50', 'border-l-4', 'border-blue-400');
+            } else {
+                row.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-400');
+            }
+        });
+    });
+    
+
+    
+    // Définir la fonction getSelectedCommandeIds directement sur cette page
+    window.getSelectedCommandeIds = function() {
+        try {
+            console.log('🔍 === getSelectedCommandeIds appelée ===');
+            
+            // Récupérer tous les checkboxes de commandes cochés
+            const selectedCheckboxes = document.querySelectorAll('.commande-checkbox:checked');
+            console.log('🔍 Checkboxes trouvés:', selectedCheckboxes.length);
+            console.log('🔍 Checkboxes:', selectedCheckboxes);
+            
+            if (selectedCheckboxes.length === 0) {
+                console.log('📋 Aucune commande sélectionnée');
+                return [];
+            }
+            
+            // Extraire les IDs des commandes sélectionnées
+            const selectedIds = Array.from(selectedCheckboxes).map(checkbox => {
+                const commandeId = checkbox.getAttribute('data-commande-id');
+                console.log('🔍 Checkbox:', checkbox, 'data-commande-id:', commandeId);
+                if (commandeId) {
+                    return commandeId;
+                } else {
+                    console.warn('⚠️ Checkbox sans data-commande-id:', checkbox);
+                    return null;
+                }
+            }).filter(id => id !== null);
+            
+            console.log(`📋 ${selectedIds.length} commandes sélectionnées:`, selectedIds);
+            return selectedIds;
+            
+        } catch (error) {
+            console.error('❌ Erreur lors de la récupération des IDs sélectionnés:', error);
+            return [];
+        }
+    };
+    
+    console.log('✅ Fonction getSelectedCommandeIds définie globalement');
+});
 </script>
 
 <!-- Script de recherche intelligente -->
