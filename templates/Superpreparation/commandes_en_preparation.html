@@ -1,123 +1,653 @@
 {% extends 'composant_generale/Superpreparation/base.html' %}
 {% load static %}
+{% load commande_filters %}
 
-{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+{% block title %}Commandes en Préparation - YZ-CMD{% endblock %}
 
-{% block page_title %}{{ page_title }}{% endblock %}
-{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Variables CSS harmonisées */
+    :root {
+        --preparation-primary: #070F2B;
+        --preparation-dark: #050A1F;
+        --preparation-light: #0E1D3D;
+        --preparation-text-light: #E6F0FF;
+        --preparation-border-accent: #1E3A8A;
+        --preparation-hover-bg: #0B1733;
+        --preparation-success: #10b981;
+        --preparation-warning: #f59e0b;
+        --preparation-error: #ef4444;
+        --preparation-info: #3b82f6;
+    }
+
+    /* Animations */
+    @keyframes slideInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    /* Styles harmonisés */
+    .theme-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+    }
+
+    .theme-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+    }
+
+    .theme-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
+    }
+
+    /* Styles pour les cartes de statistiques */
+    .stats-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+    }
+
+    .stats-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-5px);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .stats-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    /* Styles pour les icônes des statistiques */
+    .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border-radius: 50%;
+        padding: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stats-card:hover .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Optimisations d'espacement pour éviter la compression */
+    .main-content {
+        padding: 1rem;
+        min-height: 100vh;
+    }
+
+    .page-header {
+        margin-bottom: 32px;
+        padding: 24px;
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+    }
+
+    .info-section {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-section {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .table-cell {
+        padding: 12px 16px;
+        font-size: 0.875rem;
+    }
+
+    .stats-card {
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Réduction de la taille des icônes pour économiser l'espace */
+    .info-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    /* Optimisation des marges et paddings */
+    .section-title {
+        color: var(--preparation-primary);
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:hover {
+        background: #f1f5f9;
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+    }
+
+    .info-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+    }
+
+    .info-icon.blue {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+    }
+
+    .info-icon.green {
+        background: linear-gradient(135deg, #059669 0%, var(--preparation-success) 100%);
+    }
+
+    .info-icon.orange {
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    }
+
+    /* Styles pour le tableau */
+    .table-container {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-container:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Tableau responsive professionnel */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-responsive table {
+        width: 100%;
+        min-width: 1200px; /* Largeur minimale pour éviter la compression */
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        table-layout: fixed;
+    }
+
+    /* Optimisation des colonnes du tableau */
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px; /* Largeur maximale par colonne */
+    }
+
+    /* Largeurs de colonnes adaptatives */
+    .table-responsive th:nth-child(1), .table-responsive td:nth-child(1) { width: 70px; }  /* ID YZ */
+    .table-responsive th:nth-child(2), .table-responsive td:nth-child(2) { width: 90px; }  /* N° Externe */
+    .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 140px; } /* Client */
+    .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 100px; } /* Téléphone */
+    .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 120px; } /* Ville Client */
+    .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 120px; } /* Ville & Région */
+    .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 100px; } /* Date Début */
+    .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 80px; }  /* Total */
+    .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 100px; } /* État */
+    .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 120px; } /* État Préparation */
+    .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 120px; } /* Panier */
+
+    /* Amélioration du scroll horizontal */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--preparation-primary);
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--preparation-light);
+    }
+
+    /* Optimisation pour les écrans moyens */
+    @media (max-width: 1400px) {
+        .table-responsive table {
+            min-width: 1000px;
+        }
+        
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.8rem;
+        }
+        
+        .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 120px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 100px; }
+        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 100px; }
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 110px; }
+    }
+
+    /* Optimisation pour les petits écrans */
+    @media (max-width: 1200px) {
+        .table-responsive table {
+            min-width: 900px;
+        }
+        
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.35rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 100px; }
+        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 80px; }
+        .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 80px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 80px; }
+        .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 80px; }
+        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 80px; }
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 100px; }
+    }
+
+    /* Optimisation pour les très petits écrans */
+    @media (max-width: 768px) {
+        .table-responsive table {
+            min-width: 800px;
+        }
+        
+        .main-content {
+            padding: 0.5rem;
+        }
+        
+        .page-header {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .stats-card {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.3rem 0.4rem;
+            font-size: 0.7rem;
+        }
+    }
+
+    /* Optimisation pour les écrans moyens */
+    @media (min-width: 769px) and (max-width: 1200px) {
+        .main-content {
+            padding: 1.5rem;
+        }
+        
+        .page-header {
+            padding: 1.5rem;
+        }
+        
+        .stats-card {
+            padding: 1.25rem;
+        }
+        
+        .info-section {
+            padding: 1.25rem;
+        }
+    }
+
+    /* Optimisation pour les grands écrans */
+    @media (min-width: 1201px) {
+        .main-content {
+            padding: 1.5rem;
+        }
+    }
+
+    /* Réduction des marges pour les éléments de pagination */
+    .pagination {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Optimisation des modales pour qu'elles prennent moins d'espace */
+    .modal-content {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    /* Réduction de l'espacement des éléments de formulaire */
+    .form-group {
+        margin-bottom: 0.75rem;
+    }
+
+    /* Optimisation des tooltips pour qu'ils ne prennent pas trop d'espace */
+    .tooltip::after {
+        max-width: 200px;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+
+    /* Styles pour les badges d'état */
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-badge.en-preparation {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .etat-badge {
+        padding: 4px 8px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .etat-badge.en-preparation {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    /* Optimisation des boutons d'action */
+    .action-button {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .action-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        pointer-events: none;
+    }
+
+    .toast {
+        background: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 10px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        max-width: 400px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.success { border-left: 4px solid var(--preparation-success); }
+    .toast.error { border-left: 4px solid var(--preparation-error); }
+    .toast.info { border-left: 4px solid var(--preparation-info); }
+    .toast.warning { border-left: 4px solid var(--preparation-warning); }
+</style>
+{% endblock %}
 
 {% block content %}
 {% csrf_token %}
 <div class="main-content transition-all duration-300" id="mainContent">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
-         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+    <!-- Toast notifications container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- En-tête de la page -->
+    <div class="page-header">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
             <div>
                 <h1 class="text-3xl font-bold flex items-center mb-2">
-                <i class="fas fa-box-open mr-3" style="color: var(--preparation-border-accent);"></i>
-                    {{ page_title|default:'Suivi Général - Préparation' }}
+                    <i class="fas fa-box-open mr-3 text-orange-300"></i>
+                    {{ page_title|default:'Commandes en Préparation' }}
                 </h1>
-            <p style="color: white;">{{ page_subtitle|default:'Gestion et suivi des commandes en préparation' }}</p>
+                <p class="text-white opacity-90">{{ page_subtitle|default:'Gestion et suivi des commandes en cours de préparation' }}</p>
+            </div>
+            <div class="flex items-center gap-6 mt-4 md:mt-0">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-white">{{ stats.total_commandes|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">En préparation</div>
+                </div>
+                <div class="text-center border-l border-white/30 pl-6 ml-6">
+                    <div class="text-3xl font-bold text-white">{{ stats.valeur_totale|default:0|floatformat:0 }} DH</div>
+                    <div class="text-sm text-white opacity-80">Valeur totale</div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Statistiques rapides -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Statistiques -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <!-- En préparation -->
-        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
-            <div class="flex items-center justify-between">
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.1s;">
             <div class="flex items-center">
-                    <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 transition-all duration-300 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110">
-                        <i class="fas fa-box-open text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">En préparation</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600">{{ stats.total_commandes|default:0 }}</p>
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-box-open text-xl"></i>
                 </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">En préparation</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{{ stats.total_commandes|default:0 }}</p>
                 </div>
             </div>
         </div>
         
         <!-- Valeur totale -->
-        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
-            <div class="flex items-center justify-between">
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.2s;">
             <div class="flex items-center">
-                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
-                        <i class="fas fa-coins text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur Totale</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.valeur_totale|default:0|floatformat:0 }} DH</p>
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-coins text-xl"></i>
                 </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Valeur Totale</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ stats.valeur_totale|default:0|floatformat:0 }} DH</p>
                 </div>
             </div>
         </div>
         
         <!-- Commandes urgentes -->
-        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
-            <div class="flex items-center justify-between">
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.3s;">
             <div class="flex items-center">
-                    <div class="p-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-600 transition-all duration-300 group-hover:from-red-500 group-hover:to-red-600 group-hover:text-white group-hover:scale-110">
-                        <i class="fas fa-exclamation-triangle text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Urgentes</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-red-600">{{ stats.commandes_urgentes|default:0 }}</p>
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-exclamation-triangle text-xl"></i>
                 </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Urgentes</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-red-600 transition-colors">{{ stats.commandes_urgentes|default:0 }}</p>
+                </div>
+            </div>
+                    </div>
+        
+        <!-- Total articles -->
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Total Articles</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ stats.total_articles|default:0 }}</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8 preparation-card" style="border-color: var(--preparation-border-accent);">
-        <!-- Description de la page -->
-        <div class="mb-4">
-            <p class="text-gray-700 mb-2">
-                Liste des commandes en cours de préparation.
-            </p>
-            {% if search_query %}
-                <div class="flex items-center text-sm text-gray-600">
-                    <i class="fas fa-search mr-2"></i>
-                    <span>Résultats pour : "<strong>{{ search_query }}</strong>"</span>
-                    <a href="{% url 'Superpreparation:commandes_en_preparation' %}" class="ml-2 text-blue-600 hover:text-blue-800">
-                        <i class="fas fa-times-circle"></i> Effacer
-                    </a>
+    <!-- Section d'informations -->
+    <div class="info-section mb-4">
+        <h2 class="section-title">
+            <i class="fas fa-info-circle text-blue-600"></i>
+            Informations générales
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="info-item">
+                <div class="info-icon blue">
+                    <i class="fas fa-box-open"></i>
                 </div>
-            {% endif %}
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Commandes en préparation</h3>
+                    <p class="text-xs text-gray-600">Commandes en cours de préparation par les opérateurs</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon green">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Opérateurs actifs</h3>
+                    <p class="text-xs text-gray-600">Opérateurs actuellement en train de préparer des commandes</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon orange">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Temps moyen</h3>
+                    <p class="text-xs text-gray-600">Temps moyen de préparation par commande</p>
+                </div>
+            </div>
+        </div>
         </div>
 
-        <!-- Barre d'outils avec recherche intelligente -->
-        <div class="mb-6 flex flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
             <!-- Barre de recherche intelligente -->
-            <div class="relative ml-auto">
-                <div class="mb-3">
-                    <p class="text-gray-700 text-sm">
-                        Recherche intelligente et filtres avancés pour optimiser votre suivi des commandes.
-                    </p>
+    <div class="info-section mb-4">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h2 class="section-title">
+                    <i class="fas fa-search text-blue-600"></i>
+                    Recherche et filtres
+                </h2>
+                <p class="text-sm text-gray-600">Recherche intelligente et filtres avancés pour optimiser votre suivi</p>
                 </div>
                 <div class="flex items-center space-x-2">
                     <div class="relative">
                         <input type="text" id="smartSearch" 
                                placeholder="Recherche intelligente..." 
-                               class="block px-4 py-2 pr-10 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm w-64 h-10"
+                           class="block px-4 py-2 pr-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm w-64 h-10"
                                autocomplete="off">
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                             <i class="fas fa-search text-gray-400"></i>
                 </div>
             </div>
                     <button onclick="clearSmartSearch()" 
-                            class="inline-flex items-center px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors h-10">
+                        class="inline-flex items-center px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors h-10">
                         <i class="fas fa-times"></i>
                     </button>
                     <button onclick="toggleAdvancedSearch()" 
-                            class="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors h-10">
+                        class="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors h-10">
                         <i class="fas fa-filter mr-2"></i>
                         Filtres
                     </button>
+            </div>
                 </div>
                 
                 <!-- Filtres avancés -->
-                <div id="advancedSearch" class="hidden absolute top-full left-0 mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-4 z-50 min-w-96">
-                    <div class="grid grid-cols-2 gap-4">
+        <div id="advancedSearch" class="hidden mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">ID YZ</label>
                             <input type="text" id="filterIdYz" placeholder="ID YZ..." 
@@ -190,13 +720,11 @@
                             <i class="fas fa-eraser mr-2"></i>
                             Effacer
                         </button>
-                    </div>
-                </div>
             </div>
                 </div>
 
         <!-- Indicateur de résultats -->
-        <div id="searchResults" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md hidden">
+        <div id="searchResults" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md hidden">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
                     <i class="fas fa-search text-blue-600 mr-2"></i>
@@ -207,6 +735,7 @@
                 <button onclick="clearAllSearch()" class="text-blue-600 hover:text-blue-800 text-sm">
                     <i class="fas fa-times mr-1"></i>Effacer tout
                 </button>
+            </div>
             </div>
         </div>
 
@@ -230,27 +759,28 @@
     </div>
     {% endif %}
 
-        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+    <!-- Tableau des commandes en préparation -->
+    {% if commandes %}
+    <div class="table-responsive mb-6 theme-card rounded-xl shadow-lg">
         <table class="min-w-full divide-y divide-gray-200">
-                <thead style="background-color: var(--preparation-primary);">
-                    <tr>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Début</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
-                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
+            <thead class="bg-[var(--preparation-primary)] border-b-[3px] border-[var(--preparation-primary)] text-white">
+                <tr>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Date Début</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
+                    <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
                 </tr>
             </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% if commandes %}
+            <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
                 {% for commande in commandes %}
-                <tr class="hover:bg-gray-50 commande-row" 
+                <tr class="hover:bg-gray-50 commande-row table-row" 
                     data-id-yz="{{ commande.id_yz }}"
                     data-num-cmd="{{ commande.num_cmd|default:'' }}"
                     data-client="{{ commande.client.prenom }} {{ commande.client.nom }}"
@@ -265,15 +795,15 @@
                     data-operateur="{% if commande.etat_actuel.operateur %}{{ commande.etat_actuel.operateur.nom }} {{ commande.etat_actuel.operateur.prenom }}{% endif %}">
                     
                     <!-- ID YZ -->
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td class="table-cell text-sm font-medium text-gray-900">
                         {{ commande.id_yz }}
                     </td>
                     
                     <!-- N° Externe -->
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
+                    <td class="table-cell text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
                     
                     <!-- Client -->
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="table-cell">
                         <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
                         {% if commande.client.email %}
                         <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
@@ -281,7 +811,7 @@
                     </td>
                     
                     <!-- Téléphone -->
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="table-cell">
                         {% if commande.client.numero_tel %}
                         <div class="text-sm text-gray-900 font-medium">
                             <i class="fas fa-phone mr-1"></i>
@@ -293,7 +823,7 @@
                     </td>
                     
                     <!-- Ville Client -->
-                    <td class="px-4 py-4 whitespace-nowrap text-sm">
+                    <td class="table-cell text-sm">
                         {% if commande.ville_init and commande.ville_init != '' %}
                             <div style="color: var(--preparation-primary);" class="font-medium">{{ commande.ville_init }}</div>
                         {% else %}
@@ -302,7 +832,7 @@
                     </td>
                     
                     <!-- Ville & Région -->
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="table-cell">
                         {% if commande.ville %}
                             <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
                             <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
@@ -312,7 +842,7 @@
                     </td>
                     
                     <!-- Date Début -->
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="table-cell">
                         {% with etat_actuel=commande.etat_actuel %}
                             {% if etat_actuel %}
                                 <div class="text-sm text-gray-900">{{ etat_actuel.date_debut|date:"d/m/Y" }}</div>
@@ -324,24 +854,24 @@
                     </td>
                     
                     <!-- Total -->
-                    <td class="px-4 py-4 whitespace-nowrap">
+                    <td class="table-cell">
                         <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
                     </td>
 
                     <!-- État -->
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                    <td class="table-cell">
+                        <span class="status-badge en-preparation">
                             <i class="fas fa-cog fa-spin mr-1"></i>
                             En préparation
                         </span>
                     </td>
                     
                     <!-- État Préparation -->
-                    <td class="px-4 py-4 whitespace-nowrap text-sm">
+                    <td class="table-cell text-sm">
                         <div class="flex flex-col space-y-1">
                             <!-- État actuel avec icône d'information -->
                             <div class="flex items-center">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                <span class="etat-badge en-preparation">
                                     <i class="fas fa-box-open mr-1"></i>
                                     En préparation
                                 </span>
@@ -409,10 +939,9 @@
                     </td>
                     
                     <!-- Panier -->
-                    <td class="px-4 py-4 whitespace-nowrap text-center">
+                    <td class="table-cell text-center">
                         <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" 
-                           class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all hover:shadow-lg"
-                           style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                           class="action-button"
                            title="Voir le panier de cette commande">
                             <i class="fas fa-shopping-cart mr-1"></i> 
                             {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
@@ -420,40 +949,33 @@
                     </td>
                 </tr>
                 {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                                <div class="flex flex-col items-center py-8">
-                                    <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
-                                    <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande en préparation</h3>
-                                    <p class="text-gray-500">Aucune commande n'est actuellement en cours de préparation.</p>
-                                </div>
-                            </td>
-                        </tr>
-                    {% endif %}
             </tbody>
         </table>
-        </div>
     </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <i class="fas fa-inbox"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande en préparation</h3>
+        <p class="text-gray-500">Aucune commande n'est actuellement en cours de préparation.</p>
+    </div>
+    {% endif %}
 </div>
 
 <script>
-    let commandeToAffect = null;
-    let bulkAffect = false;
-    let selectedOperateurId = null;
-
     // Toast notification system harmonisé
     function showToast(message, type = 'info', duration = 4000) {
         const toastContainer = document.getElementById('toastContainer');
         if (!toastContainer) {
             const container = document.createElement('div');
             container.id = 'toastContainer';
-            container.className = 'fixed top-4 right-4 z-50 flex flex-col gap-2';
+            container.className = 'toast-container';
             document.body.appendChild(container);
         }
         
         const toast = document.createElement('div');
-        toast.className = `bg-white border-l-4 p-4 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 ${type === 'success' ? 'border-green-500' : type === 'error' ? 'border-red-500' : type === 'warning' ? 'border-yellow-500' : 'border-blue-500'}`;
+        toast.className = `toast ${type}`;
         
         const icon = {
             success: 'fas fa-check-circle text-green-500',
@@ -477,11 +999,11 @@
         document.getElementById('toastContainer').appendChild(toast);
         
         // Show animation
-        setTimeout(() => toast.classList.remove('translate-x-full'), 100);
+        setTimeout(() => toast.classList.add('show'), 100);
         
         // Auto remove
         setTimeout(() => {
-            toast.classList.add('translate-x-full');
+            toast.classList.remove('show');
             setTimeout(() => toast.remove(), 300);
         }, duration);
     }
@@ -502,7 +1024,7 @@
     // Fonctions pour la recherche intelligente
     function clearSmartSearch() {
         document.getElementById('smartSearch').value = '';
-        // Logique pour effacer la recherche
+        showToast('Recherche effacée', 'info');
     }
 
     function toggleAdvancedSearch() {
@@ -513,17 +1035,14 @@
     }
 
     function applyFilters() {
-        // Logique pour appliquer les filtres
         showToast('Filtres appliqués', 'success');
     }
 
     function clearFilters() {
-        // Logique pour effacer les filtres
         showToast('Filtres effacés', 'info');
     }
 
     function clearAllSearch() {
-        // Logique pour effacer toute la recherche
         showToast('Recherche effacée', 'info');
     }
 
@@ -534,30 +1053,22 @@
         
         if (menuToggle) {
             menuToggle.addEventListener('click', function() {
-                console.log('🔄 Menu toggle clicked');
                 body.classList.toggle('sidebar-open');
                 body.classList.toggle('sidebar-collapsed');
-                
-                // Animation du hamburger
                 menuToggle.classList.toggle('hamburger-active');
             });
         }
         
         // Gestion du redimensionnement
         window.addEventListener('resize', () => {
-            console.log('📐 Redimensionnement détecté:', window.innerWidth);
             if (window.innerWidth > 1023) {
                 body.classList.add('sidebar-open');
                 body.classList.remove('sidebar-collapsed');
-                console.log('🖥️ Redimensionnement: mode desktop');
             } else {
                 body.classList.add('sidebar-collapsed');
                 body.classList.remove('sidebar-open');
-                console.log('📱 Redimensionnement: mode mobile');
             }
         });
-        
-        console.log('✅ Script de sidebar initialisé pour commandes-en-preparation');
         
         // Show welcome message
         setTimeout(() => {
