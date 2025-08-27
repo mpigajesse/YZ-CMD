@@ -114,6 +114,16 @@
     .main-content {
         padding: 1rem;
         min-height: 100vh;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+    
+    /* Container principal responsive */
+    .dashboard-container {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
     }
 
     .page-header {
@@ -125,9 +135,31 @@
         border-radius: 16px;
         box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
     }
+    
+    /* Adaptations page-header pour sidebar */
+    body.sidebar-open .page-header {
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+    
+    body.sidebar-collapsed .page-header {
+        padding: 28px;
+        margin-bottom: 36px;
+    }
 
     .info-section {
         padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Adaptations pour sidebar */
+    body.sidebar-open .info-section {
+        padding: 1.25rem;
+        margin-bottom: 1.25rem;
+    }
+    
+    body.sidebar-collapsed .info-section {
+        padding: 1.5rem 2rem;
         margin-bottom: 1.5rem;
     }
 
@@ -240,6 +272,15 @@
         font-size: 0.875rem;
         table-layout: fixed;
     }
+    
+    /* Adaptations selon l'état de la sidebar */
+    body.sidebar-open .table-responsive table {
+        min-width: 1100px; /* Ajusté pour sidebar ouverte */
+    }
+    
+    body.sidebar-collapsed .table-responsive table {
+        min-width: 1300px; /* Plus d'espace disponible sans sidebar */
+    }
 
     /* Optimisation des colonnes du tableau */
     .table-responsive th,
@@ -254,17 +295,17 @@
     }
 
     /* Largeurs de colonnes adaptatives */
-    .table-responsive th:nth-child(1), .table-responsive td:nth-child(1) { width: 70px; }  /* ID YZ */
-    .table-responsive th:nth-child(2), .table-responsive td:nth-child(2) { width: 90px; }  /* N° Externe */
-    .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 140px; } /* Client */
-    .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 100px; } /* Téléphone */
-    .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 120px; } /* Ville Client */
-    .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 120px; } /* Ville & Région */
-    .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 100px; } /* Date Début */
-    .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 80px; }  /* Total */
-    .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 100px; } /* État */
-    .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 120px; } /* État Préparation */
-    .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 120px; } /* Panier */
+    .table-responsive th:nth-child(1), .table-responsive td:nth-child(1) { width: 70px; min-width: 70px; }  /* ID YZ */
+    .table-responsive th:nth-child(2), .table-responsive td:nth-child(2) { width: 90px; min-width: 90px; }  /* N° Externe */
+    .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 140px; min-width: 140px; } /* Client */
+    .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 100px; min-width: 100px; } /* Téléphone */
+    .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 120px; min-width: 120px; } /* Ville Client */
+    .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 120px; min-width: 120px; } /* Ville & Région */
+    .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 100px; min-width: 100px; } /* Date Début */
+    .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 80px; min-width: 80px; }  /* Total */
+    .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 120px; min-width: 120px; } /* État */
+    .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 150px; min-width: 150px; } /* État Préparation */
+    .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 120px; min-width: 120px; } /* Panier */
 
     /* Amélioration du scroll horizontal */
     .table-responsive::-webkit-scrollbar {
@@ -285,10 +326,52 @@
         background: var(--preparation-light);
     }
 
+    /* Optimisation pour les très grands écrans */
+    @media (min-width: 1600px) {
+        body.sidebar-open .main-content {
+            padding: 2rem 2.5rem;
+        }
+        
+        body.sidebar-collapsed .main-content {
+            padding: 2rem 3rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1400px;
+        }
+    }
+    
+    /* Optimisation pour les grands écrans avec sidebar */
+    @media (min-width: 1400px) {
+        .main-content {
+            padding: 1.5rem 2rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1350px;
+        }
+    }
+    
     /* Optimisation pour les écrans moyens */
     @media (max-width: 1400px) {
         .table-responsive table {
             min-width: 1000px;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1150px;
         }
         
         .table-responsive th,
@@ -297,16 +380,47 @@
             font-size: 0.8rem;
         }
         
-        .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 120px; }
-        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 100px; }
-        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 100px; }
-        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 110px; }
+        .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 120px; min-width: 120px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 100px; min-width: 100px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 110px; min-width: 110px; } /* État */
+        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 130px; min-width: 130px; } /* État Préparation */
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 110px; min-width: 110px; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
     }
 
+    /* Optimisation pour les écrans moyens avec sidebar fermé */
+    @media (min-width: 1200px) and (max-width: 1399px) {
+        body.sidebar-collapsed .main-content {
+            padding: 1rem 1.5rem;
+        }
+        
+        body.sidebar-collapsed .stats-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1250px;
+        }
+        
+        body.sidebar-open .table-responsive table {
+            min-width: 1000px;
+        }
+    }
+    
     /* Optimisation pour les petits écrans */
     @media (max-width: 1200px) {
         .table-responsive table {
             min-width: 900px;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1000px;
         }
         
         .table-responsive th,
@@ -315,19 +429,24 @@
             font-size: 0.75rem;
         }
         
-        .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 100px; }
-        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 80px; }
-        .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 80px; }
-        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 80px; }
-        .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 80px; }
-        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 80px; }
-        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 100px; }
+        .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 100px; min-width: 100px; }
+        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 80px; min-width: 80px; }
+        .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 80px; min-width: 80px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 80px; min-width: 80px; }
+        .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 80px; min-width: 80px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 100px; min-width: 100px; } /* État */
+        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 120px; min-width: 120px; } /* État Préparation */
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 100px; min-width: 100px; }
     }
 
     /* Optimisation pour les très petits écrans */
     @media (max-width: 768px) {
         .table-responsive table {
             min-width: 800px;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 850px;
         }
         
         .main-content {
@@ -342,6 +461,12 @@
         .stats-card {
             padding: 0.5rem;
             margin-bottom: 0.5rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
         }
         
         .table-responsive th,
@@ -370,10 +495,39 @@
         }
     }
 
+    /* Optimisation pour les tablettes */
+    @media (min-width: 769px) and (max-width: 1023px) {
+        .main-content {
+            padding: 1rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .page-header {
+            padding: 1.25rem;
+        }
+        
+        .info-section {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+    }
+    
     /* Optimisation pour les grands écrans */
     @media (min-width: 1201px) {
         .main-content {
             padding: 1.5rem;
+        }
+        
+        body.sidebar-open .main-content {
+            padding: 1.25rem 1.75rem;
+        }
+        
+        body.sidebar-collapsed .main-content {
+            padding: 1.5rem 2.5rem;
         }
     }
 
@@ -522,7 +676,7 @@
     </div>
 
     <!-- Statistiques -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+    <div class="stats-grid grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <!-- En préparation -->
         <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.1s;">
             <div class="flex items-center">
@@ -1068,6 +1222,14 @@
                 body.classList.add('sidebar-collapsed');
                 body.classList.remove('sidebar-open');
             }
+            
+            // Forcer le recalcul du layout après redimensionnement
+            setTimeout(() => {
+                const table = document.querySelector('.table-responsive');
+                if (table) {
+                    table.style.width = '100%';
+                }
+            }, 100);
         });
         
         // Show welcome message

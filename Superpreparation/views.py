@@ -6701,17 +6701,40 @@ def api_etiquettes_articles(request):
 def api_etiquettes_articles_multiple(request):
     """
     API pour récupérer le contenu HTML des étiquettes de tous les articles de toutes les commandes confirmées
+    Supporte la sélection de commandes spécifiques ou toutes les commandes
     """
     try:
         format_type = request.GET.get('format', 'qr')  # 'qr' ou 'barcode'
         
-        print(f"🔍 Récupération de tous les articles pour étiquettes multiples, format: {format_type}")
+        # Récupérer les IDs des commandes sélectionnées
+        selected_ids = request.GET.get('selected_ids', '')
         
-        # Récupérer uniquement les commandes confirmées avec des articles dans leur panier
-        commandes = Commande.objects.filter(
-            etats__enum_etat__libelle='Confirmée',
-            paniers__isnull=False
-        ).distinct().prefetch_related('paniers__article', 'paniers__variante__couleur', 'paniers__variante__pointure')
+        print(f"🔍 Récupération des articles pour étiquettes multiples, format: {format_type}")
+        
+        # Construire le filtre de base
+        base_filter = {
+            'etats__enum_etat__libelle': 'Confirmée',
+            'paniers__isnull': False
+        }
+        
+        # Si des IDs sont spécifiés, filtrer par ces IDs
+        if selected_ids:
+            try:
+                # Convertir la chaîne d'IDs en liste d'entiers
+                commande_ids = [int(id.strip()) for id in selected_ids.split(',') if id.strip().isdigit()]
+                if commande_ids:
+                    base_filter['id__in'] = commande_ids
+                    print(f"🔍 Filtrage par {len(commande_ids)} commandes sélectionnées: {commande_ids}")
+                else:
+                    print("⚠️ Aucun ID valide trouvé dans selected_ids")
+            except (ValueError, AttributeError) as e:
+                print(f"❌ Erreur lors du parsing des IDs: {e}")
+                # En cas d'erreur, continuer avec toutes les commandes
+        else:
+            print("🔍 Aucune sélection spécifique - impression de tous les articles des commandes confirmées")
+        
+        # Récupérer les commandes selon le filtre
+        commandes = Commande.objects.filter(**base_filter).distinct().prefetch_related('paniers__article', 'paniers__variante__couleur', 'paniers__variante__pointure')
         
         print(f"📊 Nombre de commandes confirmées avec paniers: {commandes.count()}")
         
@@ -6808,15 +6831,54 @@ def api_etiquettes_articles_multiple(request):
 def api_ticket_commande_multiple(request):
     """
     API pour récupérer le contenu HTML des tickets de commande multiples
+    Supporte la sélection de commandes spécifiques ou toutes les commandes
     """
+    print("🚀 === API TICKET COMMANDE MULTIPLE DÉMARRÉE ===")
+    print(f"📡 Méthode HTTP: {request.method}")
+    print(f"📡 URL: {request.path}")
+    print(f"📡 Paramètres GET: {dict(request.GET)}")
+    
     try:
         # Vérifier si c'est pour l'impression directe
         direct_print = request.GET.get('direct_print', 'false').lower() == 'true'
-        # Récupérer uniquement les commandes confirmées avec des articles dans leur panier
-        commandes = Commande.objects.filter(
-            etats__enum_etat__libelle='Confirmée',
-            paniers__isnull=False
-        ).distinct().select_related('client', 'ville').prefetch_related(
+        print(f"🖨️ Impression directe: {direct_print}")
+        
+        # Récupérer les IDs des commandes sélectionnées
+        selected_ids = request.GET.get('selected_ids', '')
+        print(f"📋 Paramètre selected_ids reçu: '{selected_ids}' (type: {type(selected_ids)})")
+        
+        # Construire le filtre de base
+        base_filter = {
+            'etats__enum_etat__libelle': 'Confirmée',
+            'paniers__isnull': False
+        }
+        print(f"🔧 Filtre de base: {base_filter}")
+        
+        # Si des IDs sont spécifiés, filtrer par ces IDs
+        if selected_ids:
+            print(f"🔍 Traitement de la sélection: '{selected_ids}'")
+            try:
+                # Convertir la chaîne d'IDs en liste d'entiers
+                commande_ids = [int(id.strip()) for id in selected_ids.split(',') if id.strip().isdigit()]
+                print(f"🔍 IDs parsés: {commande_ids}")
+                
+                if commande_ids:
+                    base_filter['id__in'] = commande_ids
+                    print(f"✅ Filtrage par {len(commande_ids)} commandes sélectionnées: {commande_ids}")
+                else:
+                    print("⚠️ Aucun ID valide trouvé dans selected_ids")
+            except (ValueError, AttributeError) as e:
+                print(f"❌ Erreur lors du parsing des IDs: {e}")
+                print(f"❌ Traceback: {traceback.format_exc()}")
+                # En cas d'erreur, continuer avec toutes les commandes
+        else:
+            print("🔍 Aucune sélection spécifique - impression de toutes les commandes confirmées")
+        
+        print(f"🔍 Filtre final appliqué: {base_filter}")
+        
+        # Récupérer les commandes selon le filtre
+        print("🔍 Exécution de la requête de base de données...")
+        commandes = Commande.objects.filter(**base_filter).distinct().select_related('client', 'ville').prefetch_related(
             'paniers__article', 
             'paniers__variante__couleur', 
             'paniers__variante__pointure'
@@ -6826,6 +6888,11 @@ def api_ticket_commande_multiple(request):
         
         # Log pour debug - voir combien de commandes confirmées
         print(f"📊 Nombre de commandes confirmées avec paniers: {commandes.count()}")
+        
+        # Log détaillé des commandes trouvées
+        print("🔍 Détail des commandes trouvées:")
+        for cmd in commandes:
+            print(f"  📋 Commande: ID={cmd.id}, ID_YZ={cmd.id_yz}, Client={cmd.client.nom if cmd.client else 'N/A'}")
         
         all_tickets_html = []
         commandes_data = []
