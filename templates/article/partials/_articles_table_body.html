@@ -1,0 +1,52 @@
+{% load commande_filters %}
+<!-- DEBUG: Nombre d'articles dans page_obj: {{ page_obj|length }} -->
+{% for article in page_obj %}
+<tr class="hover:bg-gray-50 transition-colors">
+    <td class="px-4 py-4 whitespace-nowrap text-sm border-r border-gray-200">
+        <input type="checkbox" class="article-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-article-id="{{ article.id }}" />
+    </td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">
+        <div class="flex items-center">
+                {% if article.image %}
+                <img src="{{ article.image.url }}" alt="{{ article.nom }}" class="h-10 w-10 rounded-full object-cover mr-2" onerror="this.onerror=null;this.src='/static/img/default.png';">
+                {% elif article.image_url %}
+                <img src="{{ article.image_url }}" alt="{{ article.nom }}" class="h-10 w-10 rounded-full object-cover mr-2" onerror="this.onerror=null;this.src='/static/img/default.png';">
+                {% else %}
+                <div class="h-10 w-10 rounded-full flex items-center justify-center mr-2" style="background-color: var(--admin-light-accent);">
+                    <i class="fas fa-box-open text-[var(--admin-accent-color)] text-xl opacity-70"></i>
+            </div>
+            {% endif %}
+            <a href="{% url 'article:detail' article.id %}" class="hover:text-[#034a4a] transition-colors" style="color: #023535;">{{ article.nom }}</a>
+        </div>
+    </td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.categorie }}</td>
+
+    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
+        <div class="flex flex-col">
+            <div class="flex items-center gap-2">
+                {% if article.has_promo_active %}
+                <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">PROMO</span>
+                {% elif article.phase == 'LIQUIDATION' %}
+                <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">LIQUIDATION</span>
+                {% elif article.phase == 'EN_TEST' %}
+                <span class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">TEST</span>
+                {% endif %}
+                <span class="font-bold text-gray-900">{{ article.prix_unitaire|default:0|floatformat:2 }} DH</span>
+            </div>
+            <span class="text-xs text-gray-500">Prix standard</span>
+        </div>
+    </td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ article.qte_disponible }}</td>
+    <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <a href="{% url 'article:detail' article.id %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
+                <i class="fas fa-eye"></i>
+            </a>
+        <a href="{% url 'article:modifier' article.id %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
+                <i class="fas fa-edit"></i>
+            </a>
+        <a href="#" onclick="confirmDeleteArticle('{% url 'article:supprimer' article.id %}', '{{ article.nom|escapejs }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
+            <i class="fas fa-trash-alt"></i>
+        </a>
+    </td>
+</tr>
+{% endfor %}

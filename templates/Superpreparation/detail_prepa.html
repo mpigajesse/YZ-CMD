@@ -1,0 +1,710 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load barcode_filters %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-truck-loading mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: var(--preparation-border-accent);">{{ page_subtitle }}</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            {% if commande_renvoi_id %}
+                <a href="{% url 'Superpreparation:modifier_commande_superviseur' commande_renvoi_id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                    <i class="fas fa-edit mr-2"></i>Modifier
+                </a>
+            {% else %}
+                <a href="{% url 'Superpreparation:modifier_commande_superviseur' commande.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                    <i class="fas fa-edit mr-2"></i>Modifier
+                </a>
+            {% endif %}
+            <a href="{% url 'Superpreparation:liste_prepa' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
+            </a>
+        </div>
+    </div>
+
+    <!-- Section 1: Informations Client -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+            <i class="fas fa-user mr-2"></i>Informations Client
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Nom complet -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Nom complet :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-user mr-2" style="color: var(--preparation-primary);"></i>
+                    {{ commande.client.prenom }} {{ commande.client.nom }}
+                </p>
+            </div>
+            
+            <!-- Téléphone -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Téléphone :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-phone mr-2" style="color: var(--preparation-primary);"></i>
+                    {{ commande.client.numero_tel|default:"Non renseigné" }}
+                </p>
+            </div>
+
+            <!-- Email -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Email :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-envelope mr-2" style="color: var(--preparation-primary);"></i>
+                    {% if commande.client.email %}
+                        <a href="mailto:{{ commande.client.email }}" class="text-blue-600 hover:text-blue-800 underline">
+                            {{ commande.client.email }}
+                        </a>
+                    {% else %}
+                        <span class="text-gray-500">Non renseigné</span>
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- Ville Client (origine) -->
+            <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <label class="block text-sm font-semibold mb-2 text-orange-600">Ville Client (origine) :</label>
+                <p class="text-lg font-medium text-orange-800">
+                    <i class="fas fa-home mr-2"></i>
+                    {{ commande.ville_init|default:"Non spécifiée" }}
+                </p>
+            </div>
+
+            <!-- Ville de livraison -->
+            <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                <label class="block text-sm font-semibold mb-2 text-green-600">Ville de livraison :</label>
+                <p class="text-lg font-medium text-green-800">
+                    <i class="fas fa-map-marker-alt mr-2"></i>
+                    {{ commande.ville.nom }}
+                </p>
+                {% if commande.ville.region %}
+                    <p class="text-sm text-green-600 mt-1">
+                        <i class="fas fa-globe mr-1"></i>
+                        Région : {{ commande.ville.region.nom_region }}
+                    </p>
+                {% endif %}
+            </div>
+
+            <!-- Frais de livraison -->
+            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <label class="block text-sm font-semibold mb-2 text-purple-600">Frais de livraison :</label>
+                <p class="text-lg font-medium text-purple-800">
+                    <i class="fas fa-truck mr-2"></i>
+                    {{ commande.ville.frais_livraison|default:0|floatformat:2 }} DH
+                </p>
+            </div>
+
+            <!-- Adresse de livraison -->
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 col-span-1 md:col-span-2 lg:col-span-3">
+                <label class="block text-sm font-semibold mb-2 text-blue-600">
+                    <i class="fas fa-map-marked-alt mr-2"></i>Adresse de livraison complète :
+                </label>
+                <p class="text-lg font-medium text-blue-800">
+                    {{ commande.adresse|default:"Adresse non renseignée" }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2: Informations Générales de la Commande -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+            <i class="fas fa-info-circle mr-2"></i>Informations Générales de la Commande
+        </h2>
+        
+        <!-- Section spéciale pour les commandes livrées partiellement -->
+        {% if is_commande_livree_partiellement %}
+        <div class="mb-6 p-4 bg-orange-50 border-l-4 border-orange-400 rounded-lg">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-orange-400 text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-lg font-semibold text-orange-800 mb-2">Commande Livrée Partiellement</h3>
+                    <p class="text-sm text-orange-700 mb-3">
+                        Cette commande a été livrée partiellement. Certains articles ont été livrés au client, d'autres ont été renvoyés pour correction.
+                    </p>
+                    
+                    <!-- Articles Livrés -->
+                    {% if articles_livres %}
+                    <div class="mb-4">
+                        <h4 class="font-medium text-green-800 mb-2 flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            Articles Livrés au Client
+                        </h4>
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div class="space-y-2">
+                                {% for article_data in articles_livres %}
+                                <div class="flex items-center justify-between bg-white rounded px-3 py-2 border border-green-200">
+                                    <div class="flex items-center">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-3">
+                                            <i class="fas fa-check-circle mr-1"></i>Livré
+                                        </span>
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-900">{{ article_data.article.nom }}</div>
+                                            <div class="text-xs text-gray-500">
+                                                Réf: {{ article_data.article.reference }} | 
+                                                {{ article_data.article.couleur }} | 
+                                                {{ article_data.article.pointure }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm font-medium text-green-600">
+                                            {{ article_data.quantite_livree }}x
+                                        </div>
+                                        <div class="text-xs text-gray-500">
+                                            {{ article_data.prix|floatformat:2 }} DH
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Articles Renvoyés -->
+                    {% if articles_renvoyes %}
+                    <div class="mb-4">
+                        <h4 class="font-medium text-red-800 mb-2 flex items-center">
+                            <i class="fas fa-undo text-red-500 mr-2"></i>
+                            Articles Renvoyés pour Correction
+                        </h4>
+                        <!-- DEBUG: Afficher la liste complète des articles_renvoyes -->
+                        <pre style="background:#fff0f0;color:#b91c1c;padding:8px;border-radius:6px;font-size:12px;overflow-x:auto;">DEBUG articles_renvoyes: {{ articles_renvoyes|safe }}</pre>
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div class="space-y-2">
+                                {% for article_data in articles_renvoyes %}
+                                <!-- DEBUG: Afficher chaque article_data -->
+                                <pre style="background:#fef9c3;color:#92400e;padding:4px 8px;border-radius:4px;font-size:11px;overflow-x:auto;">DEBUG article_data: {{ article_data|safe }}</pre>
+                                <div class="flex items-center justify-between bg-white rounded px-3 py-2 border border-red-200">
+                                    <div class="flex items-center">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mr-3">
+                                            <i class="fas fa-undo mr-1"></i>Renvoyé
+                                        </span>
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-900">{{ article_data.article.nom }}</div>
+                                            <div class="mt-1">
+                                                {% if article_data.etat == 'defectueux' %}
+                                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 text-red-700"><i class="fas fa-times-circle mr-2"></i>État : Défectueux</span>
+                                                {% elif article_data.etat == 'bon' %}
+                                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-700"><i class="fas fa-check-circle mr-2"></i>État : Bon</span>
+                                                {% else %}
+                                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 text-gray-700"><i class="fas fa-question-circle mr-2"></i>État inconnu: {{ article_data.etat }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="text-xs text-gray-500 mt-1">
+                                                Réf: {{ article_data.article.reference }} | {{ article_data.article.couleur }} | {{ article_data.article.pointure }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm font-medium text-red-600">{{ article_data.quantite }}x</div>
+                                        <div class="text-xs text-gray-500">{{ article_data.prix|floatformat:2 }} DH</div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <h4 class="font-medium text-blue-800 mb-2 flex items-center">
+                            <i class="fas fa-list-ol text-blue-500 mr-2"></i>
+                            Actions Requises
+                        </h4>
+                        <ol class="text-sm text-blue-700 space-y-1 ml-4">
+                            <li><strong>1.</strong> Identifier les articles livrés vs renvoyés</li>
+                            <li><strong>2.</strong> Vérifier le stock des articles renvoyés</li>
+                            <li><strong>3.</strong> Corriger ou remplacer les articles problématiques</li>
+                            <li><strong>4.</strong> Marquer la commande comme "Prête" pour relivraison</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Code QR de la commande - Section isolée -->
+        <div class="mb-8 text-center bg-white p-6 rounded-xl shadow-lg border-2 border-gray-300">
+            <h4 class="text-lg font-semibold text-gray-700 mb-3">
+                <i class="fas fa-qrcode mr-2"></i>Code QR de la Commande
+            </h4>
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <img src="{{ commande_barcode }}" alt="Code QR pour la commande {{ commande.id_yz }}" class="mx-auto" style="height: 80px; min-width: 300px;">
+                <div class="text-sm text-gray-600 mt-3 font-medium">Commande #{{ commande.id_yz }}</div>
+            </div>
+            <div class="text-xs text-gray-500 mt-3">
+                <i class="fas fa-info-circle mr-1"></i>
+                Scannez ce code QR pour identifier la commande
+            </div>
+        </div>
+
+        <!-- Section Codes-barres des Articles - Complètement séparée -->
+        <div class="mb-6 bg-white rounded-xl shadow-lg p-4 animate-slideInUp border-l-4 border-blue-500">
+            <h3 class="text-lg font-semibold mb-4 section-title">
+                <i class="fas fa-barcode mr-3"></i>Codes-barres des Articles
+                <span class="text-sm font-normal text-gray-600 ml-2">
+                    (<span id="codes-barcodes-count">{{ paniers.count }}</span> article<span id="codes-barcodes-plural">{{ paniers.count|pluralize }}</span>)
+                </span>
+            </h3>
+            
+            <div class="space-y-3">
+                {% for panier in paniers %}
+                <div class="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+                                <i class="fas fa-box mr-2 text-blue-600"></i>
+                                {{ panier.article.nom }}
+                                {% if panier.article.isUpsell %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 ml-2">
+                                        <i class="fas fa-arrow-up mr-1"></i>Upsell
+                                    </span>
+                                {% endif %}
+                            </h4>
+                            
+                            <!-- Codes-barres en grille compacte -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                <!-- Code-barre principal de l'article -->
+                                <div class="bg-blue-50 border border-blue-300 rounded p-2">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs font-medium text-blue-800">
+                                            <i class="fas fa-barcode mr-1"></i>Principal
+                                        </span>
+                                        <span class="text-xs text-blue-600 font-mono bg-blue-100 px-1 py-0.5 rounded text-xs">{{ panier.quantite }}x</span>
+                                    </div>
+                                    <div class="bg-white border border-blue-400 rounded p-1 text-center">
+                                        <!-- Image du code-barre principal -->
+                                        <img src="{{ panier.article.reference|barcode_image_url }}" 
+                                             alt="Code-barre {{ panier.article.reference }}" 
+                                             class="mx-auto mb-1" 
+                                             style="height: 40px; min-width: 120px; max-width: 100%; object-fit: contain;">
+                                        <div class="font-mono text-xs font-bold text-blue-900 mb-0.5">{{ panier.article.reference }}</div>
+                                        <div class="text-xs text-blue-600">{{ panier.article.couleur }} - {{ panier.article.pointure }}</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Codes-barres des variantes -->
+                                {% if panier.article.variantes_all %}
+                                    {% for variante in panier.article.variantes_all %}
+                                    <div class="bg-green-50 border border-green-300 rounded p-2">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-xs font-medium text-green-800">
+                                                <i class="fas fa-layer-group mr-1"></i>Var.{{ forloop.counter }}
+                                            </span>
+                                            <span class="text-xs text-green-600 font-mono bg-green-100 px-1 py-0.5 rounded text-xs">
+                                                {% if variante.qte_disponible %}
+                                                    {{ variante.qte_disponible }}
+                                                {% else %}
+                                                    N/A
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="bg-white border border-green-400 rounded p-1 text-center">
+                                            <!-- Image du code-barre de la variante -->
+                                            <img src="{{ variante.reference_variante|barcode_image_url }}" 
+                                                 alt="Code-barre {{ variante.reference_variante }}" 
+                                                 class="mx-auto mb-1" 
+                                                 style="height: 40px; min-width: 120px; max-width: 100%; object-fit: contain;">
+                                            <div class="font-mono text-xs font-bold text-green-900 mb-0.5">{{ variante.reference_variante }}</div>
+                                            <div class="text-xs text-green-600">{{ variante.couleur }} - {{ variante.pointure }}</div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Informations supplémentaires compactes -->
+                            <div class="mt-2 flex flex-wrap gap-1">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                    <i class="fas fa-tag mr-1"></i>{{ panier.article.categorie|default:"N/A" }}
+                                </span>
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                    <i class="fas fa-user mr-1"></i>{{ panier.article.genre|default:"N/A" }}
+                                </span>
+                                {% if panier.article.phase %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium 
+                                        {% if panier.article.phase == 'LIQUIDATION' %}bg-red-100 text-red-700
+                                        {% elif panier.article.phase == 'EN_TEST' %}bg-yellow-100 text-yellow-700
+                                        {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                        <i class="fas fa-flag mr-1"></i>{{ panier.article.phase }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-6 text-gray-500">
+                    <i class="fas fa-barcode text-3xl mb-3"></i>
+                    <div class="text-base font-medium">Aucun article dans la commande</div>
+                    <div class="text-sm">Les codes-barres apparaîtront ici une fois les articles ajoutés</div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Note explicative -->
+            <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-blue-600 mr-2 mt-0.5"></i>
+                    <div class="text-xs text-blue-700">
+                        <strong>Utilisation :</strong> Scannez d'abord le code QR de la commande, puis scannez individuellement 
+                        chaque code-barre d'article lors de la préparation pour valider les articles.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions globales -->
+            <div class="mt-3 flex justify-center items-center pt-2 border-t border-gray-200">
+                <div class="text-xs text-gray-500">
+                    <i class="fas fa-barcode mr-1"></i>
+                    Codes-barres générés automatiquement pour chaque article et variante
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- ID YZ -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">ID YZ :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-barcode mr-2" style="color: var(--preparation-primary);"></i>
+                    {{ commande.id_yz }}
+                </p>
+            </div>
+            
+            <!-- N° Externe -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">N° Externe :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-hashtag mr-2" style="color: var(--preparation-primary);"></i>
+                    {{ commande.num_cmd|default:"-" }}
+                </p>
+            </div>
+            
+            <!-- Date de commande -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Date de commande :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-calendar-alt mr-2" style="color: var(--preparation-primary);"></i>
+                    {{ commande.date_cmd|date:"d/m/Y" }}
+                </p>
+            </div>
+
+            <!-- Valeur de la commande -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label class="block text-sm font-semibold mb-2 text-gray-600">Valeur de la commande :</label>
+                <p class="text-lg font-medium text-gray-800">
+                    <i class="fas fa-money-bill-wave mr-2" style="color: var(--preparation-primary);"></i>
+                    {{ commande.total_cmd|floatformat:2 }} DH
+                </p>
+            </div>
+
+            <!-- État actuel -->
+            <div class="{% if etat_actuel.enum_etat.libelle == 'En préparation' %}bg-blue-50 border-blue-200{% elif etat_preparation.date_fin %}bg-green-50 border-green-200{% else %}bg-yellow-50 border-yellow-200{% endif %} p-4 rounded-lg border">
+                <label class="block text-sm font-semibold mb-2 {% if etat_actuel.enum_etat.libelle == 'En préparation' %}text-blue-600{% elif etat_preparation.date_fin %}text-green-600{% else %}text-yellow-600{% endif %}">État actuel :</label>
+                <div class="flex items-center">
+                    <div class="w-3 h-3 rounded-full mr-2" style="background-color: {% if etat_actuel.enum_etat.libelle == 'En préparation' %}#3b82f6{% elif etat_preparation.date_fin %}#10b981{% else %}orange{% endif %};"></div>
+                    <p class="text-lg font-medium {% if etat_actuel.enum_etat.libelle == 'En préparation' %}text-blue-800{% elif etat_preparation.date_fin %}text-green-800{% else %}text-yellow-800{% endif %}">
+                        <i class="fas {% if etat_actuel.enum_etat.libelle == 'En préparation' %}fa-cog fa-spin{% elif etat_preparation.date_fin %}fa-check-circle{% else %}fa-hourglass-half{% endif %} mr-2"></i>
+                        {{ etat_actuel.enum_etat.libelle }}
+                    </p>
+                </div>
+                <p class="text-xs {% if etat_actuel.enum_etat.libelle == 'En préparation' %}text-blue-600{% elif etat_preparation.date_fin %}text-green-600{% else %}text-yellow-600{% endif %} mt-1">
+                    <i class="fas fa-clock mr-1"></i>
+                    Dernière mise à jour : {{ etat_actuel.date_debut|date:"d/m/Y à H:i" }}
+                </p>
+            </div>
+
+            <!-- État précédent -->
+            {% if etat_precedent %}
+            <div class="{% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}bg-red-50 border-red-200{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}bg-yellow-50 border-yellow-200{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}bg-green-50 border-green-200{% else %}bg-gray-50 border-gray-200{% endif %} p-4 rounded-lg border">
+                <label class="block text-sm font-semibold mb-2 {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}text-red-600{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}text-yellow-600{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}text-green-600{% else %}text-gray-600{% endif %}">État précédent :</label>
+                <div class="flex items-center">
+                    <div class="w-3 h-3 rounded-full mr-2" style="background-color: {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}#ef4444{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}#eab308{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}#10b981{% else %}#6b7280{% endif %};"></div>
+                    <p class="text-lg font-medium {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}text-red-800{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}text-yellow-800{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}text-green-800{% else %}text-gray-800{% endif %}">
+                        <i class="fas {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}fa-truck{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}fa-undo{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}fa-check-circle{% else %}fa-history{% endif %} mr-2"></i>
+                        {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}
+                            Renvoyée depuis livraison
+                        {% elif etat_precedent.enum_etat.libelle == 'Préparée' %}
+                            Renvoyée depuis préparation
+                        {% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}
+                            Depuis confirmation
+                        {% else %}
+                            {{ etat_precedent.enum_etat.libelle }}
+                        {% endif %}
+                    </p>
+                </div>
+                <p class="text-xs {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}text-red-600{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}text-yellow-600{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}text-green-600{% else %}text-gray-600{% endif %} mt-1">
+                    <i class="fas fa-calendar mr-1"></i>
+                    Renvoyée le : {{ etat_precedent.date_fin|date:"d/m/Y à H:i" }}
+                </p>
+                {% if etat_precedent.operateur %}
+                <p class="text-xs {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}text-red-600{% elif etat_precedent.enum_etat.libelle == 'Préparée' %}text-yellow-600{% elif etat_precedent.enum_etat.libelle == 'Confirmée' %}text-green-600{% else %}text-gray-600{% endif %} mt-1">
+                    <i class="fas fa-user mr-1"></i>
+                    Par : {{ etat_precedent.operateur.nom_complet }}
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Section 3: Articles du Panier -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+            <i class="fas fa-shopping-basket mr-2"></i>Articles du Panier
+        </h2>
+        
+        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead style="background-color: var(--preparation-primary);">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Produit</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Quantité</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Prix Unitaire</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for panier in paniers %}
+                        <tr>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {% if panier.article.image_url %}
+                                    <img src="{{ panier.article.image_url }}" alt="{{ panier.article.nom }}" class="w-10 h-10 object-cover rounded-full mr-2">
+                                {% else %}
+                                    <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-500 mr-2">
+                                        <i class="fas fa-image"></i>
+                                    </span>
+                                {% endif %}
+                                {{ panier.article.nom }}
+                                {% if panier.article.reference %}
+                                    <span class="text-xs text-gray-500 block">Réf: {{ panier.article.reference }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ panier.quantite }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{{ panier.prix_unitaire|floatformat:2 }} DH</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{{ panier.total_ligne|floatformat:2 }} DH</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                                <div class="flex flex-col items-center py-6">
+                                    <i class="fas fa-shopping-basket text-4xl text-gray-300 mb-3"></i>
+                                    <p class="text-lg font-medium text-gray-600 mb-1">Aucun article</p>
+                                    <p class="text-sm text-gray-400">Cette commande ne contient aucun article</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    {% if paniers %}
+                        <tr class="bg-gray-50">
+                            <td colspan="3" class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">Total Commande:</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">{{ commande.total_cmd|floatformat:2 }} DH</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Section: Opérations sur la Commande -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+            <i class="fas fa-tasks mr-2"></i>Journal des Opérations
+        </h2>
+        <div class="space-y-4">
+            {% for op in operations %}
+                <div class="flex items-start p-4 bg-gray-50 border-l-4 border-gray-400 rounded-lg">
+                    <i class="fas fa-info-circle text-gray-600 mr-3 text-xl mt-1"></i>
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-gray-800">{{ op.get_type_operation_display }}</h3>
+                        <p class="text-sm text-gray-600">{{ op.conclusion|default:"-" }}</p>
+                        <div class="text-xs text-gray-500 mt-1">
+                            {% if op.operateur %}
+                                <span class="mr-2"><i class="fas fa-user mr-1"></i>{{ op.operateur.nom_complet }}</span>
+                            {% endif %}
+                            <span><i class="fas fa-calendar-alt mr-1"></i>{{ op.date_operation|date:"d/m/Y à H:i" }}</span>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-gray-500">Aucune opération enregistrée pour cette commande.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Section 4: Actions et Historique -->
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+            <i class="fas fa-history mr-2"></i>Actions et Historique des États
+        </h2>
+        
+    
+
+        <!-- Historique des états (timeline) -->
+        <div class="space-y-4">
+            {% for etat in etats_commande %}
+                <div class="flex items-center p-4 
+                    {% if etat.enum_etat.libelle == 'Confirmée' %}bg-green-50 border-l-4 border-green-500
+                    {% elif etat.enum_etat.libelle == 'En préparation' and not etat.date_fin %}bg-blue-50 border-l-4 border-blue-500
+                    {% elif etat.enum_etat.libelle == 'En préparation' and etat.date_fin %}bg-purple-50 border-l-4 border-purple-500
+                    {% else %}bg-gray-50 border-l-4 border-gray-300{% endif %} 
+                    rounded-lg shadow-sm">
+                    <i class="fas 
+                        {% if etat.enum_etat.libelle == 'Confirmée' %}fa-check-circle text-green-600
+                        {% elif etat.enum_etat.libelle == 'En préparation' and not etat.date_fin %}fa-cog fa-spin text-blue-600
+                        {% elif etat.enum_etat.libelle == 'En préparation' and etat.date_fin %}fa-check-double text-purple-600
+                        {% else %}fa-clock text-gray-600{% endif %} 
+                        mr-3 text-xl"></i>
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-gray-800">{{ etat.enum_etat.libelle }}</h3>
+                        <div class="text-sm text-gray-600">
+                            <p>
+                                <i class="fas fa-calendar mr-1"></i>
+                                Début : {{ etat.date_debut|date:"d/m/Y à H:i" }}
+                            </p>
+                            {% if etat.date_fin %}
+                                <p>
+                                    <i class="fas fa-flag-checkered mr-1"></i>
+                                    Fin : {{ etat.date_fin|date:"d/m/Y à H:i" }}
+                                </p>
+                            {% endif %}
+                            {% if etat.operateur %}
+                                <p>
+                                    <i class="fas fa-user mr-1"></i>
+                                    Opérateur : {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Section 5: Finaliser la Préparation (pour les superviseurs) -->
+    {% if etat_actuel.enum_etat.libelle == 'En préparation' %}
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--preparation-primary);">
+            <i class="fas fa-clipboard-list mr-2"></i>Finaliser la Préparation
+        </h2>
+        
+        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+            <div class="flex items-center">
+                <i class="fas fa-cog fa-spin text-blue-600 mr-3 text-xl"></i>
+                <div>
+                    <h3 class="font-semibold text-blue-800">Étape 2 : Préparation en cours</h3>
+                    <p class="text-sm text-blue-600">Rassemblez tous les articles et emballez-les, puis marquez la commande comme préparée.</p>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" class="flex flex-col sm:flex-row gap-4">
+            {% csrf_token %}
+            <button type="submit" name="action" value="marquer_preparee" class="w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                <i class="fas fa-check-circle text-2xl"></i>
+                <div>
+                Marquer comme Préparée
+                    <span class="block text-sm font-normal">Finalise la préparation et la rend prête pour l'expédition.</span>
+                </div>
+            </button>
+            
+            <!-- Action: Signaler un problème -->
+            <button type="button" onclick="showProblemModal()" class="mt-4 w-full text-left flex items-center gap-4 px-6 py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                <i class="fas fa-exclamation-triangle text-2xl"></i>
+                <div>
+                    Signaler un problème
+                    <span class="block text-sm font-normal">Renvoyer la commande à la confirmation si un article est défectueux.</span>
+                </div>
+            </button>
+        </form>
+    </div>
+    {% elif etat_preparation.date_fin %}
+    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--preparation-border-accent);">
+        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle text-green-600 mr-3 text-xl"></i>
+                <div>
+                    <h3 class="font-semibold text-green-800">Commande Préparée</h3>
+                    <p class="text-sm text-green-600">
+                        Cette commande a été marquée comme préparée le {{ etat_preparation.date_fin|date:"d/m/Y à H:i" }}.
+                        Elle est maintenant prête pour l'étiquetage et la livraison.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 flex gap-4">
+            <a href="{% url 'Superpreparation:etiquette' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center">
+                <i class="fas fa-tags mr-2"></i>
+                Gérer les Étiquettes
+            </a>
+            <a href="{% url 'Superpreparation:liste_prepa' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Retour à la liste
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %} 
+
+{% block extra_js %}
+<script>
+// Scripts pour l'interface de supervision de préparation
+
+function showProblemModal() {
+    Swal.fire({
+        title: 'Signaler un problème',
+        text: "Voulez-vous vraiment renvoyer cette commande à la confirmation ?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Oui, renvoyer !',
+        cancelButtonText: 'Annuler'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Créer un formulaire et le soumettre
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.style.display = 'none';
+            
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'signaler_probleme';
+            form.appendChild(actionInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+</script>
+{% endblock %} 

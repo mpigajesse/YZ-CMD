@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Tickets de Préparation - YZ-CMD</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Styles d'impression pour les tickets de préparation */
+        @media print {
+            @page {
+                size: A4;
+                margin: 5mm;
+            }
+
+            body, html {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                font-family: 'Arial', sans-serif !important;
+            }
+            
+            .tickets-container {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 5mm !important;
+                width: 100% !important;
+            }
+            
+            .ticket-preparation {
+                width: 90mm !important;
+                border: 2px solid black !important;
+                display: flex !important;
+                flex-direction: column !important;
+                background: white !important;
+                page-break-inside: avoid !important;
+                margin: 0 !important;
+                overflow: visible !important;
+                font-size: 9px !important;
+                font-family: Arial, sans-serif !important;
+            }
+            
+            .ticket-preparation * { 
+                -webkit-print-color-adjust: exact !important; 
+                color-adjust: exact !important; 
+            }
+            
+            .ticket-header { 
+                background: black !important; 
+                color: white !important; 
+                padding: 2mm !important; 
+                display: flex !important; 
+                justify-content: space-between !important; 
+                align-items: center !important; 
+                font-weight: bold !important; 
+                font-size: 10px !important;
+            }
+            
+            .ticket-body { 
+                padding: 2mm !important; 
+                flex-grow: 1 !important; 
+                display: flex !important; 
+                flex-direction: column !important; 
+                justify-content: flex-start !important; 
+            }
+            
+            .info-line {
+                display: flex !important;
+                align-items: center !important;
+                margin-bottom: 0.8mm !important;
+                font-size: 9px !important;
+                color: black !important;
+                font-weight: normal !important;
+            }
+            
+            .info-line i {
+                width: 4mm !important;
+                margin-right: 1mm !important;
+                font-size: 8px !important;
+                text-align: center !important;
+                color: black !important;
+            }
+            
+            .info-line strong {
+                font-weight: bold !important;
+            }
+            
+            .separator { 
+                border-bottom: 1px dashed black !important; 
+                margin: 2mm 0 !important; 
+                width: 100% !important;
+            }
+            
+            .bg-gray-200 {
+                background-color: #e5e7eb !important;
+                height: 1px !important;
+                border: none !important;
+            }
+            
+            .products-section {
+                padding: 2mm 0 !important;
+                font-size: 9px !important;
+                font-weight: normal !important;
+                text-align: left !important;
+                white-space: pre-wrap !important;
+                word-break: break-word !important;
+                flex-grow: 1 !important;
+                min-height: 15mm !important;
+                color: black !important;
+            }
+            
+            .ticket-footer { 
+                background: black !important;
+                padding: 2mm !important; 
+                display: flex !important; 
+                justify-content: space-between !important; 
+                align-items: center !important; 
+                font-weight: bold !important; 
+                border: none !important;
+                margin: 0 !important;
+            }
+            
+            .ticket-footer img { 
+                height: 15mm !important; 
+                background: white !important; 
+                padding: 1mm !important;
+            }
+            
+            .ville-name {
+                font-weight: bold !important;
+                font-size: 20px !important;
+                color: white !important;
+                text-transform: uppercase !important;
+                letter-spacing: 1px !important;
+            }
+            
+            .ticket-brand { 
+                background-color: white !important; 
+                color: black !important; 
+                padding: 1.5mm 2mm !important; 
+                display: flex !important; 
+                justify-content: space-between !important; 
+                align-items: center !important; 
+                font-size: 8px !important; 
+                border-top: none !important;
+            }
+            
+            .brand-name {
+                font-weight: bold !important;
+                font-size: 9px !important;
+                color: black !important;
+            }
+
+            /* Masquer les éléments non imprimables */
+            .no-print { display: none !important; }
+        }
+
+        /* Styles d'affichage pour la prévisualisation */
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', sans-serif; 
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* Header avec contrôles */
+        .page-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a202c;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.9);
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .search-input {
+            padding: 10px 15px 10px 40px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            min-width: 250px;
+            background: white;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+        }
+
+        .stats-container {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 80px;
+        }
+
+        .stat-number {
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        
+        .tickets-container { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); 
+            gap: 25px; 
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 10px;
+        }
+        
+        .ticket-preparation { 
+            width: 100%; 
+            border: none;
+            border-radius: 16px;
+            display: flex; 
+            flex-direction: column; 
+            background: white; 
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); 
+            font-size: 12px;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .ticket-preparation:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .ticket-status-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            box-shadow: 0 0 10px rgba(72, 187, 120, 0.4);
+        }
+        
+        .ticket-header { 
+            background: black; 
+            color: white; 
+            padding: 8px 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-weight: bold; 
+            font-size: 14px; 
+        }
+        
+        .ticket-body { 
+            padding: 12px; 
+            flex-grow: 1; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start; 
+        }
+        
+        .info-line { 
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px; 
+            font-size: 12px; 
+            color: black;
+        }
+        
+        .info-line i {
+            width: 18px;
+            margin-right: 6px;
+            font-size: 12px;
+            text-align: center;
+            color: black;
+        }
+        
+        .info-line strong {
+            font-weight: bold;
+        }
+        
+        .separator { 
+            border-bottom: 1px dashed black; 
+            margin: 10px 0; 
+        }
+        
+        .bg-gray-200 {
+            background-color: #e5e7eb;
+            height: 1px;
+            border: none;
+        }
+        
+        .products-section { 
+            padding: 10px 0; 
+            font-size: 12px; 
+            font-weight: normal; 
+            text-align: left; 
+            min-height: 60px; 
+            white-space: pre-wrap; 
+            word-break: break-word; 
+            flex-grow: 1;
+            color: black;
+        }
+        
+        .ticket-footer { 
+            background: black;
+            padding: 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-weight: bold; 
+            border: rounded;
+            margin: 0;
+        }
+        
+        .ticket-footer img { 
+            height: 40px; 
+            background: white; 
+            padding: 4px;
+        }
+        
+        .ville-name {
+            font-weight: bold;
+            font-size: 22px;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .ticket-brand { 
+            background-color: white; 
+            color: black; 
+            padding: 8px 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-size: 10px; 
+        }
+        
+        .brand-name {
+            font-weight: bold;
+            font-size: 12px;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header avec contrôles -->
+<div class="page-header no-print">
+    <div class="header-title">
+        <i class="fas fa-receipt"></i>
+        Tickets de Préparation
+    </div>
+    <div class="header-controls">
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-number">{{ commandes|length }}</div>
+                <div class="stat-label">Tickets</div>
+            </div>
+        </div>
+        
+        <div class="search-container">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="searchInput" class="search-input" placeholder="Rechercher par n° commande, client...">
+        </div>
+        
+        <div class="control-group">
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="fas fa-print"></i>
+                Imprimer Tout
+            </button>
+            <button onclick="togglePreviewMode()" class="btn btn-secondary" id="previewBtn">
+                <i class="fas fa-eye"></i>
+                Aperçu
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="tickets-container" id="ticketsContainer">
+    {% for commande in commandes %}
+    <div class="ticket-preparation" data-commande-id="{{ commande.id_yz }}" data-client="{{ commande.client.prenom }} {{ commande.client.nom }}" data-ville="{{ commande.ville.nom }}">
+        <div class="ticket-status-indicator"></div>
+        <div class="ticket-header">
+            <span>N° {{ commande.id_yz }}</span>
+            <span>{{ commande.date_preparation|date:"d/m/Y" }}</span>
+        </div>
+        <div class="ticket-body">
+            <div class="info-line">
+                <i class="fas fa-user"></i>
+                <strong>{{ commande.client.prenom }} {{ commande.client.nom }}</strong>
+            </div>
+            <div class="info-line">
+                <i class="fas fa-phone"></i>
+                {{ commande.client.numero_tel|default:"Non renseigné" }}
+            </div>
+            <div class="info-line">
+                <i class="fas fa-map-marker-alt"></i>
+                {{ commande.adresse|default:'ADRESSE À COMPLÉTER'|truncatechars:45 }}
+            </div>
+            <div class="info-line">
+                <i class="fas fa-city"></i>
+                <strong>{{ commande.ville.nom }}</strong>
+            </div>
+            <div class="info-line">
+                <i class="fas fa-euro-sign"></i>
+                <strong>{{ commande.total_cmd|floatformat:2 }} MAD</strong>
+            </div>
+            <div class="separator bg-gray-200"></div>
+            <div class="products-section" data-commande-id="{{ commande.id }}">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Chargement des produits...
+                </div>
+            </div>
+        </div>
+        <div class="ticket-footer">
+            <img src="data:image/png;base64,{{ commande.barcode_base64 }}" alt="Code-barres {{ commande.id_yz }}">
+            <span class="ville-name">{{ commande.ville.nom }}</span>
+        </div>
+        <div class="ticket-brand">
+            <span class="brand-name">YOOZAK</span>
+            <div style="text-align: right;">
+                <span>www.yoozak.com</span><br>
+                <span>06 34 21 56 39 / 47</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Message si aucun ticket -->
+{% if not commandes %}
+<div class="no-tickets-message no-print">
+    <div style="text-align: center; padding: 60px 20px; background: rgba(255,255,255,0.9); border-radius: 16px; margin: 20px auto; max-width: 500px;">
+        <i class="fas fa-receipt" style="font-size: 48px; color: #a0aec0; margin-bottom: 20px;"></i>
+        <h2 style="color: #1a202c; margin-bottom: 10px;">Aucun ticket à afficher</h2>
+        <p style="color: #718096;">Sélectionnez des commandes à préparer pour générer les tickets.</p>
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const productSections = document.querySelectorAll('.products-section');
+    const searchInput = document.getElementById('searchInput');
+    const tickets = document.querySelectorAll('.ticket-preparation');
+    let loadedCount = 0;
+    const totalSections = productSections.length;
+    let previewMode = false;
+
+    // Fonction de recherche
+    function performSearch() {
+        const searchTerm = searchInput.value.toLowerCase();
+        let visibleCount = 0;
+
+        tickets.forEach(ticket => {
+            const commandeId = ticket.dataset.commandeId;
+            const clientName = ticket.dataset.client.toLowerCase();
+            const ville = ticket.dataset.ville.toLowerCase();
+
+            const isVisible = commandeId.includes(searchTerm) || 
+                            clientName.includes(searchTerm) || 
+                            ville.includes(searchTerm);
+
+            if (isVisible) {
+                ticket.style.display = 'flex';
+                ticket.style.animation = 'fadeIn 0.3s ease-in';
+                visibleCount++;
+            } else {
+                ticket.style.display = 'none';
+            }
+        });
+
+        // Mettre à jour le compteur
+        const statNumber = document.querySelector('.stat-number');
+        if (statNumber) {
+            statNumber.textContent = visibleCount;
+        }
+    }
+
+    // Événement de recherche
+    if (searchInput) {
+        searchInput.addEventListener('input', performSearch);
+        
+        // Recherche en temps réel avec animation
+        searchInput.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+    }
+
+    // Fonction pour basculer le mode aperçu
+    window.togglePreviewMode = function() {
+        previewMode = !previewMode;
+        const previewBtn = document.getElementById('previewBtn');
+        const ticketsContainer = document.getElementById('ticketsContainer');
+
+        if (previewMode) {
+            ticketsContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+            ticketsContainer.style.gap = '15px';
+            
+            tickets.forEach(ticket => {
+                ticket.style.transform = 'scale(0.9)';
+                ticket.style.opacity = '0.8';
+            });
+
+            previewBtn.innerHTML = '<i class="fas fa-expand"></i> Vue Normale';
+            previewBtn.classList.remove('btn-secondary');
+            previewBtn.classList.add('btn-primary');
+        } else {
+            ticketsContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(380px, 1fr))';
+            ticketsContainer.style.gap = '25px';
+            
+            tickets.forEach(ticket => {
+                ticket.style.transform = 'scale(1)';
+                ticket.style.opacity = '1';
+            });
+
+            previewBtn.innerHTML = '<i class="fas fa-eye"></i> Aperçu';
+            previewBtn.classList.remove('btn-primary');
+            previewBtn.classList.add('btn-secondary');
+        }
+    };
+
+    // Animation d'entrée pour les tickets
+    tickets.forEach((ticket, index) => {
+        ticket.style.animation = `slideInUp 0.6s ease-out ${index * 0.1}s both`;
+    });
+
+    // Chargement des produits avec indication de progression
+    if (totalSections === 0) {
+        // Attendre un peu avant d'imprimer si pas de mode debug
+        if (!window.location.search.includes('debug=1')) {
+            setTimeout(() => window.print(), 1000);
+        }
+        return;
+    }
+
+    // Barre de progression pour le chargement
+    const loadingProgress = createProgressBar();
+    
+    productSections.forEach((section, index) => {
+        const commandeId = section.dataset.commandeId;
+        if (commandeId) {
+            const url = "{% url 'Superpreparation:api_commande_produits' 0 %}".replace('0', commandeId);
+            
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) { 
+                        throw new Error('Erreur réseau'); 
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Animation de chargement réussi
+                        section.innerHTML = `
+                            <div class="products-content" style="opacity: 0; transform: translateY(10px); transition: all 0.3s ease;">
+                                ${data.produits}
+                            </div>
+                        `;
+                        
+                        // Déclencher l'animation
+                        setTimeout(() => {
+                            const content = section.querySelector('.products-content');
+                            if (content) {
+                                content.style.opacity = '1';
+                                content.style.transform = 'translateY(0)';
+                            }
+                        }, 100);
+
+                        // Changer l'indicateur de statut
+                        const statusIndicator = section.closest('.ticket-preparation').querySelector('.ticket-status-indicator');
+                        if (statusIndicator) {
+                            statusIndicator.style.background = 'linear-gradient(135deg, #48bb78, #38a169)';
+                        }
+                    } else {
+                        section.innerHTML = '<div class="error-state"><i class="fas fa-exclamation-circle"></i> Erreur chargement produits</div>';
+                        updateStatusIndicator(section, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    section.innerHTML = '<div class="error-state"><i class="fas fa-wifi"></i> Erreur réseau</div>';
+                    updateStatusIndicator(section, 'error');
+                })
+                .finally(() => {
+                    loadedCount++;
+                    updateProgress(loadingProgress, (loadedCount / totalSections) * 100);
+                    
+                    if (loadedCount === totalSections) {
+                        // Tous les produits sont chargés
+                        setTimeout(() => {
+                            loadingProgress.remove();
+                            
+                            // Imprimer automatiquement si pas en mode debug
+                            if (!window.location.search.includes('debug=1')) {
+                                window.print();
+                            }
+                        }, 500);
+                    }
+                });
+        } else {
+            section.innerHTML = '<div class="error-state">ID commande manquant</div>';
+            updateStatusIndicator(section, 'error');
+            loadedCount++;
+            
+            if (loadedCount === totalSections) {
+                setTimeout(() => {
+                    loadingProgress.remove();
+                    if (!window.location.search.includes('debug=1')) {
+                        window.print();
+                    }
+                }, 500);
+            }
+        }
+    });
+
+    // Fonctions utilitaires
+    function createProgressBar() {
+        const progressBar = document.createElement('div');
+        progressBar.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            z-index: 9999;
+            transition: width 0.3s ease;
+        `;
+        document.body.appendChild(progressBar);
+        return progressBar;
+    }
+
+    function updateProgress(progressBar, percentage) {
+        progressBar.style.width = percentage + '%';
+    }
+
+    function updateStatusIndicator(section, status) {
+        const statusIndicator = section.closest('.ticket-preparation').querySelector('.ticket-status-indicator');
+        if (statusIndicator) {
+            switch(status) {
+                case 'error':
+                    statusIndicator.style.background = 'linear-gradient(135deg, #f56565, #e53e3e)';
+                    statusIndicator.style.boxShadow = '0 0 10px rgba(245, 101, 101, 0.4)';
+                    break;
+                case 'loading':
+                    statusIndicator.style.background = 'linear-gradient(135deg, #ed8936, #dd6b20)';
+                    statusIndicator.style.boxShadow = '0 0 10px rgba(237, 137, 54, 0.4)';
+                    break;
+            }
+        }
+    }
+});
+
+// CSS pour les animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    .loading-spinner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #667eea;
+        font-weight: 500;
+    }
+
+    .error-state {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #f56565;
+        font-weight: 500;
+    }
+
+    .products-content {
+        line-height: 1.4;
+    }
+
+    .ticket-preparation:hover .ticket-status-indicator {
+        transform: scale(1.2);
+    }
+
+    /* Mode responsive */
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .header-controls {
+            justify-content: center;
+        }
+        
+        .search-input {
+            min-width: 200px;
+        }
+        
+        .tickets-container {
+            grid-template-columns: 1fr !important;
+            gap: 20px;
+        }
+    }
+`;
+document.head.appendChild(style);
+</script>
+
+</body>
+</html> 

@@ -1,0 +1,1654 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-boxes mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: white;">{{ page_subtitle }}</p>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Total des commandes affectées -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-teal-100 to-teal-200 text-teal-600 transition-all duration-300 group-hover:from-teal-500 group-hover:to-teal-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-boxes text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Total Affectées</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-teal-600">{{ stats.total_affectees }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Valeur totale -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur Totale</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ stats.valeur_totale|floatformat:0 }} DH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commandes urgentes -->
+        <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100" style="border-color: var(--preparation-border-accent);">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110" style="color: var(--preparation-primary);">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Urgentes</p>
+                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300" style="group-hover:color: var(--preparation-primary);">{{ stats.commandes_urgentes }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8 preparation-card" style="border-color: var(--preparation-border-accent);">
+        <!-- Onglets de filtrage -->
+        <div class="mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                    <a href="{% url 'Superpreparation:liste_prepa' %}{% if search_query %}?search={{ search_query }}&items_per_page={{ items_per_page|default:10 }}{% else %}?items_per_page={{ items_per_page|default:10 }}{% endif %}" 
+                       class="{% if filter_type == 'all' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+                        <i class="fas fa-list mr-2"></i>
+                        Toutes les commandes
+                        <span class="ml-2 bg-gray-100 text-gray-900 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ stats.total_affectees }}</span>
+                    </a>
+
+
+                    <a href="{% url 'Superpreparation:liste_prepa' %}?filter=affectees_moi{% if search_query %}&search={{ search_query }}{% endif %}&items_per_page={{ items_per_page|default:10 }}" 
+                       class="{% if filter_type == 'affectees_moi' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+                        <i class="fas fa-user-check mr-2"></i>
+                        Affectées par moi
+                        <span class="ml-2 bg-blue-100 text-blue-900 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ stats_par_type.affectees_moi|default:0 }}</span>
+                    </a>
+
+                    <a href="{% url 'Superpreparation:liste_prepa' %}?filter=renvoyees_logistique{% if search_query %}&search={{ search_query }}{% endif %}&items_per_page={{ items_per_page|default:10 }}" 
+                       class="{% if filter_type == 'renvoyees_logistique' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+                        <i class="fas fa-truck mr-2"></i>
+                        Renvoyées par logistique
+                        <span class="ml-2 bg-red-100 text-red-900 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ stats_par_type.renvoyees_logistique }}</span>
+                    </a>
+
+
+                </nav>
+            </div>
+        </div>
+
+        <!-- Description de la page -->
+        <div class="mb-4">
+            <p class="text-gray-700 mb-2">
+                {% if filter_type == 'renvoyees_logistique' %}
+                    Commandes renvoyées par les opérateurs logistiques.
+                {% else %}
+                    Liste des commandes qui vous sont affectées.
+                {% endif %}
+            </p>
+            {% if search_query %}
+                <div class="flex items-center text-sm text-gray-600">
+                    <i class="fas fa-search mr-2"></i>
+                    <span>Résultats pour : "<strong>{{ search_query }}</strong>"</span>
+                    <a href="{% url 'Superpreparation:liste_prepa' %}{% if filter_type != 'all' %}?filter={{ filter_type }}{% endif %}" class="ml-2 text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-times-circle"></i> Effacer
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Barre d'outils avec recherche intelligente -->
+        <div class="mb-6 flex flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <!-- Sélecteur éléments par page -->
+            <form method="GET" class="flex items-center">
+                {% if search_query %}
+                    <input type="hidden" name="search" value="{{ search_query }}">
+                {% endif %}
+                {% if filter_type != 'all' %}
+                    <input type="hidden" name="filter" value="{{ filter_type }}">
+                {% endif %}
+                
+                <!-- Container moderne pour le sélecteur -->
+                <div class="flex items-center bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-2 hover:shadow-md transition-all duration-300 group">
+                    <!-- Icône -->
+                    <div class="mr-3 p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all duration-300">
+                        <i class="fas fa-list-ol text-blue-600 text-sm"></i>
+                    </div>
+                    
+                    <!-- Label stylisé -->
+                    <label for="itemsPerPage" class="mr-3 text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-300">
+                        Éléments/page
+                    </label>
+                    
+                    <!-- Séparateur -->
+                    <div class="w-px h-6 bg-gray-300 mx-2"></div>
+                    
+                    <!-- Select stylisé (caché) -->
+                    <select id="itemsPerPage" name="items_per_page" onchange="this.form.submit()" 
+                            class="hidden">
+                        <option value="10" {% if items_per_page|default:10 == 10 %}selected{% endif %}>10</option>
+                        <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                    
+                    <!-- Dropdown personnalisé -->
+                    <div id="customDropdown" class="relative">
+                        <!-- Bouton d'affichage avec crochet intégré -->
+                        <button type="button" id="dropdownButton" 
+                                class="px-3 py-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-300 cursor-pointer flex items-center gap-2 hover:bg-blue-50 rounded-lg px-3 py-2 transition-all duration-300">
+                            <span id="selectedValue">10</span>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-300"></i>
+                        </button>
+                        
+                        <!-- Liste des options -->
+                        <div id="dropdownOptions" class="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible transform scale-95 -translate-y-2 transition-all duration-200 z-50 min-w-[80px]">
+                            <div class="py-1">
+                                <div class="option-item px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 hover:text-blue-700 transition-colors duration-150" data-value="10">10</div>
+                                <div class="option-item px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 hover:text-blue-700 transition-colors duration-150" data-value="25">25</div>
+                                <div class="option-item px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 hover:text-blue-700 transition-colors duration-150" data-value="50">50</div>
+                                <div class="option-item px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 hover:text-blue-700 transition-colors duration-150" data-value="100">100</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Barre de recherche intelligente -->
+            <div class="relative ml-auto">
+                <div class="mb-3">
+                    <p class="text-gray-700 text-sm">
+                        Recherche intelligente et filtres avancés pour optimiser votre suivi des commandes.
+                    </p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <input type="text" id="smartSearch" 
+                               placeholder="Recherche intelligente..." 
+                               class="block px-4 py-2 pr-10 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm w-64 h-10"
+                               autocomplete="off">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                    </div>
+                    <button onclick="clearSmartSearch()" 
+                            class="inline-flex items-center px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors h-10">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button onclick="toggleAdvancedSearch()" 
+                            class="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors h-10">
+                        <i class="fas fa-filter mr-2"></i>
+                        Filtres
+                    </button>
+                </div>
+                
+                <!-- Filtres avancés -->
+                <div id="advancedSearch" class="hidden absolute top-full left-0 mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-4 z-50 min-w-96">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ID YZ</label>
+                            <input type="text" id="filterIdYz" placeholder="ID YZ..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">N° Externe</label>
+                            <input type="text" id="filterNumCmd" placeholder="N° commande..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                            <input type="text" id="filterClient" placeholder="Nom ou prénom..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                            <input type="text" id="filterPhone" placeholder="Numéro..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" id="filterEmail" placeholder="Email..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Ville Client</label>
+                            <input type="text" id="filterVilleClient" placeholder="Ville client..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Ville & Région</label>
+                            <input type="text" id="filterVilleRegion" placeholder="Ville/région..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date Affectation</label>
+                            <input type="date" id="filterDateAffectation" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Min</label>
+                            <input type="number" id="filterTotalMin" placeholder="0" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Max</label>
+                            <input type="number" id="filterTotalMax" placeholder="1000" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">État</label>
+                            <input type="text" id="filterEtat" placeholder="État..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Opérateur</label>
+                            <input type="text" id="filterOperateur" placeholder="Opérateur..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-between">
+                        <button onclick="applyFilters()" 
+                                class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors h-10">
+                            <i class="fas fa-check mr-2"></i>
+                            Appliquer
+                        </button>
+                        <button onclick="clearFilters()" 
+                                class="inline-flex items-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors h-10">
+                            <i class="fas fa-eraser mr-2"></i>
+                            Effacer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Indicateur de résultats -->
+        <div id="searchResults" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md hidden">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-search text-blue-600 mr-2"></i>
+                    <span class="text-blue-800">
+                        <span id="resultCount">0</span> résultat(s) trouvé(s)
+                    </span>
+                </div>
+                <button onclick="clearAllSearch()" class="text-blue-600 hover:text-blue-800 text-sm">
+                    <i class="fas fa-times mr-1"></i>Effacer tout
+                </button>
+            </div>
+        </div>
+        
+        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead style="background-color: var(--preparation-primary);">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date Affectation</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% if commandes_affectees %}
+                        {% for commande in commandes_affectees %}
+                        <tr class="hover:bg-gray-50 commande-row" 
+                            data-id-yz="{{ commande.id_yz }}"
+                            data-num-cmd="{{ commande.num_cmd|default:'' }}"
+                            data-client="{{ commande.client.prenom }} {{ commande.client.nom }}"
+                            data-phone="{{ commande.client.numero_tel|default:'' }}"
+                            data-email="{{ commande.client.email|default:'' }}"
+                            data-ville-client="{{ commande.ville_init|default:'' }}"
+                            data-ville-region="{% if commande.ville %}{{ commande.ville.nom }} {{ commande.ville.region.nom_region|default:'' }}{% endif %}"
+                            data-date-affectation="{% with etat_actuel=commande.etat_actuel %}{% if etat_actuel %}{{ etat_actuel.date_debut|date:'d/m/Y' }}{% endif %}{% endwith %}"
+                            data-total="{{ commande.total_cmd }}"
+                            data-etat="{% with etat_actuel=commande.etat_actuel %}{% if etat_actuel %}{{ etat_actuel.enum_etat.libelle }}{% endif %}{% endwith %}"
+                            data-operateur="{% with etat_actuel=commande.etat_actuel %}{% if etat_actuel and etat_actuel.operateur %}{{ etat_actuel.operateur.prenom }} {{ etat_actuel.operateur.nom }}{% endif %}{% endwith %}">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ commande.id_yz }}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
+                            <!-- Colonne Client -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                                {% if commande.client.email %}
+                                <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Téléphone -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.client.numero_tel %}
+                                <div class="text-sm text-gray-900 font-medium">
+                                    <i class="fas fa-phone mr-1"></i>
+                                    {{ commande.client.numero_tel }}
+                                </div>
+                                {% else %}
+                                <div class="text-sm text-gray-500">Non renseigné</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville Client -->
+                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                {% if commande.ville_init and commande.ville_init != '' %}
+                                    <div style="color: var(--preparation-primary);" class="font-medium">{{ commande.ville_init }}</div>
+                                {% else %}
+                                    <div style="color: var(--preparation-primary);">Non spécifiée</div>
+                                {% endif %}
+                            </td>
+                            <!-- Colonne Ville & Région (ville de livraison) -->
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if commande.ville %}
+                                    <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                                    <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non définie</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% with etat_actuel=commande.etat_actuel %}
+                                    {% if etat_actuel %}
+                                        <div class="text-sm text-gray-900">{{ etat_actuel.date_debut|date:"d/m/Y" }}</div>
+                                        <div class="text-xs text-gray-500">{{ etat_actuel.date_debut|date:"H:i" }}</div>
+                                    {% else %}
+                                        <div class="text-sm text-gray-500">Non définie</div>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                            </td>
+
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% with etat_actuel=commande.etat_actuel %}
+                                    <div class="flex items-center">
+                                        <!-- Affichage de l'état actuel -->
+                                        {% if etat_actuel.enum_etat.libelle == 'À imprimer' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                <i class="fas fa-print mr-1"></i>
+                                                À imprimer
+                                            </span>
+                                        {% elif etat_actuel.enum_etat.libelle == 'En préparation' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                <i class="fas fa-cog fa-spin mr-1"></i>
+                                                En préparation
+                                            </span>
+                                        {% elif etat_actuel.enum_etat.libelle == 'Préparée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                <i class="fas fa-check mr-1"></i>
+                                                Préparée
+                                            </span>
+                                        {% else %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                {{ etat_actuel.enum_etat.libelle }}
+                                            </span>
+                                        {% endif %}
+                                        
+                                        <!-- Bouton pour afficher/masquer les détails d'état -->
+                                        <button onclick="toggleEtatDetails('{{ commande.id }}')" 
+                                                class="ml-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                                                title="Afficher/masquer les détails d'état">
+                                            <i class="fas fa-info text-gray-600 text-xs"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Détails d'état (masqués par défaut) -->
+                                    <div id="etat-details-{{ commande.id }}" class="hidden mt-2 space-y-1">
+                                        <!-- Affichage de l'état précédent (si applicable) -->
+                                        {% if commande.etat_precedent %}
+                                            {% if commande.etat_precedent.enum_etat.libelle == 'En cours de livraison' %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                    <i class="fas fa-truck mr-1"></i>
+                                                    Renvoyée depuis livraison
+                                                </span>
+                                                <div class="text-xs text-red-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% elif commande.etat_precedent.enum_etat.libelle == 'Préparée' %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                    <i class="fas fa-undo mr-1"></i>
+                                                    Renvoyée depuis préparation
+                                                </span>
+                                                <div class="text-xs text-yellow-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% elif commande.etat_precedent.enum_etat.libelle == 'Confirmée' %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                    <i class="fas fa-check-circle mr-1"></i>
+                                                    Depuis confirmation
+                                                </span>
+                                                <div class="text-xs text-green-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% else %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                    <i class="fas fa-history mr-1"></i>
+                                                    {{ commande.etat_precedent.enum_etat.libelle }}
+                                                </span>
+                                                <div class="text-xs text-gray-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                        
+                                        <!-- Affichage de l'état de confirmation -->
+                                        {% if commande.etat_confirmation and commande.etat_confirmation.enum_etat.libelle == 'Confirmée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                                <i class="fas fa-user-tie mr-1"></i>
+                                                Confirmée par admin
+                                            </span>
+                                            <div class="text-xs text-purple-600 mt-1">
+                                                <i class="fas fa-calendar mr-1"></i>
+                                                {{ commande.etat_confirmation.date_debut|date:"d/m/Y H:i" }}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Affichage des étapes de préparation -->
+                                        <div class="mt-2 pt-2 border-t border-gray-200">
+                                            <div class="text-xs font-medium text-gray-700 mb-1">Étapes de préparation :</div>
+                                            
+                                            <!-- Étape 1: En préparation -->
+                                            <div class="flex items-center mb-1">
+                                                {% if commande.etats.all|length > 0 %}
+                                                    {% for etat in commande.etats.all %}
+                                                        {% if etat.enum_etat.libelle == 'En préparation' %}
+                                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-check text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-green-600">En préparation</span>
+                                                            <span class="text-xs text-green-500 ml-2">
+                                                                <i class="fas fa-check mr-1"></i>Terminé
+                                                            </span>
+                                                            {% if etat.operateur %}
+                                                                <span class="text-xs text-gray-500 ml-2">
+                                                                    par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                                </span>
+                                                            {% endif %}
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                ({{ etat.date_debut|date:"d/m/Y H:i" }})
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2"></span>
+                                                    <span class="text-xs text-gray-500">En préparation</span>
+                                                    <span class="text-xs text-gray-400 ml-2">En attente</span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Étape 2: Collectée -->
+                                            <div class="flex items-center mb-1">
+                                                {% if commande.etats.all|length > 0 %}
+                                                    {% for etat in commande.etats.all %}
+                                                        {% if etat.enum_etat.libelle == 'Collectée' %}
+                                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-check text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-green-600">Collectée</span>
+                                                            <span class="text-xs text-green-500 ml-2">
+                                                                <i class="fas fa-check mr-1"></i>Terminé
+                                                            </span>
+                                                            {% if etat.operateur %}
+                                                                <span class="text-xs text-gray-500 ml-2">
+                                                                    par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                                </span>
+                                                            {% endif %}
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                ({{ etat.date_debut|date:"d/m/Y H:i" }})
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Collectée</span>
+                                                    <span class="text-xs text-gray-400 ml-2">En attente</span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Étape 3: Emballée -->
+                                            <div class="flex items-center mb-1">
+                                                {% if commande.etats.all|length > 0 %}
+                                                    {% for etat in commande.etats.all %}
+                                                        {% if etat.enum_etat.libelle == 'Emballée' %}
+                                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-check text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-green-600">Emballée</span>
+                                                            <span class="text-xs text-green-500 ml-2">
+                                                                <i class="fas fa-check mr-1"></i>Terminé
+                                                            </span>
+                                                            {% if etat.operateur %}
+                                                                <span class="text-xs text-gray-500 ml-2">
+                                                                    par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                                </span>
+                                                            {% endif %}
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                ({{ etat.date_debut|date:"d/m/Y H:i" }})
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Emballée</span>
+                                                    <span class="text-xs text-gray-400 ml-2">En attente</span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Étape 4: Préparée (finalisée par superviseur) -->
+                                            <div class="flex items-center">
+                                                {% if commande.etats.all|length > 0 %}
+                                                    {% for etat in commande.etats.all %}
+                                                        {% if etat.enum_etat.libelle == 'Préparée' %}
+                                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-check text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-green-600">Préparée</span>
+                                                            <span class="text-xs text-green-500 ml-2">
+                                                                <i class="fas fa-check mr-1"></i>Terminé
+                                                            </span>
+                                                            {% if etat.operateur %}
+                                                                <span class="text-xs text-gray-500 ml-2">
+                                                                    par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                                </span>
+                                                            {% endif %}
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                ({{ etat.date_debut|date:"d/m/Y H:i" }})
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Préparée</span>
+                                                    <span class="text-xs text-gray-400 ml-2">En attente</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Affichage des changements d'état -->
+                                        <div class="mt-2 pt-2 border-t border-gray-200">
+                                            <div class="text-xs font-medium text-gray-700 mb-1">Changements d'état :</div>
+                                            {% for etat in commande.etats.all %}
+                                                {% if etat.enum_etat.libelle in 'En préparation,Collectée,Emballée,Préparée' %}
+                                                    <div class="text-xs text-gray-600">
+                                                        <i class="fas fa-arrow-right mr-1"></i>
+                                                        {{ etat.enum_etat.libelle }}
+                                                        {% if etat.operateur %}
+                                                            par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                        {% endif %}
+                                                        <span class="text-gray-500">({{ etat.date_debut|date:"d/m/Y H:i" }})</span>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endwith %}
+                            </td>
+                            <!-- Colonne État Préparation -->
+                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                <div class="flex flex-col space-y-1">
+                                    <!-- État actuel avec icône d'information -->
+                                    <div class="flex items-center">
+                                        {% if commande.etat_actuel_preparation.enum_etat.libelle == 'À imprimer' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                <i class="fas fa-print mr-1"></i>
+                                                À imprimer
+                                            </span>
+                                        {% elif commande.etat_actuel_preparation.enum_etat.libelle == 'En préparation' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                <i class="fas fa-box-open mr-1"></i>
+                                                En préparation
+                                            </span>
+                                        {% elif commande.etat_actuel_preparation.enum_etat.libelle == 'Collectée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                <i class="fas fa-box mr-1"></i>
+                                                Collectée
+                                            </span>
+                                        {% elif commande.etat_actuel_preparation.enum_etat.libelle == 'Emballée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                                <i class="fas fa-boxes mr-1"></i>
+                                                Emballée
+                                            </span>
+                                        {% elif commande.etat_actuel_preparation.enum_etat.libelle == 'Préparée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                <i class="fas fa-check-circle mr-1"></i>
+                                                Préparée
+                                            </span>
+                                        {% else %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                <i class="fas fa-info-circle mr-1"></i>
+                                                {{ commande.etat_actuel_preparation.enum_etat.libelle }}
+                                            </span>
+                                        {% endif %}
+                                        
+                                        <!-- Bouton pour afficher/masquer les détails d'état -->
+                                        <button onclick="toggleEtatDetails('{{ commande.id }}')" 
+                                                class="ml-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                                                title="Afficher/masquer les détails d'état">
+                                            <i class="fas fa-info text-gray-600 text-xs"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Détails d'état (masqués par défaut) -->
+                                    <div id="etat-details-{{ commande.id }}" class="hidden mt-2 space-y-1">
+                                        <!-- Affichage de l'état précédent (si applicable) -->
+                                        {% if commande.etat_precedent %}
+                                            {% if commande.etat_precedent.enum_etat.libelle == 'En cours de livraison' %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                    <i class="fas fa-truck mr-1"></i>
+                                                    Renvoyée depuis livraison
+                                                </span>
+                                                <div class="text-xs text-red-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% elif commande.etat_precedent.enum_etat.libelle == 'Préparée' %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                    <i class="fas fa-undo mr-1"></i>
+                                                    Renvoyée depuis préparation
+                                                </span>
+                                                <div class="text-xs text-yellow-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% elif commande.etat_precedent.enum_etat.libelle == 'Confirmée' %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                    <i class="fas fa-check-circle mr-1"></i>
+                                                    Depuis confirmation
+                                                </span>
+                                                <div class="text-xs text-green-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% else %}
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                    <i class="fas fa-history mr-1"></i>
+                                                    {{ commande.etat_precedent.enum_etat.libelle }}
+                                                </span>
+                                                <div class="text-xs text-gray-600 mt-1">
+                                                    <i class="fas fa-calendar mr-1"></i>
+                                                    {{ commande.etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                        
+                                        <!-- Affichage de l'état de confirmation -->
+                                        {% if commande.etat_confirmation and commande.etat_confirmation.enum_etat.libelle == 'Confirmée' %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                                <i class="fas fa-user-tie mr-1"></i>
+                                                Confirmée par admin
+                                            </span>
+                                            <div class="text-xs text-purple-600 mt-1">
+                                                <i class="fas fa-calendar mr-1"></i>
+                                                {{ commande.etat_confirmation.date_debut|date:"d/m/Y H:i" }}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Affichage des étapes de préparation -->
+                                        <div class="mt-2 pt-2 border-t border-gray-200">
+                                            <div class="text-xs font-medium text-gray-700 mb-1">Étapes de préparation :</div>
+                                            
+                                            <!-- Étape 1: En préparation -->
+                                            <div class="flex items-center mb-1">
+                                                {% if commande.etats.all|length > 0 %}
+                                                    {% for etat in commande.etats.all %}
+                                                        {% if etat.enum_etat.libelle == 'En préparation' %}
+                                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-check text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-green-600">En préparation</span>
+                                                            <span class="text-xs text-green-500 ml-2">
+                                                                <i class="fas fa-check mr-1"></i>Terminé
+                                                            </span>
+                                                            {% if etat.operateur %}
+                                                                <span class="text-xs text-gray-500 ml-2">
+                                                                    par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                                </span>
+                                                            {% endif %}
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                ({{ etat.date_debut|date:"d/m/Y H:i" }})
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2"></span>
+                                                    <span class="text-xs text-gray-500">En préparation</span>
+                                                    <span class="text-xs text-gray-400 ml-2">En attente</span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Étape 2: Collectée -->
+                                            <div class="flex items-center mb-1">
+                                                {% if commande.etats.all|length > 0 %}
+                                                    {% for etat in commande.etats.all %}
+                                                        {% if etat.enum_etat.libelle == 'Collectée' %}
+                                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-check text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-green-600">Collectée</span>
+                                                            <span class="text-xs text-green-500 ml-2">
+                                                                <i class="fas fa-check mr-1"></i>Terminé
+                                                            </span>
+                                                            {% if etat.operateur %}
+                                                                <span class="text-xs text-gray-500 ml-2">
+                                                                    par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                                </span>
+                                                            {% endif %}
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                ({{ etat.date_debut|date:"d/m/Y H:i" }})
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Collectée</span>
+                                                    <span class="text-xs text-gray-400 ml-2">En attente</span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Étape 3: Emballée -->
+                                            <div class="flex items-center mb-1">
+                                                {% if commande.etats.all|length > 0 %}
+                                                    {% for etat in commande.etats.all %}
+                                                        {% if etat.enum_etat.libelle == 'Emballée' %}
+                                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-check text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-green-600">Emballée</span>
+                                                            <span class="text-xs text-green-500 ml-2">
+                                                                <i class="fas fa-check mr-1"></i>Terminé
+                                                            </span>
+                                                            {% if etat.operateur %}
+                                                                <span class="text-xs text-gray-500 ml-2">
+                                                                    par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                                </span>
+                                                            {% endif %}
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                ({{ etat.date_debut|date:"d/m/Y H:i" }})
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Emballée</span>
+                                                    <span class="text-xs text-gray-400 ml-2">En attente</span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Étape 4: Préparée (finalisée par superviseur) -->
+                                            <div class="flex items-center">
+                                                {% if commande.etats.all|length > 0 %}
+                                                    {% for etat in commande.etats.all %}
+                                                        {% if etat.enum_etat.libelle == 'Préparée' %}
+                                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                                <i class="fas fa-check text-white text-xs"></i>
+                                                            </span>
+                                                            <span class="text-xs text-green-600">Préparée</span>
+                                                            <span class="text-xs text-green-500 ml-2">
+                                                                <i class="fas fa-check mr-1"></i>Terminé
+                                                            </span>
+                                                            {% if etat.operateur %}
+                                                                <span class="text-xs text-gray-500 ml-2">
+                                                                    par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                                </span>
+                                                            {% endif %}
+                                                            <span class="text-xs text-gray-500 ml-2">
+                                                                ({{ etat.date_debut|date:"d/m/Y H:i" }})
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Préparée</span>
+                                                    <span class="text-xs text-gray-400 ml-2">En attente</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Affichage des changements d'état -->
+                                        <div class="mt-2 pt-2 border-t border-gray-200">
+                                            <div class="text-xs font-medium text-gray-700 mb-1">Changements d'état :</div>
+                                            {% for etat in commande.etats.all %}
+                                                {% if etat.enum_etat.libelle in 'En préparation,Collectée,Emballée,Préparée' %}
+                                                    <div class="text-xs text-gray-600">
+                                                        <i class="fas fa-arrow-right mr-1"></i>
+                                                        {{ etat.enum_etat.libelle }}
+                                                        {% if etat.operateur %}
+                                                            par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                        {% endif %}
+                                                        <span class="text-gray-500">({{ etat.date_debut|date:"d/m/Y H:i" }})</span>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-center" style="min-width: 96px;">
+                                <div class="flex items-center justify-center space-x-2">
+                                    <!-- Panier (icône + compteur) -->
+                                    <button type="button"
+                                       onclick="openPanierModal({{ commande.id }})"
+                                       class="inline-flex items-center px-2.5 py-1 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                       style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                       title="Voir le panier">
+                                        <i class="fas fa-shopping-cart text-sm mr-1"></i>
+                                        <span class="text-xs">{{ commande.paniers.count }}</span>
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-center" style="min-width: 120px;">
+                                <div class="flex items-center justify-center space-x-2">
+                                    <!-- Détails (icône seule) -->
+                                    <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}"
+                                       class="inline-flex items-center justify-center w-9 h-9 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                       style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                       title="Voir la commande" aria-label="Détails">
+                                        <i class="fas fa-eye text-sm"></i>
+                                        <span class="sr-only">Détails</span>
+                                    </a>
+                                    <!-- Modifier (icône seule) -->
+                                    <a href="{% url 'Superpreparation:modifier_commande_superviseur' commande.pk %}"
+                                       class="inline-flex items-center justify-center w-9 h-9 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                       style="background-color: #d97706; hover:background-color: #b45309;"
+                                       title="Modifier la commande" aria-label="Modifier">
+                                        <i class="fas fa-edit text-sm"></i>
+                                        <span class="sr-only">Modifier</span>
+                                    </a>
+                                    <!-- Finaliser (icône seule) - pour les commandes emballées -->
+                                    {% if commande.etat_actuel_preparation.enum_etat.libelle == 'Emballée' %}
+                                    <button onclick="finaliserCommande({{ commande.id }})"
+                                       class="inline-flex items-center justify-center w-9 h-9 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                       style="background-color: #10b981; hover:background-color: #059669;"
+                                       title="Finaliser la préparation" aria-label="Finaliser">
+                                        <i class="fas fa-check text-sm"></i>
+                                        <span class="sr-only">Finaliser</span>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="13" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                <div class="flex flex-col items-center py-8">
+                                    <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
+                                    <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande affectée</h3>
+                                    <p class="text-gray-500">Vous n'avez actuellement aucune commande à préparer.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if commandes_affectees.has_other_pages %}
+        <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
+            <div class="flex flex-1 justify-between sm:hidden">
+                {% if commandes_affectees.has_previous %}
+                    <a href="?page={{ commandes_affectees.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
+                {% endif %}
+                {% if commandes_affectees.has_next %}
+                    <a href="?page={{ commandes_affectees.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Affichage de
+                        <span class="font-medium">{{ commandes_affectees.start_index }}</span>
+                        à
+                        <span class="font-medium">{{ commandes_affectees.end_index }}</span>
+                        sur
+                        <span class="font-medium">{{ commandes_affectees.paginator.count }}</span>
+                        résultats
+                    </p>
+                </div>
+                <div>
+                    <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                        {% if commandes_affectees.has_previous %}
+                            <a href="?page={{ commandes_affectees.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20">
+                                <span class="sr-only">Précédent</span>
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        {% endif %}
+                        {% for p in commandes_affectees.paginator.page_range %}
+                            {% if p == commandes_affectees.number %}
+                                <span class="relative z-10 inline-flex items-center bg-blue-600 px-4 py-2 text-sm font-semibold text-white focus:z-20">{{ p }}</span>
+                            {% else %}
+                                <a href="?page={{ p }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20">{{ p }}</a>
+                            {% endif %}
+                        {% endfor %}
+                        {% if commandes_affectees.has_next %}
+                            <a href="?page={{ commandes_affectees.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20">
+                                <span class="sr-only">Suivant</span>
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/Suivi_des_Commandes/liste-prepra-smart-search.js' %}"></script>
+
+<script>
+function formatMoney(v) { try { return parseFloat(v).toFixed(2) + ' DH'; } catch(e) { return '0.00 DH'; } }
+
+function openPanierModal(commandeId) {
+    fetch(`/Superpreparation/api/commande/${commandeId}/panier/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+      .then(r => r.json())
+      .then(data => {
+        if (!data || data.error || data.success === false) {
+            return showToast(data?.error || data?.message || 'Impossible de charger le panier', 'error');
+        }
+        const cmd = data.commande || {};
+        const articles = data.articles || [];
+
+        // Entête
+        document.getElementById('panierCmdId').textContent = 'Commande ' + (cmd.id_yz || '');
+        document.getElementById('panierClient').textContent = cmd.client_nom || '';
+        document.getElementById('panierCount').textContent = (cmd.total_articles || 0) + ' article' + ((cmd.total_articles||0)>1?'s':'');
+        document.getElementById('panierTotalEntete').textContent = formatMoney(cmd.total_final || 0);
+
+        // Liste
+        const list = document.getElementById('panierItems');
+        list.innerHTML = '';
+        if (articles.length === 0) {
+            document.getElementById('panierEmpty').classList.remove('hidden');
+        } else {
+            document.getElementById('panierEmpty').classList.add('hidden');
+            articles.forEach(a => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between py-2 border-b last:border-b-0';
+                row.innerHTML = `
+                    <div>
+                        <div class="text-sm font-medium text-gray-800">${a.nom || ''}</div>
+                        <div class="text-xs text-gray-500">Ref: ${a.reference || 'N/A'} · PU: ${formatMoney(a.prix_unitaire || 0)}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm text-gray-700">${a.quantite || 0} × ${parseFloat(a.prix_unitaire||0).toFixed(2)}</div>
+                        <div class="text-sm font-semibold text-gray-900">${formatMoney(a.sous_total || 0)}</div>
+                    </div>`;
+                list.appendChild(row);
+            });
+        }
+
+        // Totaux
+        document.getElementById('panierSousTotal').textContent = formatMoney(cmd.total_montant || cmd.total_articles_montant || 0);
+        document.getElementById('panierTotalFinal').textContent = formatMoney(cmd.total_final || 0);
+
+        document.getElementById('panierModal').classList.remove('hidden');
+      })
+      .catch(() => showToast('Erreur réseau', 'error'));
+}
+function closePanierModal() { document.getElementById('panierModal').classList.add('hidden'); }
+document.addEventListener('DOMContentLoaded', function() {
+    // Ce script peut être simplifié ou retiré si plus aucune action JS n'est nécessaire
+    console.log("Page de liste des préparations chargée.");
+});
+
+// Fonction pour afficher/masquer les détails d'état
+function toggleEtatDetails(commandeId) {
+    // Trouver tous les éléments de détails pour cette commande
+    const detailsElements = document.querySelectorAll(`[id^="etat-details-"][id$="-${commandeId}"]`);
+    
+    const button = event.target.closest('button');
+    const icon = button.querySelector('i');
+    
+    // Vérifier si au moins un élément est caché
+    const hasHiddenElement = Array.from(detailsElements).some(el => el.classList.contains('hidden'));
+    
+    if (hasHiddenElement) {
+        // Afficher tous les détails
+        detailsElements.forEach(detailsElement => {
+            detailsElement.classList.remove('hidden');
+            detailsElement.classList.add('block');
+        });
+        icon.classList.remove('fa-info');
+        icon.classList.add('fa-times');
+        button.title = "Masquer les détails d'état";
+        button.classList.remove('bg-gray-100', 'hover:bg-gray-200');
+        button.classList.add('bg-blue-100', 'hover:bg-blue-200');
+    } else {
+        // Masquer tous les détails
+        detailsElements.forEach(detailsElement => {
+            detailsElement.classList.remove('block');
+            detailsElement.classList.add('hidden');
+        });
+        icon.classList.remove('fa-times');
+        icon.classList.add('fa-info');
+        button.title = "Afficher les détails d'état";
+        button.classList.remove('bg-blue-100', 'hover:bg-blue-200');
+        button.classList.add('bg-gray-100', 'hover:bg-gray-200');
+    }
+}
+
+
+
+// Fonction pour afficher les notifications toast (si nécessaire ailleurs)
+function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all transform translate-x-full opacity-0 max-w-sm`;
+    
+    if (type === 'success') {
+        toast.classList.add('bg-green-500', 'text-white');
+    } else if (type === 'error') {
+        toast.classList.add('bg-red-500', 'text-white');
+    } else {
+        toast.classList.add('bg-gray-800', 'text-white');
+    }
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // Animer l'entrée
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+        toast.classList.add('translate-x-0', 'opacity-100');
+    }, 100);
+    
+    // Animer la sortie
+    setTimeout(() => {
+        toast.classList.remove('translate-x-0', 'opacity-100');
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 500);
+    }, duration);
+}
+
+// Fonction pour finaliser une commande depuis la liste
+function finaliserCommande(commandeId) {
+    Swal.fire({
+        title: 'Finaliser la préparation',
+        text: "Voulez-vous vraiment marquer cette commande comme préparée ?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Oui, finaliser !',
+        cancelButtonText: 'Annuler'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Afficher un indicateur de chargement
+            Swal.fire({
+                title: 'Finalisation en cours...',
+                text: 'Veuillez patienter',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Envoyer la requête AJAX
+            fetch(`/Superpreparation/api/commande/${commandeId}/finaliser/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Succès !',
+                        text: data.message,
+                        icon: 'success',
+                        confirmButtonColor: '#10b981'
+                    }).then(() => {
+                        // Recharger la page pour mettre à jour la liste
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Erreur',
+                        text: data.message || 'Une erreur est survenue',
+                        icon: 'error',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                Swal.fire({
+                    title: 'Erreur',
+                    text: 'Erreur de connexion',
+                    icon: 'error',
+                    confirmButtonColor: '#ef4444'
+                });
+            });
+        }
+    });
+}
+</script>
+<!-- Modal panier (style admin) -->
+<div id="panierModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closePanierModal()"></div>
+  <div class="relative z-10 max-w-3xl mx-auto mt-20 bg-white rounded-xl shadow-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b">
+      <h3 class="text-2xl font-bold">Détails du panier</h3>
+      <button class="text-gray-500 hover:text-gray-700" onclick="closePanierModal()"><i class="fas fa-times text-xl"></i></button>
+    </div>
+    <div class="m-6 p-4 rounded-lg border bg-blue-50">
+      <div class="flex items-center justify-between">
+        <div>
+          <div id="panierCmdId" class="font-semibold text-blue-800">Commande</div>
+          <div class="text-sm text-blue-700">Client: <span id="panierClient"></span></div>
+        </div>
+        <div class="text-right">
+          <div id="panierCount" class="text-blue-700 font-semibold"></div>
+          <div class="text-sm text-blue-700">Total: <span id="panierTotalEntete"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 pb-4">
+      <div id="panierEmpty" class="text-center py-12 text-gray-500 hidden">
+        <i class="fas fa-shopping-basket text-4xl mb-3"></i>
+        <div class="text-lg font-semibold">Panier vide</div>
+        <div class="text-sm">Cette commande ne contient aucun article.</div>
+      </div>
+      <div id="panierItems" class="space-y-2"></div>
+    </div>
+    <div class="px-6 py-4 bg-gray-50 border-t">
+      <div class="flex items-center justify-between text-sm mb-2">
+        <div class="text-gray-600">Sous-total articles:</div>
+        <div id="panierSousTotal" class="text-gray-900">0.00 DH</div>
+      </div>
+      <div class="flex items-center justify-between font-bold text-lg">
+        <div>Total commande:</div>
+        <div id="panierTotalFinal" class="text-green-600">0.00 DH</div>
+      </div>
+            </div>
+    </div>
+</div>
+
+<!-- CSS personnalisé pour le sélecteur -->
+<style>
+    /* Stylisation du select */
+    #itemsPerPage {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: none;
+    }
+    
+    /* Stylisation des options */
+    #itemsPerPage option {
+        background-color: white;
+        color: #374151;
+        padding: 8px 12px;
+        font-weight: 500;
+    }
+    
+    #itemsPerPage option:hover {
+        background-color: #f3f4f6;
+    }
+    
+    #itemsPerPage option:checked {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+        font-weight: 600;
+    }
+    
+    /* Animation pour le container */
+    .group:hover .fa-chevron-down {
+        transform: translateY(1px);
+        transition: transform 0.2s ease;
+    }
+    
+    /* Stylisation du crochet cliquable */
+    .group .fa-chevron-down {
+        transition: all 0.2s ease;
+    }
+    
+    /* Effet de clic sur le crochet */
+    .group div[onclick]:active .fa-chevron-down {
+        transform: translateY(2px) scale(0.95);
+        color: #1d4ed8;
+    }
+    
+    /* Hover effect sur le crochet */
+    .group div[onclick]:hover .fa-chevron-down {
+        transform: translateY(1px);
+        color: #1d4ed8;
+    }
+    
+    /* Focus states améliorés */
+    #itemsPerPage:focus {
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .group {
+            padding: 0.5rem 0.75rem;
+        }
+        
+        .group label {
+            font-size: 0.75rem;
+        }
+        
+        .group select {
+            font-size: 0.75rem;
+        }
+    }
+</style>
+
+<!-- JavaScript pour le dropdown personnalisé -->
+<script>
+// Variables globales
+let isDropdownOpen = false;
+let currentPage = 1;
+let currentFilter = 'affectees_admin';
+let currentSearch = '';
+
+// Protection de la fonction toggleDropdown de la sidebar
+if (typeof window.toggleDropdown === 'undefined') {
+    console.warn('⚠️ Fonction toggleDropdown de la sidebar non trouvée, création d\'une version de secours');
+    window.toggleDropdown = function(id) {
+        const dropdown = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+        if (dropdown && icon) {
+            dropdown.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
+        }
+    };
+} else {
+    console.log('✅ Fonction toggleDropdown de la sidebar trouvée et préservée');
+}
+
+// Fonction pour ouvrir/fermer le dropdown de pagination (renommée pour éviter les conflits)
+function togglePaginationDropdown() {
+    const dropdown = document.getElementById('dropdownOptions');
+    const button = document.getElementById('dropdownButton');
+    const chevron = button.querySelector('.fa-chevron-down');
+    
+    if (isDropdownOpen) {
+        // Fermer le dropdown
+        dropdown.classList.remove('opacity-100', 'visible', 'scale-100', 'translate-y-0');
+        dropdown.classList.add('opacity-0', 'invisible', 'scale-95', '-translate-y-2');
+        isDropdownOpen = false;
+        button.classList.remove('text-blue-700');
+        button.classList.add('text-blue-600');
+        
+        // Animation du crochet (retour à la normale)
+        if (chevron) {
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    } else {
+        // Ouvrir le dropdown
+        dropdown.classList.remove('opacity-0', 'invisible', 'scale-95', '-translate-y-2');
+        dropdown.classList.add('opacity-100', 'visible', 'scale-100', 'translate-y-0');
+        isDropdownOpen = true;
+        button.classList.remove('text-blue-600');
+        button.classList.add('text-blue-700');
+        
+        // Animation du crochet (rotation)
+        if (chevron) {
+            chevron.style.transform = 'rotate(180deg)';
+        }
+    }
+}
+
+// Fonction pour sélectionner une option
+function selectOption(value) {
+    const selectedValue = document.getElementById('selectedValue');
+    const hiddenSelect = document.getElementById('itemsPerPage');
+    
+    // Mettre à jour l'affichage
+    selectedValue.textContent = value;
+    
+    // Mettre à jour le select caché
+    hiddenSelect.value = value;
+    
+    // Fermer le dropdown
+    toggleDropdown();
+    
+    // Mettre à jour l'URL et recharger les données sans recharger la page
+    updatePaginationWithoutReload(value);
+}
+
+// Initialisation quand le DOM est chargé
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 Configuration du dropdown personnalisé...');
+    
+    // Initialiser la valeur sélectionnée
+    const hiddenSelect = document.getElementById('itemsPerPage');
+    const selectedValue = document.getElementById('selectedValue');
+    if (hiddenSelect && selectedValue) {
+        selectedValue.textContent = hiddenSelect.value;
+    }
+    
+    // Configurer le bouton du dropdown
+    const dropdownButton = document.getElementById('dropdownButton');
+    if (dropdownButton) {
+        dropdownButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            togglePaginationDropdown();
+        });
+    }
+    
+    // Configurer les options
+    const options = document.querySelectorAll('.option-item');
+    options.forEach(option => {
+        option.addEventListener('click', function() {
+            const value = this.getAttribute('data-value');
+            selectOption(value);
+        });
+    });
+    
+    // Fermer le dropdown si on clique ailleurs
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('customDropdown');
+        if (dropdown && !dropdown.contains(e.target)) {
+            if (isDropdownOpen) {
+                togglePaginationDropdown();
+            }
+        }
+    });
+    
+    console.log('✅ Dropdown personnalisé configuré');
+    
+    // Initialiser les variables avec les valeurs actuelles de l'URL
+    initializeCurrentValues();
+});
+
+// Fonction pour initialiser les valeurs actuelles
+function initializeCurrentValues() {
+    const urlParams = new URLSearchParams(window.location.search);
+    currentPage = parseInt(urlParams.get('page')) || 1;
+    currentFilter = urlParams.get('filter') || 'affectees_admin';
+    currentSearch = urlParams.get('search') || '';
+    
+    console.log('📋 Valeurs initiales:', { currentPage, currentFilter, currentSearch });
+}
+
+// Fonction pour mettre à jour la pagination sans recharger la page
+function updatePaginationWithoutReload(itemsPerPage) {
+    console.log('🔄 Mise à jour de la pagination sans rechargement...');
+    
+    // Construire l'URL avec les nouveaux paramètres
+    const url = new URL(window.location);
+    url.searchParams.set('items_per_page', itemsPerPage);
+    url.searchParams.set('page', '1'); // Retour à la première page
+    url.searchParams.delete('_'); // Supprimer le timestamp Django
+    
+    // Mettre à jour l'URL sans recharger la page
+    window.history.pushState({}, '', url);
+    
+    // Afficher un indicateur de chargement
+    showLoadingIndicator();
+    
+    // Faire la requête AJAX pour récupérer les nouvelles données
+    fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'text/html'
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        // Extraire seulement la table des commandes
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Trouver la table dans la nouvelle page
+        const newTable = doc.querySelector('table');
+        const currentTable = document.querySelector('table');
+        
+        if (newTable && currentTable) {
+            // Remplacer la table
+            currentTable.innerHTML = newTable.innerHTML;
+            console.log('✅ Table mise à jour');
+        }
+        
+        // Mettre à jour la pagination si elle existe
+        const newPagination = doc.querySelector('.pagination');
+        const currentPagination = document.querySelector('.pagination');
+        
+        if (newPagination && currentPagination) {
+            currentPagination.innerHTML = newPagination.innerHTML;
+            console.log('✅ Pagination mise à jour');
+        }
+        
+        // Mettre à jour le compteur d'éléments si il existe
+        const newCounter = doc.querySelector('.text-sm.text-gray-700');
+        const currentCounter = document.querySelector('.text-sm.text-gray-700');
+        
+        if (newCounter && currentCounter) {
+            currentCounter.innerHTML = newCounter.innerHTML;
+            console.log('✅ Compteur mis à jour');
+        }
+        
+        // Cacher l'indicateur de chargement
+        hideLoadingIndicator();
+        
+        // Afficher une notification de succès
+        showSuccessMessage(`Pagination mise à jour : ${itemsPerPage} éléments par page`);
+        
+    })
+    .catch(error => {
+        console.error('❌ Erreur lors de la mise à jour:', error);
+        hideLoadingIndicator();
+        showErrorMessage('Erreur lors de la mise à jour de la pagination');
+        
+        // Fallback : recharger la page en cas d'erreur
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
+    });
+}
+
+// Fonction pour afficher l'indicateur de chargement
+function showLoadingIndicator() {
+    // Créer ou afficher l'indicateur de chargement
+    let loader = document.getElementById('paginationLoader');
+    if (!loader) {
+        loader = document.createElement('div');
+        loader.id = 'paginationLoader';
+        loader.className = 'fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2';
+        loader.innerHTML = `
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            <span>Mise à jour...</span>
+        `;
+        document.body.appendChild(loader);
+    }
+    loader.style.display = 'flex';
+}
+
+// Fonction pour cacher l'indicateur de chargement
+function hideLoadingIndicator() {
+    const loader = document.getElementById('paginationLoader');
+    if (loader) {
+        loader.style.display = 'none';
+    }
+}
+
+// Fonction pour afficher un message de succès
+function showSuccessMessage(message) {
+    // Créer ou afficher le message de succès
+    let successMsg = document.getElementById('successMessage');
+    if (!successMsg) {
+        successMsg = document.createElement('div');
+        successMsg.id = 'successMessage';
+        successMsg.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        document.body.appendChild(successMsg);
+    }
+    
+    successMsg.textContent = message;
+    successMsg.style.display = 'block';
+    
+    // Cacher après 3 secondes
+    setTimeout(() => {
+        successMsg.style.display = 'none';
+    }, 3000);
+}
+
+// Fonction pour afficher un message d'erreur
+function showErrorMessage(message) {
+    // Créer ou afficher le message d'erreur
+    let errorMsg = document.getElementById('errorMessage');
+    if (!errorMsg) {
+        errorMsg = document.createElement('div');
+        errorMsg.id = 'errorMessage';
+        errorMsg.className = 'fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        document.body.appendChild(errorMsg);
+    }
+    
+    errorMsg.textContent = message;
+    errorMsg.style.display = 'block';
+    
+    // Cacher après 5 secondes
+    setTimeout(() => {
+        errorMsg.style.display = 'none';
+    }, 5000);
+}
+
+// Fonction pour afficher/masquer les détails d'état
+function toggleEtatDetails(commandeId) {
+    const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+    if (detailsElement) {
+        detailsElement.classList.toggle('hidden');
+    }
+}
+
+// Fonction pour finaliser une commande depuis la liste
+function finaliserCommande(commandeId) {
+    if (!confirm('Êtes-vous sûr de vouloir finaliser cette commande emballée ?')) {
+        return;
+    }
+    
+    // Afficher un indicateur de chargement
+    const button = event.target.closest('button');
+    const originalContent = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i>';
+    button.disabled = true;
+    
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch(`/operateur-supervision/api/finaliser-preparation/${commandeId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Mettre à jour l'interface en temps réel
+            updateCommandeEtat(commandeId, 'Préparée');
+            
+            // Afficher une notification de succès
+            showSuccessMessage(`La préparation de la commande a été finalisée avec succès.`);
+            
+            // Recharger la page après un délai pour mettre à jour les statistiques
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Erreur lors de la finalisation');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de la finalisation:', error);
+        showErrorMessage(`Erreur lors de la finalisation: ${error.message}`);
+        
+        // Restaurer le bouton
+        button.innerHTML = originalContent;
+        button.disabled = false;
+    });
+}
+
+// Fonction pour mettre à jour l'état de la commande en temps réel
+function updateCommandeEtat(commandeId, nouvelEtat) {
+    const row = document.querySelector(`tr[data-commande-id="${commandeId}"]`);
+    if (!row) return;
+    
+    // Mettre à jour l'état dans la colonne État Préparation
+    const etatCell = row.querySelector('td:nth-child(12)'); // Colonne État Préparation
+    if (etatCell) {
+        const etatSpan = etatCell.querySelector('span');
+        if (etatSpan) {
+            // Mettre à jour le texte et la classe selon le nouvel état
+            if (nouvelEtat === 'Préparée') {
+                etatSpan.className = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800';
+                etatSpan.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Préparée';
+            }
+        }
+    }
+    
+    // Mettre à jour les étapes de préparation dans les détails
+    const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+    if (detailsElement) {
+        // Mettre à jour l'étape "Préparée" pour qu'elle soit cochée
+        const etapePreparée = detailsElement.querySelector('.flex.items-center:last-child');
+        if (etapePreparée) {
+            const checkIcon = etapePreparée.querySelector('.w-3.h-3');
+            const statusText = etapePreparée.querySelector('.text-xs.text-gray-500');
+            
+            if (checkIcon && statusText) {
+                checkIcon.className = 'w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2';
+                checkIcon.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
+                
+                const etatText = etapePreparée.querySelector('.text-xs.text-gray-400, .text-xs.text-green-600');
+                if (etatText) {
+                    etatText.className = 'text-xs text-green-600';
+                    etatText.textContent = 'Préparée';
+                }
+                
+                statusText.innerHTML = '<i class="fas fa-check mr-1"></i>Terminé';
+                statusText.className = 'text-xs text-green-500 ml-2';
+            }
+        }
+    }
+}
+</script>
+{% endblock %} 

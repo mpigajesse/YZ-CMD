@@ -4,8 +4,7 @@ from google.oauth2.service_account import Credentials
 from django.conf import settings
 from django.utils import timezone
 from client.models import Client
-from commande.models import Commande, Panier, EtatCommande, EnumEtatCmd
-from article.models import Article
+from commande.models import Commande, EtatCommande, EnumEtatCmd, Panier
 from parametre.models import Operateur, Ville, Region
 from synchronisation.models import SyncLog, GoogleSheetConfig
 import pandas as pd
@@ -82,130 +81,8 @@ class GoogleSheetSync:
             self.errors.append(f"Erreur d'accès à la feuille: {str(e)}")
             return None
     
-    def parse_product(self, product_str):
-        """Parse le format de produit et retourne les composants, en gérant plusieurs formats de manière robuste."""
-        try:
-            # Dictionnaire des couleurs connues pour une meilleure détection
-            colors_fr = ['noir', 'blanc', 'beige', 'marron', 'bleu', 'rouge', 'vert', 'rose', 'gris', 
-                         'bleu ciel', 'bleu marine', 'sablé', 'tabac', 'grenat', 'saumon']
-            
-            # Dictionnaire des catégories en fonction des préfixes de produits
-            categories = {
-                'SDL': 'Sandale',
-                'CHAUSS': 'Chaussure',
-                'ESCA': 'Escarpin',
-                'ESPA': 'Espadrille',
-                'MULE': 'Mule',
-                'BOTT': 'Botte',
-                'BASK': 'Basket',
-                'BAL': 'Ballerine'
-            }
-            
-            # Nettoyage de la chaîne
-            s = product_str.strip()
-            s = re.sub(r'عرض.*درهم|قطعتين.*درهم', '', s, flags=re.IGNORECASE).strip()
-            s = re.sub(r'\s*TK\s*', ' ', s, flags=re.IGNORECASE).strip()
-            s = s.replace('--', '').strip()
-            
-            # Extraction initiale des parties
-            parts = []
-            for delimiter in ['/', '-']:
-                if delimiter in s:
-                    parts.extend([p.strip() for p in s.split(delimiter) if p.strip()])
-                    break
-            
-            # Si aucun délimiteur n'a été trouvé, on traite la chaîne entière
-            if not parts:
-                parts = [s]
-            
-            # Initialisation des variables
-            size = 'N/A'
-            color_fr = 'N/A'
-            color_ar = 'N/A'
-            product_parts = []
-            category = 'Non spécifiée'
-            
-            # Première passe : identification des parties évidentes
-            for part in parts:
-                # Détection de la taille
-                if re.match(r'^\d{2}$', part) or part.upper() in ['S', 'M', 'L', 'XL', 'XXL']:
-                    size = part
-                    continue
-                
-                # Détection de la couleur arabe (contient uniquement des caractères arabes)
-                if re.match(r'^[\u0600-\u06FF\s]+$', part):
-                    color_ar = part
-                    continue
-                
-                # Détection de la couleur française (correspond à une couleur connue)
-                part_lower = part.lower()
-                if part_lower in colors_fr:
-                    color_fr = part_lower
-                    continue
-                
-                # Si on arrive ici, c'est une partie du nom du produit
-                product_parts.append(part)
-            
-            # Construction du nom du produit
-            product_code = ' '.join(product_parts)
-            
-            # Deuxième passe : recherche dans le nom du produit si certains éléments sont manquants
-            if size == 'N/A':
-                size_match = re.search(r'\b(\d{2}|[SMLX]{1,3})\b', product_code)
-                if size_match:
-                    size = size_match.group(1)
-            
-            # Recherche de couleurs dans le nom du produit
-            if color_fr == 'N/A':
-                # Recherche des couleurs connues dans le nom du produit
-                for color in colors_fr:
-                    if re.search(r'\b' + color + r'\b', product_code.lower(), re.IGNORECASE):
-                        color_fr = color
-                        break
-                
-                # Cas spéciaux pour les couleurs
-                if color_fr == 'N/A':
-                    # Vérifier si une couleur est mentionnée dans le nom du produit
-                    color_words = re.findall(r'\b[a-zA-Z]+\b', product_code.lower())
-                    for word in color_words:
-                        # Si le mot n'est pas un préfixe connu et n'est pas un mot commun
-                        if (word not in ['fem', 'hom', 'yz', 'sdl', 'esca', 'espa', 'mule', 'chauss', 'bott', 'bask', 'bal'] and 
-                            len(word) > 2 and not re.match(r'^[yz]\d+$', word.lower())):
-                            color_fr = word
-                            break
-            
-            # Détermination de la catégorie
-            for prefix, cat in categories.items():
-                if product_code.upper().startswith(prefix) or any(part.upper().startswith(prefix) for part in parts):
-                    category = cat
-                    break
-            
-            # Si FEM ou HOM est dans le nom, c'est probablement une chaussure pour femme ou homme
-            if 'FEM' in product_code.upper():
-                if category == 'Non spécifiée':
-                    category = 'Chaussures Femme'
-                else:
-                    category += ' Femme'
-            elif 'HOM' in product_code.upper():
-                if category == 'Non spécifiée':
-                    category = 'Chaussures Homme'
-                else:
-                    category += ' Homme'
-            
-            # Nettoyage final du nom du produit
-            product_code = re.sub(r'\s{2,}', ' ', product_code).strip()
-            
-            return {
-                'product_code': product_code[:50],
-                'size': size,
-                'color_ar': color_ar,
-                'color_fr': color_fr,
-                'category': category
-            }
-            
-        except Exception as e:
-            self.errors.append(f"Erreur de parsing du produit '{product_str}': {str(e)}")
-            return None
+    # Méthode parse_product supprimée car plus nécessaire avec la refactorisation des articles
+    # Les produits sont maintenant stockés directement dans la commande sans parsing complexe
     
     def _parse_date(self, date_str):
         """Parse une date depuis différents formats possibles"""
@@ -269,10 +146,14 @@ class GoogleSheetSync:
             # Créer un dictionnaire avec les données de la ligne
             data = dict(zip(headers, row_data))
             
+            # Debug: Afficher les données reçues
+            if self.verbose:
+                print(f"🔍 Données reçues pour la ligne : {data}")
+            
             # Vérifier si la commande existe déjà - essayer différentes variantes de clés
             order_number = data.get('N° Commande') or data.get('Numéro') or data.get('N°Commande') or data.get('Numero')
             if not order_number or not order_number.strip():
-                self._log(f"Ligne rejetée : numéro de commande manquant ou vide", "error")
+                self._log(f"Ligne rejetée : numéro de commande manquant ou vide. Données reçues: {data}", "error")
                 return False
             
             self._log(f"Vérification commande {order_number}")
@@ -284,19 +165,12 @@ class GoogleSheetSync:
                 self._log(f"Commande {order_number} existe déjà (ID YZ: {existing_commande.id_yz}) - IGNORÉE")
                 self.duplicate_orders_found += 1
                 
-                # Vérifier si une mise à jour est nécessaire
-                should_update = self._should_update_command(existing_commande, data)
-                if should_update:
-                    self._log(f"Mise à jour détectée pour commande existante {order_number}")
-                    success = self._update_existing_command(existing_commande, data, headers)
-                    if success:
+                # TOUJOURS mettre à jour les états, même si les autres données sont inchangées
+                self._log(f"Mise à jour des états pour commande existante {order_number}")
+                success = self._update_existing_command(existing_commande, data, headers)
+                if success:
                         self.existing_orders_updated += 1
-                    return success
-                else:
-                    # Aucun changement nécessaire
-                    self._log(f"Commande {order_number} inchangée - aucune action requise")
-                    self.existing_orders_skipped += 1
-                    return True
+                return success
             
             # Récupérer ou créer le client
             client_phone_raw = data.get('Téléphone', '')
@@ -330,98 +204,42 @@ class GoogleSheetSync:
                 total_cmd_price = 0.0
 
             # Créer une NOUVELLE commande (vérification déjà effectuée)
-            print(f"➕ Création NOUVELLE commande {order_number}")
+           
             commande = Commande.objects.create(
                 num_cmd=order_number,
-                date_cmd=self._parse_date(data.get('Date', '')),
+                date_cmd=self._parse_date(data.get('Date Création', '') or data.get('Date', '')),
                 total_cmd=total_cmd_price,
                 adresse=data.get('Adresse', ''),
                 client=client_obj,
                 ville=None,
                 ville_init=data.get('Ville', '').strip(),
                 produit_init=data.get('Produit', ''),
-                origine='GSheet',
+                origine='SYNC',
                 last_sync_date=timezone.now() # Définir la date de dernière synchronisation
             )
             self._log(f"✅ NOUVELLE commande créée avec ID YZ: {commande.id_yz} et numéro externe: {commande.num_cmd}", "info")
             self.new_orders_created += 1
 
             # Parser le produit et créer l'article de commande et le panier
+            # Avec la refactorisation des articles, on ne crée plus d'articles
+            # On stocke seulement les informations du produit dans la commande
             product_str = data.get('Produit', '').strip()
-            product_info = self.parse_product(product_str)
-            article_obj = None
+            
+            if product_str:
+                self._log(f"Produit détecté pour la commande {commande.num_cmd}: {product_str}")
+                # Stocker le produit dans la commande sans créer d'article
+                commande.produit_init = product_str
+                commande.save(update_fields=['produit_init'])
+            else:
+                self._log(f"Aucun produit spécifié pour la commande {commande.num_cmd}")
+                # Marquer la commande comme n'ayant pas de produit
+                commande.produit_init = "Produit non spécifié"
+                commande.save(update_fields=['produit_init'])
 
-            try:
-                if product_info:
-                    # Tronquer la référence si elle est trop longue
-                    reference = product_info['product_code']
-                    if len(reference) > 50:
-                        reference = reference[:50]
-
-                    article_obj, created = Article.objects.get_or_create(
-                        reference=reference,
-                        defaults={
-                            'nom': product_info['product_code'],
-                            'description': f"Taille: {product_info['size']}, Couleur (FR): {product_info['color_fr']}, Couleur (AR): {product_info['color_ar']}",
-                            'prix_unitaire': total_cmd_price,
-                            'couleur': product_info['color_fr'],
-                            'pointure': product_info['size'],
-                            'categorie': product_info.get('category', 'Non spécifiée'),
-                            'qte_disponible': 1, # Default à 1 pour la disponibilité
-                        }
-                    )
-                
-                elif product_str:
-                    # Si le formatage du produit n'est pas standard, utiliser le produit brut comme référence
-                    article_ref = product_str[:50] # Truncate to 50
-                    article_nom = product_str[:200]
-                    
-                    article_obj, created = Article.objects.get_or_create(
-                        reference=article_ref,
-                        defaults={
-                            'nom': article_nom,
-                            'description': "Article synchronisé (format non standard)",
-                            'prix_unitaire': total_cmd_price,
-                            'couleur': 'N/A',
-                            'pointure': 'N/A',
-                            'categorie': 'Non spécifiée',
-                            'qte_disponible': 0,
-                        }
-                    )
-                    self._log(f"Article trouvé/créé avec référence brute: {article_ref}")
-
-                else:
-                    # Cas où le produit est vide: créer un article générique
-                    article_nom = f"Article manquant #{commande.id_yz}"
-                    article_ref = f"SYNC_MISSING_{commande.id_yz}"
-                    
-                    article_obj, created = Article.objects.get_or_create(
-                        reference=article_ref,
-                        defaults={
-                            'nom': article_nom,
-                            'description': "Aucun produit spécifié dans la source de données.",
-                            'prix_unitaire': total_cmd_price,
-                            'couleur': 'N/A',
-                            'pointure': 'N/A',
-                            'categorie': 'Non spécifiée',
-                            'qte_disponible': 0,
-                        }
-                    )
-                    self.warnings.append(f"Aucun produit spécifié pour la commande {commande.num_cmd}, article générique créé.")
-
-                # Créer l'entrée dans le panier si un article a été trouvé ou créé
-                if article_obj:
-                    quantite = int(data.get('Quantité', 1)) if data.get('Quantité') else 1
-                    Panier.objects.create(
-                        commande=commande,
-                        article=article_obj,
-                        quantite=quantite,
-                        sous_total=total_cmd_price  # Utilise le prix de la commande comme sous-total pour l'article unique
-                    )
-                    self._log(f"Panier créé pour la commande ID YZ: {commande.id_yz} (Ext: {commande.num_cmd}) avec l'article {article_obj.nom}")
-
-            except Exception as e:
-                self.errors.append(f"Erreur lors de la création de l'article/panier pour la commande ID YZ: {commande.id_yz} (Ext: {commande.num_cmd}): {str(e)}")
+            # Créer un panier vide pour la commande
+            # SUPPRIMÉ : Un panier ne peut pas être vide selon le modèle (champs article, quantite, sous_total obligatoires)
+            # Le panier sera créé plus tard quand des articles seront ajoutés à la commande
+            self._log(f"Pas de panier créé pour la commande {commande.num_cmd} - sera créé lors de l'ajout d'articles")
 
             # Si un opérateur est spécifié et que la commande est affectée
             operator_name = data.get('Opérateur', '')
@@ -434,16 +252,71 @@ class GoogleSheetSync:
 
             # Créer l'état de commande selon le statut
             status_from_sheet = data.get('Statut', '')
-            if status_from_sheet:
+            if not status_from_sheet or not status_from_sheet.strip():
+                # Le statut est obligatoire - rejeter la commande
+                error_msg = f"Statut manquant pour la commande {order_number} - la commande est rejetée"
+                self._log(error_msg, "error")
+                # Supprimer la commande créée car elle n'est pas valide
+                commande.delete()
+                return False
+            
+            # Essayer de mapper le statut, mais être plus flexible
+            status_libelle = None
+            etat_created = False
+            
+            try:
                 status_libelle = self._map_status(status_from_sheet)
-                if status_libelle:  # Seulement si un statut valide a été mappé
-                    self._create_etat_commande(commande, status_libelle, operateur_obj)
+                self._log(f"Statut reconnu: {status_libelle}")
+                if status_libelle:
+                    # Statut reconnu - créer l'état
+                    self._log(f"Création de l'état '{status_libelle}' pour la commande {order_number}")
+                    etat_created = self._create_etat_commande(commande, status_libelle, operateur_obj)
+                    if etat_created:
+                        self._log(f"État '{status_libelle}' créé avec succès pour la commande {order_number}")
+                    else:
+                        self._log(f"Échec de création de l'état '{status_libelle}' pour la commande {order_number}", "error")
                 else:
-                    # Si le statut n'a pas pu être mappé, utiliser l'état par défaut pour les nouvelles commandes
-                    self._create_etat_commande(commande, 'En attente', operateur_obj)
-            else:
-                # État par défaut si aucun statut n'est spécifié
-                self._create_etat_commande(commande, 'En attente', operateur_obj)
+                    # Statut non reconnu mais pas vide - utiliser un statut par défaut
+                    self._log(f"Statut non reconnu '{status_from_sheet}' pour la commande {order_number} - utilisation du statut par défaut 'Non affectée'", "warning")
+                    etat_created = self._create_etat_commande(commande, 'Non affectée', operateur_obj)
+                    if not etat_created:
+                        self._log(f"Échec de création de l'état par défaut pour la commande {order_number}", "error")
+            except Exception as e:
+                # En cas d'erreur, utiliser le statut par défaut
+                self._log(f"Erreur lors du mapping du statut '{status_from_sheet}' pour la commande {order_number}: {str(e)} - utilisation du statut par défaut 'Non affectée'", "warning")
+                etat_created = self._create_etat_commande(commande, 'Non affectée', operateur_obj)
+                if not etat_created:
+                    self._log(f"Échec de création de l'état par défaut pour la commande {order_number}", "error")
+
+            try:
+                # Forcer le rafraîchissement depuis la base
+                commande.refresh_from_db()
+                etat_final = commande.etat_actuel
+                
+                if etat_final:
+                    print(f"✅ État final confirmé: '{etat_final.enum_etat.libelle}'")
+                    print(f"   📋 ID état: {etat_final.id}")
+                    print(f"   📋 Date début: {etat_final.date_debut}")
+                    print(f"   📋 Date fin: {etat_final.date_fin}")
+                else:
+                    print(f"❌ PROBLÈME: Aucun état final trouvé!")
+                    print(f"   📋 Tentative de récupération manuelle...")
+                    
+                    # Vérifier manuellement dans la base
+                    from commande.models import EtatCommande
+                    etat_manuel = EtatCommande.objects.filter(commande=commande).order_by('-date_debut').first()
+                    if etat_manuel:
+                        print(f"   📋 État trouvé manuellement: {etat_manuel.enum_etat.libelle}")
+                        print(f"   📋 ID: {etat_manuel.id}")
+                        print(f"   📋 Date début: {etat_manuel.date_debut}")
+                    else:
+                        print(f"   📋 Aucun état trouvé manuellement!")
+                        
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la vérification finale: {str(e)}")
+            
+            print(f"📈 Compteur de commandes importées: {self.records_imported}")
+            print(f"🔍 === FIN TRAITEMENT LIGNE ===\n")
 
             self.records_imported += 1
             return True
@@ -455,14 +328,16 @@ class GoogleSheetSync:
     def _should_update_command(self, existing_commande, data):
         """Détermine si une commande existante doit être mise à jour"""
         # Vérifier si le statut a changé
-        current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'En attente'
-        new_status_raw = self._map_status(data.get('Statut', ''))
+        current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'Non affectée'
         
-        # Si aucun statut valide n'a été mappé, ne pas changer l'état
-        if new_status_raw is None:
-            new_status = current_status  # Garder le statut actuel
-        else:
+        # Le statut est obligatoire, donc on doit pouvoir le mapper
+        try:
+            new_status_raw = self._map_status(data.get('Statut', ''))
             new_status = new_status_raw
+        except ValueError as e:
+            # Si le statut n'est pas reconnu, ne pas mettre à jour la commande
+            self._log(f"Statut non reconnu lors de la mise à jour: {str(e)} - commande {existing_commande.num_cmd} non mise à jour")
+            return False
         
         # PROTECTION CONTRE LA RÉGRESSION D'ÉTATS
         # Si la commande a déjà un état avancé, ne pas la réinitialiser à "Non affectée" ou "En attente"
@@ -522,7 +397,7 @@ class GoogleSheetSync:
         """Met à jour une commande existante avec les nouvelles données (PAS D'INSERTION)"""
         try:
             updated = False
-            changes_made = []
+            command_changes = []  # Renommé pour éviter tout conflit
             
             print(f"🔄 Mise à jour en arrière-plan pour commande existante {existing_commande.num_cmd}")
             
@@ -532,7 +407,7 @@ class GoogleSheetSync:
                 if abs(float(existing_commande.total_cmd) - new_price) > 0.01:
                     old_price = existing_commande.total_cmd
                     existing_commande.total_cmd = new_price
-                    changes_made.append(f"Prix: {old_price} → {new_price}")
+                    command_changes.append(f"Prix: {old_price} → {new_price}")
                     updated = True
             except (ValueError, TypeError):
                 pass
@@ -542,7 +417,7 @@ class GoogleSheetSync:
             if new_address and existing_commande.adresse != new_address:
                 old_address = existing_commande.adresse
                 existing_commande.adresse = new_address
-                changes_made.append(f"Adresse: '{old_address}' → '{new_address}'")
+                command_changes.append(f"Adresse: '{old_address}' → '{new_address}'")
                 updated = True
             
             # Mettre à jour la ville_init si nécessaire
@@ -550,19 +425,70 @@ class GoogleSheetSync:
             if new_ville_nom and existing_commande.ville_init != new_ville_nom:
                 old_ville_init = existing_commande.ville_init
                 existing_commande.ville_init = new_ville_nom
-                changes_made.append(f"Ville: '{old_ville_init}' → '{new_ville_nom}'")
+                command_changes.append(f"Ville: '{old_ville_init}' → '{new_ville_nom}'")
                 updated = True
             
             # Sauvegarder les changements de la commande
             if updated:
                 existing_commande.last_sync_date = timezone.now() # Mettre à jour la date de dernière synchronisation
                 existing_commande.save()
-                print(f"📝 Commande mise à jour: ID YZ {existing_commande.id_yz} - Changements: {', '.join(changes_made)}")
+                print(f"📝 Commande mise à jour: ID YZ {existing_commande.id_yz} - Changements: {', '.join(command_changes)}")
             
+            # Gérer le statut de la commande (séparé pour éviter les conflits)
+            status_updated = self._update_command_status(existing_commande, data)
+            
+            # Mettre à jour les informations du client si nécessaire
+            self._update_client_info(existing_commande, data, new_address)
+            
+            return True
+            
+        except Exception as e:
+            error_msg = f"Erreur lors de la mise à jour de la commande existante {existing_commande.num_cmd}: {str(e)}"
+            self._log(error_msg, "error")
+            return False
+    
+    def _update_operator_only(self, existing_commande, data):
+        """Met à jour seulement l'opérateur de l'état actuel sans créer de nouvel état"""
+        try:
+            operator_name = data.get('Opérateur', '')
+            if not operator_name:
+                return True  # Aucun opérateur spécifié
+            
+            # Récupérer l'opérateur
+            try:
+                operateur_obj = Operateur.objects.get(nom_complet__iexact=operator_name)
+            except Operateur.DoesNotExist:
+                self.errors.append(f"Opérateur non trouvé: {operator_name}")
+                return True  # Continuer même si l'opérateur n'est pas trouvé
+            
+            # Vérifier si l'opérateur a changé
+            etat_actuel = existing_commande.etat_actuel
+            if etat_actuel and etat_actuel.operateur != operateur_obj:
+                self._log(f"Mise à jour de l'opérateur pour commande {existing_commande.num_cmd}: {etat_actuel.operateur.nom_complet if etat_actuel.operateur else 'Aucun'} → {operateur_obj.nom_complet}")
+                
+                # Mettre à jour l'opérateur de l'état actuel
+                etat_actuel.operateur = operateur_obj
+                etat_actuel.save(update_fields=['operateur'])
+                
+                print(f"👤 Opérateur mis à jour pour commande {existing_commande.num_cmd}: {operateur_obj.nom_complet}")
+            else:
+                self._log(f"Opérateur inchangé pour commande {existing_commande.num_cmd}: {operateur_obj.nom_complet}")
+            
+            return True
+            
+        except Exception as e:
+            error_msg = f"Erreur lors de la mise à jour de l'opérateur pour {existing_commande.num_cmd}: {str(e)}"
+            self._log(error_msg, "error")
+            return False
+    
+    def _update_command_status(self, existing_commande, data):
+        """Met à jour le statut d'une commande existante"""
+        try:
             # Mettre à jour le statut si nécessaire
             new_status_raw = self._map_status(data.get('Statut', ''))
-            if new_status_raw is not None:  # Seulement si un statut valide a été mappé
-                current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'En attente'
+            if new_status_raw:
+                # Statut reconnu - procéder à la mise à jour
+                current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'Non affectée'
                 
                 # PROTECTION CONTRE LA RÉGRESSION D'ÉTATS
                 # Si la commande a déjà un état avancé, ne pas la réinitialiser à un état basique
@@ -571,7 +497,18 @@ class GoogleSheetSync:
                     self.protected_orders_count += 1  # Incrémenter le compteur de protection
                     new_status_raw = current_status  # Garder le statut actuel
                 
-                if current_status != new_status_raw:
+                # VÉRIFIER SI LE STATUT A RÉELLEMENT CHANGÉ
+                if current_status == new_status_raw:
+                    self._log(f"Statut identique pour commande {existing_commande.num_cmd}: {current_status} - AUCUN NOUVEL ÉTAT CRÉÉ")
+                    print(f"📊 État inchangé pour commande existante ID YZ {existing_commande.id_yz}: {current_status}")
+                    
+                    # Mettre à jour seulement l'opérateur si nécessaire (sans créer de nouvel état)
+                    self._update_operator_only(existing_commande, data)
+                    return True
+                else:
+                    # Le statut a changé - créer un nouvel état
+                    self._log(f"Statut différent pour commande {existing_commande.num_cmd}: {current_status} → {new_status_raw}")
+                    
                     # Récupérer l'opérateur si spécifié
                     operateur_obj = None
                     operator_name = data.get('Opérateur', '')
@@ -581,15 +518,59 @@ class GoogleSheetSync:
                         except Operateur.DoesNotExist:
                             self.errors.append(f"Opérateur non trouvé: {operator_name}")
                     
-                    # Créer le nouvel état
-                    self._create_etat_commande(existing_commande, new_status_raw, operateur_obj)
-                    changes_made.append(f"Statut: '{current_status}' → '{new_status_raw}'")
-                    print(f"📊 État mis à jour pour commande existante ID YZ {existing_commande.id_yz}: {current_status} → {new_status_raw}")
-                else:
-                    self._log(f"Statut inchangé pour commande {existing_commande.num_cmd}: {current_status}")
+                    # Créer l'état de commande
+                    success = self._create_etat_commande(existing_commande, new_status_raw, operateur_obj)
+                    
+                    if success:
+                        print(f"📊 État mis à jour pour commande existante ID YZ {existing_commande.id_yz}: {current_status} → {new_status_raw}")
+                    else:
+                        print(f"❌ Échec de mise à jour de l'état pour commande {existing_commande.num_cmd}")
+                    
+                    return success
             else:
-                self._log(f"Aucun statut valide trouvé pour commande {existing_commande.num_cmd} - état conservé")
-            
+                # Statut non reconnu - utiliser le statut par défaut
+                self._log(f"Statut non reconnu pour commande {existing_commande.num_cmd} - utilisation du statut par défaut 'Non affectée'")
+                default_status = 'Non affectée'
+                
+                # Vérifier si le statut par défaut est différent de l'actuel
+                current_status = existing_commande.etat_actuel.enum_etat.libelle if existing_commande.etat_actuel else 'Non affectée'
+                
+                if current_status == default_status:
+                    self._log(f"Statut par défaut identique à l'actuel pour commande {existing_commande.num_cmd}: {default_status} - AUCUN NOUVEL ÉTAT CRÉÉ")
+                    print(f"📊 État par défaut inchangé pour commande existante ID YZ {existing_commande.id_yz}: {default_status}")
+                    
+                    # Mettre à jour seulement l'opérateur si nécessaire
+                    self._update_operator_only(existing_commande, data)
+                    return True
+                else:
+                    # Le statut par défaut est différent - créer un nouvel état
+                    self._log(f"Statut par défaut différent de l'actuel pour commande {existing_commande.num_cmd}: {current_status} → {default_status}")
+                    
+                    # Créer/mettre à jour l'état avec le statut par défaut
+                    operateur_obj = None
+                    operator_name = data.get('Opérateur', '')
+                    if operator_name:
+                        try:
+                            operateur_obj = Operateur.objects.get(nom_complet__iexact=operator_name)
+                        except Operateur.DoesNotExist:
+                            self.errors.append(f"Opérateur non trouvé: {operator_name}")
+                    
+                    success = self._create_etat_commande(existing_commande, default_status, operateur_obj)
+                    if success:
+                        print(f"📊 État par défaut créé pour commande existante ID YZ {existing_commande.id_yz}: {default_status}")
+                    else:
+                        print(f"❌ Échec de création de l'état par défaut pour commande {existing_commande.num_cmd}")
+                    
+                    return success
+                
+        except Exception as e:
+            error_msg = f"Erreur lors de la mise à jour du statut pour {existing_commande.num_cmd}: {str(e)}"
+            self._log(error_msg, "error")
+            return False
+    
+    def _update_client_info(self, existing_commande, data, new_address):
+        """Met à jour les informations du client d'une commande"""
+        try:
             # Mettre à jour les informations du client si nécessaire
             client_phone_raw = data.get('Téléphone', '')
             client_phone = self._clean_phone_number(client_phone_raw)
@@ -616,16 +597,19 @@ class GoogleSheetSync:
                 
                 if client_updated:
                     client_obj.save()
-                    print(f"👤 Client mis à jour: {client_obj.get_full_name()} - {', '.join(client_changes)}")
-            
-            return True
+                    client_full_name = f"{client_obj.nom} {client_obj.prenom}".strip()
+                    print(f"👤 Client mis à jour: {client_full_name} - {', '.join(client_changes)}")
             
         except Exception as e:
-            self.errors.append(f"Erreur lors de la mise à jour de la commande existante {existing_commande.num_cmd}: {str(e)}")
-            return False
+            error_msg = f"Erreur lors de la mise à jour du client pour {existing_commande.num_cmd}: {str(e)}"
+            self._log(error_msg, "error")
     
     def _map_status(self, status):
         """Mappe les statuts du fichier aux libellés des états dans la base de données"""
+        print(f"🔄 === MAPPING STATUT ===")
+        print(f"📥 Statut reçu: '{status}'")
+        print(f"🔍 Type de statut: {type(status)}")
+        
         status_map = {
             'Non affectée': 'Non affectée',
             'Affectée': 'Affectée',
@@ -669,92 +653,401 @@ class GoogleSheetSync:
             'Retourné': 'Retournée',
         }
         
+        print(f"📋 Nombre total de statuts dans le mapping: {len(status_map)}")
+        print(f"🔍 Statuts disponibles: {list(status_map.keys())}")
+        
         # Nettoyer le statut reçu
-        cleaned_status = status.strip() if status else ''
+        print(f"🧹 === NETTOYAGE STATUT ===")
+        if status is None:
+            print(f"⚠️ Statut reçu est None")
+            cleaned_status = ''
+        else:
+            print(f"📝 Statut brut: '{status}' (longueur: {len(str(status))})")
+            cleaned_status = str(status).strip()
+            print(f"🧹 Statut après strip: '{cleaned_status}' (longueur: {len(cleaned_status)})")
         
         # Si le statut est vide ou null, retourner None pour indiquer qu'aucun changement n'est nécessaire
         if not cleaned_status:
+            print(f"❌ Statut vide ou null → None")
+            print(f"🔍 === FIN MAPPING STATUT ===\n")
             return None
         
+        print(f"✅ Statut non vide, recherche en cours...")
+        
         # Chercher dans le dictionnaire (recherche exacte puis insensible à la casse)
+        print(f"🔍 === RECHERCHE EXACTE ===")
         if cleaned_status in status_map:
-            return status_map[cleaned_status]
-            
+            result = status_map[cleaned_status]
+            print(f"✅ Statut trouvé exactement: '{cleaned_status}' → '{result}'")
+            print(f"🔍 === FIN MAPPING STATUT ===\n")
+            return result
+        
+        print(f"❌ Recherche exacte échouée, tentative insensible à la casse...")
+        
         # Recherche insensible à la casse
+        print(f"🔍 === RECHERCHE INSENSIBLE À LA CASSE ===")
         for key, value in status_map.items():
+            print(f"🔍 Comparaison: '{key.lower()}' vs '{cleaned_status.lower()}'")
             if key.lower() == cleaned_status.lower():
+                print(f"✅ Statut trouvé (insensible à la casse): '{key}' → '{value}'")
+                print(f"🔍 === FIN MAPPING STATUT ===\n")
                 return value
         
-        # Si aucun statut ne correspond, retourner None au lieu de 'En attente'
-        # Cela évite de forcer un état par défaut qui pourrait régresser une commande
-        self._log(f"Statut non reconnu: '{cleaned_status}' - aucun changement d'état appliqué")
+        # Si aucun statut ne correspond, retourner None pour indiquer qu'un statut par défaut doit être utilisé
+        print(f"❌ Aucun statut trouvé pour '{cleaned_status}'")
+        print(f"⚠️ Utilisation du statut par défaut 'Non affectée'")
+        self._log(f"Statut non reconnu: '{cleaned_status}' - utilisation du statut par défaut", "warning")
+        print(f"🔍 === FIN MAPPING STATUT ===\n")
         return None
+
+    def _ensure_enum_etats_exist(self):
+        """S'assure que tous les EnumEtatCmd de base existent"""
+        print(f"🏗️ === INITIALISATION DES ÉTATS DE BASE ===")
+        print(f"📋 Vérification de l'existence des états de base...")
+        
+        try:
+            from commande.models import EnumEtatCmd
+            
+            # États de base nécessaires pour la synchronisation
+            etats_base = [
+                {'libelle': 'Non affectée', 'ordre': 1, 'couleur': '#EF4444'},
+                {'libelle': 'Affectée', 'ordre': 2, 'couleur': '#F59E0B'},
+                {'libelle': 'Erronée', 'ordre': 3, 'couleur': '#DC2626'},
+                {'libelle': 'Doublon', 'ordre': 4, 'couleur': '#7C2D12'},
+                {'libelle': 'En cours de confirmation', 'ordre': 5, 'couleur': '#3B82F6'},
+                {'libelle': 'Confirmée', 'ordre': 6, 'couleur': '#10B981'},
+                {'libelle': 'Annulée', 'ordre': 7, 'couleur': '#6B7280'},
+                {'libelle': 'En attente', 'ordre': 8, 'couleur': '#F59E0B'},
+                {'libelle': 'Reportée', 'ordre': 9, 'couleur': '#8B5CF6'},
+                {'libelle': 'Hors zone', 'ordre': 10, 'couleur': '#EF4444'},
+                {'libelle': 'Injoignable', 'ordre': 11, 'couleur': '#6B7280'},
+                {'libelle': 'Pas de réponse', 'ordre': 12, 'couleur': '#6B7280'},
+                {'libelle': 'Numéro incorrect', 'ordre': 13, 'couleur': '#DC2626'},
+                {'libelle': 'Échoué', 'ordre': 14, 'couleur': '#DC2626'},
+                {'libelle': 'Expédiée', 'ordre': 15, 'couleur': '#3B82F6'},
+                {'libelle': 'En préparation', 'ordre': 16, 'couleur': '#F59E0B'},
+                {'libelle': 'En livraison', 'ordre': 17, 'couleur': '#8B5CF6'},
+                {'libelle': 'Livrée', 'ordre': 18, 'couleur': '#10B981'},
+                {'libelle': 'Retournée', 'ordre': 19, 'couleur': '#EF4444'},
+                {'libelle': 'Non payé', 'ordre': 20, 'couleur': '#DC2626'},
+                {'libelle': 'Partiellement payé', 'ordre': 21, 'couleur': '#F59E0B'},
+                {'libelle': 'Payé', 'ordre': 22, 'couleur': '#10B981'},
+            ]
+            
+            print(f"📊 Nombre total d'états à vérifier: {len(etats_base)}")
+            print(f"🔍 États à vérifier: {[etat['libelle'] for etat in etats_base]}")
+            
+            created_count = 0
+            existing_count = 0
+            
+            print(f"🔄 === VÉRIFICATION ÉTAT PAR ÉTAT ===")
+            for i, etat_data in enumerate(etats_base, 1):
+                print(f"🔍 [{i}/{len(etats_base)}] Vérification de l'état: '{etat_data['libelle']}'")
+                
+                try:
+                    etat, created = EnumEtatCmd.objects.get_or_create(
+                        libelle=etat_data['libelle'],
+                        defaults={
+                            'ordre': etat_data['ordre'],
+                            'couleur': etat_data['couleur']
+                        }
+                    )
+                    
+                    if created:
+                        created_count += 1
+                        print(f"✅ NOUVEAU: État '{etat.libelle}' créé (ID: {etat.id}, Ordre: {etat.ordre}, Couleur: {etat.couleur})")
+                        self._log(f"EnumEtatCmd créé: {etat.libelle}")
+                    else:
+                        existing_count += 1
+                        print(f"ℹ️ EXISTANT: État '{etat.libelle}' déjà présent (ID: {etat.id}, Ordre: {etat.ordre}, Couleur: {etat.couleur})")
+                        
+                except Exception as e:
+                    print(f"❌ ERREUR lors de la vérification de l'état '{etat_data['libelle']}': {str(e)}")
+                    self._log(f"Erreur lors de la vérification de l'état '{etat_data['libelle']}': {str(e)}", "error")
+            
+            print(f"📊 === RÉSUMÉ INITIALISATION ===")
+            print(f"✅ États existants: {existing_count}")
+            print(f"🆕 Nouveaux états créés: {created_count}")
+            print(f"📋 Total traité: {existing_count + created_count}")
+            
+            if created_count > 0:
+                message = f"Initialisation terminée: {created_count} nouveaux états créés"
+                print(f"🎉 {message}")
+                self._log(message)
+            else:
+                message = "Tous les états de base existent déjà"
+                print(f"ℹ️ {message}")
+                self._log(message)
+            
+            print(f"🏗️ === FIN INITIALISATION DES ÉTATS ===\n")
+                
+        except Exception as e:
+            error_msg = f"Erreur lors de l'initialisation des états: {str(e)}"
+            print(f"💥 {error_msg}")
+            self._log(error_msg, "error")
+            print(f"🏗️ === FIN INITIALISATION DES ÉTATS (AVEC ERREUR) ===\n")
 
     def _create_etat_commande(self, commande, status_libelle, operateur=None):
         """Crée un état de commande avec le libellé donné"""
         try:
             from commande.models import EnumEtatCmd, EtatCommande
             from django.utils import timezone
+            from django.db import connection
+            from datetime import timedelta
+            
+            self._log(f"🏗️ === CRÉATION ÉTAT COMMANDE ===")
+            self._log(f"🎯 Commande: {commande.num_cmd} (ID YZ: {commande.id_yz})")
+            self._log(f"🏷️ Statut demandé: '{status_libelle}'")
+            self._log(f"👤 Opérateur: {operateur.nom_complet if operateur else 'Aucun'}")
+            
+            # VÉRIFIER S'IL EXISTE DÉJÀ UN ÉTAT RÉCENT AVEC LE MÊME STATUT
+            # Éviter de créer des doublons lors de resynchronisations fréquentes
+            recent_threshold = timezone.now() - timedelta(minutes=5)  # 5 minutes
+            
+            recent_etat = EtatCommande.objects.filter(
+                commande=commande,
+                enum_etat__libelle=status_libelle,
+                date_debut__gte=recent_threshold
+            ).order_by('-date_debut').first()
+            
+            if recent_etat:
+                self._log(f"⚠️ État récent trouvé avec le même statut '{status_libelle}' pour commande {commande.num_cmd}")
+                self._log(f"   📋 ID état existant: {recent_etat.id}")
+                self._log(f"   📋 Date début: {recent_etat.date_debut}")
+                self._log(f"   📋 Opérateur: {recent_etat.operateur.nom_complet if recent_etat.operateur else 'Aucun'}")
+                
+                # Mettre à jour seulement l'opérateur si nécessaire
+                if operateur and recent_etat.operateur != operateur:
+                    self._log(f"👤 Mise à jour de l'opérateur: {recent_etat.operateur.nom_complet if recent_etat.operateur else 'Aucun'} → {operateur.nom_complet}")
+                    recent_etat.operateur = operateur
+                    recent_etat.save(update_fields=['operateur'])
+                
+                # Mettre à jour le commentaire pour indiquer qu'il s'agit d'une resynchronisation
+                commentaire_actuel = recent_etat.commentaire or ""
+                if "resynchronisation" not in commentaire_actuel.lower():
+                    recent_etat.commentaire = f"{commentaire_actuel} (Resynchronisation Google Sheets)"
+                    recent_etat.save(update_fields=['commentaire'])
+                
+                self._log(f"✅ État existant réutilisé - aucun doublon créé")
+                return True
             
             # Terminer l'état actuel s'il existe
             etat_actuel = commande.etat_actuel
             if etat_actuel:
+                self._log(f"🔄 Terminaison état actuel '{etat_actuel.enum_etat.libelle}' pour commande {commande.num_cmd}")
                 etat_actuel.terminer_etat(operateur)
+                self._log(f"✅ État actuel terminé avec succès")
+            else:
+                self._log(f"ℹ️ Aucun état actuel pour commande {commande.num_cmd}")
             
-            # Récupérer ou créer l'énumération d'état
-            enum_etat, created = EnumEtatCmd.objects.get_or_create(
-                libelle=status_libelle,
-                defaults={
-                    'ordre': 999,  # Ordre par défaut pour les nouveaux états
-                    'couleur': '#6B7280'  # Couleur par défaut
-                }
-            )
-            
-            if created:
-                self.errors.append(f"Nouvel état créé: {status_libelle}")
+            # Récupérer l'énumération d'état (elle doit maintenant exister)
+            try:
+                enum_etat = EnumEtatCmd.objects.get(libelle=status_libelle)
+                self._log(f"✅ EnumEtatCmd trouvé: {status_libelle} (ID: {enum_etat.id})")
+            except EnumEtatCmd.DoesNotExist:
+                # Si l'état n'existe toujours pas, le créer avec des valeurs par défaut
+                self._log(f"⚠️ EnumEtatCmd non trouvé pour '{status_libelle}', création en cours...")
+                enum_etat = EnumEtatCmd.objects.create(
+                    libelle=status_libelle,
+                    ordre=999,
+                    couleur='#6B7280'
+                )
+                self._log(f"🆕 EnumEtatCmd créé: {status_libelle} (ID: {enum_etat.id})")
             
             # Créer le nouvel état de commande
-            EtatCommande.objects.create(
-                commande=commande,
-                enum_etat=enum_etat,
-                date_debut=timezone.now(),
-                operateur=operateur,
-                commentaire=f"État défini lors de la synchronisation depuis Google Sheets"
-            )
-            
-            return True
+            try:
+                self._log(f"🏗️ Création de l'EtatCommande...")
+                nouvel_etat = EtatCommande.objects.create(
+                    commande=commande,
+                    enum_etat=enum_etat,
+                    date_debut=timezone.now(),
+                    operateur=operateur,
+                    commentaire=f"État défini lors de la synchronisation depuis Google Sheets"
+                )
+                
+                self._log(f"✅ EtatCommande créé avec succès!")
+                self._log(f"   📋 ID: {nouvel_etat.id}")
+                self._log(f"   📋 Commande: {nouvel_etat.commande.num_cmd}")
+                self._log(f"   📋 État: {nouvel_etat.enum_etat.libelle}")
+                self._log(f"   📋 Date début: {nouvel_etat.date_debut}")
+                self._log(f"   📋 Opérateur: {nouvel_etat.operateur.nom_complet if nouvel_etat.operateur else 'Aucun'}")
+                
+                # FORCER LA VÉRIFICATION ET L'INDEXATION
+                self._log(f"🔄 === VÉRIFICATION ET INDEXATION ===")
+                
+                # 1. Forcer la synchronisation de la base de données
+                connection.commit()
+                self._log(f"✅ Transaction commit forcé")
+                
+                # 2. Rafraîchir la commande depuis la base
+                commande.refresh_from_db()
+                self._log(f"✅ Commande rafraîchie depuis la base")
+                
+                # 3. Vérifier que l'état actuel est bien mis à jour
+                etat_actuel_apres = commande.etat_actuel
+                if etat_actuel_apres:
+                    self._log(f"✅ Vérification réussie: État actuel après création: '{etat_actuel_apres.enum_etat.libelle}'")
+                    self._log(f"   📋 ID état: {etat_actuel_apres.id}")
+                    self._log(f"   📋 Date début: {etat_actuel_apres.date_debut}")
+                    self._log(f"   📋 Date fin: {etat_actuel_apres.date_fin}")
+                else:
+                    self._log(f"❌ PROBLÈME: Aucun état actuel après création!", "error")
+                    
+                    # 4. Essayer de récupérer l'état créé manuellement
+                    self._log(f"🔍 Tentative de récupération manuelle...")
+                    etat_test = EtatCommande.objects.filter(commande=commande).order_by('-date_debut').first()
+                    if etat_test:
+                        self._log(f"🔍 État trouvé manuellement: {etat_test.enum_etat.libelle} (ID: {etat_test.id})", "error")
+                        self._log(f"   📋 Date début: {etat_test.date_debut}")
+                        self._log(f"   📋 Date fin: {etat_test.date_fin}")
+                        
+                        # 5. Vérifier la relation dans la base
+                        self._log(f"🔍 Vérification de la relation dans la base...")
+                        from django.db import connection
+                        with connection.cursor() as cursor:
+                            cursor.execute("""
+                                SELECT c.id_yz, c.num_cmd, ec.id, ec.enum_etat_id, eec.libelle
+                                FROM commande_commande c
+                                LEFT JOIN commande_etatcommande ec ON c.id = ec.commande_id
+                                LEFT JOIN commande_enumetatcmd eec ON ec.enum_etat_id = eec.id
+                                WHERE c.id_yz = %s
+                                ORDER BY ec.date_debut DESC
+                            """, [commande.id_yz])
+                            rows = cursor.fetchall()
+                            
+                        if rows:
+                            self._log(f"🔍 Données brutes de la base: {rows}", "error")
+                        else:
+                            self._log(f"🔍 Aucune donnée trouvée dans la base!", "error")
+                    else:
+                        self._log(f"🔍 Aucun état trouvé pour la commande {commande.num_cmd}", "error")
+                
+                # 6. Vérification finale
+                self._log(f"🔄 === VÉRIFICATION FINALE ===")
+                commande_finale = Commande.objects.get(id_yz=commande.id_yz)
+                etat_final = commande_finale.etat_actuel
+                
+                if etat_final:
+                    self._log(f"🎉 SUCCÈS: État final vérifié: '{etat_final.enum_etat.libelle}'")
+                    self._log(f"🎉 === ÉTAT CRÉÉ AVEC SUCCÈS ===\n")
+                    return True
+                else:
+                    self._log(f"❌ ÉCHEC: Aucun état final trouvé!", "error")
+                    self._log(f"❌ === ÉCHEC CRÉATION ÉTAT ===\n")
+                    return False
+                
+            except Exception as create_error:
+                error_msg = f"❌ Erreur lors de la création d'EtatCommande pour {commande.num_cmd}: {str(create_error)}"
+                self._log(error_msg, "error")
+                return False
             
         except Exception as e:
-            self.errors.append(f"Erreur lors de la création de l'état '{status_libelle}': {str(e)}")
+            error_msg = f"Erreur lors de la création de l'état '{status_libelle}' pour commande {commande.num_cmd}: {str(e)}"
+            self._log(error_msg, "error")
+            self.errors.append(error_msg)
             return False
     
+    def force_sync_from_row(self, row_number):
+        """Force la synchronisation depuis une ligne spécifique"""
+        print(f"🔄 === FORCAGE SYNCHRONISATION DEPUIS LIGNE {row_number} ===")
+        print(f"📍 Avant: dernière ligne traitée = {self.sheet_config.last_processed_row}")
+        
+        if row_number < 0:
+            print(f"❌ ERREUR: Numéro de ligne invalide: {row_number}")
+            return False
+        
+        # Mettre à jour la dernière ligne traitée
+        self.sheet_config.last_processed_row = row_number - 1  # -1 car on veut commencer à la ligne row_number
+        self.sheet_config.save(update_fields=['last_processed_row'])
+        
+        print(f"✅ Synchronisation forcée depuis la ligne {row_number}")
+        print(f"📍 Dernière ligne traitée mise à jour: {self.sheet_config.last_processed_row}")
+        print(f"🔄 Prochaine synchronisation: traitement depuis la ligne {row_number}")
+        print(f"🔄 === FIN FORCAGE SYNCHRONISATION ===\n")
+        
+        return True
+    
+    def reset_incremental_sync(self):
+        """Réinitialise la synchronisation incrémentale pour forcer une synchronisation complète"""
+        print(f"🔄 === RÉINITIALISATION SYNCHRONISATION INCRÉMENTALE ===")
+        print(f"📍 Avant: dernière ligne traitée = {self.sheet_config.last_processed_row}")
+        
+        # Remettre à zéro la dernière ligne traitée
+        self.sheet_config.last_processed_row = 0
+        self.sheet_config.save(update_fields=['last_processed_row'])
+        
+        print(f"✅ Réinitialisation effectuée: dernière ligne traitée = 0")
+        print(f"🔄 Prochaine synchronisation: traitement de toutes les lignes")
+        print(f"🔄 === FIN RÉINITIALISATION ===\n")
+        
+        return True
+    
+    def get_incremental_status(self):
+        """Retourne le statut de la synchronisation incrémentale"""
+        return {
+            'last_processed_row': self.sheet_config.last_processed_row,
+            'next_sync_start_row': self.sheet_config.next_sync_start_row,
+            'total_rows_in_sheet': None,  # Sera mis à jour lors de la synchronisation
+            'rows_to_process_next': None,  # Sera mis à jour lors de la synchronisation
+        }
+    
     def sync(self):
-        """Synchronise les données depuis Google Sheets"""
+        """Synchronise les données depuis Google Sheets de manière incrémentale"""
+        print(f"🚀 === DÉBUT SYNCHRONISATION GOOGLE SHEETS INCRÉMENTALE ===")
+        print(f"⏰ Heure de début: {timezone.now()}")
+        print(f"👤 Déclenché par: {self.triggered_by}")
+        print(f"🔧 Configuration: {self.sheet_config.name if hasattr(self.sheet_config, 'name') else 'Config inconnue'}")
+        
+        # Récupérer la ligne de départ pour la synchronisation incrémentale
+        start_row = self.sheet_config.next_sync_start_row
+        print(f"📍 Synchronisation incrémentale: reprise depuis la ligne {start_row}")
+        
         # Marquer le début de la synchronisation
         self.start_time = timezone.now()
         self.execution_details['started_at'] = self.start_time.isoformat()
+        self.execution_details['incremental_start_row'] = start_row
         
+        # S'assurer que tous les états de base existent
+        print(f"🏗️ === INITIALISATION DES ÉTATS ===")
+        self._log("Initialisation des états de commande...")
+        self._ensure_enum_etats_exist()
+        
+        print(f"🔐 === AUTHENTIFICATION ===")
         client = self.authenticate()
         if not client:
+            print(f"❌ Échec de l'authentification")
             self.end_time = timezone.now()
             self._log_sync('error')
             return False
+        print(f"✅ Authentification réussie")
             
+        print(f"📊 === RÉCUPÉRATION FEUILLE ===")
         worksheet = self.get_sheet(client)
         if not worksheet:
+            print(f"❌ Échec de récupération de la feuille")
             self.end_time = timezone.now()
             self._log_sync('error')
             return False
+        print(f"✅ Feuille récupérée: {worksheet.title}")
             
         try:
             # Enregistrer les informations de la feuille
+            print(f"📋 === INFORMATIONS FEUILLE ===")
             self.sheet_title = worksheet.spreadsheet.title
             self.execution_details['spreadsheet_title'] = worksheet.spreadsheet.title
             self.execution_details['worksheet_name'] = worksheet.title
+            print(f"📊 Feuille: {worksheet.spreadsheet.title}")
+            print(f"📋 Onglet: {worksheet.title}")
             
             # Récupérer toutes les données
+            print(f"📥 === RÉCUPÉRATION DONNÉES ===")
+            print(f"⏳ Récupération de toutes les données...")
             all_data = worksheet.get_all_values()
+            print(f"✅ Données récupérées")
+            
             if not all_data:
+                error_msg = "❌ Aucune donnée trouvée dans la feuille"
+                print(error_msg)
                 self.errors.append("Aucune donnée trouvée dans la feuille")
                 self.end_time = timezone.now()
                 self._log_sync('error')
@@ -764,34 +1057,78 @@ class GoogleSheetSync:
             headers = all_data[0]
             rows = all_data[1:]
             
+            print(f"📊 === ANALYSE DONNÉES ===")
+            print(f"📋 En-têtes détectés ({len(headers)} colonnes): {headers}")
+            print(f"📊 Nombre total de lignes: {len(all_data)}")
+            print(f"📊 Lignes de données: {len(rows)}")
+            print(f"📊 Ligne d'en-têtes: 1")
+            
+            # Vérifier si la synchronisation incrémentale est possible
+            if start_row > 1:
+                if start_row > len(all_data):
+                    print(f"⚠️ ATTENTION: La ligne de départ ({start_row}) dépasse le nombre total de lignes ({len(all_data)})")
+                    print(f"🔄 Réinitialisation de la synchronisation depuis le début")
+                    start_row = 1
+                    self.sheet_config.last_processed_row = 0
+                    self.sheet_config.save(update_fields=['last_processed_row'])
+                else:
+                    print(f"✅ Synchronisation incrémentale: traitement des lignes {start_row} à {len(all_data)}")
+            else:
+                print(f"🔄 Première synchronisation: traitement de toutes les lignes")
+            
+            # Filtrer les lignes à traiter selon la synchronisation incrémentale
+            rows_to_process = rows[start_row - 1:] if start_row > 1 else rows
+            print(f"📊 Lignes à traiter: {len(rows_to_process)} (sur {len(rows)} total)")
+            
+            # Afficher les premiers en-têtes pour vérification
+            if rows_to_process:
+                print(f"🔍 Première ligne de données à traiter: {dict(zip(headers, rows_to_process[0]))}")
+                if len(rows_to_process) > 1:
+                    print(f"🔍 Deuxième ligne de données à traiter: {dict(zip(headers, rows_to_process[1]))}")
+            
             # Enregistrer les statistiques
             self.total_rows = len(all_data)
             self.execution_details['headers'] = headers
             self.execution_details['total_rows'] = len(all_data)
             self.execution_details['data_rows'] = len(rows)
+            self.execution_details['rows_to_process'] = len(rows_to_process)
+            self.execution_details['incremental_start_row'] = start_row
             
-            self._log(f"Synchronisation démarrée - Total lignes à traiter : {len(rows)}")
-            self._log(f"En-têtes détectés : {headers}")
+            print(f"🚀 === DÉBUT TRAITEMENT LIGNES ===")
+            print(f"📈 Total lignes à traiter: {len(rows_to_process)}")
             
             # Traiter chaque ligne
-            for i, row in enumerate(rows, 2):  # Commencer à 2 car la ligne 1 contient les en-têtes
+            for i, row in enumerate(rows_to_process, start_row + 1):  # Commencer à start_row + 1 car start_row est 1-indexed
+                print(f"\n📝 === TRAITEMENT LIGNE {i} ===")
+                
                 # Vérifier si la ligne est vide
                 if not any(cell.strip() for cell in row if cell):
+                    print(f"⚠️ Ligne {i} ignorée: ligne complètement vide")
                     self._log(f"Ligne {i} ignorée : ligne complètement vide")
                     self.skipped_rows += 1
                     continue
                     
                 if len(row) == len(headers):  # Vérifier que la ligne a le bon nombre de colonnes
-                    self._log(f"Traitement ligne {i} : {dict(zip(headers[:3], row[:3]))}...")  # Afficher les 3 premiers champs
+                    print(f"✅ Ligne {i} valide: {len(row)} colonnes vs {len(headers)} en-têtes")
+                    print(f"🔍 Aperçu: {dict(zip(headers[:3], row[:3]))}...")
+                    
                     success = self.process_row(row, headers)
                     if success:
+                        print(f"✅ Ligne {i} traitée avec succès")
                         self._log(f"Ligne {i} traitée avec succès")
                         self.processed_rows += 1
+                        
+                        # Mettre à jour la dernière ligne traitée pour la synchronisation incrémentale
+                        self.sheet_config.last_processed_row = i
+                        self.sheet_config.save(update_fields=['last_processed_row'])
+                        print(f"📍 Dernière ligne traitée mise à jour: {i}")
                     else:
+                        print(f"❌ Échec traitement ligne {i}")
                         self._log(f"Échec traitement ligne {i}")
                         self.skipped_rows += 1
                 else:
-                    error_msg = f"Ligne {i} ignorée: nombre de colonnes incorrect ({len(row)} vs {len(headers)})"
+                    error_msg = f"❌ Ligne {i} ignorée: nombre de colonnes incorrect ({len(row)} vs {len(headers)})"
+                    print(error_msg)
                     self._log(error_msg, "error")
                     self.skipped_rows += 1
             
@@ -806,8 +1143,9 @@ class GoogleSheetSync:
                 'processed_rows': self.processed_rows,
                 'skipped_rows': self.skipped_rows,
                 'records_imported': self.records_imported,
-                'success_rate': (self.processed_rows / len(rows) * 100) if rows else 0,
+                'success_rate': (self.processed_rows / len(rows_to_process) * 100) if rows_to_process else 0,
                 'errors_count': len(self.errors),
+                'final_processed_row': self.sheet_config.last_processed_row,
                 
                 # Nouvelles statistiques détaillées
                 'new_orders_created': self.new_orders_created,
@@ -839,6 +1177,12 @@ class GoogleSheetSync:
             # Message par défaut si rien ne s'est passé
             if not notification_parts:
                 notification_parts.append("⚠️ Aucune donnée valide trouvée")
+            
+            # Ajouter l'information sur la synchronisation incrémentale
+            if start_row > 1:
+                notification_parts.append(f"📍 Synchronisation incrémentale: lignes {start_row} à {self.sheet_config.last_processed_row}")
+            else:
+                notification_parts.append(f"🔄 Synchronisation complète: toutes les lignes traitées")
             
             self.execution_details['sync_summary'] = " | ".join(notification_parts)
             
@@ -961,6 +1305,10 @@ def sync_google_sheet_data(config_id):
                     if not numero_commande:
                         raise ValueError("Skipping row: 'N° Commande' is missing.")
                     
+                    # Vérifier que le statut est présent (obligatoire)
+                    if not statut_csv or not statut_csv.strip():
+                        raise ValueError(f"Skipping row: 'Statut' is missing for order '{numero_commande}'. Status is mandatory.")
+                    
                     # 1. Create or get Client
                     # Client name from CSV is often just a full name. We need nom and prenom.
                     # Simple heuristic: last word is nom, rest is prenom.
@@ -1030,23 +1378,23 @@ def sync_google_sheet_data(config_id):
 
                     # 5. Create or Update Commande
                     commande, created_commande = Commande.objects.update_or_create(
-                        numero_commande=numero_commande,
+                        num_cmd=numero_commande,
                         defaults={
-                            'statut': statut_csv,
-                            'operateur': operateur_obj,
-                            'client': client,
-                            'telephone': client_tel,
+                            'date_cmd': date_cmd,
+                            'total_cmd': float(prix) if prix else 0.0,
                             'adresse': adresse,
-                            'ville': ville_name, # Storing name, not object, based on CSV
-                            'produit': produit_str, # Store raw product string
-                            'quantite': int(quantite) if quantite else 0, # Ensure integer
-                            'prix': float(prix) if prix else 0.0, # Ensure float
-                            'date_creation': date_cmd,
-                            'motifs': motifs,
+                            'client': client,
+                            'ville_init': ville_name, # Storing name, not object, based on CSV
+                            'produit_init': produit_str, # Store raw product string
+                            'origine': 'GSheet',
                         }
                     )
                     if created_commande:
                         logs.append(f"Successfully created order: {commande.numero_commande}")
+                        
+                        # SUPPRIMÉ : Création du panier vide - un panier doit toujours contenir des articles
+                        # Le panier sera créé plus tard quand des articles seront ajoutés à la commande
+                        logs.append(f"Order created without cart - cart will be created when articles are added")
                     else:
                         logs.append(f"Successfully updated order: {commande.numero_commande}")
 

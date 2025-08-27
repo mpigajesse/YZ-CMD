@@ -31,6 +31,8 @@ def home_redirect(request):
             return redirect(reverse('operatConfirme:home'))
         elif operateur.type_operateur == 'LOGISTIQUE':
             return redirect(reverse('operatLogistic:home'))
+        elif operateur.type_operateur == 'SUPERVISEUR_PREPARATION':
+            return redirect(reverse('Superpreparation:home'))
         elif operateur.type_operateur == 'ADMIN':
             return redirect(reverse('app_admin:home'))
         else:
@@ -43,6 +45,10 @@ def home_redirect(request):
             return redirect(reverse('operatConfirme:home'))
         elif user.groups.filter(name='operateur_logistique').exists():
             return redirect(reverse('operatLogistic:home'))
+        elif user.groups.filter(name='operateur_preparation').exists():
+            return redirect(reverse('Prepacommande:home'))
+        elif user.groups.filter(name='superviseur').exists():
+            return redirect(reverse('Superpreparation:home'))
         else:
             # Par défaut, rediriger vers l'interface admin
             return redirect(reverse('app_admin:home'))

@@ -1,0 +1,553 @@
+<!-- Template pour le ticket de commande -->
+<div class="ticket-commande">
+    <!-- Checkbox pour sélection multiple (masqué à l'impression) -->
+    <input type="checkbox" class="ticket-checkbox no-print" data-commande-id="{{ commande.id_yz }}" onchange="impressionModals.updateTicketSelectionCount()">
+    
+         <!-- En-tête noir avec numéro et date -->
+      <div class="ticket-header" style="background-color: #000000 !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important;">
+          <div class="ticket-number">
+              N° {{ commande.id_yz }}
+              <!-- Badge du nombre d'articles -->
+              <div class="articles-count-badge">
+                  <span class="count-number">{{ commande.total_articles|default:"0" }}</span>
+              </div>
+          </div>
+          <div class="ticket-date">{{ commande.date_confirmation|date:"d/m/Y" }}</div>
+      </div>
+    
+    <!-- Corps du ticket -->
+    <div class="ticket-body">
+        <!-- Informations client -->
+        <div class="client-info">
+            <div class="info-line">
+                <i class="fas fa-user info-icon"></i>
+                <span class="info-text">{{ commande.client_nom }}</span>
+            </div>
+            <div class="info-line">
+                <i class="fas fa-phone info-icon"></i>
+                <span class="info-text">{{ commande.client_telephone|default:"Non renseigné" }}</span>
+            </div>
+            <div class="info-line">
+                <i class="fas fa-home info-icon"></i>
+                <span class="info-text">{{ commande.adresse|default:"Adresse non renseignée" }}</span>
+            </div>
+            <div class="info-line">
+                <i class="fas fa-city info-icon"></i>
+                <span class="info-text">{{ commande.ville_client|default:"Ville non renseignée" }}</span>
+            </div>
+        </div>
+        
+        <!-- Description des articles -->
+        <div class="articles-description">
+            <div class="info-line">
+                <i class="fas fa-shopping-bag info-icon"></i>
+                <span class="info-text">{{ commande.articles_description|default:"Articles de la commande" }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pied de page noir avec prix et ville -->
+    <div class="ticket-footer" style="background-color: #000000 !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important;">
+        <div class="ticket-price">{{ commande.total|floatformat:2 }} DH</div>
+        <div class="ticket-city">{{ commande.ville_client|default:"Ville" }}</div>
+    </div>
+    
+    <!-- Informations de contact -->
+    <div class="ticket-contact" style="background-color: #f8f8f8 !important; color: #000000 !important; -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important;">
+        <div class="contact-name">YOOZAK</div>
+        <div class="contact-info">
+            <div>www.yoozak.com</div>
+            <div>06 34 21 56 39 / 47</div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Styles pour le conteneur de grille */
+.ticket-commande-container {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 15px !important;
+    padding: 15px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+}
+
+/* Responsive pour les écrans plus petits */
+@media (max-width: 1200px) {
+    .ticket-commande-container {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .ticket-commande-container {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Masquer les éléments non imprimables */
+.no-print {
+    display: none !important;
+}
+
+/* Styles pour le ticket individuel */
+.ticket-commande {
+    width: 100%;
+    min-width: 280px;
+    max-width: 350px;
+    border: 2px solid #000;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 0 auto;
+    position: relative;
+}
+
+/* Checkbox pour sélection multiple */
+.ticket-checkbox {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 18px;
+    height: 18px;
+    z-index: 10;
+         cursor: pointer;
+ }
+
+/* Badge du nombre d'articles */
+.articles-count-badge {
+    display: inline-flex;
+    background: white;
+    color: #000;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+    font-size: 10px;
+    font-weight: bold;
+    border: 1px solid #000;
+    text-align: center;
+    line-height: 1;
+}
+
+.count-number {
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* En-tête noir */
+.ticket-header {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    font-size: 14px;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.ticket-number {
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+}
+
+.ticket-date {
+    font-weight: bold;
+}
+
+/* Corps du ticket */
+.ticket-body {
+    padding: 12px;
+    background: white;
+}
+
+/* Informations client */
+.client-info {
+    margin-bottom: 12px;
+}
+
+.info-line {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px dashed #ccc;
+}
+
+.info-icon {
+    margin-right: 8px;
+    font-size: 14px;
+    color: #000;
+    font-weight: bold;
+    width: 16px;
+    text-align: center;
+}
+
+.info-text {
+    font-size: 11px;
+    font-weight: normal;
+    word-break: break-word;
+    color: #000;
+    flex: 1;
+}
+
+/* Description des articles */
+.articles-description {
+    margin-top: 8px;
+}
+
+/* Pied de page noir */
+.ticket-footer {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    font-size: 12px;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.ticket-price {
+    font-weight: bold;
+}
+
+.ticket-city {
+    font-weight: bold;
+}
+
+/* Informations de contact */
+.ticket-contact {
+    background: #f8f8f8 !important;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    border-top: 1px solid #000000 !important;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.contact-name {
+    font-weight: bold;
+    color: #000;
+    font-size: 12px;
+}
+
+.contact-info {
+    text-align: right;
+    color: #000;
+    font-weight: bold;
+    font-size: 9px;
+}
+
+.contact-info div {
+    line-height: 1.2;
+}
+
+/* Styles pour l'impression */
+@media print {
+    @page {
+        size: A4;
+        margin: 5mm;
+    }
+
+    body, html {
+        margin: 0;
+        padding: 0;
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    /* Forcer les couleurs pour tous les éléments */
+    .ticket-commande,
+    .ticket-header,
+    .ticket-footer,
+    .ticket-contact,
+    .ticket-body,
+    .client-info,
+    .articles-description,
+    .info-line,
+    .info-icon,
+    .info-text,
+    .contact-name,
+    .contact-info,
+    .ticket-number,
+    .ticket-date,
+    .ticket-price,
+    .ticket-city {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+    
+    /* Container pour les tickets */
+    .ticket-commande-container {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 3mm !important;
+        width: 100% !important;
+        max-width: 180mm !important;
+        margin: 0 auto !important;
+        padding: 3mm !important;
+    }
+    
+    /* Format compact du ticket */
+    .ticket-commande {
+        width: 85mm !important;
+        height: 60mm !important;
+        border: 1px solid black !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 8px !important;
+        background: white !important;
+        page-break-inside: avoid !important;
+        margin: 0 !important;
+        overflow: hidden;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    .ticket-commande * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+    }
+    
+    /* En-tête noir */
+    .ticket-header {
+        background-color: #000000 !important;
+        color: #ffffff !important;
+        padding: 2mm !important;
+        font-size: 9px !important;
+        font-weight: bold !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+        background: #000000 !important;
+        color: #ffffff !important;
+    }
+    
+    .ticket-number {
+        font-weight: bold !important;
+        display: flex !important;
+        align-items: center !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    .ticket-date {
+        font-weight: bold !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    /* Corps du ticket */
+    .ticket-body {
+        padding: 2mm !important;
+        flex-grow: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+    }
+    
+    /* Informations client */
+    .client-info {
+        margin-bottom: 2mm !important;
+    }
+    
+    .info-line {
+        margin-bottom: 1mm !important;
+        padding-bottom: 1mm !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    .info-icon {
+        font-size: 8px !important;
+        margin-right: 2mm !important;
+        width: 10px !important;
+        font-weight: bold !important;
+    }
+    
+    .info-text {
+        font-size: 7px !important;
+        font-weight: normal !important;
+        word-break: break-word !important;
+        flex: 1 !important;
+    }
+    
+    /* Description des articles */
+    .articles-description {
+        margin-top: 2mm !important;
+    }
+    
+    /* Pied de page noir */
+    .ticket-footer {
+        background-color: #000000 !important;
+        color: #ffffff !important;
+        padding: 2mm !important;
+        font-size: 8px !important;
+        font-weight: bold !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+        background: #000000 !important;
+        color: #ffffff !important;
+    }
+    
+    .ticket-price {
+        font-weight: bold !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    .ticket-city {
+        font-weight: bold !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    /* Informations de contact */
+    .ticket-contact {
+        background: #f8f8f8 !important;
+        padding: 2mm !important;
+        font-size: 6px !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        border-top: 1px solid #000000 !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+        background-color: #f8f8f8 !important;
+    }
+    
+    .contact-name {
+        font-size: 8px !important;
+        font-weight: bold !important;
+        color: #000000 !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+    }
+    
+    .contact-info {
+        text-align: right !important;
+        color: #000000 !important;
+        font-weight: bold !important;
+        font-size: 6px !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+    }
+    
+    .contact-info div {
+        line-height: 1.2 !important;
+    }
+    
+    .label-checkbox {
+        display: none !important;
+    }
+    
+    .articles-count-badge {
+        display: inline-flex !important;
+        background: white !important;
+        color: #000 !important;
+        border-radius: 50% !important;
+        width: 20px !important;
+        height: 20px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin-left: 8px !important;
+        font-size: 10px !important;
+        font-weight: bold !important;
+        border: 1px solid #000 !important;
+        text-align: center !important;
+        line-height: 1 !important;
+    }
+    
+    .count-number {
+        font-size: 10px !important;
+        font-weight: bold !important;
+        line-height: 1 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+}
+</style>

@@ -484,9 +484,9 @@
                 </p>
                 <ul class="list-disc list-inside text-xs text-yellow-600 mt-2 space-y-1">
                     <li><strong>Ajout d'articles :</strong> Le stock sera décrémenté</li>
-                    <li><strong>Suppression d'articles :</strong> Le stock sera incrémenté</li>
+                    <li><strong>Suppression d'articles :</strong> Le stock sera géré par les opérateurs de préparation</li>
                     <li><strong>Augmentation de quantité :</strong> Le stock sera décrémenté pour la différence</li>
-                    <li><strong>Diminution de quantité :</strong> Le stock sera incrémenté pour la différence</li>
+                    <li><strong>Diminution de quantité :</strong> Le stock sera géré par les opérateurs de préparation</li>
                 </ul>
             </div>
                                  {% endif %}
@@ -653,46 +653,7 @@
         </div>
     </div>
     {% endif %}
-
-    <!-- Section 4: Historique des États -->
-    <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mb-6" style="border-color: var(--logistic-border);">
-        <h2 class="text-2xl font-bold flex items-center mb-6" style="color: var(--logistic-primary);">
-            <i class="fas fa-history mr-2"></i>Historique des États
-        </h2>
-        
-        <div class="space-y-4">
-            {% for etat in commande.etats.all %}
-                <div class="flex items-center p-4 rounded-lg border border-gray-200 bg-gray-50">
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mr-4" 
-                         style="background-color: {{ etat.enum_etat.couleur|default:'#6b7280' }};">
-                        <i class="fas fa-circle text-white text-xs"></i>
-                    </div>
-                    <div class="flex-grow">
-                        <p class="font-semibold text-gray-900">{{ etat.enum_etat.libelle }}</p>
-                        <p class="text-sm text-gray-600">
-                            <i class="fas fa-calendar mr-1"></i>
-                            Début : {{ etat.date_debut|date:"d/m/Y à H:i" }}
-                            {% if etat.date_fin %}
-                                - Fin : {{ etat.date_fin|date:"d/m/Y à H:i" }}
-                            {% endif %}
-                        </p>
-                        {% if etat.operateur %}
-                            <p class="text-sm text-gray-500">
-                                <i class="fas fa-user mr-1"></i>
-                                Opérateur : {{ etat.operateur.username }}
-                            </p>
-                        {% endif %}
-                    </div>
-                </div>
-            {% empty %}
-                <div class="text-center py-8 text-gray-500">
-                    <i class="fas fa-clock text-4xl mb-2 opacity-50"></i>
-                    <p>Aucun historique d'état disponible.</p>
-                </div>
-            {% endfor %}
-        </div>
-    </div>
-
+    
     <!-- Section Actions de Modification du Panier Client -->
     {% if commande.etat_actuel.enum_etat.libelle == 'En cours de livraison' %}
     <div class="bg-white rounded-xl shadow-lg border p-6 md:p-8 mt-6" style="border-color: var(--logistic-border);">
@@ -1881,7 +1842,7 @@ function showStockNotification(action, articleName, quantite, stockChange = null
         case 'suppression':
             message = `🗑️ Article supprimé: ${articleName}`;
             if (stockChange) {
-                message += `\n📦 Stock incrémenté: +${quantite} unités`;
+                message += `\n📦 Article renvoyé en préparation`;
             }
             type = 'success';
             break;
@@ -1890,7 +1851,7 @@ function showStockNotification(action, articleName, quantite, stockChange = null
             if (stockChange && stockChange > 0) {
                 message += `\n📦 Stock décrémenté: -${stockChange} unités`;
             } else if (stockChange && stockChange < 0) {
-                message += `\n📦 Stock incrémenté: +${Math.abs(stockChange)} unités`;
+                message += `\n📦 Article renvoyé en préparation`;
             }
             type = 'success';
             break;
@@ -2571,7 +2532,7 @@ function showStockNotification(action, articleNom, quantite, isConfirmee = false
             break;
         case 'suppression':
             if (isConfirmee) {
-                message = `🗑️ Article "${articleNom}" supprimé. Stock réincrémenté automatiquement.`;
+                message = `🗑️ Article "${articleNom}" supprimé. Le stock sera géré par les opérateurs de préparation.`;
                 type = 'warning';
             } else {
                 message = `🗑️ Article "${articleNom}" supprimé`;

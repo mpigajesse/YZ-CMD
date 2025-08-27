@@ -1,0 +1,2699 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+{% load commande_filters %}
+
+{% block title %}Commandes Confirmées - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Variables CSS harmonisées avec le thème de supervision */
+    :root {
+        /* Utilisation des couleurs du thème de base Superpreparation */
+        --preparation-primary: #070F2B; /* Couleur principale navy */
+        --preparation-dark: #050A1F;   /* Plus sombre */
+        --preparation-light: #0E1D3D;  /* Plus clair */
+        --preparation-text-light: #E6F0FF; /* Texte très clair */
+        --preparation-border-accent: #1E3A8A; /* Accent (indigo) */
+        --preparation-hover-bg: #0B1733; /* Arrière-plan au survol */
+        --preparation-success: #10b981;
+        --preparation-warning: #f59e0b;
+        --preparation-error: #ef4444;
+        --preparation-info: #3b82f6;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    @keyframes bounce {
+        0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0); }
+        40%, 43% { transform: translate3d(0, -30px, 0); }
+        70% { transform: translate3d(0, -15px, 0); }
+        90% { transform: translate3d(0, -4px, 0); }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+    
+    .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+    
+    .animate-bounce {
+        animation: bounce 1s;
+    }
+
+    /* Styles harmonisés avec le thème de supervision */
+    .theme-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+    }
+
+    .theme-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+    }
+
+    .theme-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
+    }
+
+    .theme-button-primary {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.2);
+        position: relative;
+        overflow: hidden;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+    }
+
+    .theme-button-primary:hover {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    .theme-button-primary:active {
+        transform: translateY(0);
+    }
+
+    .theme-button-primary::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .theme-button-primary:hover::before {
+        left: 100%;
+    }
+
+    .theme-button-secondary {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        color: var(--preparation-primary);
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .theme-button-secondary:hover {
+        background: var(--preparation-hover-bg);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        color: var(--preparation-primary);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .theme-input {
+        border: 2px solid var(--preparation-text-light);
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        padding: 8px 12px;
+    }
+
+    .theme-input:focus {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        outline: none;
+    }
+
+    /* Styles spécifiques pour les cartes de statistiques */
+    .stats-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+    }
+
+    .stats-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-5px);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .stats-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    /* Styles pour les icônes des statistiques */
+    .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border-radius: 50%;
+        padding: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stats-card:hover .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Styles pour les sections d'information */
+    .info-section {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .info-section:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        pointer-events: none;
+    }
+
+    .toast {
+        background: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 10px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        max-width: 400px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.success {
+        border-left: 4px solid var(--preparation-success);
+    }
+
+    .toast.error {
+        border-left: 4px solid var(--preparation-error);
+    }
+
+    .toast.info {
+        border-left: 4px solid var(--preparation-info);
+    }
+
+    .toast.warning {
+        border-left: 4px solid var(--preparation-warning);
+    }
+
+    .toast::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 3s linear;
+    }
+
+    .toast.show::before {
+        transform: scaleX(1);
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Tooltip styles */
+    .tooltip {
+        position: relative;
+        cursor: help;
+    }
+
+    .tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip::before {
+        content: '';
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: rgba(0,0,0,0.8);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip:hover::after,
+    .tooltip:hover::before {
+        opacity: 1;
+        visibility: visible;
+        bottom: 135%;
+    }
+
+    /* Progress bar for operations */
+    .progress-bar {
+        width: 100%;
+        height: 4px;
+        background: #e5e7eb;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+
+    /* Empty state improvements */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-radius: 16px;
+        border: 2px dashed var(--preparation-text-light);
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        color: var(--preparation-text-light);
+        margin-bottom: 20px;
+        animation: pulse 2s infinite;
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .stats-card {
+            margin-bottom: 16px;
+        }
+        
+        .toast {
+            max-width: calc(100vw - 40px);
+            right: 0;
+        }
+    }
+
+    /* Optimisations d'espacement pour éviter la compression */
+    .main-content {
+        padding: 1rem;
+        min-height: 100vh;
+    }
+
+    .page-header {
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    .stats-card {
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .info-section {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-section {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .table-cell {
+        padding: 12px 16px;
+        font-size: 0.875rem;
+    }
+
+    /* Réduction de la taille des icônes pour économiser l'espace */
+    .stats-icon {
+        width: 50px;
+        height: 50px;
+        padding: 12px;
+    }
+
+    .info-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    /* Optimisation des marges et paddings */
+    .section-title {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+
+    .info-item {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    /* Réduction de la taille des badges */
+    .status-badge {
+        padding: 3px 8px;
+        font-size: 0.75rem;
+    }
+
+    .etat-badge {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+    }
+
+    /* Optimisation des boutons d'action */
+    .action-button {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+
+    /* Réduction de l'espacement des grilles */
+    .grid {
+        gap: 1rem;
+    }
+
+    /* Optimisation pour les écrans moyens */
+    @media (min-width: 769px) and (max-width: 1200px) {
+        .main-content {
+            padding: 1.5rem;
+        }
+        
+        .page-header {
+            padding: 1.5rem;
+        }
+        
+        .stats-card {
+            padding: 1.25rem;
+        }
+        
+        .info-section {
+            padding: 1.25rem;
+        }
+    }
+
+    /* Optimisation pour les grands écrans */
+    @media (min-width: 1201px) {
+        .main-content {
+            padding: 1.5rem;
+        }
+    }
+
+    /* Optimisations supplémentaires pour l'espace */
+    .table-container {
+        max-height: calc(100vh - 400px);
+        overflow-y: auto;
+    }
+
+    .table-container table {
+        min-width: 100%;
+    }
+
+    /* Réduction des marges pour les éléments de pagination */
+    .pagination {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Optimisation des modales pour qu'elles prennent moins d'espace */
+    .modal-content {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    /* Réduction de l'espacement des éléments de formulaire */
+    .form-group {
+        margin-bottom: 0.75rem;
+    }
+
+    /* Optimisation des tooltips pour qu'ils ne prennent pas trop d'espace */
+    .tooltip::after {
+        max-width: 200px;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+
+    /* Améliorations spécifiques pour la visibilité */
+    .page-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        margin-bottom: 32px;
+    }
+
+    .section-title {
+        color: var(--preparation-primary);
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-badge.confirmee {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .status-badge.en-preparation {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .status-badge.terminee {
+        background: #f0f9ff;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:hover {
+        background: #f1f5f9;
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+    }
+
+    .info-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+    }
+
+    .info-icon.blue {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+    }
+
+    .info-icon.green {
+        background: linear-gradient(135deg, #059669 0%, var(--preparation-success) 100%);
+    }
+
+    .info-icon.purple {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+    }
+
+    .info-icon.orange {
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    }
+
+    /* Styles pour le tableau */
+    .table-container {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .table-container:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .table-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+    }
+
+    .table-row {
+        transition: all 0.3s ease;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .table-row:hover {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        transform: translateX(4px);
+    }
+
+    .table-cell {
+        padding: 16px;
+        vertical-align: middle;
+    }
+
+    /* Styles pour les boutons d'action */
+    .action-button {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .action-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    /* Styles pour les badges d'état */
+    .etat-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .etat-badge.confirmee {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .etat-badge.en-preparation {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .etat-badge.terminee {
+        background: #f0f9ff;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+    }
+
+    /* Styles pour la barre de progression d'impression multiple */
+    #printProgressContainer {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 12px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    #printProgressBar {
+        transition: width 0.5s ease-in-out;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        box-shadow: 0 2px 4px rgba(7, 15, 43, 0.3);
+    }
+
+    #printProgressText {
+        font-weight: 500;
+        color: #374151;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Animation pour le bouton d'impression multiple */
+    #bulkPrintBtn {
+        position: relative;
+        overflow: hidden;
+    }
+
+    #bulkPrintBtn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    #bulkPrintBtn:hover::before {
+        left: 100%;
+    }
+
+    #bulkPrintBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Style pour la modale de succès */
+    .success-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        z-index: 50;
+        max-width: 32rem;
+        width: 90%;
+        border: 3px solid var(--preparation-border-accent);
+    }
+
+    .success-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(8px);
+        z-index: 40;
+    }
+
+    .success-icon {
+        width: 3rem;
+        height: 3rem;
+        margin: 0 auto 1rem;
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+
+    /* Styles pour les champs de recherche */
+    .search-section {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .search-section:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Styles pour la pagination */
+    .theme-pagination-controls {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .theme-pagination-controls:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Styles pour les modales */
+    .theme-modal {
+        border: 3px solid var(--preparation-primary);
+        box-shadow: 0 25px 50px rgba(7, 15, 43, 0.3);
+        border-radius: 16px;
+    }
+
+    .theme-modal-header {
+        border-bottom: 2px solid var(--preparation-border-accent);
+        background: linear-gradient(135deg, var(--preparation-text-light), var(--preparation-hover-bg));
+        border-radius: 12px 12px 0 0;
+        padding: 20px;
+    }
+
+    .theme-modal-footer {
+        border-top: 2px solid var(--preparation-border-accent);
+        background: linear-gradient(135deg, var(--preparation-text-light), var(--preparation-hover-bg));
+        border-radius: 0 0 12px 12px;
+        padding: 20px;
+    }
+
+    /* CORRECTIONS SPÉCIFIQUES POUR LE DÉBORDEMENT DU TABLEAU */
+    .main-content {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* Optimisation du tableau pour éviter le débordement */
+    .table-responsive {
+        width: 100%;
+            overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-responsive table {
+        width: 100%;
+        min-width: 1200px; /* Largeur minimale pour éviter la compression */
+        table-layout: fixed;
+    }
+
+    /* Optimisation des colonnes du tableau */
+    .table-responsive th,
+    .table-responsive td {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px; /* Largeur maximale par colonne */
+    }
+
+    /* Colonnes spécifiques avec largeurs optimisées */
+    .col-checkbox { width: 50px; }
+    .col-id { width: 80px; }
+    .col-externe { width: 100px; }
+    .col-client { width: 180px; }
+    .col-phone { width: 120px; }
+    .col-ville { width: 150px; }
+    .col-total { width: 100px; }
+    .col-date { width: 120px; }
+    .col-operateur { width: 140px; }
+    .col-etat { width: 120px; }
+    .col-actions { width: 100px; }
+
+    /* Optimisation pour les écrans moyens */
+    @media (max-width: 1400px) {
+        .table-responsive table {
+            min-width: 1000px;
+        }
+        
+        .col-client { width: 150px; }
+        .col-ville { width: 120px; }
+        .col-operateur { width: 120px; }
+    }
+
+    /* Optimisation pour les petits écrans */
+    @media (max-width: 1200px) {
+        .table-responsive table {
+            min-width: 900px;
+        }
+        
+        .col-client { width: 120px; }
+        .col-ville { width: 100px; }
+        .col-operateur { width: 100px; }
+        .col-etat { width: 100px; }
+    }
+
+    /* Optimisation pour les très petits écrans */
+    @media (max-width: 768px) {
+        .table-responsive table {
+            min-width: 800px;
+        }
+        
+        .col-client { width: 100px; }
+        .col-ville { width: 80px; }
+        .col-operateur { width: 80px; }
+        .col-etat { width: 80px; }
+    }
+
+    /* Amélioration du scroll horizontal */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--preparation-primary);
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--preparation-light);
+    }
+
+    /* Optimisation de l'espacement général */
+    .page-header {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .stats-card {
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .info-section {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Réduction des marges pour les boutons d'action */
+    .action-buttons {
+        margin-bottom: 1rem;
+    }
+
+    /* Optimisation des contrôles de pagination */
+    .pagination-controls {
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    /* SOLUTION PROFESSIONNELLE POUR DASHBOARD RESPONSIVE */
+    
+    /* Conteneur principal avec calcul automatique de l'espace */
+    .main-content {
+        width: 100%;
+        max-width: 100%;
+        padding: 0.75rem;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+
+    /* Optimisation générale de l'espacement */
+    .page-header {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .stats-card {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .info-section {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .action-buttons {
+        margin-bottom: 1rem;
+    }
+
+    .pagination-controls {
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Tableau responsive professionnel */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-responsive table {
+        width: 100%;
+        min-width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+    }
+
+    /* Largeurs de colonnes adaptatives */
+    .table-responsive th:nth-child(1), .table-responsive td:nth-child(1) { width: 40px; }  /* Checkbox */
+    .table-responsive th:nth-child(2), .table-responsive td:nth-child(2) { width: 70px; }  /* ID YZ */
+    .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 90px; }  /* N° Externe */
+    .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 140px; } /* Client */
+    .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 100px; } /* Téléphone */
+    .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 120px; } /* Ville & Région */
+    .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 80px; }  /* Total */
+    .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 100px; } /* Date Confirmation */
+    .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 120px; } /* Opérateur Conf. */
+    .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 100px; } /* État Préparation */
+    .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 120px; }  /* Actions */
+
+    /* Scrollbar personnalisée */
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--preparation-primary);
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--preparation-light);
+    }
+
+    /* Responsive adaptatif professionnel */
+    @media (max-width: 1400px) {
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.8rem;
+        }
+        
+        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 120px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 100px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 100px; }
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 110px; }  /* Actions */
+    }
+
+    @media (max-width: 1200px) {
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.35rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 100px; }
+        .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 80px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 80px; }
+        .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 80px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 80px; }
+        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 80px; }
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 100px; }  /* Actions */
+    }
+
+    @media (max-width: 768px) {
+        .main-content {
+            padding: 0.5rem;
+        }
+        
+        .page-header {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .stats-card {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-section {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.3rem 0.4rem;
+            font-size: 0.7rem;
+        }
+    }
+
+    /* Optimisation des éléments compacts */
+    .stats-icon {
+        width: 40px;
+        height: 40px;
+        padding: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .info-icon {
+        width: 35px;
+        height: 35px;
+            font-size: 0.875rem;
+        }
+
+    .section-title {
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .info-item {
+        padding: 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.7rem;
+    }
+
+    .etat-badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.65rem;
+    }
+
+    .action-button {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+    }
+
+    /* Optimisation spécifique pour la colonne Actions */
+    .table-responsive th:nth-child(11),
+    .table-responsive td:nth-child(11) {
+        padding: 0.5rem 1rem;
+        text-align: center;
+    }
+
+    .table-responsive td:nth-child(11) .action-button {
+        margin: 0 0.25rem;
+        min-width: 80px;
+    }
+
+    /* Espacement des boutons d'action */
+    .action-buttons-container {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- Toast notifications container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- En-tête de la page -->
+    <div class="page-header">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+            <div>
+                <h1 class="text-3xl font-bold flex items-center mb-2">
+                    <i class="fas fa-check-circle mr-3 text-green-300"></i>
+                    {{ page_title|default:'Commandes Confirmées' }}
+                </h1>
+                <p class="text-white opacity-90">{{ page_subtitle|default:'Gestion et suivi des commandes confirmées' }}</p>
+            </div>
+            <div class="flex items-center gap-6 mt-4 md:mt-0">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-white">{{ total_confirmees|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">Total confirmées</div>
+                </div>
+                <div class="text-center border-l border-white/30 pl-6 ml-6">
+                    <div class="text-3xl font-bold text-white">{{ montant_total|default:0|floatformat:0 }} DH</div>
+                    <div class="text-sm text-white opacity-80">Valeur totale</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <!-- Aujourd'hui -->
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.1s;">
+                <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                        <i class="fas fa-calendar-day text-xl"></i>
+            </div>
+                    <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Aujourd'hui</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ confirmees_aujourd_hui|default:0 }}</p>
+            </div>
+        </div>
+            </div>
+        <!-- Cette semaine -->
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.2s;">
+                <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                        <i class="fas fa-calendar-week text-xl"></i>
+            </div>
+                    <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Cette semaine</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ confirmees_semaine|default:0 }}</p>
+        </div>
+            </div>
+        </div>
+        <!-- Ce mois -->
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.3s;">
+                <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                        <i class="fas fa-calendar-alt text-xl"></i>
+                    </div>
+                    <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Ce mois</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ confirmees_mois|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- Total -->
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.4s;">
+                <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-check-double text-xl"></i>
+                    </div>
+                    <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Total Confirmées</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{{ total_confirmees|default:0 }}</p>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <!-- Section d'informations -->
+    <div class="info-section mb-4">
+        <h2 class="section-title">
+            <i class="fas fa-info-circle text-blue-600"></i>
+            Informations générales
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="info-item">
+                <div class="info-icon green">
+                    <i class="fas fa-check-circle"></i>
+            </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Commandes confirmées</h3>
+                    <p class="text-xs text-gray-600">Commandes validées et prêtes pour la préparation</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon blue">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Affectation opérateurs</h3>
+                    <p class="text-xs text-gray-600">Assignez les commandes aux opérateurs de préparation</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon purple">
+                    <i class="fas fa-print"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Impression multiple</h3>
+                    <p class="text-xs text-gray-600">Imprimez les tickets et codes QR en lot</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include 'Superpreparation/includes/smart-search-toolbar.html' %}
+
+    <!-- Actions en masse -->
+    <div class="flex flex-col gap-3 action-buttons">
+        <!-- Ligne des boutons -->
+        <div class="flex gap-2">
+            <button id="bulkAffectBtn" class="px-3 py-1.5 rounded-lg font-medium transition-all shadow-sm opacity-50 cursor-not-allowed bg-[var(--preparation-primary)] text-white flex items-center gap-2 text-sm" disabled>
+                <i class="fas fa-users-cog"></i> Affecter sélection
+            </button>
+            
+            <!-- Bouton Impression Multiple Fusionné -->
+            <button id="bulkPrintBtn" class="px-3 py-1.5 rounded-lg font-medium transition-all shadow-sm bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white flex items-center gap-2 text-sm">
+                <i class="fas fa-print"></i> Impression multiple
+                <span id="selectionCount" class="ml-1 px-2 py-0.5 text-xs bg-white bg-opacity-20 rounded-full hidden">0</span>
+            </button>
+            
+
+        </div>
+        
+        <!-- Barre de progression pour l'impression multiple -->
+        <div id="printProgressContainer" class="hidden w-full bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-gray-700">Progression impression</span>
+                <span id="printProgressPercent" class="text-xs font-bold text-purple-600">0%</span>
+            </div>
+            <div class="bg-gray-200 rounded-full h-2 mb-1">
+                <div id="printProgressBar" class="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-500 ease-in-out" style="width: 0%"></div>
+            </div>
+            <div id="printProgressText" class="text-xs text-gray-600 text-center font-medium">En attente...</div>
+            <div id="printProgressSteps" class="flex justify-between mt-2 text-xs text-gray-500">
+                <div class="flex items-center">
+                    <div id="step1Icon" class="w-3 h-3 rounded-full bg-gray-300 mr-1 flex items-center justify-center">
+                        <i class="fas fa-clock text-gray-500 text-xs"></i>
+                    </div>
+                    <span>Tickets</span>
+                </div>
+                <div class="flex items-center">
+                    <div id="step2Icon" class="w-3 h-3 rounded-full bg-gray-300 mr-1 flex items-center justify-center">
+                        <i class="fas fa-clock text-gray-500 text-xs"></i>
+                    </div>
+                    <span>Codes QR</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message si aucun résultat -->
+    {% if not page_obj.object_list %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    {% if search_query %}
+                        Aucune commande confirmée trouvée pour la recherche "{{ search_query }}".
+                    {% else %}
+                        Aucune commande confirmée pour le moment.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tableau des commandes confirmées -->
+    {% if page_obj.object_list %}
+    <div class="table-responsive mb-6 theme-card rounded-xl shadow-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-[var(--preparation-primary)] border-b-[3px] border-[var(--preparation-primary)] text-white">
+                <tr>
+                    <th class="px-3 py-2 text-left">
+                        <input type="checkbox" id="selectAll" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500">
+                </th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Date Confirmation</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Opérateur Conf.</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
+                    <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+            <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
+                {% include 'Superpreparation/partials/_confirmees_table_body.html' with page_obj=page_obj %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Contrôles de pagination flexible (style Excel) -->
+    <div class="theme-pagination-controls pagination-controls transition-all duration-300">
+        <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+            <!-- Section Éléments par page -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-list-ol text-sm" style="color: var(--preparation-primary);"></i>
+                    <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                </div>
+                <select id="itemsPerPageSelect" class="theme-input px-3 py-1.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm">
+                    <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                    <option value="250" {% if items_per_page == 250 %}selected{% endif %}>250</option>
+                    <option value="500" {% if items_per_page == 500 %}selected{% endif %}>500</option>
+                    <option value="1000" {% if items_per_page == 1000 %}selected{% endif %}>1000</option>
+                    <option value="2500" {% if items_per_page == 2500 %}selected{% endif %}>2500</option>
+                    <option value="5000" {% if items_per_page == 5000 %}selected{% endif %}>5000</option>
+                    <option value="10000" {% if items_per_page == 10000 %}selected{% endif %}>10000</option>
+                    <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                </select>
+            </div>
+            
+            <!-- Section Plage personnalisée -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-arrows-alt-h text-sm" style="color: var(--preparation-primary);"></i>
+                    <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                </div>
+                <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                               class="theme-input px-2 py-1 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm">
+                        <span class="text-gray-500 text-xs font-medium">à</span>
+                        <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                               class="theme-input px-2 py-1 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm">
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-check mr-1"></i>Appliquer
+                        </button>
+                        <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-times mr-1"></i>Effacer
+                        </button>
+                    </div>
+        </div>
+            </div>
+            
+            <!-- Section Statistiques -->
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                    <i class="fas fa-chart-bar text-sm" style="color: var(--preparation-primary);"></i>
+                    <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> commandes confirmées</span>
+                                </div>
+            </div>
+        </div>
+        
+        <!-- Indicateur de statut -->
+        <div class="mt-3 pt-3 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs text-gray-600">Pagination active</span>
+                    </div>
+                    {% if start_range and end_range %}
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-filter text-xs text-blue-500"></i>
+                        <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                    </div>
+                                {% endif %}
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                    <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="paginationControls" class="flex justify-center mt-8">
+        {% include 'Superpreparation/partials/_confirmees_pagination.html' %}
+    </div>
+
+    <!-- Informations de pagination -->
+    <div id="paginationInfoContainer">
+        {% include 'Superpreparation/partials/_confirmees_pagination_info.html' %}
+    </div>
+                                {% endif %}
+</div>
+
+<!-- Modal d'affectation aux opérateurs de préparation -->
+<div id="affectationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="theme-modal relative p-8 bg-white w-full max-w-4xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down">
+        <!-- En-tête du modal -->
+        <div class="theme-modal-header flex justify-between items-center pb-4">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--preparation-light);">
+                    <i class="fas fa-cogs text-white text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold" style="color: var(--preparation-light);">Affecter à la Préparation</h3>
+            </div>
+            <button onclick="hideAffectationModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-6">
+            <div class="mb-6">
+                <p class="text-gray-600 mb-2">Commandes : <span id="commandeIdAffectation" class="font-bold" style="color: var(--preparation-light);"></span></p>
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-info-circle text-green-500 mr-2"></i>
+                        <p class="text-sm text-green-700">Affectation aux opérateurs de préparation uniquement</p>
+                    </div>
+                </div>
+                <p class="text-gray-700 font-medium">Sélectionner un opérateur :</p>
+            </div>
+            
+            <!-- Grille des opérateurs de préparation -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 max-h-80 overflow-y-auto">
+                {% for operateur in operateurs_preparation %}
+                <div class="operateur-card border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all duration-200" 
+                     data-operateur-id="{{ operateur.id }}" onclick="selectOperateur(this, {{ operateur.id }})">
+                    <div class="flex flex-col items-center text-center">
+                        <!-- Avatar -->
+                        <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mb-3">
+                            <i class="fas fa-user text-white text-lg"></i>
+                        </div>
+                        <!-- Email de l'opérateur -->
+                        <h4 class="font-semibold text-gray-900 text-sm mb-1">{{ operateur.mail }}</h4>
+                        <!-- Nom -->
+                        <p class="text-xs text-gray-500 mb-2">{{ operateur.nom_complet }}</p>
+                        <!-- Badge du nombre de commandes -->
+                        <div class="flex items-center">
+                            <i class="fas fa-cogs text-green-500 mr-1 text-xs"></i>
+                            <span class="text-xs text-green-600 font-medium">0 commandes affectées</span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full text-center py-8 text-gray-500">
+                    <i class="fas fa-user-slash text-4xl mb-4"></i>
+                    <p>Aucun opérateur de préparation disponible</p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Commentaire optionnel -->
+            <div class="mb-4">
+                <label for="commentaireAffectation" class="block text-sm font-medium text-gray-700 mb-2">
+                    Commentaire (optionnel)
+                </label>
+                <textarea id="commentaireAffectation" rows="3" 
+                          class="theme-input w-full p-3 rounded-lg focus:ring-2 focus:ring-offset-2 transition-all" 
+                          placeholder="Ajoutez un commentaire pour l'affectation..."></textarea>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="theme-modal-footer flex justify-end space-x-3 pt-4">
+            <button onclick="hideAffectationModal()" 
+                    class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-all duration-200">
+                <i class="fas fa-times mr-2"></i>
+                Annuler
+                                    </button>
+            <button onclick="proceedAffectation()" 
+                    class="theme-button-primary px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:-translate-y-0.5">
+                <i class="fas fa-check mr-2"></i>
+                Affecter
+                                    </button>
+                                </div>
+                                    </div>
+                                </div>
+
+<!-- Modale de succès -->
+<div id="successModal" class="success-modal-overlay hidden">
+    <div class="success-modal">
+        <div class="success-icon">
+            <i class="fas fa-check text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-center mb-2">Succès !</h3>
+        <p id="successMessage" class="text-sm text-gray-600 text-center mb-6"></p>
+        <div class="flex justify-center">
+            <button onclick="hideSuccessModal()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                OK
+            </button>
+        </div>
+        </div>
+    </div>
+
+<!-- Modale d'erreur -->
+<div id="errorModal" class="success-modal-overlay hidden">
+    <div class="success-modal">
+        <div class="success-icon" style="background-color: var(--preparation-primary);">
+            <i class="fas fa-exclamation-triangle text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-center mb-2">Erreur</h3>
+        <p id="errorMessage" class="text-sm text-gray-600 text-center mb-6"></p>
+        <div class="flex justify-center">
+            <button onclick="hideErrorModal()" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let commandeToAffect = null;
+    let bulkAffect = false;
+    let selectedOperateurId = null;
+
+    function showAffectationModal(commandeId, commandeIdYz, isBulk = false) {
+        bulkAffect = isBulk;
+        if (isBulk) {
+            const selectedCommandes = getSelectedCommandes();
+            document.getElementById('commandeIdAffectation').textContent = `${selectedCommandes.length} commandes sélectionnées`;
+        } else {
+        commandeToAffect = commandeId;
+        document.getElementById('commandeIdAffectation').textContent = commandeIdYz;
+        }
+        // Réinitialiser la sélection
+        selectedOperateurId = null;
+        document.querySelectorAll('.operateur-card').forEach(card => {
+            card.classList.remove('border-green-500', 'bg-green-100', 'ring-2', 'ring-green-500');
+            card.classList.add('border-gray-200');
+        });
+        document.getElementById('commentaireAffectation').value = '';
+        document.getElementById('affectationModal').classList.remove('hidden');
+    }
+
+    function selectOperateur(cardElement, operateurId) {
+        // Désélectionner toutes les cartes
+        document.querySelectorAll('.operateur-card').forEach(card => {
+            card.classList.remove('border-green-500', 'bg-green-100', 'ring-2', 'ring-green-500');
+            card.classList.add('border-gray-200');
+        });
+        
+        // Sélectionner la carte cliquée
+        cardElement.classList.remove('border-gray-200');
+        cardElement.classList.add('border-green-500', 'bg-green-100', 'ring-2', 'ring-green-500');
+        
+        selectedOperateurId = operateurId;
+    }
+
+    function hideAffectationModal() {
+        document.getElementById('affectationModal').classList.add('hidden');
+        commandeToAffect = null;
+        bulkAffect = false;
+    }
+
+    function getCsrfToken() {
+        const token = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (token) {
+            return token.value;
+        }
+        console.error('CSRF token not found');
+        return '';
+    }
+
+    function getSelectedCommandes() {
+        return Array.from(document.querySelectorAll('.commande-checkbox:checked')).map(cb => cb.dataset.commandeId);
+    }
+
+    function showSuccessModal(message) {
+        document.getElementById('successMessage').textContent = message;
+        document.getElementById('successModal').classList.remove('hidden');
+        setTimeout(() => {
+            hideSuccessModal();
+            window.location.reload();
+        }, 2000);
+    }
+
+    function hideSuccessModal() {
+        document.getElementById('successModal').classList.add('hidden');
+    }
+
+    function showErrorModal(message) {
+        document.getElementById('errorMessage').textContent = message;
+        document.getElementById('errorModal').classList.remove('hidden');
+    }
+
+    function hideErrorModal() {
+        document.getElementById('errorModal').classList.add('hidden');
+    }
+
+    function proceedAffectation() {
+        const operateurId = selectedOperateurId;
+        const commentaire = document.getElementById('commentaireAffectation').value;
+        
+        if (!operateurId) {
+            showErrorModal('Veuillez sélectionner un opérateur.');
+            return;
+        }
+        
+        const button = event.target;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Affectation...';
+
+        let url = `/commande/affecter-preparation-multiple/`;
+        let body = JSON.stringify({ 
+            operateur_id: operateurId, 
+            commentaire: commentaire,
+            commande_ids: bulkAffect ? getSelectedCommandes() : [commandeToAffect]
+        });
+        
+        const csrfToken = getCsrfToken();
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: body,
+            credentials: 'same-origin'
+        })
+        .then(async (response) => {
+            const contentType = response.headers.get('content-type') || '';
+            const text = await response.text();
+            let data;
+            try {
+                data = contentType.includes('application/json') ? JSON.parse(text) : { success: false, message: text };
+            } catch (e) {
+                data = { success: false, message: text };
+            }
+            if (!response.ok) {
+                throw new Error(data.message || `HTTP ${response.status}`);
+            }
+            return data;
+        })
+        .then((data) => {
+            if (data.success) {
+                hideAffectationModal();
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Succès !',
+                        text: data.message || 'Les commandes ont été affectées pour la préparation.',
+                        confirmButtonText: 'OK'
+                    }).then(() => { window.location.reload(); });
+                } else {
+                    showSuccessModal(data.message || 'Les commandes ont été affectées pour la préparation.');
+                }
+            } else {
+                if (window.Swal) {
+                    Swal.fire({ icon: 'error', title: 'Erreur', text: data.message || 'Une erreur est survenue.' });
+                } else {
+                    showErrorModal(data.message || 'Une erreur est survenue.');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const msg = typeof error === 'string' ? error : (error.message || 'Impossible de contacter le serveur.');
+            if (window.Swal) {
+                Swal.fire({ icon: 'error', title: 'Erreur', text: msg });
+            } else {
+                showErrorModal(msg);
+            }
+        }).finally(() => {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-check mr-2"></i>Affecter';
+        });
+    }
+
+    // Gestion de la sélection
+    document.addEventListener('DOMContentLoaded', () => {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.commande-checkbox');
+        const bulkAffectBtn = document.getElementById('bulkAffectBtn');
+
+        // Vérifier si les éléments existent avant de continuer
+        if (!selectAll || !bulkAffectBtn || checkboxes.length === 0) {
+            console.log('Certains éléments de sélection ne sont pas présents dans la page');
+            return;
+        }
+
+        function toggleBulkButton() {
+            const anyChecked = getSelectedCommandes().length > 0;
+            bulkAffectBtn.disabled = !anyChecked;
+            bulkAffectBtn.classList.toggle('opacity-50', !anyChecked);
+            bulkAffectBtn.classList.toggle('cursor-not-allowed', !anyChecked);
+        }
+
+        selectAll.addEventListener('change', (e) => {
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+            });
+            toggleBulkButton();
+        });
+
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                if (!checkbox.checked) {
+                    selectAll.checked = false;
+                } else if (getSelectedCommandes().length === checkboxes.length) {
+                    selectAll.checked = true;
+                }
+                toggleBulkButton();
+            });
+        });
+
+        bulkAffectBtn.addEventListener('click', () => {
+            showAffectationModal(null, null, true);
+        });
+
+        toggleBulkButton();
+    });
+
+    // Event listeners to close the modal
+    const affectationModal = document.getElementById('affectationModal');
+    if (affectationModal) {
+        window.addEventListener('click', (event) => {
+            if (event.target === affectationModal) {
+                hideAffectationModal();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                hideAffectationModal();
+            }
+        });
+    }
+
+    // ===== PAGINATION AJAX =====
+    // Variables globales pour la pagination
+    let currentPage = 1;
+    let currentItemsPerPage = {{ items_per_page|default:25 }};
+    let currentStartRange = '{{ start_range|default:"" }}';
+    let currentEndRange = '{{ end_range|default:"" }}';
+    let currentSearchQuery = '{{ search_query|default:"" }}';
+    let searchTimeout;
+
+    // Fonction pour construire l'URL avec les paramètres de pagination
+    function buildUrl(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+        const params = new URLSearchParams();
+        
+        if (page > 1) params.append('page', page);
+        if (itemsPerPage !== null) params.append('items_per_page', itemsPerPage);
+        if (startRange !== null) params.append('start_range', startRange);
+        if (endRange !== null) params.append('end_range', endRange);
+        if (searchQuery !== null && searchQuery.trim() !== '') params.append('search', searchQuery.trim());
+        
+        const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        return url;
+    }
+
+    // Fonction pour mettre à jour l'URL sans recharger la page
+    function updateUrl(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+        const url = buildUrl(page, itemsPerPage, startRange, endRange, searchQuery);
+        window.history.pushState({}, '', url);
+    }
+
+    // Fonction pour charger les données via AJAX
+    function loadData(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+        const url = buildUrl(page, itemsPerPage, startRange, endRange, searchQuery);
+        
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour le contenu du tableau
+                document.getElementById('commandTableBody').innerHTML = data.html_table_body;
+                
+                // Mettre à jour la pagination
+                const paginationContainer = document.getElementById('paginationControls');
+                if (paginationContainer) {
+                    paginationContainer.innerHTML = data.html_pagination;
+                }
+                
+                // Mettre à jour les informations de pagination
+                const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+                if (paginationInfoContainer) {
+                    paginationInfoContainer.innerHTML = data.html_pagination_info;
+                }
+                
+                // Mettre à jour l'URL
+                updateUrl(page, itemsPerPage, startRange, endRange, searchQuery);
+                
+                // Mettre à jour les variables globales
+                currentPage = page;
+                if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
+                if (startRange !== null) currentStartRange = startRange;
+                if (endRange !== null) currentEndRange = endRange;
+                if (searchQuery !== null) currentSearchQuery = searchQuery;
+                
+                // Réattacher les event listeners
+                attachEventListeners();
+            } else {
+                console.error('Erreur lors du chargement des données:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+        });
+    }
+
+    // Fonction pour changer de page
+    function changePage(page) {
+        loadData(page, currentItemsPerPage, currentStartRange, currentEndRange, currentSearchQuery);
+    }
+
+    // Fonction pour changer le nombre d'éléments par page
+    function changeItemsPerPage(itemsPerPage) {
+        loadData(1, itemsPerPage, currentStartRange, currentEndRange, currentSearchQuery);
+    }
+
+    // Fonction pour appliquer une plage personnalisée
+    function applyCustomRange(startRange, endRange) {
+        loadData(1, null, startRange, endRange, currentSearchQuery);
+    }
+
+    // Fonction pour effacer la plage personnalisée
+    function clearCustomRange() {
+        loadData(1, currentItemsPerPage, '', '', currentSearchQuery);
+    }
+
+    // Fonction pour attacher les event listeners
+    function attachEventListeners() {
+        // Event listener pour le select des éléments par page
+        const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+        if (itemsPerPageSelect) {
+            itemsPerPageSelect.removeEventListener('change', handleItemsPerPageChange);
+            itemsPerPageSelect.addEventListener('change', handleItemsPerPageChange);
+        }
+        
+        // Event listener pour le bouton d'application de la plage
+        const applyRangeBtn = document.getElementById('applyRangeBtn');
+        if (applyRangeBtn) {
+            applyRangeBtn.removeEventListener('click', handleApplyRange);
+            applyRangeBtn.addEventListener('click', handleApplyRange);
+        }
+        
+        // Event listener pour le bouton d'effacement de la plage
+        const clearRangeBtn = document.getElementById('clearRangeBtn');
+        if (clearRangeBtn) {
+            clearRangeBtn.removeEventListener('click', handleClearRange);
+            clearRangeBtn.addEventListener('click', handleClearRange);
+        }
+    }
+
+    // Handlers pour les event listeners
+    function handleItemsPerPageChange(event) {
+        const itemsPerPage = event.target.value;
+        changeItemsPerPage(itemsPerPage);
+    }
+
+    function handleApplyRange() {
+        const startRange = document.getElementById('startRangeInput').value;
+        const endRange = document.getElementById('endRangeInput').value;
+        
+        if (startRange && endRange) {
+            applyCustomRange(startRange, endRange);
+        } else {
+            alert('Veuillez remplir les deux champs de plage');
+        }
+    }
+
+    function handleClearRange() {
+        document.getElementById('startRangeInput').value = '';
+        document.getElementById('endRangeInput').value = '';
+        clearCustomRange();
+    }
+
+    // Initialisation de la pagination AJAX au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        attachEventListeners();
+    });
+</script>
+
+<!-- Script de recherche intelligente -->
+<script src="{% static 'js/Suivi_des_Commandes/suivi-commandes-smart-search.js' %}"></script>
+<!-- Script des modales d'impression -->
+<script src="{% static 'js/etiquettage/impression-modals.js' %}"></script>
+<script>
+    // Initialiser la recherche intelligente pour cette page
+    document.addEventListener('DOMContentLoaded', function() {
+        initSuiviCommandesSearch('confirmées');
+    });
+
+// Script de gestion de la sidebar
+document.addEventListener('DOMContentLoaded', function() {
+    const menuToggle = document.getElementById('menu-toggle');
+    const body = document.body;
+    
+    if (menuToggle) {
+        menuToggle.addEventListener('click', function() {
+            console.log('🔄 Menu toggle clicked');
+            body.classList.toggle('sidebar-open');
+            body.classList.toggle('sidebar-collapsed');
+            
+            // Animation du hamburger
+            menuToggle.classList.toggle('hamburger-active');
+        });
+    }
+    
+    // Gestion du redimensionnement
+    window.addEventListener('resize', () => {
+        console.log('📐 Redimensionnement détecté:', window.innerWidth);
+        if (window.innerWidth > 1023) {
+            body.classList.add('sidebar-open');
+            body.classList.remove('sidebar-collapsed');
+            console.log('🖥️ Redimensionnement: mode desktop');
+        } else {
+            body.classList.add('sidebar-collapsed');
+            body.classList.remove('sidebar-open');
+            console.log('📱 Redimensionnement: mode mobile');
+        }
+    });
+    
+    console.log('✅ Script de sidebar initialisé pour commandes-confirmees');
+    
+    // Vérifier que la fonction d'impression multiple est disponible
+    if (typeof window.impressionMultipleFusionnee === 'function') {
+        console.log('✅ Fonction impressionMultipleFusionnee disponible');
+    } else {
+        console.warn('⚠️ Fonction impressionMultipleFusionnee non disponible');
+        // Attendre un peu plus pour que le script soit chargé
+        setTimeout(() => {
+            if (typeof window.impressionMultipleFusionnee === 'function') {
+                console.log('✅ Fonction impressionMultipleFusionnee disponible après délai');
+            } else {
+                console.error('❌ Fonction impressionMultipleFusionnee toujours non disponible');
+            }
+        }, 1000);
+    }
+    
+    // Event listener pour le bouton d'impression multiple
+    const bulkPrintBtn = document.getElementById('bulkPrintBtn');
+    if (bulkPrintBtn) {
+        bulkPrintBtn.addEventListener('click', function() {
+            console.log('🖱️ Clic sur bouton impression multiple détecté');
+            
+            // Récupérer les IDs des commandes sélectionnées
+            const selectedIds = window.getSelectedCommandeIds();
+            console.log('📋 IDs sélectionnés pour impression:', selectedIds);
+            
+            // Construire l'URL avec les paramètres
+            let url = '/Superpreparation/api/ticket-commande-multiple/?direct_print=true';
+            if (selectedIds && selectedIds.length > 0) {
+                url += `&selected_ids=${selectedIds.join(',')}`;
+                console.log(`🖨️ Impression pour ${selectedIds.length} commandes sélectionnées`);
+            } else {
+                console.log('🖨️ Impression pour toutes les commandes confirmées');
+            }
+            console.log('🌐 URL finale:', url);
+            
+            // Désactiver le bouton
+            bulkPrintBtn.disabled = true;
+            bulkPrintBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            // Afficher la barre de progression
+            const progressContainer = document.getElementById('printProgressContainer');
+            const progressBar = document.getElementById('printProgressBar');
+            const progressText = document.getElementById('printProgressText');
+            const progressPercent = document.getElementById('printProgressPercent');
+            const step1Icon = document.getElementById('step1Icon');
+            const step2Icon = document.getElementById('step2Icon');
+            
+            if (progressContainer && progressBar && progressText && progressPercent) {
+                progressContainer.classList.remove('hidden');
+                
+                // Initialiser la progression
+                progressBar.style.width = '0%';
+                progressPercent.textContent = '0%';
+                progressText.textContent = 'Démarrage de l\'impression multiple...';
+                
+                // Initialiser les étapes
+                if (step1Icon) {
+                    step1Icon.className = 'w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center';
+                    step1Icon.innerHTML = '<i class="fas fa-clock text-gray-500"></i>';
+                }
+                if (step2Icon) {
+                    step2Icon.className = 'w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center';
+                    step2Icon.innerHTML = '<i class="fas fa-clock text-gray-500"></i>';
+                }
+            }
+            
+            // Étape 1 : Impression des tickets (0% à 50%)
+            setTimeout(() => {
+                if (progressBar && progressText && progressPercent && step1Icon) {
+                    progressBar.style.width = '50%';
+                    progressPercent.textContent = '50%';
+                    progressText.textContent = 'Impression des tickets de commande en cours...';
+                    
+                    // Marquer l'étape 1 comme active
+                    step1Icon.className = 'w-4 h-4 rounded-full bg-blue-500 mr-2 flex items-center justify-center';
+                    step1Icon.innerHTML = '<i class="fas fa-spinner fa-spin text-white text-xs"></i>';
+                }
+                
+                // Lancer l'impression des tickets avec notre URL personnalisée
+                console.log('🚀 Lancement impression tickets avec URL:', url);
+                
+                // Récupérer le contenu HTML via fetch et l'injecter dans l'iframe
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.html) {
+                            console.log('✅ Données tickets récupérées, création iframe...');
+                            
+                            // Créer une iframe cachée
+                            const ticketIframe = document.createElement('iframe');
+                            ticketIframe.style.display = 'none';
+                            ticketIframe.style.width = '800px';
+                            ticketIframe.style.height = '600px';
+                            document.body.appendChild(ticketIframe);
+                            
+                            // Écrire le HTML dans l'iframe
+                            const iframeDoc = ticketIframe.contentDocument || ticketIframe.contentWindow.document;
+                            iframeDoc.open();
+                            iframeDoc.write(data.html);
+                            iframeDoc.close();
+                            
+                            // Lancer l'impression après un court délai
+                            setTimeout(() => {
+                                try {
+                                    ticketIframe.contentWindow.print();
+                                    console.log('✅ Impression tickets lancée');
+                                } catch (error) {
+                                    console.error('❌ Erreur impression tickets:', error);
+                                    // Fallback : ouvrir dans une nouvelle fenêtre
+                                    const fallbackWindow = window.open('data:text/html;charset=utf-8,' + encodeURIComponent(data.html), '_blank', 'width=800,height=600');
+                                    if (fallbackWindow) {
+                                        fallbackWindow.onload = function() {
+                                            fallbackWindow.print();
+                                        };
+                                    }
+                                }
+                            }, 500);
+                        } else {
+                            console.error('❌ Données invalides reçues:', data);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Erreur lors de la récupération des tickets:', error);
+                        // Fallback : ouvrir directement l'URL
+                        const fallbackWindow = window.open(url, '_blank', 'width=800,height=600');
+                        if (fallbackWindow) {
+                            fallbackWindow.onload = function() {
+                                fallbackWindow.print();
+                            };
+                        }
+                    });
+                
+                // Étape 2 : Impression des codes QR (50% à 100%)
+                setTimeout(() => {
+                    if (progressBar && progressText && progressPercent && step1Icon && step2Icon) {
+                        progressBar.style.width = '100%';
+                        progressPercent.textContent = '100%';
+                        progressText.textContent = 'Impression des codes QR des articles en cours...';
+                        
+                        // Marquer l'étape 1 comme terminée
+                        step1Icon.className = 'w-4 h-4 rounded-full bg-green-500 mr-2 flex items-center justify-center';
+                        step1Icon.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
+                        
+                        // Marquer l'étape 2 comme active
+                        step2Icon.className = 'w-4 h-4 rounded-full bg-blue-500 mr-2 flex items-center justify-center';
+                        step2Icon.innerHTML = '<i class="fas fa-spinner fa-spin text-white text-xs"></i>';
+                    }
+                    
+                    // Lancer l'impression des codes QR avec notre URL personnalisée
+                    let qrUrl = '/Superpreparation/api/etiquettes-articles-multiple/';
+                    if (selectedIds && selectedIds.length > 0) {
+                        qrUrl += `?selected_ids=${selectedIds.join(',')}`;
+                    }
+                    console.log('🚀 Lancement impression codes QR avec URL:', qrUrl);
+                    
+                    // Récupérer le contenu HTML via fetch et l'injecter dans l'iframe
+                    fetch(qrUrl)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.html) {
+                                console.log('✅ Données codes QR récupérées, création iframe...');
+                                
+                                // Créer une iframe cachée
+                                const qrIframe = document.createElement('iframe');
+                                qrIframe.style.display = 'none';
+                                qrIframe.style.width = '800px';
+                                qrIframe.style.height = '600px';
+                                document.body.appendChild(qrIframe);
+                                
+                                // Écrire le HTML dans l'iframe
+                                const iframeDoc = qrIframe.contentDocument || qrIframe.contentWindow.document;
+                                iframeDoc.open();
+                                iframeDoc.write(data.html);
+                                iframeDoc.close();
+                                
+                                // Lancer l'impression après un court délai
+                                setTimeout(() => {
+                                    try {
+                                        qrIframe.contentWindow.print();
+                                        console.log('✅ Impression codes QR lancée');
+                                    } catch (error) {
+                                        console.error('❌ Erreur impression codes QR:', error);
+                                        // Fallback : ouvrir dans une nouvelle fenêtre
+                                        const fallbackWindow = window.open('data:text/html;charset=utf-8,' + encodeURIComponent(data.html), '_blank', 'width=800,height=600');
+                                        if (fallbackWindow) {
+                                            fallbackWindow.onload = function() {
+                                                fallbackWindow.print();
+                                            };
+                                        }
+                                    }
+                                }, 500);
+                            } else {
+                                console.error('❌ Données invalides reçues:', data);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('❌ Erreur lors de la récupération des codes QR:', error);
+                            // Fallback : ouvrir directement l'URL
+                            const fallbackWindow = window.open(qrUrl, '_blank', 'width=800,height=600');
+                            if (fallbackWindow) {
+                                fallbackWindow.onload = function() {
+                                    fallbackWindow.print();
+                                };
+                            }
+                        });
+                    
+                    // Finalisation
+                    setTimeout(() => {
+                        if (step2Icon) {
+                            step2Icon.className = 'w-4 h-4 rounded-full bg-green-500 mr-2 flex items-center justify-center';
+                            step2Icon.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
+                        }
+                        
+                        progressText.textContent = 'Impression multiple terminée avec succès !';
+                        
+                        // Masquer la progression après un délai
+                        setTimeout(() => {
+                            resetPrintProgress();
+                        }, 2000);
+                        
+                        console.log('✅ Impression multiple terminée');
+                    }, 3000);
+                }, 2000);
+            }, 500);
+        });
+    }
+    
+    // Fonction pour réinitialiser la progression
+    function resetPrintProgress() {
+        const bulkPrintBtn = document.getElementById('bulkPrintBtn');
+        const progressContainer = document.getElementById('printProgressContainer');
+        const progressBar = document.getElementById('printProgressBar');
+        const progressText = document.getElementById('printProgressText');
+        const progressPercent = document.getElementById('printProgressPercent');
+        const step1Icon = document.getElementById('step1Icon');
+        const step2Icon = document.getElementById('step2Icon');
+        
+        if (bulkPrintBtn) {
+            bulkPrintBtn.disabled = false;
+            bulkPrintBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        
+        if (progressContainer) {
+            progressContainer.classList.add('hidden');
+        }
+        
+        if (progressBar) {
+            progressBar.style.width = '0%';
+        }
+        
+        if (progressText) {
+            progressText.textContent = 'En attente...';
+        }
+        
+        if (progressPercent) {
+            progressPercent.textContent = '0%';
+        }
+        
+        if (step1Icon) {
+            step1Icon.className = 'w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center';
+            step1Icon.innerHTML = '<i class="fas fa-clock text-gray-500"></i>';
+        }
+        
+        if (step2Icon) {
+            step2Icon.className = 'w-4 h-4 rounded-full bg-gray-300 mr-2 flex items-center justify-center';
+            step2Icon.innerHTML = '<i class="fas fa-clock text-gray-500"></i>';
+        }
+    }
+});
+
+// Les fonctions d'impression sont maintenant gérées par impression-modals.js
+
+// Fonction pour afficher la modale d'informations
+function showInfoModal(commandeId, commandeIdYz, clientName) {
+    // Mettre à jour les informations de base
+    document.getElementById('infoCommandeId').textContent = commandeIdYz;
+    document.getElementById('infoClientName').textContent = clientName;
+    
+    // Charger les informations détaillées via AJAX
+    loadCommandeInfo(commandeId);
+    
+    // Afficher la modale
+    document.getElementById('infoModal').classList.remove('hidden');
+}
+
+// Fonction pour masquer la modale d'informations
+function hideInfoModal() {
+    document.getElementById('infoModal').classList.add('hidden');
+}
+
+// Fonction pour charger les informations de la commande
+function loadCommandeInfo(commandeId) {
+    const contentContainer = document.getElementById('infoModalContent');
+    
+    // Afficher un indicateur de chargement
+    contentContainer.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2" style="border-color: var(--preparation-primary);"></div>
+            <span class="ml-3 text-gray-600">Chargement des informations...</span>
+        </div>
+    `;
+    
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Appel AJAX pour récupérer les informations détaillées
+    fetch(`/Superpreparation/api/commande-info/${commandeId}/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            contentContainer.innerHTML = data.html_content;
+        } else {
+            contentContainer.innerHTML = `
+                <div class="text-center py-8 text-red-600">
+                    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <p>Erreur lors du chargement des informations</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        contentContainer.innerHTML = `
+            <div class="text-center py-8 text-red-600">
+                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                <p>Impossible de charger les informations</p>
+            </div>
+        `;
+    });
+}
+
+// Event listeners pour la modale d'informations
+document.addEventListener('DOMContentLoaded', function() {
+    const infoModal = document.getElementById('infoModal');
+    if (infoModal) {
+        // Fermer la modale en cliquant à l'extérieur
+        window.addEventListener('click', (event) => {
+            if (event.target === infoModal) {
+                hideInfoModal();
+            }
+        });
+
+        // Fermer la modale avec la touche Escape
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                hideInfoModal();
+            }
+        });
+    }
+});
+
+
+
+// Fonction pour mettre à jour l'état de la commande en temps réel
+function updateCommandeEtat(commandeId, nouvelEtat) {
+    const row = document.querySelector(`tr[data-id-yz="${commandeId}"]`);
+    if (!row) return;
+    
+    // Mettre à jour l'état dans la colonne État Préparation
+    const etatCell = row.querySelector('td:nth-child(10)'); // Colonne État Préparation
+    if (etatCell) {
+        const etatSpan = etatCell.querySelector('span');
+        if (etatSpan) {
+            // Mettre à jour le texte et la classe selon le nouvel état
+            if (nouvelEtat === 'Préparée') {
+                etatSpan.className = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800';
+                etatSpan.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Préparée';
+            }
+        }
+    }
+    
+    // Mettre à jour les étapes de préparation dans les détails
+    const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+    if (detailsElement) {
+        // Mettre à jour l'étape "Préparée" pour qu'elle soit cochée
+        const etapePreparée = detailsElement.querySelector('.flex.items-center:last-child');
+        if (etapePreparée) {
+            const checkIcon = etapePreparée.querySelector('.w-3.h-3');
+            const statusText = etapePreparée.querySelector('.text-xs.text-gray-500');
+            
+            if (checkIcon && statusText) {
+                checkIcon.className = 'w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2';
+                checkIcon.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
+                
+                const etatText = etapePreparée.querySelector('.text-xs.text-gray-400, .text-xs.text-green-600');
+                if (etatText) {
+                    etatText.className = 'text-xs text-green-600';
+                    etatText.textContent = 'Préparée';
+                }
+                
+                statusText.innerHTML = '<i class="fas fa-check mr-1"></i>Terminé';
+                statusText.className = 'text-xs text-green-500 ml-2';
+            }
+        }
+    }
+}
+
+// Toast notification system harmonisé
+function showToast(message, type = 'info', duration = 4000) {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        const icon = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            info: 'fas fa-info-circle',
+            warning: 'fas fa-exclamation-triangle'
+        }[type];
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+            <i class="${icon} mr-3 text-lg"></i>
+            <div class="flex-1">
+                <p class="font-medium">${message}</p>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Show animation
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        // Auto remove
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
+// Fonction pour afficher les notifications (compatibilité)
+function showNotification(title, message, type = 'info') {
+    showToast(`${title}: ${message}`, type);
+}
+
+// Fonction pour rafraîchir automatiquement les données (optionnel)
+function startAutoRefresh() {
+    // Rafraîchir les données toutes les 30 secondes
+    setInterval(() => {
+        // Ici on pourrait faire un appel AJAX pour récupérer les nouvelles données
+        // Pour l'instant, on recharge la page
+        // window.location.reload();
+    }, 30000);
+    }
+
+    // Start auto-refresh when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Show welcome message
+        setTimeout(() => {
+        showToast('Bienvenue dans la gestion des commandes confirmées !', 'info', 3000);
+    }, 1000);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'r':
+                    e.preventDefault();
+                    window.location.reload();
+                    showToast('Page actualisée !', 'info');
+                    break;
+            }
+        }
+    });
+
+// Démarrer le rafraîchissement automatique
+// startAutoRefresh();
+
+// Gestion de la sélection des commandes pour l'impression multiple
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const commandeCheckboxes = document.querySelectorAll('.commande-checkbox');
+    const selectionCount = document.getElementById('selectionCount');
+    const bulkPrintBtn = document.getElementById('bulkPrintBtn');
+    
+    // Fonction pour mettre à jour le compteur de sélection
+    function updateSelectionCount() {
+        const checkedCount = document.querySelectorAll('.commande-checkbox:checked').length;
+        
+        if (checkedCount > 0) {
+            selectionCount.textContent = checkedCount;
+            selectionCount.classList.remove('hidden');
+            
+            // Mettre à jour le texte du bouton pour indiquer la sélection
+            const printIcon = bulkPrintBtn.querySelector('i');
+            const printText = bulkPrintBtn.childNodes[2]; // Le texte après l'icône
+            
+            if (printText.nodeType === Node.TEXT_NODE) {
+                printText.textContent = ` Impression multiple (${checkedCount} sélectionnée${checkedCount > 1 ? 's' : ''})`;
+            }
+        } else {
+            selectionCount.classList.add('hidden');
+            
+            // Remettre le texte original
+            const printIcon = bulkPrintBtn.querySelector('i');
+            const printText = bulkPrintBtn.childNodes[2];
+            
+            if (printText.nodeType === Node.TEXT_NODE) {
+                printText.textContent = ' Impression multiple';
+            }
+        }
+    }
+    
+    // Gérer la sélection/désélection de toutes les commandes
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            
+            commandeCheckboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            
+            updateSelectionCount();
+        });
+    }
+    
+    // Gérer la sélection/désélection des commandes individuelles
+    commandeCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateSelectionCount();
+            
+            // Mettre à jour l'état de "Sélectionner tout"
+            if (selectAllCheckbox) {
+                const allChecked = Array.from(commandeCheckboxes).every(cb => cb.checked);
+                const someChecked = Array.from(commandeCheckboxes).some(cb => cb.checked);
+                
+                selectAllCheckbox.checked = allChecked;
+                selectAllCheckbox.indeterminate = someChecked && !allChecked;
+            }
+        });
+    });
+    
+    // Initialiser le compteur
+    updateSelectionCount();
+    
+    // Ajouter un indicateur visuel pour les commandes sélectionnées
+    commandeCheckboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                row.classList.add('bg-blue-50', 'border-l-4', 'border-blue-400');
+            } else {
+                row.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-400');
+            }
+        });
+    });
+    
+
+    
+    // Définir la fonction getSelectedCommandeIds directement sur cette page
+    window.getSelectedCommandeIds = function() {
+        try {
+            console.log('🔍 === getSelectedCommandeIds appelée ===');
+            
+            // Récupérer tous les checkboxes de commandes cochés
+            const selectedCheckboxes = document.querySelectorAll('.commande-checkbox:checked');
+            console.log('🔍 Checkboxes trouvés:', selectedCheckboxes.length);
+            console.log('🔍 Checkboxes:', selectedCheckboxes);
+            
+            if (selectedCheckboxes.length === 0) {
+                console.log('📋 Aucune commande sélectionnée');
+                return [];
+            }
+            
+            // Extraire les IDs des commandes sélectionnées
+            const selectedIds = Array.from(selectedCheckboxes).map(checkbox => {
+                const commandeId = checkbox.getAttribute('data-commande-id');
+                console.log('🔍 Checkbox:', checkbox, 'data-commande-id:', commandeId);
+                if (commandeId) {
+                    return commandeId;
+                } else {
+                    console.warn('⚠️ Checkbox sans data-commande-id:', checkbox);
+                    return null;
+                }
+            }).filter(id => id !== null);
+            
+            console.log(`📋 ${selectedIds.length} commandes sélectionnées:`, selectedIds);
+            return selectedIds;
+            
+        } catch (error) {
+            console.error('❌ Erreur lors de la récupération des IDs sélectionnés:', error);
+            return [];
+        }
+    };
+    
+    console.log('✅ Fonction getSelectedCommandeIds définie globalement');
+});
+</script>
+
+<!-- Script de recherche intelligente -->
+<script src="{% static 'js/Suivi_des_Commandes/suivi-commandes-smart-search.js' %}"></script>
+<script>
+// Initialiser la recherche intelligente pour cette page
+document.addEventListener('DOMContentLoaded', function() {
+    initSuiviCommandesSearch('confirmees');
+});
+</script>
+
+<!-- Modale d'informations détaillées -->
+<div id="infoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="theme-modal relative p-6 bg-white w-full max-w-3xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down">
+        <!-- En-tête du modal -->
+        <div class="theme-modal-header flex justify-between items-center pb-4">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--preparation-light);">
+                    <i class="fas fa-info-circle text-white text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold" style="color: var(--preparation-light);">Informations détaillées</h3>
+            </div>
+            <button onclick="hideInfoModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Contenu du modal -->
+        <div class="py-4 max-h-96 overflow-y-auto">
+            <div class="mb-4">
+                <h4 class="text-lg font-semibold text-gray-900 mb-2">
+                    Commande <span id="infoCommandeId" class="font-bold" style="color: var(--preparation-light);"></span>
+                </h4>
+                <p class="text-gray-600">Client: <span id="infoClientName" class="font-medium"></span></p>
+            </div>
+            
+            <!-- Contenu dynamique des informations -->
+            <div id="infoModalContent" class="space-y-4">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="theme-modal-footer flex justify-end space-x-3 pt-4">
+            <button onclick="hideInfoModal()" 
+                    class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-all duration-200">
+                <i class="fas fa-times mr-2"></i>
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Inclure la modale de choix d'impression -->
+{% include 'Superpreparation/partials/_modal_impression_choice.html' %}
+
+{% endblock %} 

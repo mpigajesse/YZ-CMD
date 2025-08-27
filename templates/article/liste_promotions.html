@@ -642,7 +642,7 @@
             </div>
 
             <button type="button" data-modal-target="promotionModal" class="px-4 py-2 rounded-lg text-white border border-white/30 hover:border-white/60 transition-all duration-200">
-                    <i class="fas fa-plus mr-2"></i>Nouvelle Promotion
+                    <i class="fas fa-plus mr-2"></i>Nouvelle Promotion 
                 </button>
             </div>
         </div>
@@ -779,169 +779,100 @@
                     <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for promotion in page_obj %}
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-4 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-gray-900">{{ promotion.nom }}</div>
-                            <div class="text-sm text-gray-500">{{ promotion.description|truncatechars:50 }}</div>
-                        </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="status-badge bg-purple-100 text-purple-800">
-                                {{ promotion.pourcentage_reduction }}%
-                            </span>
-                        </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm text-gray-900">{{ promotion.date_debut|date:"d/m/Y" }}</div>
-                        <div class="text-xs text-gray-500">{{ promotion.date_debut|date:"H:i" }}</div>
-                        </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm text-gray-900">{{ promotion.date_fin|date:"d/m/Y" }}</div>
-                        <div class="text-xs text-gray-500">{{ promotion.date_fin|date:"H:i" }}</div>
-                        </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="countdown-mini" 
-                             data-start="{{ promotion.date_debut|date:'c' }}" 
-                             data-end="{{ promotion.date_fin|date:'c' }}" 
-                             data-active="{{ promotion.active|yesno:'true,false' }}">
-                            <div class="countdown-mini-display">
-                                <span class="countdown-mini-number days">--</span><span class="countdown-mini-separator">j</span>
-                                <span class="countdown-mini-number hours">--</span><span class="countdown-mini-separator">h</span>
-                                <span class="countdown-mini-number minutes">--</span><span class="countdown-mini-separator">m</span>
-                                <span class="countdown-mini-number seconds">--</span><span class="countdown-mini-separator">s</span>
-                            </div>
-                            <div class="countdown-mini-status text-xs">
-                                Chargement...
-                            </div>
-                        </div>
-                        </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                            {% if promotion.est_active %}
-                        <span class="status-badge bg-green-100 text-green-800">
-                            <i class="fas fa-circle mr-1 text-xs"></i>Active
-                            </span>
-                            {% elif promotion.est_future %}
-                        <span class="status-badge bg-blue-100 text-blue-800">
-                            <i class="fas fa-clock mr-1 text-xs"></i>Future
-                            </span>
-                            {% else %}
-                        <span class="status-badge bg-red-100 text-red-800">
-                            <i class="fas fa-times-circle mr-1 text-xs"></i>Expirée
-                            </span>
-                            {% endif %}
-                        </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-bold text-gray-900">{{ promotion.articles.count }}</div>
-                        </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        {% if promotion.articles.count > 0 %}
-                            {% with prix_stats=promotion.calculer_statistiques_prix %}
-                                <div class="prix-stats-compact">
-                                    <div class="prix-ligne-compact">
-                                        <span class="prix-original-compact">{{ prix_stats.prix_moyen_original|floatformat:0 }} DH</span>
-                                        <span class="prix-reduit-compact">{{ prix_stats.prix_moyen_reduit|floatformat:0 }} DH</span>
-                                        <div class="info-icon-container">
-                                            <button class="info-icon-btn" 
-                                                    onclick="openPrixModal({{ promotion.id }})" 
-                                                    title="Voir les détails des prix et économies"
-                                                    data-promotion-id="{{ promotion.id }}"
-                                                    data-promotion-nom="{{ promotion.nom }}"
-                                                    data-promotion-reduction="{{ promotion.pourcentage_reduction }}"
-                                                    data-nb-articles="{{ prix_stats.nb_articles }}"
-                                                    data-prix-moyen-original="{{ prix_stats.prix_moyen_original|floatformat:0 }}"
-                                                    data-prix-moyen-reduit="{{ prix_stats.prix_moyen_reduit|floatformat:0 }}"
-                                                    data-economie-moyenne="{{ prix_stats.economie_moyenne|floatformat:0 }}"
-                                                    data-economie-totale="{{ prix_stats.economie_totale|floatformat:0 }}"
-                                                    data-prix-min="{{ prix_stats.prix_min_reduit|floatformat:0 }}"
-                                                    data-prix-max="{{ prix_stats.prix_max_reduit|floatformat:0 }}"
-                                                    data-prix-min-original="{{ prix_stats.prix_min_original|floatformat:0 }}"
-                                                    data-prix-max-original="{{ prix_stats.prix_max_original|floatformat:0 }}">
-                                                <i class="fas fa-info"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="economie-compact">
-                                        -{{ prix_stats.economie_moyenne|floatformat:0 }} DH
-                                    </div>
-                                    <div class="prix-range-compact">
-                                        {{ prix_stats.prix_min_reduit|floatformat:0 }}-{{ prix_stats.prix_max_reduit|floatformat:0 }} DH
-                                    </div>
-                                </div>
-                            {% endwith %}
-                        {% else %}
-                            <div class="prix-stats-compact">
-                                <span class="text-xs text-gray-400">Aucun article</span>
-                            </div>
-                        {% endif %}
-                        </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-center">
-                        <div class="flex justify-center items-center space-x-3">
-                            <a href="{% url 'article:detail_promotion' promotion.id %}" class="text-indigo-600 hover:text-indigo-900 transition-colors" title="Voir les détails">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            <a href="{% url 'article:modifier_promotion' promotion.id %}" class="text-green-600 hover:text-green-900 transition-colors" title="Modifier">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <a href="{% url 'article:activer_desactiver_promotion' promotion.id %}" class="{% if promotion.active %}text-orange-600 hover:text-orange-900{% else %}text-green-600 hover:text-green-900{% endif %} transition-colors" title="{% if promotion.active %}Désactiver{% else %}Activer{% endif %}">
-                                <i class="fas fa-{% if promotion.active %}pause{% else %}play{% endif %}"></i>
-                            </a>
-                        </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
+                <tbody id="promotionsTableBody" class="bg-white divide-y divide-gray-200">
+                    {% include 'article/partials/_promotions_table_body.html' with page_obj=page_obj %}
+
                 </tbody>
             </table>
         </div>
 
-        <!-- Pagination -->
-    {% if page_obj.has_other_pages %}
-    <div class="flex items-center justify-between bg-white px-4 py-3 sm:px-6 rounded-lg shadow-md mt-4">
-        <div class="flex flex-1 justify-between sm:hidden">
-                {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
-            {% endif %}
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
-            {% endif %}
-        </div>
-        <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-                <p class="text-sm text-gray-700">
-                    Affiche de
-                    <span class="font-medium">{{ page_obj.start_index }}</span>
-                    à
-                    <span class="font-medium">{{ page_obj.end_index }}</span>
-                    sur
-                    <span class="font-medium">{{ page_obj.paginator.count }}</span>
-                    résultats
-                </p>
+            <!-- Contrôles de pagination flexible -->
+    {% if page_obj %}
+    <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 mt-6 transition-all duration-300 hover:shadow-xl">
+        <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+            <!-- Section Éléments par page -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-list-ol text-sm" style="color: #023535;"></i>
+                    <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                </div>
+                <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: #023535; border-color: #99dddd;">
+                    <option value="5" {% if items_per_page == 5 %}selected{% endif %}>5</option>
+                    <option value="10" {% if items_per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="20" {% if items_per_page == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                    <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Toutes</option>
+                </select>
             </div>
-            <div>
-                <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                {% if page_obj.has_previous %}
-                        <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                    <span class="sr-only">Précédent</span>
-                            <i class="fas fa-chevron-left h-5 w-5"></i>
-                </a>
-                {% endif %}
-                
-                {% for i in page_obj.paginator.page_range %}
-                        {% if i == page_obj.number %}
-                            <a href="#" aria-current="page" class="relative z-10 inline-flex items-center px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style="background-color: var(--admin-color);">{{ i }}</a>
-                        {% else %}
-                             <a href="?page={{ i }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">{{ i }}</a>
-                        {% endif %}
-                {% endfor %}
-                
-                {% if page_obj.has_next %}
-                        <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if filtre != 'toutes' %}&filtre={{ filtre }}{% endif %}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                    <span class="sr-only">Suivant</span>
-                            <i class="fas fa-chevron-right h-5 w-5"></i>
-                </a>
-                {% endif %}
-            </nav>
+            
+            <!-- Section Plage personnalisée -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-arrows-alt-h text-sm" style="color: #023535;"></i>
+                    <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                </div>
+                <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: #023535; border-color: #99dddd;">
+                        <span class="text-gray-500 text-xs font-medium">à</span>
+                        <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: #023535; border-color: #99dddd;">
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-check mr-1"></i>Appliquer
+                        </button>
+                        <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-times mr-1"></i>Effacer
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section Statistiques -->
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                    <i class="fas fa-chart-bar text-sm" style="color: #023535;"></i>
+                    <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> promotion(s)</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Indicateur de statut -->
+        <div class="mt-3 pt-3 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs text-gray-600">Pagination active</span>
+                    </div>
+                    {% if start_range and end_range %}
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-filter text-xs text-blue-500"></i>
+                        <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                    <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Pagination -->
+    <div id="paginationControls" class="flex justify-center mt-8">
+        {% include 'article/partials/_promotions_pagination.html' %}
+    </div>
+
+    <!-- Informations de pagination -->
+    <div id="paginationInfoContainer">
+        {% include 'article/partials/_promotions_pagination_info.html' %}
     </div>
     {% endif %}
     {% endif %}
@@ -1412,5 +1343,168 @@
             }
         });
     }
+
+    // ===== PAGINATION AJAX FLEXIBLE =====
+
+    // Variables globales pour la pagination
+    let currentPage = 1;
+    let currentItemsPerPage = {{ items_per_page|default:10 }};
+    let currentStartRange = '{{ start_range|default:"" }}';
+    let currentEndRange = '{{ end_range|default:"" }}';
+    let currentSearch = '{{ search|default:"" }}';
+    let currentFiltre = '{{ filtre|default:"toutes" }}';
+
+    // Fonction pour mettre à jour l'URL sans recharger la page
+    function updateUrl(page, itemsPerPage, startRange, endRange, search, filtre) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        
+        if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+        if (startRange !== null) url.searchParams.set('start_range', startRange);
+        if (endRange !== null) url.searchParams.set('end_range', endRange);
+        if (search !== null) url.searchParams.set('search', search);
+        if (filtre !== null) url.searchParams.set('filtre', filtre);
+        
+        window.history.pushState({}, '', url.toString());
+    }
+
+    // Fonction pour charger les données via AJAX
+    function loadData(page, itemsPerPage, startRange, endRange, search, filtre) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        
+        if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+        if (startRange !== null) url.searchParams.set('start_range', startRange);
+        if (endRange !== null) url.searchParams.set('end_range', endRange);
+        if (search !== null) url.searchParams.set('search', search);
+        if (filtre !== null) url.searchParams.set('filtre', filtre);
+        
+        // Ajouter le header AJAX
+        fetch(url.toString(), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour le tableau
+                const tableBody = document.getElementById('promotionsTableBody');
+                if (tableBody) {
+                    tableBody.innerHTML = data.html_table_body;
+                }
+                
+                // Mettre à jour la pagination
+                const paginationControls = document.getElementById('paginationControls');
+                if (paginationControls) {
+                    paginationControls.innerHTML = data.html_pagination;
+                }
+                
+                // Mettre à jour les informations de pagination
+                const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+                if (paginationInfoContainer) {
+                    paginationInfoContainer.innerHTML = data.html_pagination_info;
+                }
+                
+                // Mettre à jour l'URL
+                updateUrl(page, itemsPerPage, startRange, endRange, search, filtre);
+                
+                // Mettre à jour les variables globales
+                currentPage = page;
+                if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
+                if (startRange !== null) currentStartRange = startRange;
+                if (endRange !== null) currentEndRange = endRange;
+                if (search !== null) currentSearch = search;
+                if (filtre !== null) currentFiltre = filtre;
+                
+                // Réinitialiser les mini décomptes
+                initMiniCountdowns();
+                
+                // Réattacher les event listeners
+                attachEventListeners();
+            } else {
+                console.error('Erreur lors du chargement des données:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+        });
+    }
+
+    // Fonction pour changer de page
+    function changePage(page) {
+        loadData(page, currentItemsPerPage, currentStartRange, currentEndRange, 
+                 currentSearch, currentFiltre);
+    }
+
+    // Fonction pour changer le nombre d'éléments par page
+    function changeItemsPerPage(itemsPerPage) {
+        loadData(1, itemsPerPage, currentStartRange, currentEndRange, 
+                 currentSearch, currentFiltre);
+    }
+
+    // Fonction pour appliquer une plage personnalisée
+    function applyCustomRange(startRange, endRange) {
+        loadData(1, null, startRange, endRange, 
+                 currentSearch, currentFiltre);
+    }
+
+    // Fonction pour effacer la plage personnalisée
+    function clearCustomRange() {
+        loadData(1, currentItemsPerPage, '', '', 
+                 currentSearch, currentFiltre);
+    }
+
+    // Fonction pour attacher les event listeners
+    function attachEventListeners() {
+        // Event listener pour le select des éléments par page
+        const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+        if (itemsPerPageSelect) {
+            itemsPerPageSelect.removeEventListener('change', handleItemsPerPageChange);
+            itemsPerPageSelect.addEventListener('change', handleItemsPerPageChange);
+        }
+        
+        // Event listener pour le bouton d'application de la plage
+        const applyRangeBtn = document.getElementById('applyRangeBtn');
+        if (applyRangeBtn) {
+            applyRangeBtn.removeEventListener('click', handleApplyRange);
+            applyRangeBtn.addEventListener('click', handleApplyRange);
+        }
+        
+        // Event listener pour le bouton d'effacement de la plage
+        const clearRangeBtn = document.getElementById('clearRangeBtn');
+        if (clearRangeBtn) {
+            clearRangeBtn.removeEventListener('click', handleClearRange);
+            clearRangeBtn.addEventListener('click', handleClearRange);
+        }
+    }
+
+    // Handlers pour les event listeners
+    function handleItemsPerPageChange(event) {
+        const itemsPerPage = event.target.value;
+        changeItemsPerPage(itemsPerPage);
+    }
+
+    function handleApplyRange() {
+        const startRange = document.getElementById('startRangeInput').value;
+        const endRange = document.getElementById('endRangeInput').value;
+        
+        if (startRange && endRange) {
+            applyCustomRange(startRange, endRange);
+        } else {
+            alert('Veuillez remplir les deux champs de plage');
+        }
+    }
+
+    function handleClearRange() {
+        document.getElementById('startRangeInput').value = '';
+        document.getElementById('endRangeInput').value = '';
+        clearCustomRange();
+    }
+
+    // Initialisation de la pagination AJAX au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        attachEventListeners();
+    });
 </script>
 {% endblock %} 

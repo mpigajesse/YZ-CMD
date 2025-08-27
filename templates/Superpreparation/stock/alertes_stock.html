@@ -1,0 +1,343 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --prepa-bg-gradient: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-dark) 100%);
+    }
+    
+    /* Correction pour la sidebar - s'assurer qu'elle utilise le bon thème */
+    #sidebar {
+        background: linear-gradient(to bottom, var(--preparation-primary), var(--preparation-dark)) !important;
+        border-color: var(--preparation-dark) !important;
+    }
+    
+    /* Cartes KPI avec fond blanc et accents marron */
+    .kpi-card {
+        background-color: #fff;
+        color: var(--preparation-primary);
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1), 0 2px 4px -2px rgba(54, 31, 39, 0.06);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid var(--preparation-border-accent);
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(54, 31, 39, 0.1), 0 4px 6px -4px rgba(54, 31, 39, 0.1);
+        border-color: var(--preparation-primary);
+    }
+    .kpi-card .text-2xl {
+        color: var(--preparation-primary) !important;
+    }
+    .kpi-card .text-sm {
+        color: #6b7280 !important;
+    }
+    
+    /* Filtres avec fond blanc et bordures marron */
+    .filter-card {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1);
+    }
+    .filter-card label {
+        color: var(--preparation-primary) !important;
+    }
+    .filter-card input,
+    .filter-card select {
+        background-color: #fff;
+        border-color: var(--preparation-border-accent);
+        color: #374151;
+    }
+    .filter-card input::placeholder {
+        color: #9ca3af;
+    }
+    .filter-card input:focus,
+    .filter-card select:focus {
+        background-color: #fff;
+        border-color: var(--preparation-primary);
+        color: #374151;
+        box-shadow: 0 0 0 3px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* Carte principale avec fond blanc */
+    .main-card {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* Suggestions avec couleurs appropriées */
+    .suggestion-danger {
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    .suggestion-warning {
+        background-color: #fffbeb;
+        border: 1px solid #fed7aa;
+        color: #92400e;
+    }
+    .suggestion-info {
+        background-color: #eff6ff;
+        border: 1px solid #dbeafe;
+        color: #1e40af;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 text-white p-5 rounded-xl shadow-lg"
+         style="background: var(--prepa-bg-gradient);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center">
+                <i class="fas fa-exclamation-triangle mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: white;" class="mt-1">{{ page_subtitle }}</p>
+        </div>
+        <div class="flex gap-3 mt-4 md:mt-0">
+            <a href="{% url 'Superpreparation:liste_articles' %}" class="inline-flex items-center px-4 py-2 text-white text-sm font-semibold rounded-md shadow-sm transition-all duration-200" style="background-color: var(--preparation-light); hover:background-color: var(--preparation-primary);">
+                <i class="fas fa-boxes mr-2"></i>
+                Voir le Stock
+            </a>
+        </div>
+    </div>
+
+    <!-- Cartes de Statistiques -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {% with stats.rupture_stock as count %}
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-times-circle fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ count|intcomma }}</p>
+                <p class="text-sm font-medium">En Rupture</p>
+            </div>
+        </div>
+        {% endwith %}
+        {% with stats.stock_faible as count %}
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-exclamation-triangle fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ count|intcomma }}</p>
+                <p class="text-sm font-medium">Stock Faible</p>
+            </div>
+        </div>
+        {% endwith %}
+        {% with stats.a_commander as count %}
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-shopping-cart fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ count|intcomma }}</p>
+                <p class="text-sm font-medium">À Commander</p>
+            </div>
+        </div>
+        {% endwith %}
+         {% with stats.total_articles as count %}
+        <div class="kpi-card flex items-center p-4">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-boxes fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ count|intcomma }}</p>
+                <p class="text-sm font-medium">Articles Actifs</p>
+            </div>
+        </div>
+        {% endwith %}
+    </div>
+
+    <!-- Section principale avec grille -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        <!-- Colonne de gauche : Filtres et Suggestions -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            
+            <!-- Filtres -->
+            <div class="filter-card rounded-xl shadow-md p-5">
+                <h3 class="text-xl font-bold mb-4 flex items-center" style="color: var(--preparation-primary);">
+                    <i class="fas fa-filter mr-2" style="color: var(--preparation-border-accent);"></i>
+                    Filtres
+                </h3>
+                <form method="get" class="space-y-4">
+                    <div>
+                        <label for="filtre" class="block text-sm font-medium mb-1" style="color: var(--preparation-primary);">Niveau d'Alerte</label>
+                        <select name="filtre" id="filtre" class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition" style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                            <option value="tous" {% if filtre_actuel == 'tous' %}selected{% endif %}>Tous les Niveaux</option>
+                            <option value="rupture" {% if filtre_actuel == 'rupture' %}selected{% endif %}>Rupture (≤ {{ seuils.rupture }})</option>
+                            <option value="faible" {% if filtre_actuel == 'faible' %}selected{% endif %}>Stock Faible (≤ {{ seuils.faible }})</option>
+                            <option value="a_commander" {% if filtre_actuel == 'a_commander' %}selected{% endif %}>À Commander (≤ {{ seuils.a_commander }})</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="tri" class="block text-sm font-medium mb-1" style="color: var(--preparation-primary);">Trier par</label>
+                        <select name="tri" id="tri" class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition" style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                            <option value="stock_asc" {% if tri_actuel == 'stock_asc' %}selected{% endif %}>Stock (croissant)</option>
+                            <option value="stock_desc" {% if tri_actuel == 'stock_desc' %}selected{% endif %}>Stock (décroissant)</option>
+                            <option value="nom" {% if tri_actuel == 'nom' %}selected{% endif %}>Nom</option>
+                            <option value="reference" {% if tri_actuel == 'reference' %}selected{% endif %}>Référence</option>
+                        </select>
+                    </div>
+                    <div class="pt-2">
+                        <button type="submit" class="w-full flex justify-center items-center px-4 py-2 text-white font-semibold rounded-md transition-colors duration-200" style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);">
+                            <i class="fas fa-search mr-2"></i>Appliquer
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Suggestions d'actions -->
+            {% if suggestions %}
+            <div class="filter-card rounded-xl shadow-md p-5">
+                <h3 class="text-xl font-bold mb-4 flex items-center" style="color: var(--preparation-primary);">
+                    <i class="fas fa-lightbulb mr-2" style="color: var(--preparation-border-accent);"></i>
+                    Suggestions
+                </h3>
+                <div class="space-y-3">
+                    {% for suggestion in suggestions %}
+                    <div class="p-4 rounded-lg border 
+                        {% if suggestion.type == 'danger' %} suggestion-danger
+                        {% elif suggestion.type == 'warning' %} suggestion-warning
+                        {% else %} suggestion-info {% endif %}">
+                        <div class="flex items-start">
+                            <i class="{{ suggestion.icone }} mt-1 mr-3 fa-fw"></i>
+                            <div>
+                                <h4 class="font-bold">{{ suggestion.titre }}</h4>
+                                <p class="text-sm">{{ suggestion.message }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- Colonne de droite : Tableau des articles -->
+        <div class="lg:col-span-3">
+            <div class="main-card rounded-xl shadow-md overflow-hidden">
+                <div class="p-5" style="background-color: var(--preparation-primary);">
+                    <h3 class="text-xl font-bold flex items-center text-white">
+                        <i class="fas fa-list-ul mr-2" style="color: var(--preparation-border-accent);"></i>
+                        Articles en Alerte
+                        <span class="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium" style="background-color: var(--preparation-border-accent); color: var(--preparation-primary);">
+                            {{ articles.paginator.count|intcomma }} Résultat{{ articles.paginator.count|pluralize }}
+                        </span>
+                    </h3>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead style="background-color: var(--preparation-light);">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Article</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Catégorie</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Stock</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Statut</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for article in articles %}
+                            <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-11 w-11">
+                                            {% if article.image %}
+                                                <img class="h-11 w-11 rounded-full object-cover" src="{{ article.image.url }}" alt="Image de {{ article.nom }}">
+                                            {% else %}
+                                                <div class="h-11 w-11 rounded-full flex items-center justify-center" style="background-color: var(--preparation-border-accent);">
+                                                    <i class="fas fa-box-open text-white"></i>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-semibold" style="color: var(--preparation-primary);">{{ article.nom }}</div>
+                                            <div class="text-xs text-gray-500">Réf: {{ article.reference|default:"N/A" }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white" style="background-color: var(--preparation-border-accent);">
+                                        {{ article.categorie|default:"Non classé" }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span class="text-lg font-bold" style="color: var(--preparation-primary);">{{ article.qte_disponible|intcomma }}</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    {% if article.qte_disponible <= seuils.rupture %}
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                            <i class="fas fa-times-circle mr-1.5"></i>Rupture
+                                        </span>
+                                    {% elif article.qte_disponible <= seuils.faible %}
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                                            <i class="fas fa-exclamation-triangle mr-1.5"></i>Faible
+                                        </span>
+                                    {% elif article.qte_disponible <= seuils.a_commander %}
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                            <i class="fas fa-shopping-cart mr-1.5"></i>À Commander
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                            <i class="fas fa-check-circle mr-1.5"></i>OK
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                    <div class="flex justify-center items-center space-x-2">
+                                        <a href="{% url 'Superpreparation:ajuster_stock' article.pk %}" class="flex items-center px-3 py-1.5 text-white rounded-md transition-all duration-200 shadow-sm" style="background-color: var(--preparation-border-accent); hover:background-color: var(--preparation-primary);" title="Ajuster le stock">
+                                            <i class="fas fa-edit"></i>
+                                            <span class="ml-2 hidden sm:inline">Ajuster</span>
+                                        </a>
+                                        <a href="{% url 'Superpreparation:detail_article' article.pk %}" class="flex items-center px-3 py-1.5 text-white rounded-md transition-all duration-200 shadow-sm" style="background-color: var(--preparation-light); hover:background-color: var(--preparation-primary);" title="Voir les détails">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-12 px-6">
+                                        <div class="flex flex-col items-center justify-center text-gray-500">
+                                            <i class="fas fa-check-circle fa-4x mb-4" style="color: var(--preparation-border-accent);"></i>
+                                            <h3 class="text-xl font-semibold" style="color: var(--preparation-primary);">Excellent !</h3>
+                                            <p class="mt-1">Aucun article ne nécessite une attention particulière pour le filtre sélectionné.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if articles.has_other_pages %}
+                <div class="p-4 bg-gray-50 border-t flex items-center justify-between" style="border-top-color: var(--preparation-border-accent);">
+                    <span class="text-sm" style="color: var(--preparation-primary);">
+                        Page <span class="font-semibold">{{ articles.number }}</span> sur <span class="font-semibold">{{ articles.paginator.num_pages }}</span>
+                    </span>
+                    <div class="flex-1 flex justify-end space-x-2">
+                        {% if articles.has_previous %}
+                            <a href="?page={{ articles.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md bg-white transition-colors" style="border-color: var(--preparation-border-accent); color: var(--preparation-primary); hover:background-color: var(--preparation-light); hover:color: white;">
+                                Précédent
+                            </a>
+                        {% endif %}
+                        {% if articles.has_next %}
+                            <a href="?page={{ articles.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md bg-white transition-colors" style="border-color: var(--preparation-border-accent); color: var(--preparation-primary); hover:background-color: var(--preparation-light); hover:color: white;">
+                                Suivant
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

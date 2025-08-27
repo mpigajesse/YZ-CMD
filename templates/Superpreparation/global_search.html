@@ -1,0 +1,868 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+
+{% block title %}Recherche Globale - Opérateur Préparation{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <div class="container mx-auto px-6 py-8">
+        <div class="max-w-6xl mx-auto">
+            <!-- En-tête amélioré -->
+            <div class="text-center mb-12">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full mb-6 shadow-lg" style="background: linear-gradient(to right, #361f27, #4b2e3a);">
+                    <i class="fas fa-search text-white text-3xl"></i>
+                </div>
+                <h1 class="text-4xl font-bold mb-4" style="color: #361f27;">
+                    Recherche Globale Préparation
+                </h1>
+                <p class="text-xl max-w-2xl mx-auto" style="color: #4b2e3a;">
+                    Trouvez instantanément vos commandes, articles, stock et données de préparation avec notre moteur de recherche intelligent
+                </p>
+            </div>
+
+            <!-- Barre de recherche moderne -->
+            <div class="bg-white rounded-2xl shadow-xl p-8 mb-10 border border-gray-100">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400 text-xl"></i>
+                    </div>
+                    <input type="text" 
+                           id="mainSearchInput" 
+                           class="w-full pl-16 pr-16 py-6 text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all duration-300"
+                           placeholder="Recherchez par commande, article, stock, région ou ville..."
+                           autocomplete="off">
+                    <div class="absolute inset-y-0 right-0 pr-6 flex items-center">
+                        <div id="searchLoader" class="hidden">
+                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                        </div>
+                        <kbd class="hidden sm:inline-flex items-center px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-md">
+                            Ctrl + K
+                        </kbd>
+                    </div>
+                </div>
+                
+                <!-- Suggestions rapides -->
+                <div class="mt-6">
+                    <p class="text-sm text-gray-500 mb-3">Suggestions populaires :</p>
+                    <div class="flex flex-wrap gap-2">
+                        <button class="quick-search px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm hover:bg-green-100 transition-colors duration-200" data-query="préparation">
+                            <i class="fas fa-cogs mr-1"></i> En préparation
+                        </button>
+                        <button class="quick-search px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm hover:bg-blue-100 transition-colors duration-200" data-query="stock">
+                            <i class="fas fa-warehouse mr-1"></i> Gestion stock
+                        </button>
+                        <button class="quick-search px-4 py-2 bg-orange-50 text-orange-700 rounded-full text-sm hover:bg-orange-100 transition-colors duration-200" data-query="rupture">
+                            <i class="fas fa-exclamation-triangle mr-1"></i> Ruptures stock
+                        </button>
+                        <button class="quick-search px-4 py-2 bg-purple-50 text-purple-700 rounded-full text-sm hover:bg-purple-100 transition-colors duration-200" data-query="casablanca">
+                            <i class="fas fa-map-marker-alt mr-1"></i> Casablanca
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtres de catégorie modernisés -->
+            <div class="bg-white rounded-2xl shadow-lg p-8 mb-10">
+                <div class="flex items-center mb-6">
+                    <i class="fas fa-filter text-green-600 mr-3 text-xl"></i>
+                    <h3 class="text-xl font-bold text-gray-800">Filtres intelligents</h3>
+                    <div class="ml-auto">
+                        <span id="activeFilter" class="text-sm text-gray-500">Toutes les catégories</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <button class="category-filter active group" data-category="all" data-name="Toutes les catégories">
+                        <div class="category-icon bg-gradient-to-r from-green-500 to-blue-500">
+                            <i class="fas fa-globe text-white"></i>
+                        </div>
+                        <span class="category-name">Tout</span>
+                        <div class="category-badge">∞</div>
+                    </button>
+                    <button class="category-filter group" data-category="commandes" data-name="Commandes">
+                        <div class="category-icon" style="background: linear-gradient(to right, #361f27, #4b2e3a);">
+                            <i class="fas fa-shopping-cart text-white"></i>
+                        </div>
+                        <span class="category-name">Commandes</span>
+                        <div class="category-badge" id="commandesCount">0</div>
+                    </button>
+                    <button class="category-filter group" data-category="operateurs" data-name="Opérateurs">
+                        <div class="category-icon" style="background: linear-gradient(to right, #16a34a, #22c55e);">
+                            <i class="fas fa-users text-white"></i>
+                        </div>
+                        <span class="category-name">Opérateurs</span>
+                        <div class="category-badge" id="operateursCount">0</div>
+                    </button>
+                    <button class="category-filter group" data-category="articles" data-name="Articles">
+                        <div class="category-icon" style="background: linear-gradient(to right, #9a6a4d, #b8804d);">
+                            <i class="fas fa-box text-white"></i>
+                        </div>
+                        <span class="category-name">Articles</span>
+                        <div class="category-badge" id="articlesCount">0</div>
+                    </button>
+                    <button class="category-filter group" data-category="stock" data-name="Stock">
+                        <div class="category-icon" style="background: linear-gradient(to right, #4b2e3a, #5d3a47);">
+                            <i class="fas fa-warehouse text-white"></i>
+                        </div>
+                        <span class="category-name">Stock</span>
+                        <div class="category-badge" id="stockCount">0</div>
+                    </button>
+                    <button class="category-filter group" data-category="regions" data-name="Régions">
+                        <div class="category-icon" style="background: linear-gradient(to right, #2c1a21, #361f27);">
+                            <i class="fas fa-map-marker-alt text-white"></i>
+                        </div>
+                        <span class="category-name">Régions</span>
+                        <div class="category-badge" id="regionsCount">0</div>
+                    </button>
+                    <button class="category-filter group" data-category="villes" data-name="Villes">
+                        <div class="category-icon" style="background: linear-gradient(to right, #412a34, #4b2e3a);">
+                            <i class="fas fa-city text-white"></i>
+                        </div>
+                        <span class="category-name">Villes</span>
+                        <div class="category-badge" id="villesCount">0</div>
+                    </button>
+                </div>
+                
+                <!-- Statistiques en temps réel -->
+                <div class="mt-6 pt-6 border-t border-gray-100">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div class="bg-green-50 rounded-lg p-3">
+                            <div class="text-2xl font-bold text-green-600" id="totalResults">0</div>
+                            <div class="text-xs text-green-500">Résultats totaux</div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-3">
+                            <div class="text-2xl font-bold text-blue-600" id="searchTime">0ms</div>
+                            <div class="text-xs text-blue-500">Temps de recherche</div>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-3">
+                            <div class="text-2xl font-bold text-purple-600" id="categoriesFound">0</div>
+                            <div class="text-xs text-purple-500">Catégories trouvées</div>
+                        </div>
+                        <div class="bg-orange-50 rounded-lg p-3">
+                            <div class="text-2xl font-bold text-orange-600" id="lastSearch">-</div>
+                            <div class="text-xs text-orange-500">Dernière recherche</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Résultats de recherche améliorés -->
+            <div id="searchResults" class="hidden">
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    <div class="px-8 py-6 text-white" style="background: linear-gradient(to right, #361f27, #4b2e3a);">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-search-plus mr-3 text-xl"></i>
+                                <h3 class="text-xl font-bold">Résultats de recherche</h3>
+                            </div>
+                            <div class="flex items-center">
+                                <span id="resultsCount" class="text-orange-100">0 résultats</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="resultsContent" class="p-8">
+                        <!-- Les résultats seront injectés ici -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message d'état modernisé -->
+            <div id="searchMessage" class="text-center py-16">
+                <div class="max-w-md mx-auto">
+                    <div class="mb-8">
+                        <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-green-100 to-blue-100 rounded-full mb-6">
+                            <i class="fas fa-search text-green-500 text-4xl"></i>
+                        </div>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">Prêt à rechercher</h3>
+                    <p class="text-gray-600 text-lg mb-6">Commencez à taper pour découvrir vos données de préparation instantanément</p>
+                    <div class="flex flex-wrap justify-center gap-2 text-sm text-gray-500">
+                        <span class="bg-gray-100 px-3 py-1 rounded-full">Commandes</span>
+                        <span class="bg-gray-100 px-3 py-1 rounded-full">Articles</span>
+                        <span class="bg-gray-100 px-3 py-1 rounded-full">Stock</span>
+                        <span class="bg-gray-100 px-3 py-1 rounded-full">Régions</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Styles modernes pour les filtres de catégorie - Préparation */
+.category-filter {
+    @apply relative flex flex-col items-center p-6 border-2 border-gray-200 rounded-2xl hover:border-green-300 hover:shadow-lg transition-all duration-300 cursor-pointer bg-white;
+    transform: translateY(0);
+}
+
+.category-filter:hover {
+    transform: translateY(-4px);
+}
+
+.category-filter.active {
+    @apply border-green-500 bg-green-50 shadow-xl;
+    transform: translateY(-2px);
+}
+
+.category-icon {
+    @apply w-12 h-12 rounded-xl flex items-center justify-center mb-3 shadow-lg;
+}
+
+.category-name {
+    @apply text-sm font-bold text-gray-700 mb-2;
+}
+
+.category-filter.active .category-name {
+    @apply text-green-700;
+}
+
+.category-badge {
+    @apply absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-6 text-center;
+}
+
+.category-filter.active .category-badge {
+    @apply bg-green-600;
+}
+
+/* Styles pour les suggestions rapides */
+.quick-search {
+    @apply transform hover:scale-105 transition-transform duration-200;
+}
+
+/* Animations pour les résultats */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.result-item {
+    animation: slideInUp 0.3s ease-out;
+}
+
+.result-item:hover {
+    @apply transform scale-102 shadow-lg transition-all duration-200;
+}
+
+.result-category {
+    animation: slideInUp 0.4s ease-out;
+}
+
+/* Loader amélioré */
+.search-loader {
+    @apply inline-block w-6 h-6 border-2 border-green-200 border-t-green-600 rounded-full animate-spin;
+}
+
+/* Effet de focus moderne */
+input:focus {
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+}
+
+/* Responsive amélioré */
+@media (max-width: 640px) {
+    .category-filter {
+        @apply p-4;
+    }
+    
+    .category-icon {
+        @apply w-10 h-10;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('mainSearchInput');
+    const categoryFilters = document.querySelectorAll('.category-filter');
+    const quickSearchButtons = document.querySelectorAll('.quick-search');
+    const searchResults = document.getElementById('searchResults');
+    const searchMessage = document.getElementById('searchMessage');
+    const resultsContent = document.getElementById('resultsContent');
+    const resultsCount = document.getElementById('resultsCount');
+    const activeFilter = document.getElementById('activeFilter');
+    const searchLoader = document.getElementById('searchLoader');
+    
+    // Vérification que les éléments essentiels existent
+    if (!searchInput || !searchResults || !searchMessage || !resultsContent) {
+        console.error('❌ Éléments DOM essentiels manquants pour la recherche');
+        return;
+    }
+    
+    let currentCategory = 'all';
+    let searchTimeout = null;
+    let searchStartTime = 0;
+    let lastSearchQuery = '';
+    
+    // Focus automatique sur la barre de recherche avec effet
+    searchInput.focus();
+    searchInput.addEventListener('focus', function() {
+        this.classList.add('ring-4', 'ring-green-100');
+    });
+    
+    searchInput.addEventListener('blur', function() {
+        this.classList.remove('ring-4', 'ring-green-100');
+    });
+    
+    // Raccourci clavier global Ctrl+K
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+        }
+    });
+    
+    // Gestion des suggestions rapides
+    quickSearchButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const query = this.dataset.query;
+            searchInput.value = query;
+            performSearch(query);
+            
+            // Animation de feedback
+            this.classList.add('scale-95');
+            setTimeout(() => {
+                this.classList.remove('scale-95');
+            }, 150);
+        });
+    });
+    
+    // Gestion des filtres de catégorie avec animations
+    categoryFilters.forEach(filter => {
+        filter.addEventListener('click', function() {
+            categoryFilters.forEach(f => f.classList.remove('active'));
+            this.classList.add('active');
+            currentCategory = this.dataset.category;
+            
+            // Mise à jour du filtre actif
+            activeFilter.textContent = this.dataset.name;
+            
+            // Animation du filtre sélectionné
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                this.style.transform = '';
+            }, 150);
+            
+            if (searchInput.value.trim().length >= 2) {
+                performSearch(searchInput.value.trim());
+            }
+        });
+    });
+    
+    // Gestion de la recherche avec debouncing amélioré
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        clearTimeout(searchTimeout);
+        
+        if (query.length >= 2) {
+            showSearchLoader(true);
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
+            }, 300);
+        } else if (query.length === 0) {
+            showMessage('Prêt à rechercher');
+            resetStats();
+        } else {
+            showMessage('Tapez au moins 2 caractères...');
+        }
+    });
+    
+    function performSearch(query) {
+        searchStartTime = performance.now();
+        lastSearchQuery = query;
+        showSearchLoader(true);
+        showMessage('Recherche en cours...', true);
+        
+        fetch(`{% url 'Superpreparation:global_search_api' %}?q=${encodeURIComponent(query)}&category=${currentCategory}`)
+            .then(response => response.json())
+            .then(data => {
+                const searchTime = Math.round(performance.now() - searchStartTime);
+                showSearchLoader(false);
+                
+                if (data.success) {
+                    displayResults(data.results, query, searchTime);
+                } else {
+                    showMessage(data.message || 'Erreur lors de la recherche');
+                }
+            })
+            .catch(error => {
+                showSearchLoader(false);
+                showMessage('Erreur de connexion. Veuillez réessayer.');
+                console.error('Search error:', error);
+            });
+    }
+    
+    function showSearchLoader(show) {
+        if (show) {
+            searchLoader.classList.remove('hidden');
+        } else {
+            searchLoader.classList.add('hidden');
+        }
+    }
+    
+    function resetStats() {
+        const elements = [
+            'totalResults', 'searchTime', 'categoriesFound', 'lastSearch',
+            'commandesCount', 'operateursCount', 'articlesCount', 'stockCount', 'regionsCount', 'villesCount'
+        ];
+        
+        elements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                if (id === 'searchTime') {
+                    element.textContent = '0ms';
+                } else if (id === 'lastSearch') {
+                    element.textContent = '-';
+                } else {
+                    element.textContent = '0';
+                }
+            }
+        });
+    }
+    
+    function displayResults(results, query, searchTime) {
+        let totalResults = 0;
+        let categoriesFound = 0;
+        let html = '';
+        
+        // Compter les résultats et mettre à jour les badges
+        const categories = ['commandes', 'operateurs', 'articles', 'stock', 'regions', 'villes', 'statistiques'];
+        const categoryNames = {
+            'commandes': 'Commandes',
+            'operateurs': 'Opérateurs',
+            'articles': 'Articles',
+            'stock': 'Stock',
+            'regions': 'Régions',
+            'villes': 'Villes',
+            'statistiques': 'Fonctionnalités'
+        };
+        
+        categories.forEach(category => {
+            const items = results[category] || [];
+            const count = items.length;
+            totalResults += count;
+            
+            if (count > 0) {
+                categoriesFound++;
+            }
+            
+            // Mettre à jour les badges des filtres
+            const badge = document.getElementById(category + 'Count');
+            if (badge) {
+                badge.textContent = count;
+                badge.classList.toggle('bg-red-500', count > 0);
+                badge.classList.toggle('bg-gray-400', count === 0);
+            }
+        });
+        
+        // Mettre à jour les statistiques
+        updateStats(totalResults, searchTime, categoriesFound, query);
+        
+        if (totalResults === 0) {
+            showNoResults(query);
+            return;
+        }
+        
+        // Générer le HTML des résultats avec animations
+        categories.forEach((category, index) => {
+            const items = results[category] || [];
+            if (items.length > 0) {
+                html += `
+                    <div class="mb-8 result-category" style="animation-delay: ${index * 0.1}s">
+                        <div class="flex items-center justify-between mb-6">
+                            <h4 class="text-xl font-bold text-gray-800 flex items-center">
+                                <div class="w-8 h-8 rounded-lg ${getCategoryColor(category)} flex items-center justify-center mr-3">
+                                    <i class="${getCategoryIcon(category)} text-white text-sm"></i>
+                                </div>
+                                ${categoryNames[category]}
+                                <span class="ml-3 bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-medium">${items.length}</span>
+                            </h4>
+                            <button class="text-green-600 hover:text-green-800 text-sm font-medium" onclick="expandCategory('${category}')">
+                                <i class="fas fa-expand-alt mr-1"></i>
+                                Voir tout
+                            </button>
+                        </div>
+                        <div class="grid gap-4">
+                `;
+                
+                items.forEach((item, itemIndex) => {
+                    html += createResultItem(item, query, itemIndex);
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        resultsContent.innerHTML = html;
+        resultsCount.textContent = `${totalResults} résultat${totalResults > 1 ? 's' : ''}`;
+        
+        searchResults.classList.remove('hidden');
+        searchMessage.classList.add('hidden');
+        
+        // Animation d'apparition
+        setTimeout(() => {
+            searchResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+    }
+    
+    function updateStats(totalResults, searchTime, categoriesFound, query) {
+        // Animation des chiffres avec vérification d'existence
+        const totalResultsEl = document.getElementById('totalResults');
+        if (totalResultsEl) animateNumber(totalResultsEl, totalResults);
+        
+        const searchTimeEl = document.getElementById('searchTime');
+        if (searchTimeEl) searchTimeEl.textContent = searchTime + 'ms';
+        
+        const categoriesFoundEl = document.getElementById('categoriesFound');
+        if (categoriesFoundEl) animateNumber(categoriesFoundEl, categoriesFound);
+        
+        const lastSearchEl = document.getElementById('lastSearch');
+        if (lastSearchEl) lastSearchEl.textContent = query.substring(0, 10) + (query.length > 10 ? '...' : '');
+    }
+    
+    function animateNumber(element, target) {
+        const start = parseInt(element.textContent) || 0;
+        const increment = Math.ceil((target - start) / 20);
+        let current = start;
+        
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) {
+                current = target;
+                clearInterval(timer);
+            }
+            element.textContent = current;
+        }, 50);
+    }
+    
+    function getCategoryColor(category) {
+        const colors = {
+            'commandes': 'preparation-primary',
+            'operateurs': 'bg-green-600',
+            'articles': 'preparation-accent',
+            'stock': 'preparation-light',
+            'regions': 'preparation-dark',
+            'villes': 'preparation-hover',
+            'statistiques': 'preparation-primary'
+        };
+        return colors[category] || 'bg-gray-500';
+    }
+    
+    function getCategoryIcon(category) {
+        const icons = {
+            'commandes': 'fas fa-shopping-cart',
+            'operateurs': 'fas fa-users',
+            'articles': 'fas fa-box',
+            'stock': 'fas fa-warehouse',
+            'regions': 'fas fa-map-marker-alt',
+            'villes': 'fas fa-city',
+            'statistiques': 'fas fa-chart-bar'
+        };
+        return icons[category] || 'fas fa-circle';
+    }
+    
+    function createResultItem(item, query, index = 0) {
+        const statusClass = getStatusClass(item.status);
+        const iconColor = getIconColor(item.type);
+        
+        return `
+            <div class="result-item bg-white rounded-xl p-6 hover:shadow-xl border border-gray-100 hover:border-green-200 transition-all duration-300 cursor-pointer group"
+                 onclick="navigateToResult('${item.url}')"
+                 style="animation-delay: ${index * 0.05}s">
+                <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200" style="${iconColor.style || 'background: #361f27;'}">
+                            <i class="${item.icon} ${iconColor.text} text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <h5 class="text-lg font-bold truncate transition-colors duration-200" style="color: #361f27;" onmouseover="this.style.color='#9a6a4d'" onmouseout="this.style.color='#361f27'">
+                                    ${highlightQuery(item.title, query)}
+                                </h5>
+                                <p class="text-sm text-gray-600 mt-2 leading-relaxed">
+                                    ${highlightQuery(item.subtitle, query)}
+                                </p>
+                            </div>
+                            <div class="ml-4 flex flex-col items-end space-y-2">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusClass}">
+                                    <div class="w-2 h-2 rounded-full bg-current mr-2"></div>
+                                    ${item.status}
+                                </span>
+                                <div class="flex items-center text-xs text-gray-400">
+                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                    Voir détails
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Barre de progression pour les commandes et stock -->
+                        ${(item.type === 'commande' || item.type === 'stock') ? `
+                            <div class="mt-4">
+                                <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                    <span>${item.type === 'commande' ? 'Progression' : 'Niveau stock'}</span>
+                                    <span>${getProgressPercentage(item.status, item.type)}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="h-2 rounded-full transition-all duration-500" 
+                                         style="background: linear-gradient(to right, #9a6a4d, #b8804d); width: ${getProgressPercentage(item.status, item.type)}%"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <!-- Actions rapides -->
+                        <div class="mt-4 flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <button class="text-sm font-medium" style="color: #9a6a4d;" onmouseover="this.style.color='#b8804d'" onmouseout="this.style.color='#9a6a4d'" 
+                                    onclick="event.stopPropagation(); quickAction('view', '${item.id}', '${item.type}')">
+                                <i class="fas fa-eye mr-1"></i>Voir
+                            </button>
+                            ${item.type === 'commande' ? `
+                                <button class="text-sm font-medium" style="color: #4b2e3a;" onmouseover="this.style.color='#5d3a47'" onmouseout="this.style.color='#4b2e3a'" 
+                                        onclick="event.stopPropagation(); quickAction('prepare', '${item.id}', '${item.type}')">
+                                    <!-- Action Préparer retirée pour superviseur -->
+                                </button>
+                            ` : ''}
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function getProgressPercentage(status, type) {
+        if (type === 'commande') {
+            const progressMap = {
+                'Confirmée': 25,
+                'En préparation': 75,
+                'Préparée': 100,
+                'Livrée': 100
+            };
+            return progressMap[status] || 0;
+        } else if (type === 'stock') {
+            const stockMap = {
+                'En stock': 100,
+                'Stock faible': 30,
+                'Rupture': 0
+            };
+            return stockMap[status] || 50;
+        }
+        return 0;
+    }
+    
+    function navigateToResult(url) {
+        // Animation avant navigation
+        const currentElement = event && event.currentTarget;
+        if (currentElement && currentElement.style) {
+            currentElement.style.transform = 'scale(0.95)';
+        }
+        
+        setTimeout(() => {
+            window.location.href = url;
+        }, 150);
+    }
+    
+    function quickAction(action, itemId, itemType = null) {
+        // Implémentation des actions rapides spécifiques à la préparation
+        console.log(`🔧 Action: ${action} sur l'élément ID: "${itemId}" (type: "${itemType}")`);
+        
+        // Animation de feedback
+        const button = event && event.currentTarget;
+        if (button && button.style) {
+            button.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                if (button.style) {
+                    button.style.transform = '';
+                }
+            }, 150);
+        }
+        
+        // Déterminer le type d'élément si pas fourni
+        if (!itemType && button) {
+            const resultItem = button.closest('.result-item');
+            if (resultItem) {
+                const iconElement = resultItem.querySelector('i[class*="fa-"]');
+                if (iconElement) {
+                    if (iconElement.classList.contains('fa-shopping-cart')) itemType = 'commande';
+                    else if (iconElement.classList.contains('fa-box')) itemType = 'article';
+                    else if (iconElement.classList.contains('fa-warehouse')) itemType = 'stock';
+                    else if (iconElement.classList.contains('fa-chart-bar') || iconElement.classList.contains('fa-cogs')) itemType = 'statistique';
+                }
+            }
+        }
+        
+        // Logique spécifique aux actions de préparation
+        switch(action) {
+            case 'view':
+                // Redirection vers la page de détail appropriée selon le type
+                console.log(`🔍 Redirection vers vue détaillée pour ${itemType} ID: ${itemId}`);
+                
+                if (itemType === 'commande' && itemId && itemId !== 'undefined' && !isNaN(itemId)) {
+                    window.location.href = `/operateur-preparation/detail-prepa/${itemId}/`;
+                } else if ((itemType === 'article') && itemId && itemId !== 'undefined' && !isNaN(itemId)) {
+                    window.location.href = `/operateur-preparation/stock/article/${itemId}/`;
+                } else if (itemType === 'stock' || (itemType === 'statistique' && itemId === 'stock')) {
+                    // Pour les fonctionnalités stock, redirection vers la gestion du stock
+                    console.log(`🚀 Redirection vers la gestion du stock`);
+                    window.location.href = `/operateur-preparation/stock/articles/`;
+                } else if (itemType === 'statistique') {
+                    // Pour les autres fonctionnalités statistiques, redirection basée sur l'ID
+                    if (itemId === 'preparation') {
+                        window.location.href = `/operateur-preparation/en-preparation/`;
+                    } else if (itemId === 'confirmee') {
+                        window.location.href = `/operateur-preparation/liste-prepa/`;
+                    } else if (itemId === 'inventaire') {
+                        window.location.href = `/operateur-preparation/stock/alertes/`;
+                    } else {
+                        window.location.href = `/operateur-preparation/`;
+                    }
+                } else {
+                    // Pour les autres types (régions, villes), redirection vers la liste générale
+                    window.location.href = `/operateur-preparation/liste-prepa/`;
+                }
+                break;
+            case 'prepare':
+                // Redirection vers la page de préparation de commande spécifique
+                console.log(`⚡ Redirection vers préparation pour commande ID: ${itemId}`);
+                if (itemId && itemId !== 'undefined' && !isNaN(itemId) && itemType === 'commande') {
+                    window.location.href = `/operateur-preparation/detail-prepa/${itemId}/`;
+                } else {
+                    // Sinon vers la liste des commandes en préparation
+                    window.location.href = `/operateur-preparation/en-preparation/`;
+                }
+                break;
+
+        }
+    }
+    
+    function expandCategory(category) {
+        // Réinitialiser le filtre à la catégorie spécifique
+        if (categoryFilters && categoryFilters.length > 0) {
+            categoryFilters.forEach(f => f.classList.remove('active'));
+        }
+        
+        const targetFilter = document.querySelector(`[data-category="${category}"]`);
+        if (targetFilter) {
+            targetFilter.classList.add('active');
+            currentCategory = category;
+            
+            if (activeFilter) {
+                activeFilter.textContent = targetFilter.dataset.name || 'Catégorie sélectionnée';
+            }
+            
+            // Relancer la recherche avec le filtre spécifique
+            if (searchInput && searchInput.value.trim().length >= 2) {
+                performSearch(searchInput.value.trim());
+            }
+        }
+    }
+    
+    function showNoResults(query) {
+        searchResults.classList.add('hidden');
+        searchMessage.innerHTML = `
+            <div class="text-center py-16">
+                <div class="max-w-md mx-auto">
+                    <div class="mb-8">
+                        <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full mb-6">
+                            <i class="fas fa-search-minus text-gray-400 text-4xl"></i>
+                        </div>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">Aucun résultat trouvé</h3>
+                    <p class="text-gray-600 text-lg mb-6">Nous n'avons trouvé aucun résultat pour "<strong>${query}</strong>"</p>
+                    <div class="bg-green-50 rounded-lg p-4 mb-6">
+                        <h4 class="font-semibold text-green-800 mb-2">Suggestions :</h4>
+                        <ul class="text-sm text-green-700 space-y-1">
+                            <li>• Vérifiez l'orthographe de vos mots-clés</li>
+                            <li>• Essayez des termes plus généraux</li>
+                            <li>• Recherchez par référence article ou numéro commande</li>
+                            <li>• Changez de catégorie de filtre</li>
+                        </ul>
+                    </div>
+                    <button class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200"
+                            onclick="searchInput.focus(); searchInput.select();">
+                        <i class="fas fa-redo mr-2"></i>
+                        Nouvelle recherche
+                    </button>
+                </div>
+            </div>
+        `;
+        searchMessage.classList.remove('hidden');
+    }
+    
+    function highlightQuery(text, query) {
+        if (!query) return text;
+        const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        return text.replace(regex, '<mark class="bg-gradient-to-r from-yellow-200 to-yellow-300 px-2 py-1 rounded font-semibold">$1</mark>');
+    }
+    
+    function getStatusClass(status) {
+        const statusMap = {
+            'Confirmée': 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300',
+            'En préparation': 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 border border-yellow-300',
+            'Préparée': 'bg-gradient-to-r from-green-100 to-green-200 text-green-800 border border-green-300',
+            'En stock': 'bg-gradient-to-r from-emerald-100 to-emerald-200 text-emerald-800 border border-emerald-300',
+            'Rupture': 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 border border-red-300',
+            'Stock faible': 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 border border-orange-300',
+            'Disponible': 'bg-gradient-to-r from-teal-100 to-teal-200 text-teal-800 border border-teal-300'
+        };
+        return statusMap[status] || 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-300';
+    }
+    
+    function getIconColor(type) {
+        const colorMap = {
+            'commande': { bg: 'preparation-primary', text: 'text-white', style: 'background: linear-gradient(to right, #361f27, #4b2e3a);' },
+            'article': { bg: 'preparation-accent', text: 'text-white', style: 'background: linear-gradient(to right, #9a6a4d, #b8804d);' },
+            'stock': { bg: 'preparation-light', text: 'text-white', style: 'background: linear-gradient(to right, #4b2e3a, #5d3a47);' },
+            'region': { bg: 'preparation-dark', text: 'text-white', style: 'background: linear-gradient(to right, #2c1a21, #361f27);' },
+            'ville': { bg: 'preparation-hover', text: 'text-white', style: 'background: linear-gradient(to right, #412a34, #4b2e3a);' },
+            'statistique': { bg: 'preparation-primary', text: 'text-white', style: 'background: linear-gradient(to right, #361f27, #4b2e3a);' }
+        };
+        return colorMap[type] || { bg: 'bg-gradient-to-r from-gray-500 to-gray-600', text: 'text-white' };
+    }
+    
+    function showMessage(message, loading = false) {
+        if (searchResults) searchResults.classList.add('hidden');
+        if (!searchMessage) return;
+        
+        searchMessage.classList.remove('hidden');
+        
+        if (loading) {
+            searchMessage.innerHTML = `
+                <div class="text-center py-16">
+                    <div class="max-w-md mx-auto">
+                        <div class="mb-8">
+                            <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-green-500 to-blue-500 rounded-full mb-6">
+                                <div class="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent"></div>
+                            </div>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-4">Recherche en cours...</h3>
+                        <p class="text-gray-600 text-lg">Nous analysons vos données de préparation pour vous offrir les meilleurs résultats</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Le message par défaut est déjà défini dans le HTML
+        }
+    }
+    
+
+    
+    // Initialisation
+    resetStats();
+    
+    // Rendre les fonctions globales pour qu'elles soient accessibles depuis le HTML généré
+    window.quickAction = quickAction;
+    window.navigateToResult = navigateToResult;
+    window.expandCategory = expandCategory;
+});
+</script>
+{% endblock %}

@@ -1,24 +1,51 @@
 {% load commande_filters %}
 
 {% for panier in commande.paniers.all %}
+
 <div class="article-card p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all shadow-sm" 
     data-article-id="{{ panier.id }}"
-    data-article='{"id": {{ panier.article.id }}, "nom": "{{ panier.article.nom|escapejs }}", "reference": "{{ panier.article.reference|escapejs }}", "prix_actuel": {{ panier.article.prix_actuel|default:0|floatformat:2 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0|floatformat:2 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0|floatformat:2 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0|floatformat:2 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0|floatformat:2 }}, "prix_upsell_4": {{ panier.article.prix_upsell_4|default:0|floatformat:2 }}, "isUpsell": {{ panier.article.isUpsell|yesno:"true,false" }}, "pointure": "{{ panier.article.pointure|default:''|escapejs }}", "couleur": "{{ panier.article.couleur|default:''|escapejs }}", "categorie": "{{ panier.article.categorie|default:''|escapejs }}", "qte_disponible": {{ panier.article.qte_disponible|default:0 }}, "phase": "{{ panier.article.phase|default:''|escapejs }}", "has_promo_active": {{ panier.article.has_promo_active|yesno:"true,false" }}}'>
+    data-article='{"id": {{ panier.article.id|default:0 }}, "nom": "{{ panier.article.nom|default:''|escapejs }}", "reference": "{{ panier.article.reference|default:''|escapejs }}", "prix_actuel": {{ panier.article.prix_actuel|default:0|floatformat:2 }}, "prix_unitaire": {{ panier.article.prix_unitaire|default:0|floatformat:2 }}, "prix_upsell_1": {{ panier.article.prix_upsell_1|default:0|floatformat:2 }}, "prix_upsell_2": {{ panier.article.prix_upsell_2|default:0|floatformat:2 }}, "prix_upsell_3": {{ panier.article.prix_upsell_3|default:0|floatformat:2 }}, "prix_upsell_4": {{ panier.article.prix_upsell_4|default:0|floatformat:2 }}, "isUpsell": {{ panier.article.isUpsell|default_if_none:False|yesno:"true,false" }}, "pointure": "{{ panier.pointure|default:''|escapejs }}", "couleur": "{{ panier.couleur|default:''|escapejs }}", "categorie": "{{ panier.article.categorie|default:''|escapejs }}", "qte_article": {{ panier.article.qte_disponible|default:0 }}, "phase": "{{ panier.article.phase|default:''|escapejs }}", "has_promo_active": {{ panier.article.has_promo_active|default_if_none:False|yesno:"true,false" }}"{% if panier.variante_id %}, "variante_id": {{ panier.variante_id|default:0 }}, "qte_variante": {{ panier.variante.qte_disponible|default:0 }}{% endif %}}'>
     <div class="flex items-center justify-between">
         <!-- Informations de l'article -->
         <div class="flex-1">
             <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0">
+                    <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        {% if panier.article.image_url %}
+                            <img src="{{ panier.article.image_url }}" alt="Image de {{ panier.article.nom }}" 
+                                 class="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        {% endif %}
+                        <div class="w-full h-full flex items-center justify-center text-gray-400 {% if panier.article.image_url %}hidden{% endif %}">
+                            <i class="fas fa-image text-xl"></i>
+                        </div>
+                    </div>
+                </div>
                 <!-- Nom et référence -->
                 <div class="min-w-0 flex-1">
-                    <div class="font-semibold text-lg" style="color: #4B352A;">{{ panier.article.nom }}</div>
+                    
+                    <div class="font-semibold text-lg" style="color: #4B352A;">
+                        {{ panier.article.nom }}
+                        {% if panier.variante %}
+                        <span class="inline-flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium ml-2">
+                            <i class="fas fa-layer-group mr-1"></i>Variante
+                        </span>
+                        {% endif %}
+
+                    </div>
                     <div class="text-sm text-gray-500">
-                        <i class="fas fa-hashtag mr-1"></i>Réf: {{ panier.article.reference }}
+                        <i class="fas fa-hashtag mr-1"></i>Réf: 
+                        {% if panier.variante and panier.variante.reference_variante %}
+                        <span class="text-gray-500 ">
+                            {{ panier.variante.reference_variante }}
+                        </span>
+                        {% endif %}
                     </div>
                     <!-- Informations détaillées -->
                     <div class="mt-2 flex flex-wrap gap-2">
-                        {% if panier.article.pointure %}
+                        {% if panier.variante and panier.variante.pointure %}
                         <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                            <i class="fas fa-ruler-vertical mr-1"></i>{{ panier.article.pointure }}
+                            <i class="fas fa-ruler-vertical mr-1"></i>{{ panier.variante.pointure }}
                         </span>
                         {% else %}
                         <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
@@ -26,9 +53,13 @@
                         </span>
                         {% endif %}
                         
-                        {% if panier.article.couleur %}
+                        {% if panier.variante and panier.variante.couleur %}
                         <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                            <i class="fas fa-palette mr-1"></i>{{ panier.article.couleur }}
+                            <i class="fas fa-palette mr-1"></i>{{ panier.variante.couleur }}
+                        </span>
+                        {% elif panier.couleur %}
+                        <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-palette mr-1"></i>{{ panier.couleur }}
                         </span>
                         {% else %}
                         <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
@@ -45,10 +76,19 @@
                             <i class="fas fa-tag mr-1"></i>Catégorie N/A
                         </span>
                         {% endif %}
-                                            
+
+                        
+                        <!-- Affichage du stock de la variante -->
+                        {% if panier.variante %}
                         <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                            <i class="fas fa-boxes mr-1"></i>Stock: {{ panier.article.qte_disponible|default:0 }}
+                            <i class="fas fa-boxes mr-1"></i>Stock variante: {{ panier.variante.qte_disponible|default:0 }}
                         </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                            <i class="fas fa-boxes mr-1"></i>Stock article: {{ panier.article.qte_disponible|default:0 }}
+                        </span>
+                        {% endif %}
+
 
                     </div>
                 </div>
@@ -92,11 +132,7 @@
         
         <!-- Boutons d'action -->
         <div class="flex space-x-2 ml-4">
-            <button type="button" onclick="modifierArticle({{ panier.id }})" 
-                    class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center" 
-                    title="Modifier">
-                <i class="fas fa-edit mr-1"></i>Modifier
-            </button>
+       
             <button type="button" onclick="supprimerArticle({{ panier.id }})" 
                     class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center" 
                     title="Supprimer">

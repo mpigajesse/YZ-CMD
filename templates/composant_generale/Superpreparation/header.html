@@ -1,0 +1,208 @@
+<header class="bg-white shadow-md px-6 py-4 border-b" style="border-color: var(--preparation-border-accent);">
+    <div class="flex items-center justify-between">
+        <!-- Menu hamburger pour mobile -->
+        <button id="menu-toggle" class="p-2 rounded-lg transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-opacity-50" style="hover:background-color: var(--preparation-hover-bg); focus:ring-color: var(--preparation-primary); background-color: var(--preparation-light);">
+            <div class="space-y-1.5">
+                <span id="hamburger-line-1" class="block w-6 h-0.5 transition-all duration-300 transform origin-center" style="background-color: var(--preparation-primary);"></span>
+                <span id="hamburger-line-2" class="block w-6 h-0.5 mt-1.5 transition-all duration-300 transform origin-center" style="background-color: var(--preparation-primary);"></span>
+                <span id="hamburger-line-3" class="block w-6 h-0.5 mt-1.5 transition-all duration-300 transform origin-center" style="background-color: var(--preparation-primary);"></span>
+            </div>
+        </button>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">{% block page_title %}Mes Préparations{% endblock %}</h1>
+            <p class="text-gray-600 text-sm">{% block page_subtitle %}Interface Superviseur de Préparation{% endblock %}</p>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <!-- Barre de recherche globale -->
+            {% include 'composant_generale/Superpreparation/global_search_component.html' %}
+
+            <!-- Profil utilisateur -->
+            <div class="relative">
+                <button id="header-profile-dropdown" class="flex items-center space-x-3 transition-all duration-300 transform hover:scale-105 p-2 rounded-lg" style="hover:background-color: var(--preparation-light);">
+                    <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center" style="border-color: var(--preparation-primary); hover:border-color: var(--preparation-dark);">
+                        {% if request.user.profil_operateur and request.user.profil_operateur.photo %}
+                            <img src="{{ request.user.profil_operateur.photo.url }}" alt="Photo de profil" class="w-full h-full object-cover rounded-full">
+                        {% else %}
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-gray-500">
+                                <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clip-rule="evenodd" />
+                            </svg>
+                        {% endif %}
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm font-semibold text-gray-700">
+                            {% if request.user.profil_operateur.nom_complet %}
+                                {{ request.user.profil_operateur.nom_complet }}
+                            {% elif request.user.get_full_name %}
+                                {{ request.user.get_full_name }}
+                            {% else %}
+                                {{ request.user.username }}
+                            {% endif %}
+                        </p>
+                <p class="text-xs text-gray-500">
+                            {% if request.user.profil_operateur %}
+                                {{ request.user.profil_operateur.mail }}
+                            {% elif request.user.email %}
+                                {{ request.user.email }}
+                    {% else %}
+                        Email non défini
+                    {% endif %}
+                </p>
+            </div>
+                    <i class="fas fa-chevron-down text-gray-400 transition-transform duration-200" id="dropdown-arrow"></i>
+                </button>
+
+                <!-- Modal déplacé au niveau racine dans base.html -->
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Styles et animations CSS -->
+<style>
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.6s ease-out;
+}
+
+/* Animation pour le dropdown */
+.dropdown-enter {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.dropdown-leave {
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+/* Animation pour le menu hamburger */
+.hamburger-active #hamburger-line-1 {
+    transform: rotate(45deg) translate(6px, 6px);
+}
+
+.hamburger-active #hamburger-line-2 {
+    opacity: 0;
+    transform: scale(0);
+}
+
+.hamburger-active #hamburger-line-3 {
+    transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Force les modals au premier plan absolu */
+.modal-force-top {
+    z-index: 2147483647 !important;
+    position: fixed !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 Initialisation du modal de profil - Préparation');
+    
+    const profileDropdownButton = document.getElementById('header-profile-dropdown');
+    const profileMenu = document.getElementById('header-profile-menu-root');
+    const dropdownArrow = document.getElementById('dropdown-arrow');
+    
+    console.log('📋 Éléments trouvés:', {
+        profileDropdownButton: profileDropdownButton,
+        profileMenu: profileMenu,
+        dropdownArrow: dropdownArrow
+    });
+    
+    // Toggle du menu profil avec animation
+    if (profileDropdownButton && profileMenu) {
+        console.log('✅ Éléments trouvés, ajout des event listeners');
+        
+        profileDropdownButton.addEventListener('click', function(e) {
+            console.log('🖱️ Clic sur le bouton profil détecté');
+        e.stopPropagation();
+            
+            const isHidden = profileMenu.classList.contains('hidden');
+            console.log('📊 État du modal avant toggle:', isHidden ? 'Caché' : 'Visible');
+            console.log('📊 Z-index actuel du modal:', window.getComputedStyle(profileMenu).zIndex);
+            console.log('📊 Position actuelle du modal:', window.getComputedStyle(profileMenu).position);
+            
+            profileMenu.classList.toggle('hidden');
+            
+            // Force le z-index maximum en JavaScript
+            if (!profileMenu.classList.contains('hidden')) {
+                profileMenu.style.zIndex = '2147483647';
+                profileMenu.style.position = 'fixed';
+                console.log('🔧 Z-index forcé à:', profileMenu.style.zIndex);
+                console.log('🔧 Position forcée à:', profileMenu.style.position);
+                
+                // Vérifier les éléments qui pourraient interférer
+                const allElements = document.querySelectorAll('*');
+                let highestZIndex = 0;
+                allElements.forEach(el => {
+                    const zIndex = parseInt(window.getComputedStyle(el).zIndex) || 0;
+                    if (zIndex > highestZIndex && el !== profileMenu) {
+                        highestZIndex = zIndex;
+                        console.log('🔍 Élément avec z-index élevé trouvé:', el.className, 'z-index:', zIndex);
+                    }
+                });
+                console.log('🔍 Z-index le plus élevé trouvé (hors modal):', highestZIndex);
+            }
+            
+            if (dropdownArrow) {
+                dropdownArrow.classList.toggle('rotate-180');
+                console.log('🔄 Rotation de la flèche appliquée');
+            }
+            
+            console.log('📊 État du modal après toggle:', profileMenu.classList.contains('hidden') ? 'Caché' : 'Visible');
+        });
+
+        // Fermer le menu en cliquant ailleurs
+        document.addEventListener('click', function(event) {
+            if (!profileDropdownButton.contains(event.target) && !profileMenu.contains(event.target)) {
+                if (!profileMenu.classList.contains('hidden')) {
+                    console.log('🖱️ Clic à l\'extérieur détecté, fermeture du modal');
+                    profileMenu.classList.add('hidden');
+                    if (dropdownArrow) {
+                        dropdownArrow.classList.remove('rotate-180');
+                    }
+                }
+            }
+        });
+    } else {
+        console.error('❌ Éléments manquants:', {
+            profileDropdownButton: !!profileDropdownButton,
+            profileMenu: !!profileMenu
+        });
+    }
+    
+    console.log('✅ Initialisation terminée');
+    
+    // Gestion de la sidebar
+    const menuToggle = document.getElementById('menu-toggle');
+    const body = document.body;
+    
+    if (menuToggle) {
+        console.log('🔧 Bouton menu-toggle trouvé, ajout de la logique de sidebar');
+        
+        menuToggle.addEventListener('click', function() {
+            console.log('🖱️ Clic sur menu-toggle détecté');
+            
+            // Toggle des classes pour la sidebar
+            body.classList.toggle('sidebar-open');
+            body.classList.toggle('sidebar-collapsed');
+            
+            // Toggle de l'animation du hamburger
+            this.classList.toggle('hamburger-active');
+            
+            console.log('📊 État sidebar après toggle:', {
+                sidebarOpen: body.classList.contains('sidebar-open'),
+                sidebarCollapsed: body.classList.contains('sidebar-collapsed')
+            });
+        });
+    } else {
+        console.error('❌ Bouton menu-toggle non trouvé');
+    }
+});
+</script> 

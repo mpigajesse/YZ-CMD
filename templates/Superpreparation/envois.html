@@ -1,0 +1,1335 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+
+{% block title %}Gestion des Envois - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Variables CSS harmonisées avec le thème de supervision */
+    :root {
+        /* Utilisation des couleurs du thème de base Superpreparation */
+        --preparation-primary: #070F2B; /* Couleur principale navy */
+        --preparation-dark: #050A1F;   /* Plus sombre */
+        --preparation-light: #0E1D3D;  /* Plus clair */
+        --preparation-text-light: #E6F0FF; /* Texte très clair */
+        --preparation-border-accent: #1E3A8A; /* Accent (indigo) */
+        --preparation-hover-bg: #0B1733; /* Arrière-plan au survol */
+        --preparation-success: #10b981;
+        --preparation-warning: #f59e0b;
+        --preparation-error: #ef4444;
+        --preparation-info: #3b82f6;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    @keyframes bounce {
+        0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0); }
+        40%, 43% { transform: translate3d(0, -30px, 0); }
+        70% { transform: translate3d(0, -15px, 0); }
+        90% { transform: translate3d(0, -4px, 0); }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+    
+    .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+    
+    .animate-bounce {
+        animation: bounce 1s;
+    }
+
+    /* Styles harmonisés avec le thème de supervision */
+    .theme-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+    }
+
+    .theme-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+    }
+
+    .theme-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
+    }
+
+    .theme-button-primary {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.2);
+        position: relative;
+        overflow: hidden;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+    }
+
+    .theme-button-primary:hover {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    .theme-button-primary:active {
+        transform: translateY(0);
+    }
+
+    .theme-button-primary::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .theme-button-primary:hover::before {
+        left: 100%;
+    }
+
+    .theme-button-secondary {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        color: var(--preparation-primary);
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .theme-button-secondary:hover {
+        background: var(--preparation-hover-bg);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        color: var(--preparation-primary);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .theme-input {
+        border: 2px solid var(--preparation-text-light);
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        padding: 8px 12px;
+    }
+
+    .theme-input:focus {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        outline: none;
+    }
+
+    /* Styles spécifiques pour les cartes de statistiques */
+    .stats-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+    }
+
+    .stats-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-5px);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .stats-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    /* Styles pour les icônes des statistiques */
+    .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border-radius: 50%;
+        padding: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stats-card:hover .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Styles pour les cartes d'envois */
+    .envoi-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+    }
+
+    .envoi-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
+    }
+
+    .envoi-card.en-cours {
+        border-left: 4px solid var(--preparation-success);
+    }
+
+    .envoi-card.cloture {
+        border-left: 4px solid var(--preparation-text-light);
+    }
+
+    .envoi-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+        transform: translateX(-100%);
+        transition: transform 0.6s ease;
+    }
+
+    .envoi-card:hover::after {
+        transform: translateX(100%);
+    }
+
+    /* Styles pour les sections d'information */
+    .info-section {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .info-section:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        pointer-events: none;
+    }
+
+    .toast {
+        background: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 10px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        max-width: 400px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.success {
+        border-left: 4px solid var(--preparation-success);
+    }
+
+    .toast.error {
+        border-left: 4px solid var(--preparation-error);
+    }
+
+    .toast.info {
+        border-left: 4px solid var(--preparation-info);
+    }
+
+    .toast.warning {
+        border-left: 4px solid var(--preparation-warning);
+    }
+
+    .toast::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 3s linear;
+    }
+
+    .toast.show::before {
+        transform: scaleX(1);
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Tooltip styles */
+    .tooltip {
+        position: relative;
+        cursor: help;
+    }
+
+    .tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip::before {
+        content: '';
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: rgba(0,0,0,0.8);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip:hover::after,
+    .tooltip:hover::before {
+        opacity: 1;
+        visibility: visible;
+        bottom: 135%;
+    }
+
+    /* Progress bar for operations */
+    .progress-bar {
+        width: 100%;
+        height: 4px;
+        background: #e5e7eb;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+
+    /* Empty state improvements */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-radius: 16px;
+        border: 2px dashed var(--preparation-text-light);
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        color: var(--preparation-text-light);
+        margin-bottom: 20px;
+        animation: pulse 2s infinite;
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .stats-card {
+            margin-bottom: 16px;
+        }
+        
+        .envoi-card {
+            margin-bottom: 16px;
+        }
+        
+        .toast {
+            max-width: calc(100vw - 40px);
+            right: 0;
+        }
+    }
+
+    /* Améliorations spécifiques pour la visibilité */
+    .page-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        margin-bottom: 32px;
+    }
+
+    .section-title {
+        color: var(--preparation-primary);
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-badge.en-cours {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .status-badge.cloture {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+    }
+
+    .status-badge.disponible {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .status-badge.existant {
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:hover {
+        background: #f1f5f9;
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+    }
+
+    .info-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+    }
+
+    .info-icon.blue {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+    }
+
+    .info-icon.green {
+        background: linear-gradient(135deg, #059669 0%, var(--preparation-success) 100%);
+    }
+
+    .info-icon.purple {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+    }
+
+    /* Styles pour la modale de confirmation personnalisée */
+    .custom-confirm-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .custom-confirm-modal.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .custom-confirm-content {
+        background: white;
+        border-radius: 20px;
+        padding: 32px;
+        max-width: 450px;
+        width: 90%;
+        transform: scale(0.9) translateY(20px);
+        transition: all 0.3s ease;
+        border: 3px solid var(--preparation-border-accent);
+        box-shadow: 0 25px 50px rgba(7, 15, 43, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .custom-confirm-modal.show .custom-confirm-content {
+        transform: scale(1) translateY(0);
+    }
+
+    .custom-confirm-content::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+    }
+
+    .custom-confirm-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid var(--preparation-text-light);
+    }
+
+    .custom-confirm-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        box-shadow: 0 8px 20px rgba(7, 15, 43, 0.3);
+    }
+
+    .custom-confirm-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--preparation-primary);
+        line-height: 1.2;
+    }
+
+    .custom-confirm-message {
+        color: #374151;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin-bottom: 32px;
+        padding: 16px;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 12px;
+        border-left: 4px solid var(--preparation-border-accent);
+    }
+
+    .custom-confirm-actions {
+        display: flex;
+        gap: 16px;
+        justify-content: flex-end;
+    }
+
+    .custom-confirm-btn {
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        border: 2px solid;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 120px;
+        justify-content: center;
+    }
+
+    .custom-confirm-btn.cancel {
+        background: white;
+        border-color: var(--preparation-text-light);
+        color: var(--preparation-primary);
+    }
+
+    .custom-confirm-btn.cancel:hover {
+        background: var(--preparation-hover-bg);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(7, 15, 43, 0.15);
+    }
+
+    .custom-confirm-btn.confirm {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border-color: var(--preparation-border-accent);
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .custom-confirm-btn.confirm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(7, 15, 43, 0.3);
+    }
+
+    .custom-confirm-btn.confirm::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .custom-confirm-btn.confirm:hover::before {
+        left: 100%;
+    }
+
+    .custom-confirm-btn.danger {
+        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+        border-color: #dc2626;
+        color: white;
+    }
+
+    .custom-confirm-btn.danger:hover {
+        background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(220, 38, 38, 0.3);
+    }
+
+    /* Animation d'entrée pour la modale */
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: scale(0.8) translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .custom-confirm-modal.show .custom-confirm-content {
+        animation: modalSlideIn 0.4s ease-out forwards;
+    }
+
+    /* Responsive pour la modale */
+    @media (max-width: 768px) {
+        .custom-confirm-content {
+            padding: 24px;
+            margin: 20px;
+        }
+        
+        .custom-confirm-actions {
+            flex-direction: column;
+        }
+        
+        .custom-confirm-btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- Toast notifications container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- En-tête de la page -->
+    <div class="page-header">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+            <div>
+                <h1 class="text-3xl font-bold flex items-center mb-2">
+                    <i class="fas fa-truck-loading mr-3 text-yellow-300"></i>
+                    {{ page_title|default:'Gestion des envois' }}
+                </h1>
+                <p class="text-white opacity-90">{{ page_subtitle|default:'Créer et suivre les envois en cours' }}</p>
+            </div>
+            <div class="flex items-center gap-6 mt-4 md:mt-0">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-white">{{ envois_actifs|length|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">Envois actifs</div>
+                </div>
+                <div class="text-center border-l border-white/30 pl-6 ml-6">
+                    <div class="text-3xl font-bold text-white">{{ commandes_pretes|length|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">Commandes prêtes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- Envois actifs -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center">
+                <div class="stats-icon">
+                    <i class="fas fa-truck text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Envois actifs</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ envois_actifs|length|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- Commandes prêtes -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center">
+                <div class="stats-icon">
+                    <i class="fas fa-box text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Commandes prêtes</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ commandes_pretes|length|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- Régions disponibles -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center">
+                <div class="stats-icon">
+                    <i class="fas fa-map-marker-alt text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Régions</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ regions|length|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- Total commandes -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center">
+                <div class="stats-icon">
+                    <i class="fas fa-clipboard-list text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total commandes</p>
+                    <p class="text-3xl font-bold text-gray-900">
+                        {% for envoi in envois_actifs %}{{ envoi.nb_commandes }}{% if not forloop.last %} + {% endif %}{% empty %}0{% endfor %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section d'informations -->
+    <div class="info-section mb-8">
+        <h2 class="section-title">
+            <i class="fas fa-info-circle text-blue-600"></i>
+            Informations générales
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="info-item">
+                <div class="info-icon blue">
+                    <i class="fas fa-map"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Par région</h3>
+                    <p class="text-sm text-gray-600">Les envois sont créés automatiquement par région</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon green">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Création</h3>
+                    <p class="text-sm text-gray-600">Utilisez les boutons "Créer envoi" pour chaque région</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon purple">
+                    <i class="fas fa-eye"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Suivi</h3>
+                    <p class="text-sm text-gray-600">Les envois actifs sont affichés dans le tableau ci-dessous</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section des envois actifs -->
+    <div class="mb-8">
+        <h2 class="section-title">
+            <i class="fas fa-truck text-blue-600"></i>
+            Envois actifs
+            <span class="status-badge en-cours animate-pulse">
+                {{ envois_actifs|length|default:0 }} en cours
+            </span>
+        </h2>
+        
+        {% if envois_actifs %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for envoi in envois_actifs %}
+            <div class="envoi-card en-cours" data-envoi-id="{{ envoi.id }}">
+                <!-- Header de la card -->
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="font-bold text-xl text-gray-800 tooltip" data-tooltip="Numéro d'envoi unique">{{ envoi.numero_envoi }}</h3>
+                        <p class="text-sm text-gray-600 flex items-center mt-1">
+                            <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>
+                            {{ envoi.region.nom_region }}
+                        </p>
+                    </div>
+                    <span class="status-badge en-cours">
+                        <i class="fas fa-play-circle"></i>
+                        En cours
+                    </span>
+                </div>
+                
+                <!-- Détails de l'envoi -->
+                <div class="space-y-3 mb-6">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">Date de création:</span>
+                        <span class="font-medium text-sm tooltip" data-tooltip="{{ envoi.date_creation|date:'d/m/Y H:i' }}">{{ envoi.date_creation|date:"d/m/Y" }}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">Commandes:</span>
+                        <span class="font-medium bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm animate-pulse">{{ envoi.nb_commandes }}</span>
+                    </div>
+                    {% if envoi.operateur_creation %}
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">Créé par:</span>
+                        <span class="font-medium text-sm">{{ envoi.operateur_creation.nom|default:"N/A" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Progress bar for active shipments -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Progression</span>
+                        <span>75%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 75%"></div>
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="pt-4 border-t border-gray-200 space-y-3">
+                    <button class="w-full theme-button-primary tooltip" 
+                            data-tooltip="Clôturer cet envoi pour finaliser la livraison"
+                            onclick="cloturerEnvoi('{{ envoi.id }}', '{{ envoi.numero_envoi }}')">
+                        <i class="fas fa-check mr-2"></i>
+                        Clôturer l'envoi
+                    </button>
+                    <button class="w-full theme-button-secondary tooltip"
+                            data-tooltip="Exporter les données de commandes en format Excel"
+                            onclick="exporterEnvoiExcel('{{ envoi.id }}', '{{ envoi.numero_envoi }}')">
+                        <i class="fas fa-download mr-2"></i>
+                        Exporter Excel
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-truck"></i>
+            </div>
+            <h3 class="text-xl font-medium text-gray-800 mb-2">Aucun envoi actif</h3>
+            <p class="text-gray-600 mb-4">Il n'y a actuellement aucun envoi en cours.</p>
+            <button class="theme-button-primary px-6 py-3 rounded-lg font-medium animate-bounce" onclick="scrollToCreateSection()">
+                <i class="fas fa-plus mr-2"></i>
+                Créer votre premier envoi
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Section de création d'envois -->
+    <div class="mb-8" id="createSection">
+        <h2 class="section-title">
+            <i class="fas fa-plus-circle text-green-600"></i>
+            Créer un nouvel envoi
+            <span class="status-badge disponible">
+                {{ regions|length|default:0 }} régions disponibles
+            </span>
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for region in regions %}
+            <div class="envoi-card" data-region-id="{{ region.id }}">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-800 tooltip" data-tooltip="Région: {{ region.nom_region }}">{{ region.nom_region }}</h3>
+                        <p class="text-sm text-gray-600">Région</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-map-marker-alt text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-gray-600 text-sm">Commandes prêtes:</span>
+                        <span class="font-medium text-sm">
+                            {% for commande in commandes_pretes %}
+                                {% if commande.ville.region.id == region.id %}
+                                    {{ forloop.counter }}
+                                {% endif %}
+                            {% empty %}
+                                0
+                            {% endfor %}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">Statut:</span>
+                        <span class="status-badge {% if region.id in regions_avec_envoi_actif %}existant{% else %}disponible{% endif %}">
+                            {% if region.id in regions_avec_envoi_actif %}
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Envoi existant
+                            {% else %}
+                                <i class="fas fa-check"></i>
+                                Disponible
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <button class="w-full theme-button-primary {% if region.id in regions_avec_envoi_actif %}opacity-50 cursor-not-allowed{% endif %} tooltip"
+                        data-tooltip="{% if region.id in regions_avec_envoi_actif %}Un envoi est déjà en cours pour cette région{% else %}Créer un nouvel envoi pour cette région{% endif %}"
+                        onclick="{% if region.id not in regions_avec_envoi_actif %}creerEnvoiRegion('{{ region.id }}', '{{ region.nom_region }}'){% endif %}"
+                        {% if region.id in regions_avec_envoi_actif %}disabled{% endif %}>
+                    <i class="fas fa-plus mr-2"></i>
+                    {% if region.id in regions_avec_envoi_actif %}
+                        Envoi existant
+                    {% else %}
+                        Créer envoi
+                    {% endif %}
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Modale de confirmation personnalisée -->
+<div id="customConfirmModal" class="custom-confirm-modal">
+    <div class="custom-confirm-content">
+        <div class="custom-confirm-header">
+            <div class="custom-confirm-icon">
+                <i class="fas fa-question-circle"></i>
+            </div>
+            <div class="custom-confirm-title" id="confirmTitle">Confirmation</div>
+        </div>
+        
+        <div class="custom-confirm-message" id="confirmMessage">
+            Êtes-vous sûr de vouloir effectuer cette action ?
+        </div>
+        
+        <div class="custom-confirm-actions">
+            <button class="custom-confirm-btn cancel" onclick="closeCustomConfirm()">
+                <i class="fas fa-times"></i>
+                Annuler
+            </button>
+            <button class="custom-confirm-btn confirm" id="confirmActionBtn" onclick="executeConfirmedAction()">
+                <i class="fas fa-check"></i>
+                Confirmer
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Toast notification system
+    function showToast(message, type = 'info', duration = 4000) {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        const icon = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            info: 'fas fa-info-circle',
+            warning: 'fas fa-exclamation-triangle'
+        }[type];
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <i class="${icon} mr-3 text-lg"></i>
+                <div class="flex-1">
+                    <p class="font-medium">${message}</p>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Show animation
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        // Auto remove
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    function scrollToCreateSection() {
+        document.getElementById('createSection').scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'start'
+        });
+    }
+
+    // Variables pour la modale de confirmation
+    let pendingAction = null;
+    let pendingButton = null;
+    let pendingOriginalText = null;
+
+    function showCustomConfirm(title, message, action, button, originalText, icon = 'question-circle', confirmText = 'Confirmer', isDanger = false) {
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmMessage').textContent = message;
+        document.querySelector('.custom-confirm-icon i').className = `fas fa-${icon}`;
+        
+        const confirmBtn = document.getElementById('confirmActionBtn');
+        confirmBtn.textContent = confirmText;
+        confirmBtn.className = `custom-confirm-btn ${isDanger ? 'danger' : 'confirm'}`;
+        confirmBtn.innerHTML = `<i class="fas fa-${isDanger ? 'exclamation-triangle' : 'check'}"></i>${confirmText}`;
+        
+        pendingAction = action;
+        pendingButton = button;
+        pendingOriginalText = originalText;
+        
+        document.getElementById('customConfirmModal').classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeCustomConfirm() {
+        document.getElementById('customConfirmModal').classList.remove('show');
+        document.body.style.overflow = 'auto';
+        pendingAction = null;
+        pendingButton = null;
+        pendingOriginalText = null;
+    }
+
+    function executeConfirmedAction() {
+        if (pendingAction) {
+            pendingAction();
+        }
+        closeCustomConfirm();
+    }
+
+    function creerEnvoiRegion(regionId, regionNom) {
+        const button = event.target;
+        const originalText = button.innerHTML;
+        
+        showCustomConfirm(
+            'Créer un envoi',
+            `Êtes-vous sûr de vouloir créer un envoi pour la région ${regionNom} ?`,
+            () => {
+                button.disabled = true;
+                button.innerHTML = '<div class="loading-spinner mr-2"></div>Création...';
+
+                const csrfToken = getCookie('csrftoken');
+                
+                fetch('/Superpreparation/envois/creer-region/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: new URLSearchParams({
+                        'region_id': regionId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Envoi créé avec succès !', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        showToast('Erreur lors de la création de l\'envoi: ' + data.error, 'error');
+                        button.disabled = false;
+                        button.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    showToast('Erreur lors de la création de l\'envoi', 'error');
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                });
+            },
+            button,
+            originalText,
+            'plus-circle',
+            'Créer l\'envoi'
+        );
+    }
+
+    function cloturerEnvoi(envoiId, numeroEnvoi) {
+        const button = event.target;
+        const originalText = button.innerHTML;
+        
+        showCustomConfirm(
+            'Clôturer l\'envoi',
+            `Êtes-vous sûr de vouloir clôturer l'envoi ${numeroEnvoi} ? Cette action est irréversible.`,
+            () => {
+                button.disabled = true;
+                button.innerHTML = '<div class="loading-spinner mr-2"></div>Clôture...';
+
+                const csrfToken = getCookie('csrftoken');
+                
+                fetch('/Superpreparation/envois/cloturer/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: new URLSearchParams({
+                        'envoi_id': envoiId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Envoi clôturé avec succès !', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        showToast('Erreur lors de la clôture de l\'envoi: ' + data.error, 'error');
+                        button.disabled = false;
+                        button.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    showToast('Erreur lors de la clôture de l\'envoi', 'error');
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                });
+            },
+            button,
+            originalText,
+            'check-circle',
+            'Clôturer l\'envoi',
+            true
+        );
+    }
+
+    function exporterEnvoiExcel(envoiId, numeroEnvoi) {
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<div class="loading-spinner mr-2"></div>Génération...';
+
+        showToast('Génération du fichier Excel en cours...', 'info');
+
+        fetch(`/Superpreparation/envois/${envoiId}/export-excel/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Envoi_${numeroEnvoi}_Commandes.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                showToast('Fichier Excel téléchargé avec succès !', 'success');
+                button.disabled = false;
+                button.innerHTML = originalText;
+            })
+            .catch(error => {
+                console.error('Erreur lors de l\'export:', error);
+                showToast('Erreur lors de la génération du fichier Excel', 'error');
+                button.disabled = false;
+                button.innerHTML = originalText;
+            });
+    }
+
+    // Auto-refresh functionality
+    let autoRefreshInterval;
+    
+    function startAutoRefresh() {
+        autoRefreshInterval = setInterval(() => {
+            // Only refresh if there are active shipments
+            const activeShipments = document.querySelectorAll('.envoi-card.en-cours');
+            if (activeShipments.length > 0) {
+                showToast('Actualisation automatique des données...', 'info', 2000);
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        }, 300000); // Refresh every 5 minutes
+    }
+
+    function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+    }
+
+    // Start auto-refresh when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        startAutoRefresh();
+        
+        // Show welcome message
+        setTimeout(() => {
+            showToast('Bienvenue dans la gestion des envois !', 'info', 3000);
+        }, 1000);
+    });
+
+    // Stop auto-refresh when user is inactive
+    let userActivityTimeout;
+    document.addEventListener('mousemove', function() {
+        clearTimeout(userActivityTimeout);
+        userActivityTimeout = setTimeout(stopAutoRefresh, 60000); // Stop after 1 minute of inactivity
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'r':
+                    e.preventDefault();
+                    window.location.reload();
+                    showToast('Page actualisée !', 'info');
+                    break;
+                case 'n':
+                    e.preventDefault();
+                    scrollToCreateSection();
+                    showToast('Navigation vers la création d\'envois', 'info');
+                    break;
+            }
+        } else if (e.key === 'Escape') {
+            // Fermer la modale de confirmation si elle est ouverte
+            const modal = document.getElementById('customConfirmModal');
+            if (modal.classList.contains('show')) {
+                closeCustomConfirm();
+            }
+        }
+    });
+
+    // Fermer la modale en cliquant à l'extérieur
+    document.getElementById('customConfirmModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeCustomConfirm();
+        }
+    });
+</script>
+
+{% endblock %}
+

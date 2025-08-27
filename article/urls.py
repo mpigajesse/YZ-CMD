@@ -11,6 +11,15 @@ urlpatterns = [
     path('creer/', views.creer_article, name='creer'),
     path('supprimer/<int:id>/', views.supprimer_article, name='supprimer'),
     path('supprimer-masse/', views.supprimer_articles_masse, name='supprimer_masse'),
+
+
+    # Gestion des variantes d'articles
+    path('variantes/', views.liste_variantes, name='liste_variantes'),
+    path('variantes/creer-ajax/', views.creer_variantes_ajax, name='creer_variantes_ajax'),
+    path('variantes/supprimer/<int:id>/', views.supprimer_variante, name='supprimer_variante'),
+    #path('variantes/creer/', views.creer_variante, name='creer_variante'),
+    #path('variantes/<int:id>/', views.detail_variante, name='detail_variante'),
+    #path('variantes/modifier/<int:id>/', views.modifier_variante, name='modifier_variante'),
     
     # Filtres par catégorie
     path('categorie/<str:categorie>/', views.articles_par_categorie, name='par_categorie'),
@@ -33,6 +42,5 @@ urlpatterns = [
     path('appliquer-liquidation/<int:id>/', views.appliquer_liquidation, name='appliquer_liquidation'),
     path('reinitialiser-prix/<int:id>/', views.reinitialiser_prix, name='reinitialiser_prix'),
     
-    # Gestion des upsells
-    path('corriger-upsells/', views.corriger_upsells, name='corriger_upsells'),
+
 ] 

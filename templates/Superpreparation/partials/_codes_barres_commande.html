@@ -1,0 +1,187 @@
+<!-- Template pour les codes-barres des commandes -->
+<div class="commande-labels-container">
+    <div class="commande-label-item">
+        <div class="label-checkbox">
+            <input type="checkbox" class="form-checkbox h-4 w-4 text-blue-600 rounded" data-label-id="{{ commande.id_yz }}" onchange="impressionModals.updateSelectionCount('codesBarres')">
+        </div>
+        <div class="commande-label">
+            <!-- En-tête de l'étiquette -->
+            <div class="commande-label-header">
+                Commande {{ commande.id_yz }}
+            </div>
+            
+            <!-- Corps de l'étiquette -->
+            <div class="commande-label-body">
+                <!-- Code-barres -->
+                <img src="data:image/png;base64,{{ commande.barcode_image }}" 
+                     alt="Code-barres {{ commande.id_yz }}" 
+                     class="commande-barcode">
+                
+                <!-- Référence de la commande -->
+                <div class="commande-reference">
+                    {{ commande.num_cmd|default:commande.id_yz }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Styles d'affichage normal */
+.commande-labels-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    padding: 20px;
+}
+
+.commande-label-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.label-checkbox {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    z-index: 10;
+    background: white;
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.commande-label {
+    width: 200px;
+    height: 120px;
+    border: 2px solid #ddd;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    margin: 0 auto;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.commande-label-header {
+    background-color: #f0f0f0;
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+    border-bottom: 1px solid #ccc;
+}
+
+.commande-label-body {
+    padding: 8px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.commande-barcode {
+    max-width: 100%;
+    max-height: 60px;
+    object-fit: contain;
+}
+
+.commande-reference {
+    font-size: 10px;
+    text-align: center;
+    margin-top: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Styles pour l'impression */
+@media print {
+    @page {
+        size: A4;
+        margin: 5mm;
+    }
+
+    body, html {
+        margin: 0;
+        padding: 0;
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+    
+    /* Container pour les étiquettes de commandes */
+    .commande-labels-container {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 3mm !important;
+        width: 100% !important;
+    }
+    
+    /* Format compact d'étiquette de commande, 60mm x 40mm */
+    .commande-label {
+        width: 60mm !important;
+        height: 40mm !important;
+        border: 1px solid black !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 8px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: white !important;
+        page-break-inside: avoid !important;
+        margin: 0 !important;
+        overflow: hidden;
+    }
+    
+    .commande-label * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    
+    /* En-tête de l'étiquette de commande */
+    .commande-label-header {
+        background-color: #f0f0f0 !important;
+        padding: 1mm !important;
+        text-align: center !important;
+        font-weight: bold !important;
+        font-size: 9px !important;
+        border-bottom: 1px solid #ccc !important;
+    }
+    
+    /* Corps de l'étiquette de commande */
+    .commande-label-body {
+        padding: 1mm !important;
+        flex-grow: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+    
+    /* Code-barres de la commande */
+    .commande-barcode {
+        max-width: 100% !important;
+        max-height: 20mm !important;
+        object-fit: contain !important;
+    }
+    
+    /* Référence de la commande */
+    .commande-reference {
+        font-size: 7px !important;
+        text-align: center !important;
+        margin-top: 1mm !important;
+        font-weight: bold !important;
+    }
+    
+    .label-checkbox {
+        display: none !important;
+    }
+}
+</style>

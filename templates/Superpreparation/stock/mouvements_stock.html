@@ -1,0 +1,287 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --prepa-bg-gradient: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-dark) 100%);
+    }
+    
+    /* Correction pour la sidebar - s'assurer qu'elle utilise le bon thème */
+    #sidebar {
+        background: linear-gradient(to bottom, var(--preparation-primary), var(--preparation-dark)) !important;
+        border-color: var(--preparation-dark) !important;
+    }
+    
+    /* Cartes KPI avec fond blanc et accents marron */
+    .kpi-card {
+        background-color: #fff;
+        color: var(--preparation-primary);
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1), 0 2px 4px -2px rgba(54, 31, 39, 0.06);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid var(--preparation-border-accent);
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(54, 31, 39, 0.1), 0 4px 6px -4px rgba(54, 31, 39, 0.1);
+        border-color: var(--preparation-primary);
+    }
+    .kpi-card .text-2xl {
+        color: var(--preparation-primary) !important;
+    }
+    .kpi-card .text-sm {
+        color: #6b7280 !important;
+    }
+    
+    /* Carte principale avec fond blanc */
+    .main-card {
+        background-color: #fff;
+        border: 1px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 6px -1px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* Filtres avec fond blanc et bordures marron */
+    .main-card label {
+        color: var(--preparation-primary) !important;
+    }
+    .main-card input,
+    .main-card select {
+        background-color: #fff;
+        border-color: var(--preparation-border-accent);
+        color: #374151;
+    }
+    .main-card input::placeholder {
+        color: #9ca3af;
+    }
+    .main-card input:focus,
+    .main-card select:focus {
+        background-color: #fff;
+        border-color: var(--preparation-primary);
+        color: #374151;
+        box-shadow: 0 0 0 3px rgba(54, 31, 39, 0.1);
+    }
+    
+    /* Tableau avec fond blanc */
+    .main-card tbody {
+        background-color: #fff;
+    }
+    .main-card tbody tr {
+        border-color: #e5e7eb;
+    }
+    .main-card tbody tr:hover {
+        background-color: #f9fafb !important;
+    }
+    .main-card tbody td {
+        color: #374151;
+    }
+    .main-card tbody .text-gray-500 {
+        color: #6b7280 !important;
+    }
+    
+    /* Pagination avec fond blanc */
+    .pagination-section {
+        background-color: #f9fafb;
+        color: var(--preparation-primary);
+        border-top-color: var(--preparation-border-accent);
+    }
+    .pagination-section a {
+        background-color: #fff;
+        border-color: var(--preparation-border-accent);
+        color: var(--preparation-primary);
+    }
+    .pagination-section a:hover {
+        background-color: var(--preparation-primary);
+        color: var(--preparation-text-light);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+
+    <!-- En-tête de la page -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 text-white p-5 rounded-xl shadow-lg"
+         style="background: var(--prepa-bg-gradient);">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center">
+                <i class="fas fa-history mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: white;" class="mt-1">Suivi de toutes les entrées, sorties et ajustements de stock.</p>
+        </div>
+    </div>
+
+    <!-- Cartes de Statistiques -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="kpi-card flex items-center p-4 col-span-1 sm:col-span-2">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-exchange-alt fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ total_mouvements|intcomma }}</p>
+                <p class="text-sm font-medium">Mouvements au Total</p>
+            </div>
+        </div>
+        <div class="kpi-card flex items-center p-4 col-span-1 sm:col-span-2">
+            <div class="p-3 rounded-full text-white" style="background-color: var(--preparation-border-accent);"><i class="fas fa-calendar-day fa-lg"></i></div>
+            <div class="ml-4">
+                <p class="text-2xl font-bold">{{ mouvements_aujourd_hui|intcomma }}</p>
+                <p class="text-sm font-medium">Aujourd'hui</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="main-card rounded-xl shadow-md">
+        <!-- Section des filtres -->
+        <div class="p-5 border-b" style="border-bottom-color: var(--preparation-border-accent);">
+            <form method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label for="article" class="block text-sm font-medium mb-1" style="color: var(--preparation-primary);">Article</label>
+                    <input type="text" name="article" id="article" value="{{ current_filters.article|default:'' }}" placeholder="Nom ou référence..." class="w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition" style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                </div>
+                <div>
+                    <label for="type" class="block text-sm font-medium mb-1" style="color: var(--preparation-primary);">Type de Mouvement</label>
+                    <select name="type" id="type" class="w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition" style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                        <option value="">Tous</option>
+                        <option value="entree" {% if current_filters.type == 'entree' %}selected{% endif %}>Entrée</option>
+                        <option value="sortie" {% if current_filters.type == 'sortie' %}selected{% endif %}>Sortie</option>
+                        <option value="ajustement" {% if current_filters.type == 'ajustement' %}selected{% endif %}>Ajustement</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="date_range" class="block text-sm font-medium mb-1" style="color: var(--preparation-primary);">Date</label>
+                    <input type="date" name="date_range" id="date_range" value="{{ current_filters.date_range|default:'' }}" class="w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition" style="border-color: var(--preparation-border-accent); focus:ring-color: var(--preparation-primary);">
+                </div>
+                <div class="flex space-x-2">
+                    <button type="submit" class="flex-grow flex justify-center items-center px-4 py-2 text-white font-semibold rounded-md transition-colors" style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);">
+                        <i class="fas fa-search mr-2"></i>Filtrer
+                    </button>
+                    <a href="{% url 'Superpreparation:mouvements_stock' %}" class="flex-shrink-0 px-3 py-2 text-white rounded-md transition-colors" style="background-color: var(--preparation-border-accent); hover:background-color: var(--preparation-primary);" title="Réinitialiser">
+                        <i class="fas fa-sync-alt"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tableau des mouvements -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead style="background-color: var(--preparation-primary);">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Article</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Type</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Quantité</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Stock (Avant/Après)</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Opérateur</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for mouvement in mouvements %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    {% if mouvement.article.image %}
+                                        <img src="{{ mouvement.article.image.url }}" alt="{{ mouvement.article.nom }}" class="h-10 w-10 rounded-md object-cover">
+                                    {% else %}
+                                        <div class="h-10 w-10 rounded-md flex items-center justify-center" style="background-color: var(--preparation-border-accent);">
+                                            <i class="fas fa-box-open text-white"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-semibold" style="color: var(--preparation-primary);">{{ mouvement.article.nom }}</div>
+                                    <p class="text-xs text-gray-500">Réf: {{ mouvement.article.reference|default:'N/A' }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            {% if mouvement.type_mouvement == 'entree' %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    <i class="fas fa-arrow-down mr-1.5"></i>Entrée
+                                </span>
+                            {% elif mouvement.type_mouvement == 'sortie' %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                    <i class="fas fa-arrow-up mr-1.5"></i>Sortie
+                                </span>
+                            {% elif mouvement.type_mouvement == 'ajustement_pos' %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold text-white" style="background-color: var(--preparation-primary);">
+                                    <i class="fas fa-plus-circle mr-1.5"></i>Ajust. Positif
+                                </span>
+                            {% elif mouvement.type_mouvement == 'ajustement_neg' %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold text-white" style="background-color: var(--preparation-border-accent);">
+                                    <i class="fas fa-minus-circle mr-1.5"></i>Ajust. Négatif
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
+                                    {{ mouvement.type_mouvement|title }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="text-lg font-bold 
+                                {% if mouvement.type_mouvement == 'sortie' or mouvement.type_mouvement == 'ajustement_neg' %} text-red-600
+                                {% else %} text-green-600 {% endif %}">
+                                {% if mouvement.type_mouvement == 'sortie' or mouvement.type_mouvement == 'ajustement_neg' %}-{% else %}+{% endif %}{{ mouvement.quantite|intcomma }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <div class="flex items-center justify-center space-x-2">
+                                <span class="text-sm text-gray-500">{{ mouvement.stock_avant|intcomma }}</span>
+                                <i class="fas fa-long-arrow-alt-right" style="color: var(--preparation-border-accent);"></i>
+                                <span class="text-sm font-bold" style="color: var(--preparation-primary);">{{ mouvement.stock_apres|intcomma }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <p class="text-sm font-medium" style="color: var(--preparation-primary);">{{ mouvement.operateur.get_full_name|default:'Système' }}</p>
+                            {% if mouvement.operateur %}<p class="text-xs text-gray-500">{{ mouvement.operateur.get_type_display }}</p>{% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <p class="text-sm" style="color: var(--preparation-primary);">{{ mouvement.date_mouvement|date:"d/m/Y" }}</p>
+                            <p class="text-xs text-gray-500">{{ mouvement.date_mouvement|time:"H:i:s" }}</p>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-12 px-6">
+                            <div class="flex flex-col items-center justify-center text-gray-500">
+                                <i class="fas fa-folder-open fa-3x mb-4" style="color: var(--preparation-border-accent);"></i>
+                                <h3 class="text-xl font-semibold" style="color: var(--preparation-primary);">Aucun mouvement trouvé.</h3>
+                                <p class="mt-1">L'historique est vide ou ne correspond pas à vos filtres.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if mouvements.has_other_pages %}
+        <div class="pagination-section p-4 border-t flex items-center justify-between">
+            <span class="text-sm">
+                Page <span class="font-semibold">{{ mouvements.number }}</span> sur <span class="font-semibold">{{ mouvements.paginator.num_pages }}</span>
+            </span>
+            <div class="flex-1 flex justify-end space-x-2">
+                {% if mouvements.has_previous %}
+                    <a href="?page={{ mouvements.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="inline-flex items-center px-3 py-1.5 border text-sm font-medium rounded-md transition-colors">
+                        Précédent
+                    </a>
+                {% endif %}
+                {% if mouvements.has_next %}
+                    <a href="?page={{ mouvements.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="inline-flex items-center px-3 py-1.5 border text-sm font-medium rounded-md transition-colors">
+                        Suivant
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %} 

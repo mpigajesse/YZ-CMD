@@ -173,17 +173,17 @@
             
             <!-- Barre de recherche -->
             <div class="w-full md:w-auto">
-                <form method="GET" class="flex">
+                <div class="flex">
                     <div class="relative">
-                        <input type="text" name="search" value="{{ search_query }}" placeholder="Rechercher..." class="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;">
+                        <input type="text" id="searchInput" value="{{ search_query }}" placeholder="Rechercher..." class="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-offset-2 transition duration-200" style="border-color: #99dddd; focus:ring-color: #023535;">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-search text-gray-400"></i>
                         </div>
                     </div>
-                    <button type="submit" class="ml-2 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: #023535; color: white; hover:background-color: #034a4a;">
+                    <button type="button" id="searchBtn" class="ml-2 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm" style="background-color: #023535; color: white; hover:background-color: #034a4a;">
                         <i class="fas fa-search"></i>
                     </button>
-                </form>
+                </div>
             </div>
         </div>
 
@@ -202,103 +202,84 @@
                         <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for commande in page_obj.object_list %}
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: #e6fffe;">
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {{ commande.id_yz }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: #e6fffe;">{{ commande.num_cmd }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: #e6fffe;">{{ commande.date_cmd|date:"d/m/Y" }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: #e6fffe;">
-                            {% if commande.ville %}
-                                {{ commande.ville.nom }}
-                            {% else %}
-                                {{ commande.ville_init|default:"Non spécifiée" }}
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: #e6fffe;">
-                            {{ commande.total_cmd|floatformat:2 }} DH
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #e6fffe;">
-                            {% if commande.etat_actuel %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium" style="background-color: {{ commande.etat_actuel.enum_etat.couleur }}20; color: {{ commande.etat_actuel.enum_etat.couleur }};">
-                                    {{ commande.etat_actuel.enum_etat.libelle }}
-                                </span>
-                            {% else %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                    Nouveau
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #e6fffe;">
-                            {% if commande.is_upsell %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Oui</span>
-                            {% else %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Non</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="{% url 'commande:detail' commande.pk %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            <a href="{% url 'commande:modifier' commande.pk %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
+                <tbody id="commandesTableBody" class="bg-white divide-y divide-gray-200">
+                    {% include 'client/partials/_detail_client_commandes_table_body.html' with page_obj=page_obj %}
                 </tbody>
             </table>
         </div>
 
-        <!-- Pagination -->
-        {% if page_obj.has_other_pages %}
-        <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-6">
-            <div class="flex flex-1 justify-between sm:hidden">
-                {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
-                {% endif %}
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
-                {% endif %}
+        <!-- Contrôles de pagination flexible -->
+        {% if page_obj and page_obj.object_list %}
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 mt-6 transition-all duration-300 hover:shadow-xl">
+            <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+                <!-- Section Éléments par page -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-list-ol text-sm" style="color: #023535;"></i>
+                        <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
             </div>
-            <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                    <p class="text-sm text-gray-700">
-                        Affichage de <span class="font-medium">{{ page_obj.start_index }}</span> à <span class="font-medium">{{ page_obj.end_index }}</span> sur <span class="font-medium">{{ page_obj.paginator.count }}</span> résultats
-                    </p>
+                    <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: #023535; border-color: #99dddd;">
+                        <option value="5" {% if items_per_page == '5' %}selected{% endif %}>5</option>
+                        <option value="6" {% if items_per_page == '6' %}selected{% endif %}>6</option>
+                        <option value="10" {% if items_per_page == '10' %}selected{% endif %}>10</option>
+                        <option value="12" {% if items_per_page == '12' %}selected{% endif %}>12</option>
+                        <option value="15" {% if items_per_page == '15' %}selected{% endif %}>15</option>
+                        <option value="20" {% if items_per_page == '20' %}selected{% endif %}>20</option>
+                        <option value="24" {% if items_per_page == '24' %}selected{% endif %}>24</option>
+                        <option value="25" {% if items_per_page == '25' %}selected{% endif %}>25</option>
+                        <option value="48" {% if items_per_page == '48' %}selected{% endif %}>48</option>
+                        <option value="50" {% if items_per_page == '50' %}selected{% endif %}>50</option>
+                        <option value="96" {% if items_per_page == '96' %}selected{% endif %}>96</option>
+                        <option value="100" {% if items_per_page == '100' %}selected{% endif %}>100</option>
+                        <option value="250" {% if items_per_page == '250' %}selected{% endif %}>250</option>
+                        <option value="500" {% if items_per_page == '500' %}selected{% endif %}>500</option>
+                        <option value="1000" {% if items_per_page == '1000' %}selected{% endif %}>1000</option>
+                        <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                    </select>
                 </div>
-                <div>
-                    <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                        {% if page_obj.has_previous %}
-                            <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                                <i class="fas fa-angle-double-left"></i>
-                            </a>
-                            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                                <i class="fas fa-angle-left"></i>
-                            </a>
-                        {% endif %}
-                        
-                        <span class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 focus:outline-offset-0" style="background-color: #023535; color: white;">
-                            {{ page_obj.number }}
-                        </span>
-                        
-                        {% if page_obj.has_next %}
-                            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                                <i class="fas fa-angle-right"></i>
-                            </a>
-                            <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                                <i class="fas fa-angle-double-right"></i>
-                            </a>
-                        {% endif %}
-                    </nav>
+                
+                <!-- Section Plage personnalisée -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-arrows-alt-h text-sm" style="color: #023535;"></i>
+                        <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                    </div>
+                    <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                                   class="w-20 px-2 py-1 text-sm border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <span class="text-gray-500">à</span>
+                            <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                                   class="w-20 px-2 py-1 text-sm border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <button id="applyRangeBtn" class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">
+                            Appliquer
+                        </button>
+                        <button id="clearRangeBtn" class="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors">
+                            Effacer
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Section Statistiques -->
+                <div class="flex items-center space-x-2 text-sm text-gray-600">
+                    <i class="fas fa-chart-bar" style="color: #023535;"></i>
+                    <span>Total: <strong style="color: #023535;">{{ page_obj.paginator.count }}</strong> commande(s)</span>
                 </div>
             </div>
         </div>
         {% endif %}
+
+        <!-- Pagination -->
+        <div id="paginationControls">
+            {% include 'client/partials/_detail_client_pagination.html' with page_obj=page_obj search_query=search_query %}
+        </div>
+
+        <!-- Informations de pagination -->
+        <div id="paginationInfoContainer">
+            {% include 'client/partials/_detail_client_pagination_info.html' with page_obj=page_obj %}
+        </div>
+
         {% else %}
         <div class="text-center py-10">
             <i class="fas fa-inbox text-6xl mb-4" style="color: #99dddd;"></i>
@@ -327,4 +308,181 @@
     animation: slideInUp 0.6s ease-out forwards;
 }
 </style>
+
+<script>
+// Variables globales pour la pagination flexible
+let currentPage = {{ page_obj.number|default:1 }};
+let currentItemsPerPage = {{ items_per_page|default:15 }};
+let currentStartRange = '{{ start_range|default:"" }}';
+let currentEndRange = '{{ end_range|default:"" }}';
+let currentSearchQuery = '{{ search_query|default:"" }}';
+
+// Fonction pour charger les données de pagination
+function loadData(searchQuery = '', page = 1, itemsPerPage = null, startRange = null, endRange = null) {
+    const url = new URL(window.location);
+    
+    // Mettre à jour les paramètres
+    if (searchQuery !== '') url.searchParams.set('search', searchQuery);
+    if (page > 1) url.searchParams.set('page', page);
+    if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+    if (startRange !== null) url.searchParams.set('start_range', startRange);
+    if (endRange !== null) url.searchParams.set('end_range', endRange);
+    
+    // Mettre à jour l'URL sans recharger la page
+    window.history.pushState({}, '', url);
+    
+    // Appel AJAX
+    fetch(`{% url 'client:detail_ajax' client.pk %}?${url.searchParams.toString()}`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Mettre à jour le tableau
+            const tableBody = document.getElementById('commandesTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = data.html_table_body;
+            }
+            
+            // Mettre à jour la pagination
+            const paginationControls = document.getElementById('paginationControls');
+            if (paginationControls) {
+                paginationControls.innerHTML = data.html_pagination;
+            }
+            
+            // Mettre à jour les informations de pagination
+            const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+            if (paginationInfoContainer) {
+                paginationInfoContainer.innerHTML = data.html_pagination_info;
+            }
+            
+            // Mettre à jour les variables globales
+            currentPage = data.current_page || 1;
+            if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
+            if (startRange !== null) currentStartRange = startRange;
+            if (endRange !== null) currentEndRange = endRange;
+            currentSearchQuery = searchQuery;
+            
+            // Réattacher les event listeners pour la pagination flexible
+            attachEventListeners();
+        } else {
+            console.error('Réponse AJAX invalide:', data);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors du chargement des données:', error);
+    });
+}
+
+// Fonction pour changer de page
+function changePage(page) {
+    loadData(currentSearchQuery, page, currentItemsPerPage, currentStartRange, currentEndRange);
+}
+
+// Fonction pour changer le nombre d'éléments par page
+function changeItemsPerPage(itemsPerPage) {
+    loadData(currentSearchQuery, 1, itemsPerPage, '', '');
+}
+
+// Fonction pour appliquer une plage personnalisée
+function applyCustomRange(startRange, endRange) {
+    loadData(currentSearchQuery, 1, null, startRange, endRange);
+}
+
+// Fonction pour effacer la plage personnalisée
+function clearCustomRange() {
+    loadData(currentSearchQuery, 1, currentItemsPerPage, '', '');
+}
+
+// Fonction pour attacher les event listeners de pagination flexible
+function attachEventListeners() {
+    // Event listener pour le select des éléments par page
+    const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+    if (itemsPerPageSelect) {
+        itemsPerPageSelect.removeEventListener('change', handleItemsPerPageChange);
+        itemsPerPageSelect.addEventListener('change', handleItemsPerPageChange);
+    }
+    
+    // Event listener pour le bouton d'application de la plage
+    const applyRangeBtn = document.getElementById('applyRangeBtn');
+    if (applyRangeBtn) {
+        applyRangeBtn.removeEventListener('click', handleApplyRange);
+        applyRangeBtn.addEventListener('click', handleApplyRange);
+    }
+    
+    // Event listener pour le bouton d'effacement de la plage
+    const clearRangeBtn = document.getElementById('clearRangeBtn');
+    if (clearRangeBtn) {
+        clearRangeBtn.removeEventListener('click', handleClearRange);
+        clearRangeBtn.addEventListener('click', handleClearRange);
+    }
+}
+
+// Handlers pour les event listeners
+function handleItemsPerPageChange(event) {
+    const itemsPerPage = event.target.value;
+    changeItemsPerPage(itemsPerPage);
+}
+
+function handleApplyRange() {
+    const startRange = document.getElementById('startRangeInput').value;
+    const endRange = document.getElementById('endRangeInput').value;
+    
+    if (startRange && endRange) {
+        applyCustomRange(startRange, endRange);
+    } else {
+        alert('Veuillez remplir les deux champs de plage');
+    }
+}
+
+function handleClearRange() {
+    document.getElementById('startRangeInput').value = '';
+    document.getElementById('endRangeInput').value = '';
+    clearCustomRange();
+}
+
+// Initialiser la pagination flexible quand le DOM est chargé
+document.addEventListener('DOMContentLoaded', function() {
+    attachEventListeners();
+    
+    // Gestion de la recherche dynamique
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    let searchTimeout;
+    
+    if (searchBtn) {
+        searchBtn.addEventListener('click', function() {
+            const searchQuery = searchInput.value.trim();
+            loadData(searchQuery, 1, currentItemsPerPage, currentStartRange, currentEndRange);
+        });
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchQuery = this.value.trim();
+            
+            // Effacer le timeout précédent
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            // Définir un nouveau timeout pour la recherche
+            searchTimeout = setTimeout(() => {
+                loadData(searchQuery, 1, currentItemsPerPage, currentStartRange, currentEndRange);
+            }, 500);
+        });
+        
+        // Recherche avec la touche Entrée
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const searchQuery = this.value.trim();
+                loadData(searchQuery, 1, currentItemsPerPage, currentStartRange, currentEndRange);
+            }
+        });
+    }
+});
+</script>
 {% endblock %} 

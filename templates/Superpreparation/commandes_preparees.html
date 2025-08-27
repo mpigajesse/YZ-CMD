@@ -1,0 +1,1715 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+{% load commande_filters %}
+
+{% block title %}Commandes Préparées - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Variables CSS harmonisées avec le thème de supervision */
+    :root {
+        /* Utilisation des couleurs du thème de base Superpreparation */
+        --preparation-primary: #070F2B; /* Couleur principale navy */
+        --preparation-dark: #050A1F;   /* Plus sombre */
+        --preparation-light: #0E1D3D;  /* Plus clair */
+        --preparation-text-light: #E6F0FF; /* Texte très clair */
+        --preparation-border-accent: #1E3A8A; /* Accent (indigo) */
+        --preparation-hover-bg: #0B1733; /* Arrière-plan au survol */
+        --preparation-success: #10b981;
+        --preparation-warning: #f59e0b;
+        --preparation-error: #ef4444;
+        --preparation-info: #3b82f6;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    @keyframes bounce {
+        0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0); }
+        40%, 43% { transform: translate3d(0, -30px, 0); }
+        70% { transform: translate3d(0, -15px, 0); }
+        90% { transform: translate3d(0, -4px, 0); }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+    
+    .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+    
+    .animate-bounce {
+        animation: bounce 1s;
+    }
+
+    /* Styles harmonisés avec le thème de supervision */
+    .theme-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border-radius: 1rem;
+        box-shadow: 0 10px 25px rgba(7, 15, 43, 0.2);
+        border: 2px solid var(--preparation-border-accent);
+    }
+
+    .theme-card {
+        background: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--preparation-border-accent);
+        transition: all 0.3s ease;
+    }
+
+    .theme-card:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .theme-button-primary {
+        background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-light));
+        color: var(--preparation-text-light);
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(7, 15, 43, 0.2);
+    }
+
+    .theme-button-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px -3px rgba(7, 15, 43, 0.3);
+        background: linear-gradient(135deg, var(--preparation-dark), var(--preparation-primary));
+    }
+
+    .theme-button-secondary {
+        background: white;
+        color: var(--preparation-primary);
+        border: 2px solid var(--preparation-primary);
+        border-radius: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .theme-button-secondary:hover {
+        background: var(--preparation-primary);
+        color: var(--preparation-text-light);
+        transform: translateY(-2px);
+    }
+
+    .theme-input {
+        border: 2px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .theme-input:focus {
+        border-color: var(--preparation-primary);
+        box-shadow: 0 0 0 3px rgba(7, 15, 43, 0.1);
+        outline: none;
+    }
+
+    /* Cartes de statistiques */
+    .stats-card {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--preparation-border-accent);
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .stats-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        transition: all 0.3s ease;
+    }
+
+    /* Icônes d'information */
+    .info-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .info-icon.green { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+    .info-icon.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; }
+    .info-icon.purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; }
+    .info-icon.orange { background: linear-gradient(135deg, #f97316, #ea580c); color: white; }
+
+    /* Sections d'information */
+    .info-section {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--preparation-border-accent);
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid #f3f4f6;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:last-child {
+        border-bottom: none;
+    }
+
+    .info-item:hover {
+        background: #f9fafb;
+    }
+
+    /* Badges et états */
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .etat-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* Boutons d'action */
+    .action-button {
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        border: none;
+        cursor: pointer;
+    }
+
+    .action-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .toast {
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        padding: 1rem;
+        min-width: 300px;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        border-left: 4px solid;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.success { border-left-color: #10b981; }
+    .toast.error { border-left-color: #ef4444; }
+    .toast.warning { border-left-color: #f59e0b; }
+    .toast.info { border-left-color: #3b82f6; }
+
+    /* Loading spinner */
+    .loading-spinner {
+        border: 2px solid #f3f4f6;
+        border-top: 2px solid var(--preparation-primary);
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Tooltip */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+    }
+
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        width: 120px;
+        background-color: #555;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -60px;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+        opacity: 1;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+        width: 100%;
+        height: 8px;
+        background-color: #e5e7eb;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transition: width 0.3s ease;
+    }
+
+    /* Empty state */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6b7280;
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    /* Page header */
+    .page-header {
+        background: linear-gradient(135deg, var(--preparation-primary), var(--preparation-light));
+        border-radius: 1rem;
+        box-shadow: 0 10px 25px rgba(7, 15, 43, 0.2);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--preparation-primary);
+        margin-bottom: 1rem;
+    }
+
+    /* Modales */
+    .theme-modal {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 25px 50px rgba(7, 15, 43, 0.3);
+        border-radius: 16px;
+    }
+
+    .theme-modal-header {
+        border-bottom: 2px solid var(--preparation-border-accent);
+        background: linear-gradient(135deg, var(--preparation-text-light), var(--preparation-hover-bg));
+        border-radius: 12px 12px 0 0;
+        padding: 20px;
+    }
+
+    .theme-modal-footer {
+        border-top: 2px solid var(--preparation-border-accent);
+        background: linear-gradient(135deg, var(--preparation-text-light), var(--preparation-hover-bg));
+        border-radius: 0 0 12px 12px;
+        padding: 20px;
+    }
+
+    /* SOLUTION PROFESSIONNELLE POUR DASHBOARD RESPONSIVE */
+    
+    /* Conteneur principal avec calcul automatique de l'espace */
+    .main-content {
+        width: 100%;
+        max-width: 100%;
+        padding: 0.75rem;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+
+    /* Optimisation générale de l'espacement */
+    .page-header {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .stats-card {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .info-section {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .action-buttons {
+        margin-bottom: 1rem;
+    }
+
+    .pagination-controls {
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Tableau responsive professionnel */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-responsive table {
+        width: 100%;
+        min-width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+    }
+
+    /* Largeurs de colonnes adaptatives */
+    .table-responsive th:nth-child(1), .table-responsive td:nth-child(1) { width: 40px; }  /* Checkbox */
+    .table-responsive th:nth-child(2), .table-responsive td:nth-child(2) { width: 70px; }  /* ID YZ */
+    .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 90px; }  /* N° Externe */
+    .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 140px; } /* Client */
+    .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 100px; } /* Téléphone */
+    .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 120px; } /* Ville & Région */
+    .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 80px; }  /* Total */
+    .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 100px; } /* Date Préparation */
+    .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 120px; } /* Préparée par */
+    .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 100px; } /* État */
+    .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 120px; } /* Articles */
+    .table-responsive th:nth-child(12), .table-responsive td:nth-child(12) { width: 80px; } /* Actions */
+
+    /* Scrollbar personnalisée */
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--preparation-primary);
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--preparation-light);
+    }
+
+    /* Responsive adaptatif professionnel */
+    @media (max-width: 1400px) {
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.8rem;
+        }
+        
+        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 120px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 100px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 100px; }
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 110px; }
+    }
+
+    @media (max-width: 1200px) {
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.35rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 100px; }
+        .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 80px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 80px; }
+        .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 80px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 80px; }
+        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 80px; }
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 100px; }
+    }
+
+    @media (max-width: 768px) {
+        .main-content {
+            padding: 0.5rem;
+        }
+        
+        .page-header {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .stats-card {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-section {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.3rem 0.4rem;
+            font-size: 0.7rem;
+        }
+    }
+
+    /* Optimisation des éléments compacts */
+    .stats-icon {
+        width: 40px;
+        height: 40px;
+        padding: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .info-icon {
+        width: 35px;
+        height: 35px;
+        font-size: 0.875rem;
+    }
+
+    .section-title {
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .info-item {
+        padding: 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.7rem;
+    }
+
+    .etat-badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.65rem;
+    }
+
+    .action-button {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- Toast notifications container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- En-tête de la page -->
+    <div class="theme-header text-white p-6 mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+            <div>
+                <h1 class="text-3xl font-bold flex items-center mb-2">
+                    <i class="fas fa-check-circle mr-3 text-green-300"></i>
+                    {{ page_title|default:'Commandes Préparées' }}
+                </h1>
+                <p class="text-white opacity-90">{{ page_subtitle|default:'Liste des commandes finalisées et prêtes pour la livraison' }}</p>
+            </div>
+            <div class="flex items-center gap-6 mt-4 md:mt-0">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-white">{{ stats.total_preparees|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">Préparées</div>
+                </div>
+                <div class="text-center border-l border-white/30 pl-6 ml-6">
+                    <div class="text-3xl font-bold text-white">{{ stats.valeur_totale|default:0|floatformat:0 }} DH</div>
+                    <div class="text-sm text-white opacity-80">Valeur totale</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <!-- Total des commandes préparées -->
+        <div class="stats-card group animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">
+                    <i class="fas fa-check-circle text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Total Préparées</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ stats.total_preparees|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Préparées aujourd'hui -->
+        <div class="stats-card group animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300" style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white;">
+                    <i class="fas fa-calendar-check text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Aujourd'hui</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ stats.preparees_today|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Valeur totale -->
+        <div class="stats-card group animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white;">
+                    <i class="fas fa-coins text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Valeur Totale</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ stats.valeur_totale|default:0|floatformat:0 }} DH</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section d'informations -->
+    <div class="info-section mb-6">
+        <h2 class="section-title">
+            <i class="fas fa-info-circle text-blue-600"></i>
+            Informations générales
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="info-item">
+                <div class="info-icon green">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Commandes préparées</h3>
+                    <p class="text-xs text-gray-600">Commandes finalisées et prêtes pour la livraison</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon blue">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Préparées aujourd'hui</h3>
+                    <p class="text-xs text-gray-600">Commandes finalisées aujourd'hui</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon purple">
+                    <i class="fas fa-coins"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Valeur totale</h3>
+                    <p class="text-xs text-gray-600">Montant total des commandes préparées</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carte principale avec tableau -->
+    <div class="theme-card p-6 mb-6">
+        <!-- Barre d'outils avec recherche intelligente -->
+        <div class="mb-6 flex flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <!-- Sélecteur éléments par page -->
+            <form method="GET" class="flex items-center">
+                {% if search_query %}
+                    <input type="hidden" name="search" value="{{ search_query }}">
+                {% endif %}
+                
+                <!-- Container moderne pour le sélecteur -->
+                <div class="flex items-center bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-2 hover:shadow-md transition-all duration-300 group">
+                    <!-- Icône -->
+                    <div class="mr-3 p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all duration-300">
+                        <i class="fas fa-list-ol text-blue-600 text-sm"></i>
+                    </div>
+                    
+                    <!-- Label stylisé -->
+                    <label for="itemsPerPage" class="mr-3 text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-300">
+                        Éléments/page
+                    </label>
+                    
+                    <!-- Séparateur -->
+                    <div class="w-px h-6 bg-gray-300 mx-2"></div>
+                    
+                    <!-- Select stylisé -->
+                    <select id="itemsPerPage" name="items_per_page" onchange="this.form.submit()" 
+                            class="px-3 py-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-300 cursor-pointer border-none bg-transparent focus:outline-none">
+                        <option value="10" {% if items_per_page|default:10 == 10 %}selected{% endif %}>10</option>
+                        <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </form>
+
+            <!-- Barre de recherche intelligente -->
+            <div class="relative ml-auto">
+                <div class="mb-3">
+                    <p class="text-gray-700 text-sm">
+                        Recherche intelligente et filtres avancés pour optimiser votre suivi des commandes.
+                    </p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <input type="text" id="smartSearch" 
+                               placeholder="Recherche intelligente..." 
+                               class="block px-4 py-2 pr-10 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm w-64 h-10"
+                               autocomplete="off">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                    </div>
+                    <button onclick="clearSmartSearch()" 
+                            class="inline-flex items-center px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors h-10">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button onclick="toggleAdvancedSearch()" 
+                            class="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors h-10">
+                        <i class="fas fa-filter mr-2"></i>
+                        Filtres
+                    </button>
+                </div>
+                
+                <!-- Filtres avancés -->
+                <div id="advancedSearch" class="hidden absolute top-full left-0 mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-4 z-50 min-w-96">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ID YZ</label>
+                            <input type="text" id="filterIdYz" placeholder="ID YZ..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">N° Externe</label>
+                            <input type="text" id="filterNumCmd" placeholder="N° commande..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                            <input type="text" id="filterClient" placeholder="Nom ou prénom..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                            <input type="text" id="filterPhone" placeholder="Numéro..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date Préparation</label>
+                            <input type="date" id="filterDatePreparation" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Min</label>
+                            <input type="number" id="filterTotalMin" placeholder="0" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Max</label>
+                            <input type="number" id="filterTotalMax" placeholder="1000" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Opérateur</label>
+                            <input type="text" id="filterOperateur" placeholder="Opérateur..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-between">
+                        <button onclick="applyFilters()" 
+                                class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors h-10">
+                            <i class="fas fa-check mr-2"></i>
+                            Appliquer
+                        </button>
+                        <button onclick="clearFilters()" 
+                                class="inline-flex items-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors h-10">
+                            <i class="fas fa-eraser mr-2"></i>
+                            Effacer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Indicateur de résultats -->
+        <div id="searchResults" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md hidden">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-search text-blue-600 mr-2"></i>
+                    <span class="text-blue-800">
+                        <span id="resultCount">0</span> résultat(s) trouvé(s)
+                    </span>
+                </div>
+                <button onclick="clearAllSearch()" class="text-blue-600 hover:text-blue-800 text-sm">
+                    <i class="fas fa-times mr-1"></i>Effacer tout
+                </button>
+            </div>
+        </div>
+
+        <!-- Message si aucun résultat -->
+        {% if not commandes_preparees %}
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        {% if search_query %}
+                            Aucune commande préparée trouvée pour la recherche "{{ search_query }}".
+                        {% else %}
+                            Aucune commande préparée pour le moment.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tableau des commandes préparées -->
+        {% if commandes_preparees %}
+        <div class="table-responsive mb-6">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead style="background-color: var(--preparation-primary);">
+                    <tr>
+                        <th class="px-3 py-2 text-left">
+                            <input type="checkbox" id="selectAll" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500">
+                        </th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Date Préparation</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Préparée par</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider">Articles</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
+                    {% for commande in commandes_preparees %}
+                    <tr class="hover:bg-gray-50 transition-colors border-b border-gray-200 commande-row" 
+                        data-id-yz="{{ commande.id_yz }}"
+                        data-num-cmd="{{ commande.num_cmd|default:'' }}"
+                        data-client="{{ commande.client.nom }} {{ commande.client.prenom }}"
+                        data-phone="{{ commande.client.numero_tel|default:'' }}"
+                        data-email="{{ commande.client.email|default:'' }}"
+                        data-ville-client="{{ commande.ville_init|default:'' }}"
+                        data-ville-region="{% if commande.ville %}{{ commande.ville.nom }} {{ commande.ville.region.nom }}{% endif %}"
+                        data-adresse="{% if commande.client.adresse %}{{ commande.client.adresse }}{% endif %}"
+                        data-date-preparation="{% for etat in commande.etats.all %}{% if etat.enum_etat.libelle == 'Préparée' and not etat.date_fin %}{{ etat.date_debut|date:'d/m/Y' }}{% endif %}{% endfor %}"
+                        data-total="{{ commande.total_cmd }}"
+                        data-etat="Préparée"
+                        data-operateur="{% for etat in commande.etats.all %}{% if etat.enum_etat.libelle == 'Préparée' and not etat.date_fin %}{{ etat.operateur.prenom }} {{ etat.operateur.nom }}{% endif %}{% endfor %}">
+
+                        <!-- Checkbox de sélection -->
+                        <td class="px-4 py-4 whitespace-nowrap text-center">
+                            <input type="checkbox" class="commande-checkbox form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-commande-id="{{ commande.id }}">
+                        </td>
+
+                        <!-- ID YZ -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: #F5DEB3;">
+                            <span class="font-bold" style="color: #2e1b22;">{{ commande.id_yz }}</span>
+                        </td>
+
+                        <!-- N° Externe -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600 border-r" style="border-color: #F5DEB3;">
+                            {{ commande.num_cmd|default:"-" }}
+                        </td>
+
+                        <!-- Client -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+                            <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                            {% if commande.client.email %}
+                            <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                            {% endif %}
+                        </td>
+
+                        <!-- Téléphone -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+                            {% if commande.client.numero_tel %}
+                            <div class="text-sm text-gray-900 font-medium">
+                                <i class="fas fa-phone mr-1"></i>
+                                {{ commande.client.numero_tel }}
+                            </div>
+                            {% else %}
+                            <div class="text-sm text-gray-500">Non renseigné</div>
+                            {% endif %}
+                        </td>
+
+                        <!-- Ville & Région -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+                            {% if commande.ville %}
+                                <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                                <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                            {% else %}
+                                <div class="text-sm text-gray-500">Non définie</div>
+                            {% endif %}
+                        </td>
+
+                        <!-- Total -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+                            <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                        </td>
+
+                        <!-- Date Préparation -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+                            {% for etat in commande.etats.all %}
+                                {% if etat.enum_etat.libelle == 'Préparée' and not etat.date_fin %}
+                                    <div class="text-sm text-gray-900">{{ etat.date_debut|date:"d/m/Y" }}</div>
+                                    <div class="text-xs text-gray-500">{{ etat.date_debut|date:"H:i" }}</div>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+
+                        <!-- Préparée par -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+                            {% for etat in commande.etats.all %}
+                                {% if etat.enum_etat.libelle == 'Préparée' and not etat.date_fin %}
+                                    <div class="text-sm font-medium text-gray-900">{{ etat.operateur.prenom }} {{ etat.operateur.nom }}</div>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+
+                        <!-- État -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+                            <div class="flex flex-col space-y-1">
+                                <!-- État actuel avec icône d'information -->
+                                <div class="flex items-center">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        <i class="fas fa-check-circle mr-1"></i>
+                                        Préparée
+                                    </span>
+                                    
+                                    <!-- Bouton pour afficher/masquer les détails d'état -->
+                                    <button onclick="toggleEtatDetails('{{ commande.id }}')" 
+                                            class="ml-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                                            title="Afficher/masquer les détails d'état">
+                                        <i class="fas fa-info text-gray-600 text-xs"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Détails d'état (masqués par défaut) -->
+                                <div id="etat-details-{{ commande.id }}" class="hidden mt-2 space-y-1">
+                                    <!-- Affichage des étapes de préparation -->
+                                    <div class="mt-2 pt-2 border-t border-gray-200">
+                                        <div class="text-xs font-medium text-gray-700 mb-1">Étapes de préparation :</div>
+                                        
+                                        <!-- Étape 1: En préparation -->
+                                        <div class="flex items-center mb-1">
+                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                <i class="fas fa-check text-white text-xs"></i>
+                                            </span>
+                                            <span class="text-xs text-green-600">En préparation</span>
+                                            <span class="text-xs text-green-500 ml-2">
+                                                <i class="fas fa-check mr-1"></i>Terminé
+                                            </span>
+                                        </div>
+                                        
+                                        <!-- Étape 2: Collectée -->
+                                        <div class="flex items-center mb-1">
+                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                <i class="fas fa-check text-white text-xs"></i>
+                                            </span>
+                                            <span class="text-xs text-green-600">Collectée</span>
+                                            <span class="text-xs text-green-500 ml-2">
+                                                <i class="fas fa-check mr-1"></i>Terminé
+                                            </span>
+                                        </div>
+                                        
+                                        <!-- Étape 3: Emballée -->
+                                        <div class="flex items-center mb-1">
+                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                <i class="fas fa-check text-white text-xs"></i>
+                                            </span>
+                                            <span class="text-xs text-green-600">Emballée</span>
+                                            <span class="text-xs text-green-500 ml-2">
+                                                <i class="fas fa-check mr-1"></i>Terminé
+                                            </span>
+                                        </div>
+                                        
+                                        <!-- Étape 4: Préparée (finalisée par superviseur) -->
+                                        <div class="flex items-center">
+                                            <span class="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center mr-2">
+                                                <i class="fas fa-check text-white text-xs"></i>
+                                            </span>
+                                            <span class="text-xs text-green-600">Préparée</span>
+                                            <span class="text-xs text-green-500 ml-2">
+                                                <i class="fas fa-check mr-1"></i>Terminé
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Affichage des affectations -->
+                                    <div class="mt-2 pt-2 border-t border-gray-200">
+                                        <div class="text-xs font-medium text-gray-700 mb-1">Affectations :</div>
+                                        {% for etat in commande.etats.all %}
+                                            {% if etat.enum_etat.libelle == 'Préparée' and not etat.date_fin %}
+                                                <div class="text-xs text-gray-600">
+                                                    <i class="fas fa-user-check mr-1"></i>
+                                                    Finalisée par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                    <span class="text-gray-500">({{ etat.date_debut|date:"d/m/Y H:i" }})</span>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <!-- Affichage des changements d'état -->
+                                    <div class="mt-2 pt-2 border-t border-gray-200">
+                                        <div class="text-xs font-medium text-gray-700 mb-1">Changements d'état :</div>
+                                        {% for etat in commande.etats.all %}
+                                            {% if etat.enum_etat.libelle in 'En préparation,Collectée,Emballée,Préparée' %}
+                                                <div class="text-xs text-gray-600">
+                                                    <i class="fas fa-arrow-right mr-1"></i>
+                                                    {{ etat.enum_etat.libelle }}
+                                                    {% if etat.operateur %}
+                                                        par {{ etat.operateur.prenom }} {{ etat.operateur.nom }}
+                                                    {% endif %}
+                                                    <span class="text-gray-500">({{ etat.date_debut|date:"d/m/Y H:i" }})</span>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Articles -->
+                        <td class="px-4 py-4 whitespace-nowrap text-center" style="min-width: 96px;">
+                            <div class="flex items-center justify-center space-x-2">
+                                <!-- Panier (icône + compteur) -->
+                                <button type="button"
+                                   onclick="openPanierModal({{ commande.id }})"
+                                   class="inline-flex items-center px-2.5 py-1 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                   style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                   title="Voir le panier">
+                                    <i class="fas fa-shopping-cart text-sm mr-1"></i>
+                                    <span class="text-xs">{{ commande.paniers.count }}</span>
+                                </button>
+                            </div>
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="px-4 py-4 whitespace-nowrap text-center" style="min-width: 120px;">
+                            <div class="flex items-center justify-center space-x-2">
+                                <!-- Détails -->
+                                <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}"
+                                   class="inline-flex items-center justify-center w-9 h-9 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                   style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);"
+                                   title="Voir la commande" aria-label="Détails">
+                                    <i class="fas fa-eye text-sm"></i>
+                                </a>
+                                
+                                <!-- Modifier -->
+                                <a href="{% url 'Superpreparation:modifier_commande_superviseur' commande.pk %}"
+                                   class="inline-flex items-center justify-center w-9 h-9 rounded-md shadow-sm text-white transition-all hover:shadow-lg"
+                                   style="background-color: #d97706; hover:background-color: #b45309;"
+                                   title="Modifier la commande" aria-label="Modifier">
+                                    <i class="fas fa-edit text-sm"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Pagination -->
+        {% if commandes_preparees.has_other_pages %}
+        <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
+            <div class="flex flex-1 justify-between sm:hidden">
+                {% if commandes_preparees.has_previous %}
+                    <a href="?page={{ commandes_preparees.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Précédent</a>
+                {% endif %}
+                {% if commandes_preparees.has_next %}
+                    <a href="?page={{ commandes_preparees.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Suivant</a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Affichage de
+                        <span class="font-medium">{{ commandes_preparees.start_index }}</span>
+                        à
+                        <span class="font-medium">{{ commandes_preparees.end_index }}</span>
+                        sur
+                        <span class="font-medium">{{ commandes_preparees.paginator.count }}</span>
+                        résultats
+                    </p>
+                </div>
+                <div>
+                    <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                        {% if commandes_preparees.has_previous %}
+                            <a href="?page={{ commandes_preparees.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20">
+                                <span class="sr-only">Précédent</span>
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        {% endif %}
+                        {% for p in commandes_preparees.paginator.page_range %}
+                            {% if p == commandes_preparees.number %}
+                                <span class="relative z-10 inline-flex items-center bg-blue-600 px-4 py-2 text-sm font-semibold text-white focus:z-20">{{ p }}</span>
+                            {% else %}
+                                <a href="?page={{ p }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20">{{ p }}</a>
+                            {% endif %}
+                        {% endfor %}
+                        {% if commandes_preparees.has_next %}
+                            <a href="?page={{ commandes_preparees.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if items_per_page %}&items_per_page={{ items_per_page }}{% endif %}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20">
+                                <span class="sr-only">Suivant</span>
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Panier -->
+<div id="panierModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <!-- En-tête du modal -->
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                    <i class="fas fa-shopping-cart mr-2" style="color: var(--preparation-primary);"></i>
+                    Détails du Panier
+                </h3>
+                <button onclick="closePanierModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Contenu du modal -->
+            <div id="panierContent" class="max-h-96 overflow-y-auto">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+            
+            <!-- Boutons d'action -->
+            <div class="flex justify-end mt-4 pt-4 border-t border-gray-200">
+                <button onclick="closePanierModal()" 
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Variables globales
+    let searchTimeout;
+    let currentFilters = {};
+    let allCommandes = [];
+
+    // Initialisation au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+        setupEventListeners();
+        loadAllCommandes();
+    });
+
+    // Initialisation de la page
+    function initializePage() {
+        // Animation des éléments au chargement
+        const animatedElements = document.querySelectorAll('.animate-slideInUp, .animate-fadeIn');
+        animatedElements.forEach((element, index) => {
+            element.style.animationDelay = `${index * 0.1}s`;
+        });
+
+        // Initialisation des tooltips
+        initializeTooltips();
+        
+        // Initialisation des checkboxes
+        initializeCheckboxes();
+    }
+
+    // Configuration des écouteurs d'événements
+    function setupEventListeners() {
+        // Recherche intelligente
+        const smartSearch = document.getElementById('smartSearch');
+        if (smartSearch) {
+            smartSearch.addEventListener('input', handleSmartSearch);
+            smartSearch.addEventListener('keydown', handleSearchKeydown);
+        }
+
+        // Sélecteur d'éléments par page
+        const itemsPerPage = document.getElementById('itemsPerPage');
+        if (itemsPerPage) {
+            itemsPerPage.addEventListener('change', handleItemsPerPageChange);
+        }
+
+        // Fermeture des filtres avancés en cliquant à l'extérieur
+        document.addEventListener('click', function(e) {
+            const advancedSearch = document.getElementById('advancedSearch');
+            const filterButton = document.querySelector('[onclick="toggleAdvancedSearch()"]');
+            
+            if (advancedSearch && !advancedSearch.contains(e.target) && !filterButton.contains(e.target)) {
+                advancedSearch.classList.add('hidden');
+            }
+        });
+
+        // Gestion des touches clavier
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAllModals();
+            }
+        });
+    }
+
+    // Chargement de toutes les commandes pour la recherche
+    function loadAllCommandes() {
+        const rows = document.querySelectorAll('.commande-row');
+        allCommandes = Array.from(rows).map(row => ({
+            element: row,
+            data: {
+                idYz: row.dataset.idYz || '',
+                numCmd: row.dataset.numCmd || '',
+                client: row.dataset.client || '',
+                phone: row.dataset.phone || '',
+                email: row.dataset.email || '',
+                villeRegion: row.dataset.villeRegion || '',
+                adresse: row.dataset.adresse || '',
+                datePreparation: row.dataset.datePreparation || '',
+                total: parseFloat(row.dataset.total) || 0,
+                etat: row.dataset.etat || '',
+                operateur: row.dataset.operateur || ''
+            }
+        }));
+    }
+
+    // Recherche intelligente
+    function handleSmartSearch(e) {
+        const query = e.target.value.toLowerCase().trim();
+        
+        // Annuler la recherche précédente
+        clearTimeout(searchTimeout);
+        
+        // Délai pour éviter trop de recherches
+        searchTimeout = setTimeout(() => {
+            performSmartSearch(query);
+        }, 300);
+    }
+
+    // Exécution de la recherche intelligente
+    function performSmartSearch(query) {
+        if (!query) {
+            showAllRows();
+            hideSearchResults();
+            return;
+        }
+
+        const results = allCommandes.filter(commande => {
+            const data = commande.data;
+            return (
+                data.idYz.toLowerCase().includes(query) ||
+                data.numCmd.toLowerCase().includes(query) ||
+                data.client.toLowerCase().includes(query) ||
+                data.phone.toLowerCase().includes(query) ||
+                data.email.toLowerCase().includes(query) ||
+                data.villeRegion.toLowerCase().includes(query) ||
+                data.adresse.toLowerCase().includes(query) ||
+                data.operateur.toLowerCase().includes(query) ||
+                data.etat.toLowerCase().includes(query)
+            );
+        });
+
+        // Masquer toutes les lignes
+        hideAllRows();
+        
+        // Afficher seulement les résultats
+        results.forEach(result => {
+            result.element.style.display = '';
+            result.element.classList.add('search-result');
+        });
+
+        // Afficher les résultats de recherche
+        showSearchResults(results.length);
+        
+        // Animation des résultats
+        animateSearchResults();
+    }
+
+    // Affichage de tous les résultats
+    function showAllRows() {
+        allCommandes.forEach(commande => {
+            commande.element.style.display = '';
+            commande.element.classList.remove('search-result');
+        });
+    }
+
+    // Masquage de toutes les lignes
+    function hideAllRows() {
+        allCommandes.forEach(commande => {
+            commande.element.style.display = 'none';
+        });
+    }
+
+    // Affichage des résultats de recherche
+    function showSearchResults(count) {
+        const searchResults = document.getElementById('searchResults');
+        const resultCount = document.getElementById('resultCount');
+        
+        if (searchResults && resultCount) {
+            resultCount.textContent = count;
+            searchResults.classList.remove('hidden');
+            searchResults.classList.add('animate-fadeIn');
+        }
+    }
+
+    // Masquage des résultats de recherche
+    function hideSearchResults() {
+        const searchResults = document.getElementById('searchResults');
+        if (searchResults) {
+            searchResults.classList.add('hidden');
+        }
+    }
+
+    // Animation des résultats de recherche
+    function animateSearchResults() {
+        const results = document.querySelectorAll('.search-result');
+        results.forEach((result, index) => {
+            result.style.animationDelay = `${index * 0.05}s`;
+            result.classList.add('animate-slideInUp');
+        });
+    }
+
+    // Gestion des touches de recherche
+    function handleSearchKeydown(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const query = e.target.value.trim();
+            if (query) {
+                performSmartSearch(query);
+            }
+        } else if (e.key === 'Escape') {
+            e.target.value = '';
+            clearSmartSearch();
+        }
+    }
+
+    // Effacement de la recherche intelligente
+    function clearSmartSearch() {
+        const smartSearch = document.getElementById('smartSearch');
+        if (smartSearch) {
+            smartSearch.value = '';
+        }
+        showAllRows();
+        hideSearchResults();
+    }
+
+    // Effacement de toute la recherche
+    function clearAllSearch() {
+        clearSmartSearch();
+        clearFilters();
+    }
+
+    // Basculement des filtres avancés
+    function toggleAdvancedSearch() {
+        const advancedSearch = document.getElementById('advancedSearch');
+        if (advancedSearch) {
+            advancedSearch.classList.toggle('hidden');
+        }
+    }
+
+    // Application des filtres
+    function applyFilters() {
+        const filters = {
+            idYz: document.getElementById('filterIdYz')?.value || '',
+            numCmd: document.getElementById('filterNumCmd')?.value || '',
+            client: document.getElementById('filterClient')?.value || '',
+            phone: document.getElementById('filterPhone')?.value || '',
+            datePreparation: document.getElementById('filterDatePreparation')?.value || '',
+            totalMin: parseFloat(document.getElementById('filterTotalMin')?.value) || 0,
+            totalMax: parseFloat(document.getElementById('filterTotalMax')?.value) || Infinity,
+            operateur: document.getElementById('filterOperateur')?.value || ''
+        };
+
+        currentFilters = filters;
+        performAdvancedFiltering(filters);
+        toggleAdvancedSearch();
+    }
+
+    // Exécution du filtrage avancé
+    function performAdvancedFiltering(filters) {
+        const results = allCommandes.filter(commande => {
+            const data = commande.data;
+            
+            // Filtres de texte
+            if (filters.idYz && !data.idYz.toLowerCase().includes(filters.idYz.toLowerCase())) return false;
+            if (filters.numCmd && !data.numCmd.toLowerCase().includes(filters.numCmd.toLowerCase())) return false;
+            if (filters.client && !data.client.toLowerCase().includes(filters.client.toLowerCase())) return false;
+            if (filters.phone && !data.phone.toLowerCase().includes(filters.phone.toLowerCase())) return false;
+            if (filters.operateur && !data.operateur.toLowerCase().includes(filters.operateur.toLowerCase())) return false;
+            
+            // Filtres numériques
+            if (filters.totalMin > 0 && data.total < filters.totalMin) return false;
+            if (filters.totalMax < Infinity && data.total > filters.totalMax) return false;
+            
+            // Filtre de date
+            if (filters.datePreparation && data.datePreparation) {
+                const filterDate = new Date(filters.datePreparation);
+                const commandeDate = new Date(data.datePreparation.split('/').reverse().join('-'));
+                if (commandeDate.toDateString() !== filterDate.toDateString()) return false;
+            }
+            
+            return true;
+        });
+
+        // Masquer toutes les lignes
+        hideAllRows();
+        
+        // Afficher seulement les résultats filtrés
+        results.forEach(result => {
+            result.element.style.display = '';
+            result.element.classList.add('filter-result');
+        });
+
+        // Afficher les résultats
+        showSearchResults(results.length);
+    }
+
+    // Effacement des filtres
+    function clearFilters() {
+        // Réinitialiser les champs de filtre
+        const filterInputs = [
+            'filterIdYz', 'filterNumCmd', 'filterClient', 'filterPhone',
+            'filterDatePreparation', 'filterTotalMin', 'filterTotalMax', 'filterOperateur'
+        ];
+        
+        filterInputs.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.value = '';
+        });
+
+        // Réinitialiser les filtres actuels
+        currentFilters = {};
+        
+        // Afficher toutes les lignes
+        showAllRows();
+        hideSearchResults();
+    }
+
+    // Gestion du changement d'éléments par page
+    function handleItemsPerPageChange(e) {
+        const form = e.target.closest('form');
+        if (form) {
+            form.submit();
+        }
+    }
+
+    // Initialisation des tooltips
+    function initializeTooltips() {
+        const tooltipElements = document.querySelectorAll('[title]');
+        tooltipElements.forEach(element => {
+            element.classList.add('tooltip');
+        });
+    }
+
+    // Initialisation des checkboxes
+    function initializeCheckboxes() {
+        const selectAll = document.getElementById('selectAll');
+        const commandeCheckboxes = document.querySelectorAll('.commande-checkbox');
+        
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                commandeCheckboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+                updateSelectionUI();
+            });
+        }
+        
+        commandeCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateSelectionUI);
+        });
+    }
+
+    // Mise à jour de l'interface de sélection
+    function updateSelectionUI() {
+        const checkedBoxes = document.querySelectorAll('.commande-checkbox:checked');
+        const selectAll = document.getElementById('selectAll');
+        
+        if (selectAll) {
+            selectAll.indeterminate = checkedBoxes.length > 0 && checkedBoxes.length < document.querySelectorAll('.commande-checkbox').length;
+            selectAll.checked = checkedBoxes.length === document.querySelectorAll('.commande-checkbox').length;
+        }
+    }
+
+    // Fonction pour afficher/masquer les détails d'état
+    function toggleEtatDetails(commandeId) {
+        const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+        if (detailsElement) {
+            detailsElement.classList.toggle('hidden');
+            
+            // Animation de l'icône
+            const button = event.target.closest('button');
+            const icon = button.querySelector('i');
+            if (detailsElement.classList.contains('hidden')) {
+                icon.className = 'fas fa-info text-gray-600 text-xs';
+            } else {
+                icon.className = 'fas fa-chevron-up text-gray-600 text-xs';
+            }
+        }
+    }
+
+    // Fonctions pour le modal du panier
+    function openPanierModal(commandeId) {
+        const modal = document.getElementById('panierModal');
+        const content = document.getElementById('panierContent');
+        
+        // Afficher le modal
+        modal.classList.remove('hidden');
+        
+        // Charger le contenu du panier
+        fetch(`/Superpreparation/api/commande/${commandeId}/panier/`, { 
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data || data.error || data.success === false) {
+                content.innerHTML = '<p class="text-red-600">' + (data?.error || data?.message || 'Impossible de charger le panier') + '</p>';
+                return;
+            }
+            
+            const cmd = data.commande || {};
+            const articles = data.articles || [];
+
+            // Construire le HTML du panier
+            let htmlContent = `
+                <div class="space-y-4">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-medium text-gray-900 mb-2">Commande ${cmd.id_yz || ''}</h4>
+                        <p class="text-sm text-gray-600">Client: ${cmd.client_nom || ''}</p>
+                    </div>
+                    <div class="space-y-3">
+            `;
+
+            if (articles.length === 0) {
+                htmlContent += `
+                    <div class="text-center py-8">
+                        <i class="fas fa-shopping-cart text-4xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500">Aucun article dans le panier</p>
+                    </div>
+                `;
+            } else {
+                articles.forEach(a => {
+                    htmlContent += `
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex-1">
+                                    <h5 class="font-medium text-gray-900">${a.nom || ''}</h5>
+                                    <p class="text-sm text-gray-600">Réf: ${a.reference || 'N/A'}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-lg font-bold text-green-600">${parseFloat(a.prix_unitaire || 0).toFixed(2)} DH</span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span class="text-gray-500">Quantité:</span>
+                                    <span class="font-medium text-gray-900 ml-1">${a.quantite || 0}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500">Sous-total:</span>
+                                    <span class="font-medium text-green-600 ml-1">${parseFloat(a.sous_total || 0).toFixed(2)} DH</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            htmlContent += `
+                    </div>
+                    <div class="border-t border-gray-200 pt-4">
+                        <div class="flex justify-between items-center">
+                            <div class="text-lg font-medium text-gray-900">
+                                Total (${cmd.total_articles || 0} article${(cmd.total_articles || 0) > 1 ? 's' : ''}):
+                            </div>
+                            <div class="text-2xl font-bold text-green-600">
+                                ${parseFloat(cmd.total_final || 0).toFixed(2)} DH
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            content.innerHTML = htmlContent;
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            content.innerHTML = '<p class="text-red-600">Erreur réseau lors du chargement du panier.</p>';
+        });
+    }
+
+    function closePanierModal() {
+        const modal = document.getElementById('panierModal');
+        modal.classList.add('hidden');
+    }
+
+    // Fermer le modal en cliquant à l'extérieur
+    document.getElementById('panierModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePanierModal();
+        }
+    });
+
+    // Fermer le modal avec la touche Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closePanierModal();
+        }
+    });
+
+    // Fermeture de tous les modals
+    function closeAllModals() {
+        closePanierModal();
+        toggleAdvancedSearch();
+    }
+
+    // Fonction pour afficher les notifications toast
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-${getToastIcon(type)} mr-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Animation d'entrée
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        // Suppression automatique
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 5000);
+    }
+
+    // Icône pour les notifications toast
+    function getToastIcon(type) {
+        const icons = {
+            success: 'check-circle',
+            error: 'exclamation-circle',
+            warning: 'exclamation-triangle',
+            info: 'info-circle'
+        };
+        return icons[type] || 'info-circle';
+    }
+
+    // Auto-submit du formulaire de pagination
+    document.querySelector('select[name="items_per_page"]').addEventListener('change', function() {
+        const form = document.createElement('form');
+        form.method = 'GET';
+        
+        // Ajouter les paramètres existants
+        const urlParams = new URLSearchParams(window.location.search);
+        for (const [key, value] of urlParams) {
+            if (key !== 'items_per_page' && key !== 'page') {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = value;
+                form.appendChild(input);
+            }
+        }
+        
+        // Ajouter le nouveau items_per_page
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'items_per_page';
+        input.value = this.value;
+        form.appendChild(input);
+        
+        document.body.appendChild(form);
+        form.submit();
+    });
+</script>
+{% endblock %}

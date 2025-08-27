@@ -1,0 +1,93 @@
+{% load commande_filters %}
+{% load l10n %}
+
+{% for panier in commande.paniers.all %}
+<tr data-panier-id="{{ panier.id }}" data-article-id="{{ panier.article.id }}">
+    <td class="px-4 py-3">
+        <div class="flex items-center">
+            <div class="flex-1">
+                <div class="font-medium text-gray-900 flex items-center">
+                    {{ panier.article.nom }}
+                    {% if panier.variante %}
+                    <span class="inline-flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium ml-2">
+                        <i class="fas fa-layer-group mr-1"></i>Variante
+                    </span>
+                    {% endif %}
+                    {% if panier.article.isUpsell %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 ml-2">
+                            <i class="fas fa-arrow-up mr-1"></i>Upsell
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="text-sm text-gray-500">
+                    Réf: {{ panier.article.reference|default:"N/A" }}
+                    {% if panier.variante and panier.variante.reference_variante %}
+                    <span class="text-blue-600 ml-2">
+                        <i class="fas fa-arrow-right mr-1"></i>{{ panier.variante.reference_variante }}
+                    </span>
+                    {% endif %}
+                </div>
+                <!-- Informations de variante -->
+                {% if panier.variante %}
+                <div class="mt-1 flex flex-wrap gap-1">
+                    {% if panier.variante.couleur %}
+                    <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                        <i class="fas fa-palette mr-1"></i>{{ panier.variante.couleur.nom }}
+                    </span>
+                    {% endif %}
+                    {% if panier.variante.pointure %}
+                    <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                        <i class="fas fa-ruler-vertical mr-1"></i>{{ panier.variante.pointure.pointure }}
+                    </span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </td>
+    <td class="px-4 py-3 text-center">
+        <div class="flex items-center justify-center space-x-2">
+            <button type="button" onclick="modifierQuantite({{ panier.id }}, -1)" 
+                    class="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">-</button>
+            <input type="number" id="quantite-{{ panier.id }}" value="{{ panier.quantite }}" min="1" 
+                   class="w-16 p-2 border rounded-lg text-center" 
+                   onchange="modifierQuantiteDirecte({{ panier.id }}, this.value)">
+            <button type="button" onclick="modifierQuantite({{ panier.id }}, 1)" 
+                    class="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors">+</button>
+        </div>
+    </td>
+    <td class="px-4 py-3 text-center">
+        <div class="font-medium text-gray-700" id="prix-unitaire-{{ panier.id }}">
+            {% if panier.article.isUpsell %}
+                {{ panier.article|get_prix_upsell_avec_compteur:commande.compteur|floatformat:2 }} DH
+            {% else %}
+                {{ panier.article.prix_actuel|default:panier.article.prix_unitaire|floatformat:2 }} DH
+            {% endif %}
+        </div>
+        {% if panier.article.isUpsell and commande.compteur > 0 %}
+            <div class="text-xs text-orange-600 flex items-center justify-center gap-1">
+                <i class="fas fa-arrow-up"></i>
+                Upsell Niveau {{ commande.compteur }}
+            </div>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 text-center">
+        <div class="font-bold text-gray-900">
+            {{ panier.sous_total|floatformat:2 }} DH
+        </div>
+    </td>
+    <td class="px-4 py-3 text-center">
+        <button type="button" onclick="supprimerArticle({{ panier.id }})" 
+                class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors">
+            <i class="fas fa-trash mr-1"></i>Supprimer
+        </button>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="5" class="text-center py-8 text-gray-500">
+        <i class="fas fa-shopping-basket text-4xl mb-3"></i>
+        <p>Le panier de cette commande est vide.</p>
+    </td>
+</tr>
+{% endfor %} 

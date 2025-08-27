@@ -1,6 +1,6 @@
 from django import forms
 from django.utils import timezone
-from .models import Promotion, Article
+from .models import Promotion, Article, VarianteArticle, Couleur, Pointure
 from django.db.models import Q
 
 class FilteredSelectMultiple(forms.SelectMultiple):
@@ -88,11 +88,14 @@ class PromotionForm(forms.ModelForm):
                 self.initial['date_fin'] = self.instance.date_fin.strftime('%Y-%m-%dT%H:%M')
         
         # Remplir les options pour les filtres de catégorie et couleur
-        categories = sorted(set(articles_disponibles.values_list('categorie', flat=True)))
-        couleurs = sorted(set(articles_disponibles.values_list('couleur', flat=True)))
+        categories = sorted(set(articles_disponibles.values_list('categorie__nom', flat=True)))
+        couleurs = sorted(set(VarianteArticle.objects.filter(
+            article__in=articles_disponibles, 
+            actif=True
+        ).values_list('couleur__nom', flat=True)))
         
-        self.fields['article_filter_categorie'].choices += [(cat, cat) for cat in categories]
-        self.fields['article_filter_couleur'].choices += [(coul, coul) for coul in couleurs]
+        self.fields['article_filter_categorie'].choices += [(cat, cat) for cat in categories if cat]
+        self.fields['article_filter_couleur'].choices += [(coul, coul) for coul in couleurs if coul]
         
         # Définir les champs initiaux pour la date/heure au format ISO
         if not self.instance.pk:  # Si c'est une nouvelle promotion
@@ -126,7 +129,7 @@ class PromotionForm(forms.ModelForm):
         if articles:
             articles_non_valides = [a for a in articles if a.phase != 'EN_COURS']
             if articles_non_valides:
-                article_names = [f"{a.nom} - {a.couleur} - {a.pointure}" for a in articles_non_valides]
+                article_names = [f"{a.nom}" for a in articles_non_valides]
                 self.add_error('articles', f"Seuls les articles en phase 'En Cours' peuvent être ajoutés à une promotion. "
                                          f"Articles non valides : {', '.join(article_names)}")
         
@@ -178,8 +181,10 @@ class AjustementStockForm(forms.Form):
         super().__init__(*args, **kwargs)
         
         if self.article:
-            self.fields['nouvelle_quantite'].initial = self.article.qte_disponible
-            self.fields['nouvelle_quantite'].help_text = f"Quantité actuelle : {self.article.qte_disponible}"
+            # Utiliser la quantité totale des variantes
+            total_qte = self.article.get_total_qte_disponible()
+            self.fields['nouvelle_quantite'].initial = total_qte
+            self.fields['nouvelle_quantite'].help_text = f"Quantité actuelle totale : {total_qte}"
     
     def clean_nouvelle_quantite(self):
         nouvelle_quantite = self.cleaned_data['nouvelle_quantite']

@@ -1,0 +1,898 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Variables CSS harmonisées avec le thème de supervision */
+    :root {
+        /* Utilisation des couleurs du thème de base Superpreparation */
+        --preparation-primary: #070F2B; /* Couleur principale navy */
+        --preparation-dark: #050A1F;   /* Plus sombre */
+        --preparation-light: #0E1D3D;  /* Plus clair */
+        --preparation-text-light: #E6F0FF; /* Texte très clair */
+        --preparation-border-accent: #1E3A8A; /* Accent (indigo) */
+        --preparation-hover-bg: #0B1733; /* Arrière-plan au survol */
+        --preparation-success: #10b981;
+        --preparation-warning: #f59e0b;
+        --preparation-error: #ef4444;
+        --preparation-info: #3b82f6;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    @keyframes bounce {
+        0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0); }
+        40%, 43% { transform: translate3d(0, -30px, 0); }
+        70% { transform: translate3d(0, -15px, 0); }
+        90% { transform: translate3d(0, -4px, 0); }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+    
+    .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+    
+    .animate-bounce {
+        animation: bounce 1s;
+    }
+
+    /* Styles harmonisés avec le thème de supervision */
+    .theme-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+    }
+
+    .theme-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+    }
+
+    .theme-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
+    }
+
+    .theme-button-primary {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.2);
+        position: relative;
+        overflow: hidden;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+    }
+
+    .theme-button-primary:hover {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    .theme-button-primary:active {
+        transform: translateY(0);
+    }
+
+    .theme-button-primary::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .theme-button-primary:hover::before {
+        left: 100%;
+    }
+
+    .theme-button-secondary {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        color: var(--preparation-primary);
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .theme-button-secondary:hover {
+        background: var(--preparation-hover-bg);
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+        color: var(--preparation-primary);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .theme-input {
+        border: 2px solid var(--preparation-text-light);
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        padding: 8px 12px;
+    }
+
+    .theme-input:focus {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        outline: none;
+    }
+
+    /* Styles spécifiques pour les cartes de statistiques */
+    .stats-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+    }
+
+    .stats-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-5px);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .stats-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    /* Styles pour les icônes des statistiques */
+    .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border-radius: 50%;
+        padding: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stats-card:hover .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Styles pour les sections d'information */
+    .info-section {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .info-section:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        pointer-events: none;
+    }
+
+    .toast {
+        background: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 10px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        max-width: 400px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.success {
+        border-left: 4px solid var(--preparation-success);
+    }
+
+    .toast.error {
+        border-left: 4px solid var(--preparation-error);
+    }
+
+    .toast.info {
+        border-left: 4px solid var(--preparation-info);
+    }
+
+    .toast.warning {
+        border-left: 4px solid var(--preparation-warning);
+    }
+
+    .toast::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 3s linear;
+    }
+
+    .toast.show::before {
+        transform: scaleX(1);
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Tooltip styles */
+    .tooltip {
+        position: relative;
+        cursor: help;
+    }
+
+    .tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip::before {
+        content: '';
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: rgba(0,0,0,0.8);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .tooltip:hover::after,
+    .tooltip:hover::before {
+        opacity: 1;
+        visibility: visible;
+        bottom: 135%;
+    }
+
+    /* Progress bar for operations */
+    .progress-bar {
+        width: 100%;
+        height: 4px;
+        background: #e5e7eb;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+
+    /* Empty state improvements */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-radius: 16px;
+        border: 2px dashed var(--preparation-text-light);
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        color: var(--preparation-text-light);
+        margin-bottom: 20px;
+        animation: pulse 2s infinite;
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .stats-card {
+            margin-bottom: 16px;
+        }
+        
+        .toast {
+            max-width: calc(100vw - 40px);
+            right: 0;
+        }
+    }
+
+    /* Améliorations spécifiques pour la visibilité */
+    .page-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        margin-bottom: 32px;
+    }
+
+    .section-title {
+        color: var(--preparation-primary);
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-badge.en-cours {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .status-badge.cloture {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+    }
+
+    .status-badge.disponible {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .status-badge.existant {
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+    }
+
+    .status-badge.livree-partiellement {
+        background: #fef3c7;
+        color: #d97706;
+        border: 1px solid #fde68a;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:hover {
+        background: #f1f5f9;
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+    }
+
+    .info-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+    }
+
+    .info-icon.blue {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+    }
+
+    .info-icon.green {
+        background: linear-gradient(135deg, #059669 0%, var(--preparation-success) 100%);
+    }
+
+    .info-icon.purple {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+    }
+
+    .info-icon.orange {
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    }
+
+    /* Styles pour le tableau */
+    .table-container {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .table-container:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .table-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+    }
+
+    .table-row {
+        transition: all 0.3s ease;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .table-row:hover {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        transform: translateX(4px);
+    }
+
+    .table-cell {
+        padding: 16px;
+        vertical-align: middle;
+    }
+
+    /* Styles pour les boutons d'action */
+    .action-button {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .action-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    /* Styles pour les badges d'état */
+    .etat-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .etat-badge.livree-partiellement {
+        background: #fef3c7;
+        color: #d97706;
+        border: 1px solid #fde68a;
+    }
+
+    .etat-badge.urgente {
+        background: #fee2e2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        animation: pulse 2s infinite;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- Toast notifications container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- En-tête de la page -->
+    <div class="page-header">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                    <i class="fas fa-truck-loading mr-3 text-yellow-300"></i>
+                    {{ page_title|default:'Suivi - Commandes Livrées Partiellement' }}
+            </h1>
+                <p class="text-white opacity-90">{{ page_subtitle|default:'Suivi et gestion des commandes livrées partiellement' }}</p>
+            </div>
+            <div class="flex items-center gap-6 mt-4 md:mt-0">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-white">{{ stats.total_commandes|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">Commandes partiellement livrées</div>
+                </div>
+                <div class="text-center border-l border-white/30 pl-6 ml-6">
+                    <div class="text-3xl font-bold text-white">{{ stats.commandes_urgentes|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">Urgentes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Total des commandes -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.1s;">
+                <div class="flex items-center">
+                <div class="stats-icon">
+                        <i class="fas fa-truck text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Livrées Partiellement</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ stats.total_commandes|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Valeur totale -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.2s;">
+                <div class="flex items-center">
+                <div class="stats-icon">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Valeur Totale</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ stats.valeur_totale|floatformat:0|default:0 }} DH</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commandes urgentes -->
+        <div class="stats-card animate-slideInUp" style="animation-delay: 0.3s;">
+                <div class="flex items-center">
+                <div class="stats-icon">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Urgentes</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ stats.commandes_urgentes|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section d'informations -->
+    <div class="info-section mb-8">
+        <h2 class="section-title">
+            <i class="fas fa-info-circle text-blue-600"></i>
+            Informations générales
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="info-item">
+                <div class="info-icon orange">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Livraison partielle</h3>
+                    <p class="text-sm text-gray-600">Commandes dont certains articles n'ont pas été livrés</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon blue">
+                    <i class="fas fa-eye"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Suivi détaillé</h3>
+                    <p class="text-sm text-gray-600">Accédez au détail de chaque commande pour voir les articles manquants</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon green">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Statistiques</h3>
+                    <p class="text-sm text-gray-600">Suivez la valeur totale et les commandes urgentes</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche intelligente -->
+{% include 'Superpreparation/includes/smart-search-toolbar.html' %}
+        
+    <!-- Tableau des commandes -->
+    <div class="table-container">
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead class="table-header">
+                    <tr>
+                        <th class="table-cell text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                        <th class="table-cell text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                        <th class="table-cell text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                        <th class="table-cell text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                        <th class="table-cell text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
+                        <th class="table-cell text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                        <th class="table-cell text-left text-xs font-medium text-white uppercase tracking-wider">Date Début</th>
+                        <th class="table-cell text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                        <th class="table-cell text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
+                        <th class="table-cell text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% if commandes_livrees_partiellement %}
+                        {% for commande in commandes_livrees_partiellement %}
+                        <tr class="table-row commande-row" 
+                            data-id-yz="{{ commande.id_yz }}"
+                            data-num-cmd="{{ commande.num_cmd|default:'' }}"
+                            data-client="{{ commande.client.prenom }} {{ commande.client.nom }}"
+                            data-phone="{{ commande.client.numero_tel|default:'' }}"
+                            data-email="{{ commande.client.email|default:'' }}"
+                            data-ville-client="{{ commande.ville_init|default:'' }}"
+                            data-ville-region="{% if commande.ville %}{{ commande.ville.nom }} {{ commande.ville.region.nom_region }}{% endif %}"
+                            data-adresse="{% if commande.client.adresse %}{{ commande.client.adresse }}{% endif %}"
+                            data-date-livraison="{% if commande.etat_actuel %}{{ commande.etat_actuel.date_debut|date:'d/m/Y' }}{% endif %}"
+                            data-total="{{ commande.total_cmd }}"
+                            data-etat="Livrée partiellement"
+                            data-operateur="{% if commande.etat_actuel.operateur %}{{ commande.etat_actuel.operateur.nom }} {{ commande.etat_actuel.operateur.prenom }}{% endif %}">
+                            
+                            <td class="table-cell whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ commande.id_yz }}
+                            </td>
+                            <td class="table-cell whitespace-nowrap text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
+                            
+                            <!-- Colonne Client -->
+                            <td class="table-cell whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                                {% if commande.client.email %}
+                                <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Colonne Téléphone -->
+                            <td class="table-cell whitespace-nowrap">
+                                {% if commande.client.numero_tel %}
+                                <div class="text-sm text-gray-900 font-medium">
+                                    <i class="fas fa-phone mr-1"></i>
+                                    {{ commande.client.numero_tel }}
+                                </div>
+                                {% else %}
+                                <div class="text-sm text-gray-500">Non renseigné</div>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Colonne Ville Client -->
+                            <td class="table-cell whitespace-nowrap text-sm">
+                                {% if commande.ville_init and commande.ville_init != '' %}
+                                    <div style="color: var(--preparation-primary);" class="font-medium">{{ commande.ville_init }}</div>
+                                {% else %}
+                                    <div style="color: var(--preparation-primary);">Non spécifiée</div>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Colonne Ville & Région (ville de livraison) -->
+                            <td class="table-cell whitespace-nowrap">
+                                {% if commande.ville %}
+                                    <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                                    <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                                {% else %}
+                                    <div class="text-sm text-gray-500">Non définie</div>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="table-cell whitespace-nowrap">
+                                {% with etat_actuel=commande.etat_actuel %}
+                                    {% if etat_actuel %}
+                                        <div class="text-sm text-gray-900">{{ etat_actuel.date_debut|date:"d/m/Y" }}</div>
+                                        <div class="text-xs text-gray-500">{{ etat_actuel.date_debut|date:"H:i" }}</div>
+                                    {% else %}
+                                        <div class="text-sm text-gray-500">Non définie</div>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            
+                            <td class="table-cell whitespace-nowrap">
+                                <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                            </td>
+
+                            <td class="table-cell whitespace-nowrap">
+                                <span class="etat-badge livree-partiellement">
+                                    <i class="fas fa-truck mr-1"></i>
+                                    Livrée partiellement
+                                </span>
+                            </td>
+                            
+                            <td class="table-cell whitespace-nowrap text-center">
+                                <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" 
+                                   class="action-button"
+                                   title="Voir le panier de cette commande">
+                                    <i class="fas fa-shopping-cart"></i> 
+                                    {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="10" class="table-cell whitespace-nowrap text-center">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <i class="fas fa-truck"></i>
+                                    </div>
+                                    <h3 class="text-xl font-medium text-gray-800 mb-2">Aucune commande livrée partiellement</h3>
+                                    <p class="text-gray-600 mb-4">Toutes les commandes ont été livrées complètement ou ne sont pas encore livrées.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Toast notification system
+    function showToast(message, type = 'info', duration = 4000) {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        const icon = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            info: 'fas fa-info-circle',
+            warning: 'fas fa-exclamation-triangle'
+        }[type];
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <i class="${icon} mr-3 text-lg"></i>
+                <div class="flex-1">
+                    <p class="font-medium">${message}</p>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Show animation
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        // Auto remove
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
+    // Start auto-refresh when page loads
+document.addEventListener('DOMContentLoaded', function() {
+        // Show welcome message
+        setTimeout(() => {
+            showToast('Bienvenue dans le suivi des commandes livrées partiellement !', 'info', 3000);
+        }, 1000);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'r':
+                    e.preventDefault();
+                    window.location.reload();
+                    showToast('Page actualisée !', 'info');
+                    break;
+            }
+        }
+});
+</script>
+
+<!-- Script de recherche intelligente -->
+<script src="{% static 'js/Suivi_des_Commandes/suivi-commandes-smart-search.js' %}"></script>
+<script>
+// Initialiser la recherche intelligente pour cette page
+document.addEventListener('DOMContentLoaded', function() {
+    initSuiviCommandesSearch('livrees_partiellement');
+});
+</script>
+
+{% endblock %}

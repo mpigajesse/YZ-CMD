@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg, Sum, Min, Max
-from .models import Article, Promotion
+from .models import Article, Promotion, VarianteArticle, Categorie, Genre, Couleur, Pointure
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
@@ -12,12 +12,10 @@ from .forms import PromotionForm
 from decimal import Decimal
 import json
 
-# Create your views here.
-
 @login_required
 def liste_articles(request):
     """Liste des articles avec recherche, filtres et pagination"""
-    articles = Article.objects.filter(actif=True).order_by('nom', 'couleur', 'pointure')
+    articles = Article.objects.all().filter(actif=True).order_by('nom')
     
     # Formulaire de promotion pour la modal
     form_promotion = PromotionForm()
@@ -49,11 +47,15 @@ def liste_articles(request):
     
     # Filtrage par stock
     if filtre_stock == 'disponible':
-        articles = articles.filter(qte_disponible__gt=0)
+        articles = articles.filter(variantes__qte_disponible__gt=0, variantes__actif=True).distinct()
     elif filtre_stock == 'rupture':
-        articles = articles.filter(qte_disponible=0)
+        articles = articles.exclude(variantes__qte_disponible__gt=0, variantes__actif=True).distinct()
     elif filtre_stock == 'stock_faible':
-        articles = articles.filter(qte_disponible__gt=0, qte_disponible__lt=5)
+        articles = articles.filter(
+            variantes__qte_disponible__gt=0, 
+            variantes__qte_disponible__lt=5, 
+            variantes__actif=True
+        ).distinct()
     
     # Recherche unique sur plusieurs champs
     if search:
@@ -76,22 +78,59 @@ def liste_articles(request):
         articles = articles.filter(
             Q(reference__icontains=search) |    # Recherche par référence
             Q(nom__icontains=search) |          # Recherche par nom
-            Q(couleur__icontains=search) |      # Recherche par couleur
-            Q(pointure__icontains=search) |     # Recherche par pointure
-            Q(categorie__icontains=search) |    # Recherche par catégorie
+            Q(variantes__couleur__nom__icontains=search) |      # Recherche par couleur
+            Q(variantes__pointure__pointure__icontains=search) | # Recherche par pointure
+            Q(categorie__nom__icontains=search) |    # Recherche par catégorie
             price_query                         # Recherche par prix
         ).distinct()
     
-    # Pagination
-    paginator = Paginator(articles, 12)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    # Gestion de la pagination flexible
+    items_per_page = request.GET.get('items_per_page', 12)
+    start_range = request.GET.get('start_range', '')
+    end_range = request.GET.get('end_range', '')
+    
+    # Conserver une copie des articles non paginés pour les statistiques
+    articles_non_pagines = articles
+    
+    # Gestion de la plage personnalisée
+    if start_range and end_range:
+        try:
+            start_idx = int(start_range) - 1  # Index commence à 0
+            end_idx = int(end_range)
+            if start_idx >= 0 and end_idx > start_idx:
+                articles = list(articles)[start_idx:end_idx]
+                # Créer un paginator factice pour la plage
+                paginator = Paginator(articles, len(articles))
+                page_obj = paginator.get_page(1)
+        except (ValueError, TypeError):
+            # En cas d'erreur, utiliser la pagination normale
+            items_per_page = 12
+            paginator = Paginator(articles, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        page_number = request.GET.get('page', 1)
+        if items_per_page == 'all':
+            # Afficher tous les articles
+            paginator = Paginator(articles, articles.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 12
+            except (ValueError, TypeError):
+                items_per_page = 12
+            
+            paginator = Paginator(articles, items_per_page)
+            page_obj = paginator.get_page(page_number)
     
     # Statistiques mises à jour selon les filtres appliqués
-    all_articles = Article.objects.filter(actif=True)
+    all_articles = Article.objects.all().filter(actif=True)
     stats = {
         'total_articles': all_articles.count(),
-        'articles_disponibles': all_articles.filter(qte_disponible__gt=0).count(),
+        'articles_disponibles': all_articles.filter(variantes__qte_disponible__gt=0, variantes__actif=True).distinct().count(),
         'articles_en_cours': all_articles.filter(phase='EN_COURS').count(),
         'articles_liquidation': all_articles.filter(phase='LIQUIDATION').count(),
         'articles_test': all_articles.filter(phase='EN_TEST').count(),
@@ -100,10 +139,85 @@ def liste_articles(request):
             promotions__date_debut__lte=now,
             promotions__date_fin__gte=now
         ).distinct().count(),
-        'articles_rupture': all_articles.filter(qte_disponible=0).count(),
-        'articles_stock_faible': all_articles.filter(qte_disponible__gt=0, qte_disponible__lt=5).count(),
+        'articles_rupture': all_articles.exclude(variantes__qte_disponible__gt=0, variantes__actif=True).distinct().count(),
+        'articles_stock_faible': all_articles.filter(
+            variantes__qte_disponible__gt=0, 
+            variantes__qte_disponible__lt=5, 
+            variantes__actif=True
+        ).distinct().count(),
     }
     
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        
+        try:
+            # Debug: Vérifier les données de page_obj  
+            items_in_page = list(page_obj.object_list)  # Éviter de consommer l'itérateur
+            print(f"🔍 DEBUG - Page: {page_obj.number}, Total items: {page_obj.paginator.count}, Items in page: {len(items_in_page)}")
+            
+            # Rendre les templates partiels pour AJAX
+            html_cards_body = render_to_string('article/partials/_articles_cards_body.html', {
+                'page_obj': page_obj
+            }, request=request)
+            print(f"📄 Cards body length: {len(html_cards_body)}")
+            
+            html_table_body = render_to_string('article/partials/_articles_table_body.html', {
+                'page_obj': page_obj
+            }, request=request)
+            print(f"📄 Table body length: {len(html_table_body)}")
+            
+            # Vue grille
+            html_grid_body = render_to_string('article/partials/_articles_grid_body.html', {
+                'page_obj': page_obj
+            }, request=request)
+            
+            html_pagination = render_to_string('article/partials/_articles_pagination.html', {
+                'page_obj': page_obj,
+                'search': search,
+                'filtre_phase': filtre_phase,
+                'filtre_promotion': filtre_promotion,
+                'filtre_stock': filtre_stock,
+                'items_per_page': items_per_page,
+                'start_range': start_range,
+                'end_range': end_range
+            }, request=request)
+            print(f"📄 Pagination length: {len(html_pagination)}")
+            
+            html_pagination_info = render_to_string('article/partials/_articles_pagination_info.html', {
+                'page_obj': page_obj
+            }, request=request)
+            print(f"📄 Pagination info length: {len(html_pagination_info)}")
+            
+            response_data = {
+                'success': True,
+                'html_cards_body': html_cards_body,
+                'html_table_body': html_table_body,
+                'html_grid_body': html_grid_body,
+                'html_pagination': html_pagination,
+                'html_pagination_info': html_pagination_info,
+                'total_count': articles_non_pagines.count(),
+                'debug_info': {
+                    'page_number': page_obj.number,
+                    'total_items': page_obj.paginator.count,
+                    'items_in_page': len(list(page_obj)),
+                    'has_previous': page_obj.has_previous(),
+                    'has_next': page_obj.has_next(),
+                }
+            }
+            
+            print(f"✅ JSON Response ready: {len(str(response_data))} chars")
+            return JsonResponse(response_data)
+            
+        except Exception as e:
+            print(f"❌ Erreur dans la vue AJAX: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            return JsonResponse({
+                'success': False,
+                'error': f'Erreur dans la génération des templates: {str(e)}'
+            }, status=500)
+
     context = {
         'page_obj': page_obj,
         'search': search,
@@ -112,6 +226,9 @@ def liste_articles(request):
         'filtre_phase': filtre_phase,
         'filtre_promotion': filtre_promotion,
         'filtre_stock': filtre_stock,
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     return render(request, 'article/liste.html', context)
 
@@ -119,12 +236,41 @@ def liste_articles(request):
 def detail_article(request, id):
     """Détail d'un article"""
     article = get_object_or_404(Article, id=id, actif=True)
-    
-    # Articles similaires (même catégorie, couleur différente)
+
+    # Articles similaires (même catégorie)
     articles_similaires = Article.objects.filter(
         categorie=article.categorie,
         actif=True
-    ).exclude(id=article.id).order_by('nom', 'couleur')[:6]
+    ).exclude(id=article.id).order_by('nom')[:6]
+    
+    # Calculer les statistiques des variantes
+    variantes = article.variantes.all()
+    stats_variantes = {
+        'total': variantes.count(),
+        'en_stock': variantes.filter(qte_disponible__gt=0).count(),
+        'stock_faible': variantes.filter(qte_disponible__gt=0, qte_disponible__lt=5).count(),
+        'rupture': variantes.filter(qte_disponible=0).count(),
+    }
+    
+    # Préparer les données pour le tableau croisé
+    # Récupérer toutes les pointures et couleurs uniques
+    pointures_uniques = sorted(set(v.pointure.pointure for v in variantes), key=int)
+    couleurs_uniques = sorted(set(v.couleur.nom for v in variantes))
+    
+    # Créer la matrice du tableau croisé
+    tableau_croise = {}
+    for pointure in pointures_uniques:
+        tableau_croise[pointure] = {}
+        for couleur in couleurs_uniques:
+            # Chercher la variante correspondante
+            variante = variantes.filter(pointure__pointure=pointure, couleur__nom=couleur).first()
+            if variante:
+                tableau_croise[pointure][couleur] = {
+                    'stock': variante.qte_disponible,
+                    'status': 'normal' if variante.qte_disponible >= 5 else 'faible' if variante.qte_disponible > 0 else 'rupture'
+                }
+            else:
+                tableau_croise[pointure][couleur] = {'stock': None, 'status': 'inexistant'}
     
     # Récupérer l'URL de la page précédente, avec fallback
     previous_page = request.META.get('HTTP_REFERER', reverse('article:liste'))
@@ -133,80 +279,131 @@ def detail_article(request, id):
         'article': article,
         'articles_similaires': articles_similaires,
         'previous_page': previous_page,
+        'stats_variantes': stats_variantes,
+        'tableau_croise': tableau_croise,
+        'pointures_uniques': pointures_uniques,
+        'couleurs_uniques': couleurs_uniques,
     }
     return render(request, 'article/detail.html', context)
 
 @login_required
 def creer_article(request):
     """Créer un nouvel article"""
+    categories = Categorie.objects.all()
+    genres = Genre.objects.all()
+    couleurs = Couleur.objects.filter(actif=True).order_by('nom')
+    pointures = Pointure.objects.filter(actif=True).order_by('ordre', 'pointure')
+
     if request.method == 'POST':
         try:
             # Récupérer les données du formulaire
             nom = request.POST.get('nom')
-            couleur = request.POST.get('couleur')
-            pointure = request.POST.get('pointure')
+            couleur_id = request.POST.get('couleur')
+            pointure_id = request.POST.get('pointure')
 
             # Vérifier l'unicité de la combinaison nom, couleur, pointure
-            if Article.objects.filter(nom=nom, couleur=couleur, pointure=pointure).exists():
+            if VarianteArticle.objects.filter(
+                article__nom=nom, 
+                couleur_id=couleur_id, 
+                pointure_id=pointure_id
+            ).exists():
                 messages.error(request, "Un article avec le même nom, couleur et pointure existe déjà.")
                 # Renvoyer le formulaire avec les données saisies
-                return render(request, 'article/creer.html', {'form_data': request.POST})
+                return render(request, 'article/creer.html', {
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
+
+            # Vérifier l'unicité du modèle
+            modele = request.POST.get('modele')
+            if modele:
+                try:
+                    modele_int = int(modele)
+                    if modele_int <= 0:
+                        messages.error(request, "Le numéro du modèle doit être supérieur à 0.")
+                        return render(request, 'article/creer.html', {
+                            'form_data': request.POST,
+                            'categories': categories,
+                            'genres': genres,
+                            'couleurs': couleurs,
+                            'pointures': pointures
+                        })
+                    
+                    # Vérifier si le modèle existe déjà
+                    if Article.objects.filter(modele=modele_int).exists():
+                        messages.error(request, f"Le modèle {modele_int} est déjà utilisé par un autre article.")
+                        return render(request, 'article/creer.html', {
+                            'form_data': request.POST,
+                            'categories': categories,
+                            'genres': genres,
+                            'couleurs': couleurs,
+                            'pointures': pointures
+                        })
+                except ValueError:
+                    messages.error(request, "Le numéro du modèle doit être un nombre entier valide.")
+                    return render(request, 'article/creer.html', {
+                        'form_data': request.POST,
+                        'categories': categories,
+                        'genres': genres,
+                        'couleurs': couleurs,
+                        'pointures': pointures
+                    })
 
             # Valider et convertir le prix
             prix_str = request.POST.get('prix_unitaire', '').strip().replace(',', '.')
             if not prix_str:
                 messages.error(request, "Le prix unitaire est obligatoire.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
+                return render(request, 'article/creer.html', {
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
             
             try:
                 prix_unitaire = float(prix_str)
                 if prix_unitaire <= 0:
                     messages.error(request, "Le prix unitaire doit être supérieur à 0.")
-                    return render(request, 'article/creer.html', {'form_data': request.POST})
+                    return render(request, 'article/creer.html', {
+                        'form_data': request.POST,
+                        'categories': categories,
+                        'genres': genres,
+                        'couleurs': couleurs,
+                        'pointures': pointures
+                    })
             except ValueError:
                 messages.error(request, "Le prix unitaire doit être un nombre valide.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
+                return render(request, 'article/creer.html', {
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
 
-            # Valider la pointure
-            pointure_str = request.POST.get('pointure', '').strip()
-            if not pointure_str:
-                messages.error(request, "La pointure est obligatoire.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
-            
-            try:
-                pointure = int(pointure_str)
-                if pointure < 30:
-                    messages.error(request, "La pointure ne peut pas être inférieure à 30.")
-                    return render(request, 'article/creer.html', {'form_data': request.POST})
-            except ValueError:
-                messages.error(request, "La pointure doit être un nombre entier valide.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
-
-            # Valider la quantité
-            qte_str = request.POST.get('qte_disponible', '').strip()
-            if not qte_str:
-                messages.error(request, "La quantité disponible est obligatoire.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
-            
-            try:
-                qte_disponible = int(qte_str)
-                if qte_disponible < 0:
-                    messages.error(request, "La quantité disponible ne peut pas être négative.")
-                    return render(request, 'article/creer.html', {'form_data': request.POST})
-            except ValueError:
-                messages.error(request, "La quantité disponible doit être un nombre entier valide.")
-                return render(request, 'article/creer.html', {'form_data': request.POST})
-
+            # Créer l'article principal
             article = Article()
             article.nom = nom
-            article.couleur = couleur
-            article.pointure = pointure_str  # Utiliser la chaîne de caractères pour la pointure
-            article.reference = request.POST.get('reference')
+            article.modele = int(modele) if modele else None
             article.description = request.POST.get('description')
             article.prix_unitaire = prix_unitaire
             article.prix_actuel = prix_unitaire  # Assurer que le prix actuel = prix unitaire
-            article.qte_disponible = qte_disponible
-            article.categorie = request.POST.get('categorie')
+            article.categorie_id = request.POST.get('categorie')
+            article.genre_id = request.POST.get('genre')
+            
+            # Générer automatiquement la référence
+            if article.categorie_id and article.genre_id and article.modele:
+                # Sauvegarder temporairement pour pouvoir générer la référence
+                article.save()
+                article.refresh_from_db()
+                reference_auto = article.generer_reference_automatique()
+                if reference_auto:
+                    article.reference = reference_auto
+                    article.save()
             
             # Gérer le prix d'achat
             prix_achat_str = request.POST.get('prix_achat', '').strip().replace(',', '.')
@@ -241,69 +438,160 @@ def creer_article(request):
             
             article.save()
             
+            # Vérifier si c'est une requête AJAX (pour la création des variantes)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'article_id': article.id,
+                    'article_nom': article.nom,
+                    'message': f"Article '{article.nom}' créé avec succès"
+                })
+            
             messages.success(request, f"L'article '{article.nom}' a été créé avec succès.")
+            
             return redirect('article:liste')
             
         except Exception as e:
             messages.error(request, f"Une erreur est survenue lors de la création de l'article : {str(e)}")
-            return render(request, 'article/creer.html', {'form_data': request.POST})
+            return render(request, 'article/creer.html', {
+                'form_data': request.POST,
+                'categories': categories,
+                'genres': genres,
+                'couleurs': couleurs,
+                'pointures': pointures
+            })
+        
+    context = {
+        'categories': categories,
+        'genres': genres,
+        'couleurs': couleurs,
+        'pointures': pointures,
+    }
     
-    return render(request, 'article/creer.html')
+    return render(request,'article/creer.html',context)
 
 @login_required
 def modifier_article(request, id):
     """Modifier un article existant"""
     article = get_object_or_404(Article, id=id, actif=True)
+    categories = Categorie.objects.all()
+    genres = Genre.objects.all()
+    couleurs = Couleur.objects.filter(actif=True).order_by('nom')
+    pointures = Pointure.objects.filter(actif=True).order_by('ordre', 'pointure')
 
     if request.method == 'POST':
         try:
             nom = request.POST.get('nom')
-            couleur = request.POST.get('couleur')
-            pointure = request.POST.get('pointure')
+            couleur_id = request.POST.get('couleur')
+            pointure_id = request.POST.get('pointure')
 
             # Vérifier l'unicité de la combinaison nom, couleur, pointure
-            if Article.objects.filter(nom=nom, couleur=couleur, pointure=pointure).exclude(pk=id).exists():
+            if VarianteArticle.objects.filter(
+                article__nom=nom, 
+                couleur_id=couleur_id, 
+                pointure_id=pointure_id
+            ).exclude(article=article).exists():
                 messages.error(request, "Un autre article avec le même nom, couleur et pointure existe déjà.")
-                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                return render(request, 'article/modifier.html', {
+                    'article': article, 
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
+
+            # Vérifier l'unicité du modèle
+            modele = request.POST.get('modele')
+            if modele:
+                try:
+                    modele_int = int(modele)
+                    if modele_int <= 0:
+                        messages.error(request, "Le numéro du modèle doit être supérieur à 0.")
+                        return render(request, 'article/modifier.html', {
+                            'article': article, 
+                            'form_data': request.POST,
+                            'categories': categories,
+                            'genres': genres,
+                            'couleurs': couleurs,
+                            'pointures': pointures
+                        })
+                    
+                    # Vérifier si le modèle existe déjà sur un autre article
+                    if Article.objects.filter(modele=modele_int).exclude(id=article.id).exists():
+                        messages.error(request, f"Le modèle {modele_int} est déjà utilisé par un autre article.")
+                        return render(request, 'article/modifier.html', {
+                            'article': article, 
+                            'form_data': request.POST,
+                            'categories': categories,
+                            'genres': genres,
+                            'couleurs': couleurs,
+                            'pointures': pointures
+                        })
+                except ValueError:
+                    messages.error(request, "Le numéro du modèle doit être un nombre entier valide.")
+                    return render(request, 'article/modifier.html', {
+                        'article': article, 
+                        'form_data': request.POST,
+                        'categories': categories,
+                        'genres': genres,
+                        'couleurs': couleurs,
+                        'pointures': pointures
+                    })
 
             # Valider et convertir le prix
             prix_str = request.POST.get('prix_unitaire', '').strip().replace(',', '.')
             if not prix_str:
                 messages.error(request, "Le prix unitaire est obligatoire.")
-                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                return render(request, 'article/modifier.html', {
+                    'article': article, 
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
             
             try:
                 prix_unitaire = float(prix_str)
                 if prix_unitaire <= 0:
                     messages.error(request, "Le prix unitaire doit être supérieur à 0.")
-                    return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                    return render(request, 'article/modifier.html', {
+                        'article': article, 
+                        'form_data': request.POST,
+                        'categories': categories,
+                        'genres': genres,
+                        'couleurs': couleurs,
+                        'pointures': pointures
+                    })
             except ValueError:
                 messages.error(request, "Le prix unitaire doit être un nombre valide.")
-                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+                return render(request, 'article/modifier.html', {
+                    'article': article, 
+                    'form_data': request.POST,
+                    'categories': categories,
+                    'genres': genres,
+                    'couleurs': couleurs,
+                    'pointures': pointures
+                })
 
             # Valider la quantité
-            qte_str = request.POST.get('qte_disponible', '').strip()
-            if not qte_str:
-                messages.error(request, "La quantité disponible est obligatoire.")
-                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
-            
-            try:
-                qte_disponible = int(qte_str)
-                if qte_disponible < 0:
-                    messages.error(request, "La quantité disponible ne peut pas être négative.")
-                    return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
-            except ValueError:
-                messages.error(request, "La quantité disponible doit être un nombre entier valide.")
-                return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+
 
             article.nom = nom
-            article.couleur = couleur
-            article.pointure = pointure
             article.reference = request.POST.get('reference')
+            article.modele = int(modele) if modele else None
             article.description = request.POST.get('description')
             article.prix_unitaire = prix_unitaire
-            article.qte_disponible = qte_disponible
-            article.categorie = request.POST.get('categorie')
+            # La quantité est maintenant gérée dans les variantes
+            article.categorie_id = request.POST.get('categorie')
+            article.genre_id = request.POST.get('genre')
+            
+            # Générer automatiquement la référence
+            if article.categorie_id and article.genre_id and article.modele:
+                reference_auto = article.generer_reference_automatique()
+                if reference_auto:
+                    article.reference = reference_auto
             
             # Gérer le prix d'achat
             prix_achat_str = request.POST.get('prix_achat', '').strip().replace(',', '.')
@@ -375,30 +663,212 @@ def modifier_article(request, id):
                 article.prix_actuel = article.prix_unitaire
             
             article.save()
-            messages.success(request, f"L'article '{article.nom}' a été modifié avec succès.")
+            
+            # Traiter les mises à jour des variantes existantes
+            variantes_mises_a_jour = 0
+            for key, value in request.POST.items():
+                if key.startswith('variante_existante_') and key.endswith('_modifiee') and value == 'true':
+                    # Extraire l'ID de la variante
+                    variante_id = key.replace('variante_existante_', '').replace('_modifiee', '')
+                    try:
+                        variante_id = int(variante_id)
+                        # Récupérer la nouvelle quantité
+                        quantite_key = f'variante_existante_{variante_id}_quantite'
+                        nouvelle_quantite = request.POST.get(quantite_key, '0')
+                        
+                        # Mettre à jour la variante
+                        variante = VarianteArticle.objects.get(id=variante_id, article=article)
+                        ancienne_quantite = variante.qte_disponible
+                        variante.qte_disponible = int(nouvelle_quantite) if nouvelle_quantite else 0
+                        variante.save()
+                        
+                        variantes_mises_a_jour += 1
+                        couleur_nom = variante.couleur.nom if variante.couleur else "Aucune couleur"
+                        pointure_nom = variante.pointure.pointure if variante.pointure else "Aucune pointure"
+                        messages.success(request, f"Quantité mise à jour pour {couleur_nom} / {pointure_nom} : {ancienne_quantite} → {variante.qte_disponible}")
+                        
+                    except (ValueError, VarianteArticle.DoesNotExist) as e:
+                        messages.error(request, f"Erreur lors de la mise à jour de la variante {variante_id}: {str(e)}")
+            
+            # Traiter les nouvelles variantes ajoutées via le modal
+            variantes_crees = 0
+            variantes_errors = []
+            
+            # Récupérer toutes les nouvelles variantes soumises
+            variantes_data = {}
+            for key, value in request.POST.items():
+                if key.startswith('variante_') and '_' in key and not key.startswith('variante_existante_'):
+                    parts = key.split('_')
+                    if len(parts) >= 4:
+                        variante_id = parts[1]
+                        field_type = parts[2]
+                        if variante_id not in variantes_data:
+                            variantes_data[variante_id] = {}
+                        variantes_data[variante_id][field_type] = value
+            
+            # Créer les nouvelles variantes
+            for variante_id, variante_info in variantes_data.items():
+                couleur_id_variante = variante_info.get('couleur', '')
+                pointure_id_variante = variante_info.get('pointure', '')
+                quantite = variante_info.get('quantite', '0')
+                reference_variante = variante_info.get('reference', '')
+                
+                # Vérifier qu'au moins une couleur ou une pointure est spécifiée
+                if not couleur_id_variante and not pointure_id_variante:
+                    variantes_errors.append(f"Variante {variante_id}: Au moins une couleur ou une pointure doit être spécifiée.")
+                    continue
+                
+                try:
+                    # Vérifier l'unicité de la combinaison
+                    if VarianteArticle.objects.filter(
+                        article=article,
+                        couleur_id=couleur_id_variante if couleur_id_variante else None,
+                        pointure_id=pointure_id_variante if pointure_id_variante else None
+                    ).exists():
+                        variantes_errors.append(f"Variante {variante_id}: Cette combinaison couleur/pointure existe déjà pour cet article.")
+                        continue
+                    
+                    # Créer la variante
+                    variante = VarianteArticle()
+                    variante.article = article
+                    variante.couleur_id = couleur_id_variante if couleur_id_variante else None
+                    variante.pointure_id = pointure_id_variante if pointure_id_variante else None
+                    variante.qte_disponible = int(quantite) if quantite else 0
+                    variante.prix_unitaire = prix_unitaire
+                    variante.prix_achat = article.prix_achat
+                    variante.prix_actuel = prix_unitaire
+                    variante.actif = True
+                    
+                    # Définir la référence de la variante
+                    if reference_variante:
+                        variante.reference_variante = reference_variante
+                    else:
+                        # Générer automatiquement la référence
+                        variante.reference_variante = variante.generer_reference_variante_automatique()
+                    variante.reference_variante = variante.generer_reference_variante_automatique()
+                    
+                    variante.save()
+                    variantes_crees += 1
+                    
+                    # Message de succès pour chaque variante créée
+                    couleur_nom = variante.couleur.nom if variante.couleur else "Aucune couleur"
+                    pointure_nom = variante.pointure.pointure if variante.pointure else "Aucune pointure"
+                    messages.success(request, f"Nouvelle variante créée : {couleur_nom} / {pointure_nom} - Référence: {variante.reference_variante}")
+                    
+                except Exception as e:
+                    variantes_errors.append(f"Variante {variante_id}: Erreur lors de la création - {str(e)}")
+            
+            # Afficher les erreurs s'il y en a
+            if variantes_errors:
+                for error in variantes_errors:
+                    messages.error(request, error)
+            
+            # Message de succès global
+            message_succes = f"L'article '{article.nom}' a été modifié avec succès."
+            if variantes_mises_a_jour > 0:
+                message_succes += f" {variantes_mises_a_jour} variante(s) mise(s) à jour."
+            if variantes_crees > 0:
+                message_succes += f" {variantes_crees} nouvelle(s) variante(s) créée(s)."
+            
+            # Si c'est une requête AJAX, retourner JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': message_succes,
+                    'redirect_url': reverse('article:detail', args=[article.id])
+                })
+                
+            messages.success(request, message_succes)
             return redirect('article:detail', id=article.id)
             
         except Exception as e:
             messages.error(request, f"Une erreur est survenue lors de la modification de l'article : {str(e)}")
-            return render(request, 'article/modifier.html', {'article': article, 'form_data': request.POST})
+            
+            # Calculer les couleurs et pointures uniques pour le tableau croisé (même en cas d'erreur)
+            couleurs_uniques = []
+            pointures_uniques = []
+            
+            if article.variantes.exists():
+                couleurs_uniques = list(article.variantes.exclude(couleur__isnull=True).values_list('couleur__nom', flat=True).distinct().order_by('couleur__nom'))
+                pointures_uniques = list(article.variantes.exclude(pointure__isnull=True).values_list('pointure__pointure', flat=True).distinct().order_by('pointure__ordre', 'pointure__pointure'))
+                
+                if article.variantes.filter(couleur__isnull=True).exists():
+                    couleurs_uniques.append("Aucune couleur")
+                    
+                if article.variantes.filter(pointure__isnull=True).exists():
+                    pointures_uniques.append("Aucune pointure")
+            
+            return render(request, 'article/modifier.html', {
+        'article': article,
+                'form_data': request.POST,
+        'categories': categories,
+                'genres': genres,
+                'couleurs': couleurs,
+                'pointures': pointures,
+                'couleurs_uniques': couleurs_uniques,
+                'pointures_uniques': pointures_uniques,
+            })
     
+    # Préparer les données pour le tableau croisé (matrice complète)
+    variantes = article.variantes.all()
+    couleurs_uniques = []
+    pointures_uniques = []
+    tableau_matrice = []
+    
+    if variantes.exists():
+        # Récupérer toutes les pointures et couleurs uniques
+        pointures_uniques = sorted(set(v.pointure.pointure for v in variantes if v.pointure), key=lambda x: int(x) if x.isdigit() else float('inf'))
+        couleurs_uniques = sorted(set(v.couleur.nom for v in variantes if v.couleur))
+        
+        # Créer une matrice complète ligne par ligne
+        for pointure in pointures_uniques:
+            ligne = {
+                'pointure': pointure,
+                'cellules': []
+            }
+            
+            for couleur in couleurs_uniques:
+                # Chercher la variante correspondante
+                variante = variantes.filter(pointure__pointure=pointure, couleur__nom=couleur).first()
+                if variante:
+                    ligne['cellules'].append({
+                        'existe': True,
+                        'id': variante.id,
+                        'couleur': couleur,
+                        'stock': variante.qte_disponible,
+                        'reference': variante.reference_variante,
+                        'status': 'normal' if variante.qte_disponible >= 5 else 'faible' if variante.qte_disponible > 0 else 'rupture'
+                    })
+                else:
+                    ligne['cellules'].append({
+                        'existe': False,
+                        'couleur': couleur
+                    })
+            
+            tableau_matrice.append(ligne)
+
     context = {
-        'article': article
+        'article': article,
+        'categories': categories,
+        'genres': genres,
+        'couleurs': couleurs,
+        'pointures': pointures,
+        'couleurs_uniques': couleurs_uniques,
+        'pointures_uniques': pointures_uniques,
+        'tableau_matrice': tableau_matrice,
     }
     return render(request, 'article/modifier.html', context)
 
 @login_required
+@require_POST
 def supprimer_article(request, id):
     """Supprimer un article (méthode POST requise)"""
     article = get_object_or_404(Article, id=id)
-    if request.method == 'POST':
-        try:
-            article.delete()
-            messages.success(request, f"L'article '{article.nom}' a été supprimé avec succès.")
-        except Exception as e:
-            messages.error(request, f"Une erreur est survenue lors de la suppression de l'article : {e}")
-        return redirect('article:liste')
-    # Si la méthode n'est pas POST, on redirige simplement vers la liste
+    try:
+        article.delete()
+        messages.success(request, f"L'article '{article.nom}' a été supprimé avec succès.")
+    except Exception as e:
+        messages.error(request, f"Une erreur est survenue lors de la suppression de l'article : {e}")
     return redirect('article:liste')
 
 @require_POST
@@ -421,16 +891,15 @@ def supprimer_articles_masse(request):
 def articles_par_categorie(request, categorie):
     """Articles filtrés par catégorie"""
     articles = Article.objects.filter(
-        categorie__icontains=categorie,
+        categorie__nom__icontains=categorie,
         actif=True
-    ).order_by('nom', 'couleur', 'pointure')
+    ).order_by('nom')
     
     # Recherche dans la catégorie
     search = request.GET.get('search')
     if search:
         articles = articles.filter(
             Q(nom__icontains=search) | 
-            Q(couleur__icontains=search) |
             Q(description__icontains=search)
         )
     
@@ -451,10 +920,11 @@ def articles_par_categorie(request, categorie):
 def stock_faible(request):
     """Articles avec stock faible (moins de 5 unités)"""
     articles = Article.objects.filter(
-        qte_disponible__lt=5,
-        qte_disponible__gt=0,
+        variantes__qte_disponible__lt=5,
+        variantes__qte_disponible__gt=0,
+        variantes__actif=True,
         actif=True
-    ).order_by('qte_disponible', 'nom')
+    ).order_by('variantes__qte_disponible', 'nom')
     
     # Pagination
     paginator = Paginator(articles, 20)
@@ -471,9 +941,10 @@ def stock_faible(request):
 def rupture_stock(request):
     """Articles en rupture de stock"""
     articles = Article.objects.filter(
-        qte_disponible=0,
+        variantes__qte_disponible=0,
+        variantes__actif=True,
         actif=True
-    ).order_by('nom', 'couleur', 'pointure')
+    ).order_by('nom', 'variantes__couleur__nom', 'variantes__pointure__pointure')
     
     # Pagination
     paginator = Paginator(articles, 20)
@@ -513,10 +984,47 @@ def liste_promotions(request):
             Q(description__icontains=search)
         )
     
-    # Pagination
-    paginator = Paginator(promotions, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    # Gestion de la pagination flexible
+    items_per_page = request.GET.get('items_per_page', 10)
+    start_range = request.GET.get('start_range', '')
+    end_range = request.GET.get('end_range', '')
+    
+    # Conserver une copie des promotions non paginées pour les statistiques
+    promotions_non_paginees = promotions
+    
+    # Gestion de la plage personnalisée
+    if start_range and end_range:
+        try:
+            start_idx = int(start_range) - 1  # Index commence à 0
+            end_idx = int(end_range)
+            if start_idx >= 0 and end_idx > start_idx:
+                promotions = list(promotions)[start_idx:end_idx]
+                # Créer un paginator factice pour la plage
+                paginator = Paginator(promotions, len(promotions))
+                page_obj = paginator.get_page(1)
+        except (ValueError, TypeError):
+            # En cas d'erreur, utiliser la pagination normale
+            items_per_page = 10
+            paginator = Paginator(promotions, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        page_number = request.GET.get('page', 1)
+        if items_per_page == 'all':
+            # Afficher toutes les promotions
+            paginator = Paginator(promotions, promotions.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 10
+            except (ValueError, TypeError):
+                items_per_page = 10
+            
+            paginator = Paginator(promotions, items_per_page)
+            page_obj = paginator.get_page(page_number)
     
     # Statistiques
     stats = {
@@ -537,12 +1045,45 @@ def liste_promotions(request):
         ).distinct().count()
     }
     
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('article/partials/_promotions_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('article/partials/_promotions_pagination.html', {
+            'page_obj': page_obj,
+            'search': search,
+            'filtre': filtre,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('article/partials/_promotions_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': promotions_non_paginees.count()
+        })
+
     context = {
         'page_obj': page_obj,
         'stats': stats,
         'filtre': filtre,
         'search': search,
-        'form_promotion': form_promotion  # Renommer form en form_promotion pour correspondre au template
+        'form_promotion': form_promotion,
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     return render(request, 'article/liste_promotions.html', context)
 
@@ -552,7 +1093,7 @@ def detail_promotion(request, id):
     promotion = get_object_or_404(Promotion, id=id)
     
     # Articles en promotion
-    articles = promotion.articles.all().order_by('nom', 'couleur', 'pointure')
+    articles = promotion.articles.all().order_by('nom')
     
     context = {
         'promotion': promotion,
@@ -830,10 +1371,10 @@ def reinitialiser_prix(request, id):
         return redirect(referer)
     return redirect('article:detail', id=article.id)
 
-
-
 @login_required
 def gerer_promotions_automatiquement(request):
+
+    
     """Gère automatiquement toutes les promotions selon leur date et statut"""
     now = timezone.now()
     
@@ -875,57 +1416,326 @@ def gerer_promotions_automatiquement(request):
     return redirect('article:liste_promotions')
 
 
+@login_required
+def liste_variantes(request):
+    """Liste des variantes d'articles avec recherche, filtres et pagination"""
+    variantes_articles = VarianteArticle.objects.filter(actif=True).select_related(
+        'article', 'couleur', 'pointure', 'article__categorie'
+    ).order_by('article__nom')
+    
+    # Formulaire de promotion pour la modal
+    form_promotion = PromotionForm()
+    
+    # Récupérer les paramètres de filtrage
+    filtre_phase = request.GET.get('filtre_phase', 'tous')
+    filtre_promotion = request.GET.get('filtre_promotion', '')
+    filtre_stock = request.GET.get('filtre_stock', '')
+    search = request.GET.get('search', '')
+    
+    # Filtrage par phase
+    if filtre_phase and filtre_phase != 'tous':
+        variantes_articles = variantes_articles.filter(article__phase=filtre_phase)
+    
+    # Filtrage par promotion
+    now = timezone.now()
+    if filtre_promotion == 'avec_promo':
+        variantes_articles = variantes_articles.filter(
+            article__promotions__active=True,
+            article__promotions__date_debut__lte=now,
+            article__promotions__date_fin__gte=now
+        ).distinct()
+    elif filtre_promotion == 'sans_promo':
+        variantes_articles = variantes_articles.exclude(
+            article__promotions__active=True,
+            article__promotions__date_debut__lte=now,
+            article__promotions__date_fin__gte=now
+        ).distinct()
+    
+    # Filtrage par stock
+    if filtre_stock == 'disponible':
+        variantes_articles = variantes_articles.filter(qte_disponible__gt=0, actif=True).distinct()
+    elif filtre_stock == 'rupture':
+        variantes_articles = variantes_articles.filter(qte_disponible=0, actif=True).distinct()
+    elif filtre_stock == 'stock_faible':
+        variantes_articles = variantes_articles.filter(
+            qte_disponible__gt=0, 
+            qte_disponible__lt=5, 
+            actif=True
+        ).distinct()
+    
+    # Recherche unique sur plusieurs champs
+    if search:
+        # Essayer de convertir la recherche en nombre pour le prix
+        try:
+            # Si c'est un nombre, on cherche le prix exact ou dans une marge de ±10 DH
+            search_price = float(search.replace(',', '.'))
+            price_query = Q(article__prix_unitaire__gte=search_price-10) & Q(article__prix_unitaire__lte=search_price+10)
+        except ValueError:
+            price_query = Q()  # Query vide si ce n'est pas un prix
+
+        # Vérifier si c'est une fourchette de prix (ex: 100-200)
+        if '-' in search and all(part.strip().replace(',', '.').replace('.', '').isdigit() for part in search.split('-')):
+            try:
+                min_price, max_price = map(lambda x: float(x.strip().replace(',', '.')), search.split('-'))
+                price_query = Q(article__prix_unitaire__gte=min_price) & Q(article__prix_unitaire__lte=max_price)
+            except ValueError:
+                pass
+
+        variantes_articles = variantes_articles.filter(
+            Q(article__reference__icontains=search) |    # Recherche par référence
+            Q(article__nom__icontains=search) |          # Recherche par nom
+            Q(couleur__nom__icontains=search) |          # Recherche par couleur
+            Q(pointure__pointure__icontains=search) |    # Recherche par pointure
+            Q(article__categorie__nom__icontains=search) | # Recherche par catégorie
+            price_query                                   # Recherche par prix
+        ).distinct()
+    
+    # Gestion de la pagination flexible
+    items_per_page = request.GET.get('items_per_page', 12)
+    start_range = request.GET.get('start_range', '')
+    end_range = request.GET.get('end_range', '')
+    
+    # Conserver une copie des variantes non paginées pour les statistiques
+    variantes_non_paginees = variantes_articles
+    
+    # Gestion de la plage personnalisée
+    if start_range and end_range:
+        try:
+            start_idx = int(start_range) - 1  # Index commence à 0
+            end_idx = int(end_range)
+            if start_idx >= 0 and end_idx > start_idx:
+                variantes_articles = list(variantes_articles)[start_idx:end_idx]
+                # Créer un paginator factice pour la plage
+                paginator = Paginator(variantes_articles, len(variantes_articles))
+                page_obj = paginator.get_page(1)
+        except (ValueError, TypeError):
+            # En cas d'erreur, utiliser la pagination normale
+            items_per_page = 12
+            paginator = Paginator(variantes_articles, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        page_number = request.GET.get('page', 1)
+        if items_per_page == 'all':
+            # Afficher toutes les variantes
+            paginator = Paginator(variantes_articles, variantes_articles.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 12
+            except (ValueError, TypeError):
+                items_per_page = 12
+            
+            paginator = Paginator(variantes_articles, items_per_page)
+            page_obj = paginator.get_page(page_number)
+    
+    # Statistiques mises à jour selon les filtres appliqués
+    all_variantes_articles = VarianteArticle.objects.filter(actif=True)
+    stats = {
+        'total_articles': all_variantes_articles.count(),
+        'articles_disponibles': all_variantes_articles.filter(qte_disponible__gt=0, actif=True).distinct().count(),
+        'articles_en_cours': all_variantes_articles.filter(article__phase='EN_COURS').count(),
+        'articles_liquidation': all_variantes_articles.filter(article__phase='LIQUIDATION').count(),
+        'articles_test': all_variantes_articles.filter(article__phase='EN_TEST').count(),
+        'articles_promotion': all_variantes_articles.filter(
+            article__promotions__active=True,
+            article__promotions__date_debut__lte=now,
+            article__promotions__date_fin__gte=now
+        ).distinct().count(),
+        'articles_rupture': all_variantes_articles.filter(qte_disponible=0, actif=True).distinct().count(),
+        'articles_stock_faible': all_variantes_articles.filter(
+            qte_disponible__gt=0, 
+            qte_disponible__lt=5, 
+            actif=True
+        ).distinct().count(),
+    }
+    
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        
+        # Rendre les templates partiels pour AJAX
+        html_cards_body = render_to_string('article/partials/variantes_articles_cards_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_table_body = render_to_string('article/partials/variantes_articles_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        # Vue grille pour variantes
+        html_grid_body = render_to_string('article/partials/variantes_articles_grid_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('article/partials/_articles_pagination.html', {
+            'page_obj': page_obj,
+            'search': search,
+            'filtre_phase': filtre_phase,
+            'filtre_promotion': filtre_promotion,
+            'filtre_stock': filtre_stock,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('article/partials/_articles_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_cards_body': html_cards_body,
+            'html_table_body': html_table_body,
+            'html_grid_body': html_grid_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': variantes_non_paginees.count()
+        })
+
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+        'stats': stats,
+        'form_promotion': form_promotion,
+        'filtre_phase': filtre_phase,
+        'filtre_promotion': filtre_promotion,
+        'filtre_stock': filtre_stock,
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
+    }
+    return render(request, 'article/Liste_variante_article.html', context)
 
 @login_required
-def corriger_upsells(request):
-    """Corrige les upsells qui devraient être désactivés (vue web)"""
-    try:
-        # Compter les articles avec upsell qui devraient être désactivés
-        articles_avec_upsell = Article.objects.filter(isUpsell=True, actif=True)
-        
-        articles_a_corriger = []
-        stats = {'liquidation': 0, 'test': 0, 'promotion': 0}
-        
-        for article in articles_avec_upsell:
-            if article.should_disable_upsell():
-                articles_a_corriger.append(article)
-                
-                # Compter les raisons
-                if article.phase == 'LIQUIDATION':
-                    stats['liquidation'] += 1
-                elif article.phase == 'EN_TEST':
-                    stats['test'] += 1
-                if article.has_promo_active:
-                    stats['promotion'] += 1
-        
-        if not articles_a_corriger:
-            messages.info(request, "✅ Tous les upsells sont correctement configurés.")
-        else:
-            # Appliquer les corrections
-            corrected_count = 0
-            for article in articles_a_corriger:
-                article.isUpsell = False
-                article.save(update_fields=['isUpsell'])
-                corrected_count += 1
-            
-            # Message détaillé
-            details = []
-            if stats['liquidation'] > 0:
-                details.append(f"{stats['liquidation']} en liquidation")
-            if stats['test'] > 0:
-                details.append(f"{stats['test']} en test")
-            if stats['promotion'] > 0:
-                details.append(f"{stats['promotion']} en promotion")
-            
-            detail_str = " (" + ", ".join(details) + ")" if details else ""
-            
-            messages.success(request, 
-                f"✅ Correction des upsells terminée ! "
-                f"{corrected_count} article(s) mis à jour{detail_str}."
-            )
-        
-    except Exception as e:
-        messages.error(request, f"❌ Erreur lors de la correction des upsells : {str(e)}")
+def creer_variantes_ajax(request):
+    """Créer des variantes via AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
     
-    # Rediriger vers la liste des articles
-    return redirect('article:liste')
+    try:
+        import json
+        data = json.loads(request.body)
+        article_id = data.get('article_id')
+        variantes_data = data.get('variantes', [])
+        
+        if not article_id:
+            return JsonResponse({'success': False, 'error': 'ID de l\'article manquant'})
+        
+        # Récupérer l'article
+        try:
+            article = Article.objects.get(id=article_id, actif=True)
+        except Article.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Article non trouvé'})
+        
+        variantes_crees = []
+        erreurs = []
+        
+        for variante_data in variantes_data:
+            couleur_id = variante_data.get('couleur_id')
+            pointure_id = variante_data.get('pointure_id')
+            quantite = variante_data.get('quantite', 0)
+            reference = variante_data.get('reference', '')
+            
+            # Validation
+            if not couleur_id and not pointure_id:
+                erreurs.append('Au moins une couleur ou une pointure doit être spécifiée')
+                continue
+            
+            # Vérifier l'unicité
+            if VarianteArticle.objects.filter(
+                article=article,
+                couleur_id=couleur_id if couleur_id else None,
+                pointure_id=pointure_id if pointure_id else None
+            ).exists():
+                erreurs.append('Cette combinaison couleur/pointure existe déjà')
+                continue
+            
+            try:
+                # Créer la variante
+                variante = VarianteArticle()
+                variante.article = article
+                variante.couleur_id = couleur_id if couleur_id else None
+                variante.pointure_id = pointure_id if pointure_id else None
+                variante.qte_disponible = int(quantite) if quantite else 0
+                
+                # Définir la référence
+                if reference:
+                    variante.reference_variante = reference
+                else:
+                    # Générer automatiquement
+                    variante.save()  # Sauvegarder d'abord pour avoir l'ID
+                    variante.reference_variante = variante.generer_reference_variante_automatique()
+                
+                variante.save()
+                
+                # Préparer les données de réponse
+                variante_info = {
+                    'id': variante.id,
+                    'couleur': variante.couleur.nom if variante.couleur else None,
+                    'pointure': variante.pointure.pointure if variante.pointure else None,
+                    'quantite': variante.qte_disponible,
+                    'reference': variante.reference_variante
+                }
+                
+                variantes_crees.append(variante_info)
+                
+            except Exception as e:
+                erreurs.append(f'Erreur lors de la création: {str(e)}')
+        
+        return JsonResponse({
+            'success': True,
+            'variantes_crees': variantes_crees,
+            'nombre_crees': len(variantes_crees),
+            'erreurs': erreurs
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Données JSON invalides'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Erreur serveur: {str(e)}'})
+
+@login_required
+def supprimer_variante(request, id):
+    """Supprimer une variante d'article"""
+    if request.method != 'POST':
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+        messages.error(request, 'Méthode non autorisée')
+        return redirect('article:liste')
+    
+    try:
+        variante = VarianteArticle.objects.get(id=id)
+        article = variante.article
+        
+        # Vérifier les permissions (optionnel)
+        # Vous pouvez ajouter des vérifications de permissions ici
+        
+        variante_info = f"{variante.couleur.nom if variante.couleur else 'Aucune couleur'} / {variante.pointure.pointure if variante.pointure else 'Aucune pointure'}"
+        variante.delete()
+        
+        # Si c'est une requête AJAX, retourner JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True, 
+                'message': f'Variante "{variante_info}" supprimée avec succès.',
+                'variante_id': id
+            }, content_type='application/json')
+        
+        # Sinon, rediriger normalement
+        messages.success(request, f'Variante "{variante_info}" supprimée avec succès.')
+        return redirect('article:modifier', id=article.id)
+        
+    except VarianteArticle.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Variante non trouvée.'}, content_type='application/json')
+        messages.error(request, 'Variante non trouvée.')
+        return redirect('article:liste')
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': f'Erreur lors de la suppression : {str(e)}'}, content_type='application/json')
+        messages.error(request, f'Erreur lors de la suppression : {str(e)}')
+        return redirect('article:liste')

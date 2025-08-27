@@ -16,10 +16,11 @@ from datetime import datetime, timedelta
 from django.db.models import Sum
 from django.db import models, transaction
 from client.models import Client
-from article.models import Article
+from article.models import Article, VarianteArticle
 import logging
 from django.urls import reverse
 from django.template.loader import render_to_string
+# Suppression de l'app notifications: retirer les imports
 
 # Create your views here.
 
@@ -313,21 +314,30 @@ def confirmer_commande_ajax(request, commande_id):
                     })
                     print(f"❌ DEBUG: Stock insuffisant pour {article.nom}")
                 else:
-                    # Décrémenter le stock
+                    # Décrémenter le stock via mouvements sur variantes (pas d'écriture sur Article.qte_disponible)
                     ancien_stock = article.qte_disponible
-                    article.qte_disponible -= quantite_commandee
-                    article.save()
+                    from Superpreparation.utils import creer_mouvement_stock as creer_mouvement_stock_prepa
+                    creer_mouvement_stock_prepa(
+                        article=article,
+                        quantite=quantite_commandee,
+                        type_mouvement='ajustement_neg' if quantite_commandee > 0 else 'ajustement_pos',
+                        operateur=operateur,
+                        commande=commande,
+                        commentaire=f"Décrément lors de la confirmation commande {commande.id_yz}",
+                        variante=None,
+                    )
+                    nouveau_stock = article.qte_disponible  # Propriété calculée à partir des variantes
                     
                     articles_decrémentes.append({
                         'article': article.nom,
                         'ancien_stock': ancien_stock,
-                        'nouveau_stock': article.qte_disponible,
+                        'nouveau_stock': nouveau_stock,
                         'quantite_decrémententée': quantite_commandee
                     })
                     
                     print(f"✅ DEBUG: Stock mis à jour pour {article.nom}")
                     print(f"   - Ancien stock: {ancien_stock}")
-                    print(f"   - Nouveau stock: {article.qte_disponible}")
+                    print(f"   - Nouveau stock: {nouveau_stock}")
             
             # Si il y a des problèmes de stock, annuler la transaction
             if stock_insuffisant:
@@ -353,7 +363,7 @@ def confirmer_commande_ajax(request, commande_id):
             etat_actuel.save()
             print(f"🔄 DEBUG: État actuel fermé: {etat_actuel.enum_etat.libelle}")
             
-            # Créer le nouvel état
+            # Créer le nouvel état Confirmée (historisation courte)
             nouvel_etat = EtatCommande.objects.create(
                 commande=commande,
                 enum_etat=enum_confirmee,
@@ -362,6 +372,25 @@ def confirmer_commande_ajax(request, commande_id):
                 commentaire=commentaire
             )
             print(f"✅ DEBUG: Nouvel état créé: Confirmée")
+
+            # Immédiatement basculer en file de préparation pour les superviseurs
+            try:
+                # Clore l'état Confirmée pour n'avoir qu'un état actif
+                nouvel_etat.date_fin = timezone.now()
+                nouvel_etat.save(update_fields=['date_fin'])
+
+                # Créer l'état "À imprimer" (état d'entrée pour la préparation)
+                enum_a_imprimer = EnumEtatCmd.objects.get(libelle='À imprimer')
+                EtatCommande.objects.create(
+                    commande=commande,
+                    enum_etat=enum_a_imprimer,
+                    # On n'assigne pas d'opérateur spécifique: visible à tous les superviseurs
+                    date_debut=timezone.now(),
+                    commentaire=f"Commande reçue de la confirmation par {operateur.nom_complet}"
+                )
+                print("📨 DEBUG: État 'À imprimer' créé pour file préparation (superviseurs)")
+            except EnumEtatCmd.DoesNotExist:
+                print("⚠️ DEBUG: État 'À imprimer' introuvable. La commande reste en 'Confirmée'.")
             
             # Log des articles décrémernts
             print(f"📊 DEBUG: Résumé de la décrémentation:")
@@ -373,7 +402,8 @@ def confirmer_commande_ajax(request, commande_id):
             'success': True, 
             'message': f'Commande {commande.id_yz} confirmée avec succès.',
             'articles_decrémentes': len(articles_decrémentes),
-            'details_stock': articles_decrémentes
+            'details_stock': articles_decrémentes,
+            'redirect_url': '/operateur-confirme/confirmation/'
         })
         
     except Commande.DoesNotExist:
@@ -498,14 +528,19 @@ def commandes_confirmees(request):
     from datetime import timedelta
     
     try:
+        # Vérifier que l'utilisateur est connecté
+        if not request.user.is_authenticated:
+            from django.contrib import messages
+            messages.error(request, 'Vous devez être connecté pour accéder à cette page.')
+            return redirect('login')
+        
         # Récupérer l'objet Operateur correspondant à l'utilisateur connecté
         operateur = Operateur.objects.get(user=request.user, type_operateur='CONFIRMATION')
         
         # Récupérer seulement les commandes confirmées par cet opérateur
         mes_commandes_confirmees = Commande.objects.filter(
             etats__enum_etat__libelle='Confirmée',
-            etats__date_fin__isnull=True,
-            etats__operateur=operateur  # Utiliser l'objet Operateur
+            etats__operateur=operateur  # Inclure même si l'état Confirmée est clôturé
         ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
         
 
@@ -539,7 +574,7 @@ def commandes_confirmees(request):
         ).count()
         
     except Operateur.DoesNotExist:
-        # Si l'utilisateur n'est pas un opérateur, liste vide
+        # Si l'utilisateur n'est pas un opérateur de confirmation, afficher notification JS
         mes_commandes_confirmees = Commande.objects.none()
         stats = {
             'total_confirmees': 0,
@@ -547,6 +582,14 @@ def commandes_confirmees(request):
             'confirmees_semaine': 0,
             'confirmees_aujourdhui': 0
         }
+        # Ajouter un flag pour déclencher la notification côté client
+        context = {
+            'mes_commandes_confirmees': mes_commandes_confirmees,
+            'stats': stats,
+            'show_unauthorized_message': True,
+            'user_username': request.user.username
+        }
+        return render(request, 'operatConfirme/commandes_confirmees.html', context)
     
     context = {
         'mes_commandes_confirmees': mes_commandes_confirmees,
@@ -1044,7 +1087,8 @@ def confirmer_commandes_ajax(request):
             if confirmed_count > 0:
                 return JsonResponse({
                     'success': True,
-                    'message': f'{confirmed_count} commande(s) confirmée(s) avec succès'
+                    'message': f'{confirmed_count} commande(s) confirmée(s) avec succès',
+                    'redirect_url': reverse('operatConfirme:confirmation')
                 })
             else:
                 return JsonResponse({
@@ -1399,17 +1443,53 @@ def modifier_commande(request, commande_id):
             
             if action == 'add_article':
                 # Ajouter un nouvel article immédiatement
-                from article.models import Article
+                from article.models import Article, VarianteArticle
                 from commande.models import Panier
                 
                 article_id = request.POST.get('article_id')
                 quantite = int(request.POST.get('quantite', 1))
+                variante_id = request.POST.get('variante_id')  # Nouveau paramètre
+                
+                print(f"📦 Ajout article: ID={article_id}, Qté={quantite}, Variante={variante_id}")
                 
                 try:
-                    article = Article.objects.get(id=article_id)
+                    # D'abord, essayer de trouver l'article directement
+                    article = None
+                    variante_id_int = None
                     
-                    # Vérifier si l'article existe déjà dans la commande
-                    panier_existant = Panier.objects.filter(commande=commande, article=article).first()
+                    try:
+                        article = Article.objects.get(id=article_id, actif=True)
+                        # Convertir variante_id en entier ou None
+                        variante_id_int = int(variante_id) if variante_id and variante_id != 'null' and variante_id != '' else None
+                        print(f"✅ Article trouvé directement: {article.nom}")
+                    except Article.DoesNotExist:
+                        # Si pas trouvé comme Article, peut-être que c'est l'ID d'une variante
+                        try:
+                            variante = VarianteArticle.objects.get(id=article_id, actif=True)
+                            article = variante.article
+                            variante_id_int = variante.id
+                            print(f"✅ Variante trouvée: {variante} -> Article: {article.nom}")
+                        except VarianteArticle.DoesNotExist:
+                            raise Article.DoesNotExist(f"Ni article ni variante trouvé avec l'ID {article_id}")
+                    
+                    if not article or not article.actif:
+                        raise Article.DoesNotExist(f"Article inactif ou introuvable")
+                    
+                                        # Vérifier si l'article avec cette variante existe déjà dans la commande
+                    if variante_id_int:
+                        variante_obj = VarianteArticle.objects.get(id=variante_id_int)
+                        panier_existant = Panier.objects.filter(
+                            commande=commande, 
+                            article=article, 
+                            variante=variante_obj
+                        ).first()
+                    else:
+                        variante_obj = None
+                        panier_existant = Panier.objects.filter(
+                            commande=commande, 
+                            article=article, 
+                            variante__isnull=True
+                        ).first()
                     
                     if panier_existant:
                         # Si l'article existe déjà, mettre à jour la quantité
@@ -1419,11 +1499,16 @@ def modifier_commande(request, commande_id):
                         print(f"🔄 Article existant mis à jour: ID={article.id}, nouvelle quantité={panier.quantite}")
                     else:
                         # Si l'article n'existe pas, créer un nouveau panier
+                        variante_obj = None
+                        if variante_id_int:
+                            variante_obj = VarianteArticle.objects.get(id=variante_id_int)
+                        
                         panier = Panier.objects.create(
                             commande=commande,
                             article=article,
                             quantite=quantite,
-                            sous_total=0  # Sera recalculé après
+                            sous_total=0,  # Sera recalculé après
+                            variante=variante_obj
                         )
                         print(f"➕ Nouvel article ajouté: ID={article.id}, quantité={quantite}")
                     
@@ -1476,10 +1561,10 @@ def modifier_commande(request, commande_id):
                         'new_quantity': panier.quantite
                     })
                     
-                except Article.DoesNotExist:
+                except Article.DoesNotExist as e:
                     return JsonResponse({
                         'success': False,
-                        'error': 'Article non trouvé'
+                        'error': f'Article ou variante avec l\'ID {article_id} non trouvé ou désactivé. {str(e)}'
                     })
                 except Exception as e:
                     return JsonResponse({
@@ -1629,7 +1714,7 @@ def modifier_commande(request, commande_id):
                 except Panier.DoesNotExist:
                     return JsonResponse({
                         'success': False,
-                        'error': 'Article non trouvé'
+                        'error': f'Article avec l\'ID panier {panier_id} non trouvé dans cette commande'
                     })
                 except Exception as e:
                     return JsonResponse({
@@ -1712,7 +1797,7 @@ def modifier_commande(request, commande_id):
                 except Panier.DoesNotExist:
                     return JsonResponse({
                         'success': False,
-                        'error': 'Article non trouvé'
+                        'error': f'Article avec l\'ID panier {panier_id} non trouvé dans cette commande'
                     })
                 except Exception as e:
                     return JsonResponse({
@@ -2281,13 +2366,20 @@ def api_articles_disponibles(request):
             if stock is None:
                 stock = 0
             
+            # Déterminer l'URL de l'image
+            image_url = None
+            if article.image:
+                image_url = article.image.url
+            elif article.image_url:
+                image_url = article.image_url
+            
             articles_data.append({
                 'id': article.id,
                 'nom': article.nom,
                 'reference': article.reference or '',
                 'pointure': article.pointure or '',
                 'couleur': article.couleur or '',
-                'categorie': article.categorie or '',
+                'categorie': (str(article.categorie) if article.categorie else ''),
                 'prix_unitaire': float(article.prix_unitaire),
                 'prix_actuel': float(article.prix_actuel or article.prix_unitaire),
                 'prix_upsell_1': float(article.prix_upsell_1) if article.prix_upsell_1 else None,
@@ -2299,6 +2391,7 @@ def api_articles_disponibles(request):
                 'phase': article.phase,
                 'has_promo_active': article.has_promo_active,
                 'description': article.description or '',
+                'image_url': image_url,
             })
         
         return JsonResponse(articles_data, safe=False)
@@ -2539,13 +2632,14 @@ def api_panier_commande(request, commande_id):
                 pk=commande_id
             )
             
-            # Vérifier que la commande est affectée à cet opérateur ou qu'il peut la voir
-            etat_actuel = commande.etats.filter(
-                operateur=operateur,
-                date_fin__isnull=True
+            # Vérifier que l'opérateur peut voir cette commande
+            # Soit elle lui est actuellement affectée (date_fin=null)
+            # Soit il l'a déjà traitée (peu importe date_fin)
+            etat_operateur = commande.etats.filter(
+                operateur=operateur
             ).first()
             
-            if not etat_actuel:
+            if not etat_operateur:
                 return JsonResponse({'error': 'Cette commande ne vous est pas affectée'}, status=403)
             
             # Préparer les données pour le template
@@ -2792,7 +2886,7 @@ def api_recherche_article_ref(request):
             except Article.DoesNotExist:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Article non trouvé'
+                    'error': f'Article avec l\'ID {article_id} non trouvé ou désactivé'
                 })
         
         # Cas 2: Recherche par référence exacte
@@ -2820,7 +2914,7 @@ def api_recherche_article_ref(request):
             else:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Article non trouvé'
+                    'error': f'Article avec la référence "{reference}" non trouvé ou désactivé'
                 })
         
         # Cas 3: Recherche par texte (pour creer_commande.html)
@@ -2867,7 +2961,85 @@ def api_recherche_article_ref(request):
             'error': str(e)
         })
 
+# Vues liées aux notifications supprimées (test_modal, centre_notifications)
 
-
+@login_required
+def get_article_variants(request, article_id):
+    """
+    Récupère toutes les variantes disponibles d'un article donné
+    """
+    try:
+        from article.models import Article, VarianteArticle
+        
+        print(f"🔍 Recherche des variantes pour l'article ID: {article_id} (type: {type(article_id)})")
+        
+        # Vérifier si l'article existe et s'il est actif
+        try:
+            article = Article.objects.get(id=article_id)
+            print(f"📋 Article trouvé: {article.nom} (actif: {article.actif})")
+            
+            if not article.actif:
+                print(f"⚠️ Article {article_id} existe mais est inactif")
+                return JsonResponse({
+                    'success': False,
+                    'error': f'L\'article "{article.nom}" (ID: {article_id}) est désactivé'
+                }, status=404)
+                
+        except Article.DoesNotExist:
+            print(f"❌ Aucun article trouvé avec l'ID {article_id}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Aucun article trouvé avec l\'ID {article_id}'
+            }, status=404)
+            
+        print(f"✅ Article actif trouvé: {article.nom}")
+        
+        # Récupérer toutes les variantes actives de cet article
+        variantes = VarianteArticle.objects.filter(
+            article=article,
+            actif=True
+        ).select_related('couleur', 'pointure').order_by('couleur__nom', 'pointure__ordre')
+        
+        print(f"📊 Nombre de variantes trouvées: {variantes.count()}")
+        
+        # Construire la liste des variantes avec leurs informations
+        variants_data = []
+        for variante in variantes:
+            print(f"🔸 Variante: {variante.id} - Couleur: {variante.couleur} - Pointure: {variante.pointure} - Stock: {variante.qte_disponible}")
+            
+            variant_info = {
+                'id': variante.id,
+                'couleur': variante.couleur.nom if variante.couleur else None,
+                'pointure': variante.pointure.pointure if variante.pointure else None,
+                'taille': None,  # À adapter selon votre modèle si vous avez des tailles
+                'stock': variante.qte_disponible,
+                'prix_unitaire': float(variante.prix_unitaire),
+                'prix_actuel': float(variante.prix_actuel),
+                'reference_variante': variante.reference_variante,
+                'est_disponible': variante.est_disponible
+            }
+            variants_data.append(variant_info)
+        
+        response_data = {
+            'success': True,
+            'variants': variants_data,
+            'article': {
+                'id': article.id,
+                'nom': article.nom,
+                'reference': article.reference
+            }
+        }
+        
+        print(f"📤 Réponse envoyée: {len(variants_data)} variantes")
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Erreur dans get_article_variants: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': 'Erreur lors de la récupération des variantes'
+        }, status=500)
 
 

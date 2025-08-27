@@ -1,7 +1,7 @@
 {% extends 'composant_generale/admin/base.html' %}
 {% load static %}
 
-{% block title %}Suivi des Confirmations - YZ-CMD{% endblock %}
+{% block title %}Suivi des Confirmations en Cours - YZ-CMD{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -69,24 +69,25 @@
 {% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="main-content transition-all duration-300" id="mainContent">
     <!-- En-tête de la page -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg" style="background: linear-gradient(to right, var(--admin-gradient-start), var(--admin-gradient-end));">
         <div>
             <h1 class="text-3xl font-bold flex items-center mb-2">
-                <i class="fas fa-eye mr-3 live-indicator" style="color: var(--admin-accent-color);"></i>
-                Suivi des Confirmations
+                <i class="fas fa-clock mr-3 live-indicator" style="color: var(--admin-accent-color);"></i>
+                Suivi des Confirmations en Cours
             </h1>
-            <p style="color: var(--admin-accent-color);">Tableau de bord en temps réel des activités de confirmation</p>
+            <p style="color: var(--admin-accent-color);">Tableau de bord en temps réel des commandes en cours de confirmation</p>
             <div class="flex items-center mt-2 text-sm" style="color: var(--admin-accent-color);">
                 <i class="fas fa-circle mr-2 live-indicator" style="font-size: 8px; color: var(--admin-accent-color);"></i>
-                Suivi en direct • Avant, pendant et après confirmation
+                Suivi en direct • Commandes en cours de confirmation
             </div>
         </div>
         <div class="flex items-center gap-4 mt-4 md:mt-0">
             <div class="text-right">
-                <div class="text-2xl font-bold" style="color: var(--admin-accent-color);">{{ commandes_confirmees.count|default:0 }}</div>
-                <div class="text-sm opacity-80">Commandes confirmées</div>
+                <div class="text-2xl font-bold" style="color: var(--admin-accent-color);">{{ commandes_en_cours.count|default:0 }}</div>
+                <div class="text-sm opacity-80">Commandes en cours de confirmation</div>
             </div>
         </div>
     </div>
@@ -98,56 +99,56 @@
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="p-4 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-600 transition-all duration-300 group-hover:from-green-500 group-hover:to-green-600 group-hover:text-white group-hover:scale-110">
-                        <i class="fas fa-check-circle text-2xl"></i>
+                        <i class="fas fa-calendar-day text-2xl"></i>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Confirmées Aujourd'hui</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-green-600">{{ confirmees_aujourd_hui|default:0 }}</p>
+                        <p class="text-sm font-medium text-gray-600">Aujourd'hui</p>
+                        <p class="text-3xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ en_cours_aujourd_hui|default:0 }}</p>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- En cours de confirmation -->
+        
+        <!-- Cette semaine -->
         <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.2s;">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="p-4 rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-600 transition-all duration-300 group-hover:from-yellow-500 group-hover:to-yellow-600 group-hover:text-white group-hover:scale-110">
-                        <i class="fas fa-sync-alt text-2xl live-indicator"></i>
+                    <div class="p-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-600 transition-all duration-300 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-calendar-week text-2xl"></i>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">En Cours</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-yellow-600">{{ en_attente_count|default:0 }}</p>
+                        <p class="text-sm font-medium text-gray-600">Cette semaine</p>
+                        <p class="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ en_cours_semaine|default:0 }}</p>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Confirmées cette semaine -->
+        
+        <!-- Hier -->
         <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.3s;">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="p-4 rounded-full bg-gradient-to-r from-purple-100 to-purple-200 text-purple-600 transition-all duration-300 group-hover:from-purple-500 group-hover:to-purple-600 group-hover:text-white group-hover:scale-110">
-                        <i class="fas fa-calendar-week text-2xl"></i>
+                        <i class="fas fa-calendar-minus text-2xl"></i>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Cette Semaine</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-purple-600">{{ confirmees_semaine|default:0 }}</p>
+                        <p class="text-sm font-medium text-gray-600">Hier</p>
+                        <p class="text-3xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{{ en_cours_hier|default:0 }}</p>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Montant total suivi -->
+        
+        <!-- Total -->
         <div class="group bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105 border border-gray-100 animate-slideInUp" style="animation-delay: 0.4s;">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="p-4 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-600 transition-all duration-300 group-hover:from-orange-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110">
-                        <i class="fas fa-chart-line text-2xl"></i>
+                    <div class="p-4 rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-600 transition-all duration-300 group-hover:from-yellow-500 group-hover:to-yellow-600 group-hover:text-white group-hover:scale-110">
+                        <i class="fas fa-clock text-2xl"></i>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">Valeur Suivie</p>
-                        <p class="text-3xl font-bold text-gray-900 transition-all duration-300 group-hover:text-orange-600">{{ montant_total|default:0|floatformat:0 }} DH</p>
+                        <p class="text-sm font-medium text-gray-600">Total En Cours</p>
+                        <p class="text-3xl font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{{ commandes_en_cours.count|default:0 }}</p>
                     </div>
                 </div>
             </div>
@@ -191,7 +192,7 @@
     </div>
 
     <!-- Message si aucun résultat -->
-    {% if not commandes_confirmees %}
+    {% if not commandes_en_cours %}
     <div class="bg-white rounded-xl shadow-lg p-12 text-center">
         <div class="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center bg-gradient-to-r from-blue-100 to-blue-200">
             <i class="fas fa-eye text-4xl text-blue-600"></i>
@@ -200,20 +201,20 @@
             {% if search_query %}
                 Aucune activité trouvée
             {% else %}
-                Surveillance en cours
+                Aucune commande en cours de confirmation
             {% endif %}
         </h3>
         <p class="text-gray-600 mb-6">
             {% if search_query %}
-                Aucune activité de confirmation trouvée pour "{{ search_query }}".
+                Aucune commande en cours de confirmation trouvée pour "{{ search_query }}".
             {% else %}
-                Le système surveille les activités des opérateurs de confirmation en temps réel.
+                Toutes les commandes ont été traitées ou sont dans d'autres états.
             {% endif %}
         </p>
         {% if en_attente_count > 0 %}
         <p class="text-yellow-600 mb-6">
             <i class="fas fa-info-circle mr-2"></i>
-            {{ en_attente_count }} commande(s) sont actuellement en cours de traitement par les opérateurs.
+            {{ en_attente_count }} commande(s) sont actuellement en attente de traitement.
         </p>
         {% endif %}
         <a href="{% url 'commande:liste' %}" class="btn-confirm">
@@ -224,14 +225,14 @@
     {% endif %}
 
     <!-- Tableau de suivi des confirmations -->
-    {% if commandes_confirmees %}
+    {% if commandes_en_cours %}
     <div class="overflow-x-auto mb-8 bg-white rounded-xl shadow-lg">
         <div class="p-4 bg-gray-50 border-b">
             <h3 class="text-lg font-semibold text-gray-900">
-                <i class="fas fa-monitor-heart-rate mr-2 text-green-600"></i>
-                Activités de Confirmation Surveillées
+                <i class="fas fa-clock mr-2 text-yellow-600"></i>
+                Commandes en Cours de Confirmation
             </h3>
-            <p class="text-sm text-gray-600 mt-1">Suivi en temps réel des actions des opérateurs de confirmation</p>
+            <p class="text-sm text-gray-600 mt-1">Suivi en temps réel des commandes en cours de confirmation par les opérateurs</p>
         </div>
         <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
             <thead class="bg-gray-50" style="background-color: var(--admin-color);">
@@ -249,7 +250,7 @@
                 </tr>
             </thead>
             <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
-                {% for commande in commandes_confirmees %}
+                {% for commande in commandes_en_cours %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium text-gray-900">{{ commande.id_yz }}</div>
@@ -292,7 +293,7 @@
                                 <div>
                                     <span class="status-badge bg-green-100 text-green-800">
                                         <i class="fas fa-check-circle mr-1"></i>
-                                        Confirmée ✓
+                                        En cours de confirmation
                                     </span>
                                     <div class="text-xs text-gray-500 mt-1">{{ etat.date_debut|date:"d/m/Y H:i" }}</div>
                                 </div>
@@ -464,24 +465,159 @@
 </div>
 
 <script>
-// Fonction pour actualiser automatiquement la page
-function autoRefresh() {
-    setInterval(function() {
-        if (!document.hidden) {
-            location.reload();
-        }
-    }, 30000); // Actualisation toutes les 30 secondes
+// Variables globales pour la pagination
+let currentPage = 1;
+let currentItemsPerPage = {{ items_per_page|default:25 }};
+let currentStartRange = '{{ start_range|default:"" }}';
+let currentEndRange = '{{ end_range|default:"" }}';
+let currentSearchQuery = '{{ search_query|default:"" }}';
+let searchTimeout;
+
+// Fonction pour construire l'URL avec les paramètres de pagination
+function buildUrl(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+    const params = new URLSearchParams();
+    
+    if (page > 1) params.append('page', page);
+    if (itemsPerPage !== null) params.append('items_per_page', itemsPerPage);
+    if (startRange !== null) params.append('start_range', startRange);
+    if (endRange !== null) params.append('end_range', endRange);
+    if (searchQuery !== null && searchQuery.trim() !== '') params.append('search', searchQuery.trim());
+    
+    const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    return url;
 }
 
-// Démarrer l'actualisation automatique
-document.addEventListener('DOMContentLoaded', function() {
-    autoRefresh();
+// Fonction pour mettre à jour l'URL sans recharger la page
+function updateUrl(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+    const url = buildUrl(page, itemsPerPage, startRange, endRange, searchQuery);
+    window.history.pushState({}, '', url);
+}
+
+// Fonction pour charger les données via AJAX
+function loadData(page = 1, itemsPerPage = null, startRange = null, endRange = null, searchQuery = null) {
+    const url = buildUrl(page, itemsPerPage, startRange, endRange, searchQuery);
     
-    // Ajouter un indicateur de dernière mise à jour
-    const indicator = document.createElement('div');
-    indicator.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-3 py-1 rounded-lg text-xs';
-    indicator.innerHTML = '<i class="fas fa-sync-alt mr-1"></i>Mise à jour: ' + new Date().toLocaleTimeString();
-    document.body.appendChild(indicator);
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Mettre à jour le contenu du tableau
+            document.getElementById('commandTableBody').innerHTML = data.html_table_body;
+            
+            // Mettre à jour la pagination
+            const paginationContainer = document.getElementById('paginationControls');
+            if (paginationContainer) {
+                paginationContainer.innerHTML = data.html_pagination;
+            }
+            
+            // Mettre à jour les informations de pagination
+            const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+            if (paginationInfoContainer) {
+                paginationInfoContainer.innerHTML = data.html_pagination_info;
+            }
+            
+            // Mettre à jour l'URL
+            updateUrl(page, itemsPerPage, startRange, endRange, searchQuery);
+            
+            // Mettre à jour les variables globales
+            currentPage = page;
+            if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
+            if (startRange !== null) currentStartRange = startRange;
+            if (endRange !== null) currentEndRange = endRange;
+            if (searchQuery !== null) currentSearchQuery = searchQuery;
+            
+            // Réattacher les event listeners
+            attachEventListeners();
+        } else {
+            console.error('Erreur lors du chargement des données:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+    });
+}
+
+// Fonction pour changer de page
+function changePage(page) {
+    loadData(page, currentItemsPerPage, currentStartRange, currentEndRange, currentSearchQuery);
+}
+
+// Fonction pour changer le nombre d'éléments par page
+function changeItemsPerPage(itemsPerPage) {
+    loadData(1, itemsPerPage, currentStartRange, currentEndRange, currentSearchQuery);
+}
+
+// Fonction pour appliquer une plage personnalisée
+function applyCustomRange(startRange, endRange) {
+    loadData(1, null, startRange, endRange, currentSearchQuery);
+}
+
+// Fonction pour effacer la plage personnalisée
+function clearCustomRange() {
+    loadData(1, currentItemsPerPage, '', '', currentSearchQuery);
+}
+
+// Fonction pour attacher les event listeners
+function attachEventListeners() {
+    // Event listener pour le select des éléments par page
+    const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+    if (itemsPerPageSelect) {
+        itemsPerPageSelect.removeEventListener('change', handleItemsPerPageChange);
+        itemsPerPageSelect.addEventListener('change', handleItemsPerPageChange);
+    }
+    
+    // Event listener pour le bouton d'application de la plage
+    const applyRangeBtn = document.getElementById('applyRangeBtn');
+    if (applyRangeBtn) {
+        applyRangeBtn.removeEventListener('click', handleApplyRange);
+        applyRangeBtn.addEventListener('click', handleApplyRange);
+    }
+    
+    // Event listener pour le bouton d'effacement de la plage
+    const clearRangeBtn = document.getElementById('clearRangeBtn');
+    if (clearRangeBtn) {
+        clearRangeBtn.removeEventListener('click', handleClearRange);
+        clearRangeBtn.addEventListener('click', handleClearRange);
+    }
+}
+
+// Handlers pour les event listeners
+function handleItemsPerPageChange(event) {
+    const itemsPerPage = event.target.value;
+    changeItemsPerPage(itemsPerPage);
+}
+
+function handleApplyRange() {
+    const startRange = document.getElementById('startRangeInput').value;
+    const endRange = document.getElementById('endRangeInput').value;
+    
+    if (startRange && endRange) {
+        applyCustomRange(startRange, endRange);
+    } else {
+        alert('Veuillez remplir les deux champs de plage');
+    }
+}
+
+function handleClearRange() {
+    document.getElementById('startRangeInput').value = '';
+    document.getElementById('endRangeInput').value = '';
+    clearCustomRange();
+}
+
+// Initialisation au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    attachEventListeners();
 });
 </script>
 {% endblock %} 

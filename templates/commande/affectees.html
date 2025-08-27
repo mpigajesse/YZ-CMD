@@ -119,138 +119,138 @@
         </div>
         
         {% if page_obj %}
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto mb-8">
             <table class="min-w-full divide-y divide-gray-200 border border-gray-200" style="border-collapse: collapse;">
                 <thead class="bg-gray-50" style="background-color: var(--admin-color);">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">ID YZ</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">N° Externe</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Client</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Téléphone</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Date</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Ville</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Total</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">Opérateur</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider border-r border-b border-gray-200">État Commande</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for commande in page_obj %}
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium border-r" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
-                            {{ commande.id_yz }}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">
-                            {{ commande.num_cmd|default:"-" }}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 border-r" style="border-color: var(--admin-light-accent);">
-                            {% if commande.client %}
-                                <div>
-                                    <div class="font-medium">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
-                                    {% if commande.client.email %}
-                                        <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
-                                    {% endif %}
-                                </div>
-                            {% else %}
-                                <span class="text-gray-400">Client non défini</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">
-                            {% if commande.client %}
-                                <div class="flex items-center">
-                                    <i class="fas fa-phone mr-2" style="color: var(--admin-color);"></i>
-                                    <span class="font-medium" style="color: var(--admin-color);">{{ commande.client.numero_tel }}</span>
-                                </div>
-                            {% else %}
-                                <span class="text-gray-400">-</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">
-                            {{ commande.date_cmd|date:"d/m/Y" }}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">
-                            {% if commande.ville %}
-                                {{ commande.ville.nom }}
-                            {% else %}
-                                {{ commande.ville_init|default:"Non spécifiée" }}
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: var(--admin-light-accent);">
-                            {{ commande.total_cmd|floatformat:2 }} DH
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">
-                            {% if commande.etat_actuel and commande.etat_actuel.operateur %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    <i class="fas fa-envelope mr-1"></i>
-                                    {{ commande.etat_actuel.operateur.mail }}
-                                </span>
-                            {% else %}
-                                <span class="text-gray-400">Non assigné</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
-                            <div class="flex justify-center space-x-2">
-                                <a href="{% url 'commande:detail' commande.pk %}" class="text-blue-500 hover:text-blue-700 transition-colors" title="Voir Détails">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                <a href="{% url 'commande:modifier' commande.pk %}" class="text-yellow-500 hover:text-yellow-700 transition-colors" title="Modifier">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <button type="button" onclick="desaffecterCommande({{ commande.pk }}, '{{ commande.id_yz|escapejs }}')" class="text-orange-500 hover:text-orange-700 transition-colors" title="Désaffecter">
-                                    <i class="fas fa-user-minus"></i>
-                                </button>
-                                <button type="button" onclick="viewCart({{ commande.pk }})" class="text-green-500 hover:text-green-700 transition-colors" title="Voir le panier">
-                                    <i class="fas fa-shopping-basket"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
+                <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
+                    {% include 'commande/partials/_affectees_table_body.html' with page_obj=page_obj %}
                 </tbody>
             </table>
         </div>
 
-        <!-- Pagination -->
-        {% if page_obj.has_other_pages %}
-        <div class="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
-            <div class="text-sm text-gray-700">
-                Affichage de {{ page_obj.start_index }} à {{ page_obj.end_index }} sur {{ page_obj.paginator.count }} commandes
+        <!-- Contrôles de pagination flexible (style Excel) -->
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 transition-all duration-300 hover:shadow-xl">
+            <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+                <!-- Section Éléments par page -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-list-ol text-sm" style="color: var(--admin-color);"></i>
+                        <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                    </div>
+                    <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                        <option value="10" {% if items_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                        <option value="250" {% if items_per_page == 250 %}selected{% endif %}>250</option>
+                        <option value="500" {% if items_per_page == 500 %}selected{% endif %}>500</option>
+                        <option value="1000" {% if items_per_page == 1000 %}selected{% endif %}>1000</option>
+                        <option value="2500" {% if items_per_page == 2500 %}selected{% endif %}>2500</option>
+                        <option value="5000" {% if items_per_page == 5000 %}selected{% endif %}>5000</option>
+                        <option value="10000" {% if items_per_page == 10000 %}selected{% endif %}>10000</option>
+                        <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                    </select>
             </div>
-            <div class="flex space-x-2">
-                {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                        Précédent
-                    </a>
-                {% endif %}
                 
-                {% for num in page_obj.paginator.page_range %}
-                    {% if page_obj.number == num %}
-                        <span class="px-3 py-2 text-sm font-medium text-white rounded-md" style="background-color: var(--admin-color);">{{ num }}</span>
-                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                        <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50">{{ num }}</a>
-                    {% endif %}
-                {% endfor %}
+                <!-- Section Plage personnalisée -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-arrows-alt-h text-sm" style="color: var(--admin-color);"></i>
+                        <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                    </div>
+                    <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                                   class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                                   style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                            <span class="text-gray-500 text-xs font-medium">à</span>
+                            <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                                   class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                                   style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                                <i class="fas fa-check mr-1"></i>Appliquer
+                            </button>
+                            <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                                <i class="fas fa-times mr-1"></i>Effacer
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                        Suivant
-                    </a>
+                <!-- Section Statistiques -->
+                <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                        <i class="fas fa-chart-bar text-sm" style="color: var(--admin-color);"></i>
+                        <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> commandes affectées</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Indicateur de statut -->
+            <div class="mt-3 pt-3 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                            <span class="text-xs text-gray-600">Pagination active</span>
+                        </div>
+                        {% if start_range and end_range %}
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-filter text-xs text-blue-500"></i>
+                            <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                        </div>
                 {% endif %}
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                        <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+                    </div>
+                </div>
             </div>
         </div>
-        {% endif %}
+
+        <!-- Pagination -->
+        <div id="paginationControls" class="flex justify-center mt-8">
+            {% include 'commande/partials/_affectees_pagination.html' %}
+        </div>
+
+        <!-- Informations de pagination -->
+        <div id="paginationInfoContainer">
+            {% include 'commande/partials/_affectees_pagination_info.html' %}
+        </div>
         
         {% else %}
-        <div class="text-center py-12">
-            <i class="fas fa-user-check text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-medium text-gray-900 mb-2">Aucune commande affectée</h3>
-            <p class="text-gray-500">
-                {% if search_query %}
-                    Aucune commande affectée ne correspond à votre recherche.
-                {% else %}
-                    Il n'y a actuellement aucune commande affectée.
-                {% endif %}
-            </p>
+        <!-- Message si aucun résultat -->
+        <div id="noResultsMessage" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        <span id="noResultsText">
+                            {% if search_query %}
+                                Aucune commande affectée trouvée pour la recherche "{{ search_query }}".
+                            {% else %}
+                                Aucune commande affectée trouvée.
+                            {% endif %}
+                        </span>
+                    </p>
+                </div>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -296,12 +296,345 @@
     </div>
 </div>
 
+<!-- ✅ Spinner de chargement identique à liste.html -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+        <p class="text-white text-lg mt-4">Chargement...</p>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
 <script>
 let currentCommandeId = null;
+let isLoading = false; // ✅ État global de chargement
+
+// Déclarations de variables globales pour les éléments DOM
+const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+const startRangeInput = document.getElementById('startRangeInput');
+const endRangeInput = document.getElementById('endRangeInput');
+const applyRangeBtn = document.getElementById('applyRangeBtn');
+const clearRangeBtn = document.getElementById('clearRangeBtn');
+const commandTableBody = document.getElementById('commandTableBody');
+const paginationControlsContainer = document.getElementById('paginationControls');
+const searchInput = document.querySelector('input[name="search"]');
+const loadingOverlay = document.getElementById('loadingOverlay');
+
+// ✅ Fonctions de chargement identiques à liste.html
+function showLoading() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.remove('hidden');
+    }
+}
+
+function hideLoading() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('hidden');
+    }
+}
+
+// ✅ Fonction pour afficher les messages d'erreur
+function showErrorMessage(message, type = 'error') {
+    const errorContainer = document.createElement('div');
+    errorContainer.className = `fixed top-4 right-4 z-50 max-w-md p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+    
+    if (type === 'error') {
+        errorContainer.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+        errorContainer.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-circle mr-3 text-red-500"></i>
+                <div>
+                    <h4 class="font-bold">Erreur</h4>
+                    <p class="text-sm">${message}</p>
+                </div>
+            </div>
+        `;
+    } else if (type === 'warning') {
+        errorContainer.classList.add('bg-yellow-100', 'border-yellow-500', 'text-yellow-700');
+        errorContainer.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-triangle mr-3 text-yellow-500"></i>
+                <div>
+                    <h4 class="font-bold">Attention</h4>
+                    <p class="text-sm">${message}</p>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.body.appendChild(errorContainer);
+    
+    // Animation d'entrée
+    setTimeout(() => {
+        errorContainer.classList.remove('translate-x-full');
+    }, 100);
+    
+    // Suppression automatique
+    setTimeout(() => {
+        errorContainer.classList.add('translate-x-full');
+        setTimeout(() => {
+            document.body.removeChild(errorContainer);
+        }, 300);
+    }, 5000);
+}
+
+// ✅ Fonction pour charger les données via AJAX avec gestion d'erreurs robuste
+async function loadAffecteesData(params = {}) {
+    // ✅ Éviter les requêtes simultanées
+    if (isLoading) {
+        console.warn('Une requête est déjà en cours...');
+        return;
+    }
+    
+    isLoading = true;
+    showLoading(); // Spinner identique à liste.html
+    
+    const url = new URL(window.location.origin + window.location.pathname);
+    
+    // Ajouter les paramètres de recherche existants
+    if (searchInput && searchInput.value) {
+        url.searchParams.set('search', searchInput.value);
+    }
+
+    // Ajouter les nouveaux paramètres de pagination
+    Object.keys(params).forEach(key => {
+        if (params[key] !== null && params[key] !== '') {
+            url.searchParams.set(key, params[key]);
+        } else {
+            url.searchParams.delete(key);
+        }
+    });
+
+    // ✅ Controller pour timeout et annulation
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+    }, 15000); // 15 secondes timeout
+
+    try {
+        console.log('🚀 Envoi requête AJAX vers:', url.toString());
+        const response = await fetch(url.toString(), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            signal: controller.signal
+        });
+        
+        console.log('📡 Réponse reçue:', response.status, response.statusText);
+
+        clearTimeout(timeoutId);
+
+        // ✅ Gestion détaillée des erreurs HTTP
+        if (!response.ok) {
+            let errorMessage = 'Erreur de connexion au serveur';
+            
+            switch (response.status) {
+                case 400:
+                    errorMessage = 'Paramètres de requête invalides';
+                    break;
+                case 401:
+                    errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+                    setTimeout(() => window.location.reload(), 2000);
+                    break;
+                case 403:
+                    errorMessage = 'Accès non autorisé';
+                    break;
+                case 404:
+                    errorMessage = 'Page non trouvée';
+                    break;
+                case 500:
+                    errorMessage = 'Erreur interne du serveur';
+                    break;
+                case 502:
+                case 503:
+                    errorMessage = 'Service temporairement indisponible';
+                    break;
+                default:
+                    errorMessage = `Erreur HTTP ${response.status}: ${response.statusText}`;
+            }
+            
+            throw new Error(errorMessage);
+        }
+
+        // ✅ Validation du contenu JSON
+        let data;
+        try {
+            data = await response.json();
+            console.log('📊 Données JSON reçues:', data);
+        } catch (jsonError) {
+            console.error('❌ Erreur parsing JSON:', jsonError);
+            const responseText = await response.text();
+            console.error('📄 Contenu brut de la réponse:', responseText);
+            throw new Error('Réponse du serveur invalide (format JSON attendu)');
+        }
+
+        // ✅ Validation de la structure de données
+        if (data.success === false) {
+            throw new Error(data.error || 'Erreur inconnue du serveur');
+        }
+
+        if (!data.html_table_body || !data.html_pagination) {
+            throw new Error('Données incomplètes reçues du serveur');
+        }
+        
+        // ✅ Mise à jour sécurisée de l'interface
+        try {
+            // Mettre à jour le contenu du tableau
+            if (commandTableBody) {
+                commandTableBody.innerHTML = data.html_table_body;
+            }
+            
+            // Mettre à jour la pagination
+            if (paginationControlsContainer) {
+                paginationControlsContainer.innerHTML = data.html_pagination;
+            }
+            
+            // Mettre à jour les informations de pagination
+            const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+            if (paginationInfoContainer && data.html_pagination_info) {
+                paginationInfoContainer.innerHTML = data.html_pagination_info;
+            }
+
+            // ✅ Gestion du message "aucun résultat" comme dans liste.html
+            const noResultsMessage = document.getElementById('noResultsMessage');
+            const tableContainer = commandTableBody?.closest('.overflow-x-auto')?.parentElement;
+            
+            if (data.total_commands_count === 0 || (data.stats && data.stats.total_affectees === 0)) {
+                // Masquer le tableau et afficher le message
+                if (tableContainer) tableContainer.style.display = 'none';
+                if (noResultsMessage) {
+                    noResultsMessage.classList.remove('hidden');
+                    const noResultsText = document.getElementById('noResultsText');
+                    if (noResultsText) {
+                        const searchValue = searchInput?.value || '';
+                        if (searchValue) {
+                            noResultsText.textContent = `Aucune commande affectée trouvée pour la recherche "${searchValue}".`;
+                        } else {
+                            noResultsText.textContent = 'Aucune commande affectée trouvée.';
+                        }
+                    }
+                }
+            } else {
+                // Afficher le tableau et masquer le message
+                if (tableContainer) tableContainer.style.display = '';
+                if (noResultsMessage) noResultsMessage.classList.add('hidden');
+            }
+
+            // ✅ Mettre à jour les statistiques si disponibles
+            if (data.stats) {
+                updateStatsDisplay(data.stats);
+            }
+
+            // Mettre à jour l'URL sans recharger la page
+            window.history.pushState({}, '', url.toString());
+
+            // Ré-attacher les event listeners
+            attachPaginationListeners();
+
+        } catch (domError) {
+            throw new Error('Erreur lors de la mise à jour de l\'interface: ' + domError.message);
+        }
+
+    } catch (error) {
+        console.error('❌ Erreur lors du chargement des données:', error);
+        console.error('❌ Type d\'erreur:', error.name);
+        console.error('❌ Message d\'erreur:', error.message);
+        console.error('❌ Stack trace:', error.stack);
+        
+        // ✅ Gestion spécifique des erreurs
+        if (error.name === 'AbortError') {
+            console.warn('⏱️ Timeout de requête');
+            showErrorMessage('La requête a pris trop de temps. Veuillez réessayer.', 'warning');
+        } else if (error.message.includes('Failed to fetch')) {
+            console.warn('🌐 Problème de connexion réseau');
+            showErrorMessage('Problème de connexion réseau. Vérifiez votre connexion internet.', 'error');
+        } else {
+            console.error('🔥 Erreur générique:', error.message);
+            showErrorMessage(error.message, 'error');
+        }
+        
+        // ✅ Restaurer l'état précédent en cas d'erreur
+        // (optionnel: conserver les données précédentes affichées)
+        
+    } finally {
+        // ✅ Nettoyage systématique
+        clearTimeout(timeoutId);
+        hideLoading();
+        isLoading = false;
+    }
+}
+
+// ✅ Fonction pour mettre à jour l'affichage des statistiques
+function updateStatsDisplay(stats) {
+    try {
+        // Mettre à jour le montant total
+        const totalMontantEl = document.querySelector('.text-3xl.font-bold.text-gray-900.transition-all.duration-300.group-hover\\:text-green-600');
+        if (totalMontantEl && stats.total_montant !== undefined) {
+            totalMontantEl.textContent = `${parseFloat(stats.total_montant).toFixed(2)} DH`;
+        }
+        
+        // Mettre à jour la moyenne
+        const moyenneEl = document.querySelector('.text-3xl.font-bold.text-gray-900.transition-all.duration-300.group-hover\\:text-purple-600');
+        if (moyenneEl && stats.moyenne_montant !== undefined) {
+            moyenneEl.textContent = `${parseFloat(stats.moyenne_montant).toFixed(2)} DH`;
+        }
+    } catch (error) {
+        console.warn('Erreur lors de la mise à jour des statistiques:', error);
+    }
+}
+
+// ✅ Fonction pour attacher les event listeners à la pagination avec debounce
+function attachPaginationListeners() {
+    // Supprimer les anciens écouteurs avant d'en ajouter de nouveaux
+    document.querySelectorAll('#paginationControls a').forEach(link => {
+        link.removeEventListener('click', handlePaginationClick);
+    });
+
+    // Ajouter les nouveaux écouteurs
+    document.querySelectorAll('#paginationControls a').forEach(link => {
+        link.addEventListener('click', handlePaginationClick);
+    });
+}
+
+// ✅ Fonction pour gérer les clics sur la pagination avec validation
+function handlePaginationClick(e) {
+    e.preventDefault();
+    
+    // ✅ Validation du lien
+    if (!this.href) {
+        console.warn('Lien de pagination invalide');
+        return;
+    }
+    
+    try {
+        const url = new URL(this.href);
+        const page = url.searchParams.get('page');
+        
+        // ✅ Validation du numéro de page
+        if (!page || isNaN(page) || parseInt(page) < 1) {
+            showErrorMessage('Numéro de page invalide', 'warning');
+            return;
+        }
+        
+        // Récupérer tous les paramètres de l'URL actuelle et ajouter/modifier la page
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.set('page', page);
+        
+        // ✅ Validation supplémentaire des paramètres
+        const paramsObject = Object.fromEntries(currentParams);
+        console.log('Navigation vers page:', page, 'avec paramètres:', paramsObject);
+        
+        // Chargement avec indicateurs et gestion d'erreurs
+        loadAffecteesData(paramsObject);
+        
+    } catch (urlError) {
+        console.error('Erreur URL de pagination:', urlError);
+        showErrorMessage('Erreur lors de la navigation', 'error');
+    }
+}
 
 // Fonction pour construire le HTML du panier
 function buildCartHTML(data) {
@@ -475,6 +808,133 @@ window.addEventListener('click', function(event) {
     if (event.target === desaffectationModal) {
         desaffectationModal.classList.add('hidden');
     }
+});
+
+// Initialisation des contrôles de pagination flexible
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestion du changement d'éléments par page
+    if (itemsPerPageSelect) {
+        itemsPerPageSelect.addEventListener('change', function() {
+            const selectedValue = this.value;
+            loadAffecteesData({
+                'items_per_page': selectedValue,
+                'start_range': '',
+                'end_range': '',
+                'page': '1' // Toujours revenir à la première page lors du changement d'éléments par page
+            });
+        });
+    }
+
+    // Gestion de l'application de la plage personnalisée
+    if (applyRangeBtn) {
+        applyRangeBtn.addEventListener('click', function() {
+            const startRange = startRangeInput.value.trim();
+            const endRange = endRangeInput.value.trim();
+            
+            if (!startRange || !endRange) {
+                alert('Veuillez remplir les deux champs de plage');
+                return;
+            }
+            
+            const start = parseInt(startRange);
+            const end = parseInt(endRange);
+            
+            if (isNaN(start) || isNaN(end)) {
+                alert('Veuillez entrer des nombres valides');
+                return;
+            }
+            
+            if (start <= 0 || end <= 0) {
+                alert('Les valeurs doivent être supérieures à 0');
+                return;
+            }
+            
+            if (start > end) {
+                alert('La valeur de début doit être inférieure à la valeur de fin');
+                return;
+            }
+            
+            loadAffecteesData({
+                'start_range': start,
+                'end_range': end,
+                'items_per_page': '10', // Réinitialiser à 10 pour la plage personnalisée
+                'page': '1' // Toujours revenir à la première page lors de l'application de la plage
+            });
+        });
+    }
+
+    // Gestion de l'effacement de la plage personnalisée
+    if (clearRangeBtn) {
+        clearRangeBtn.addEventListener('click', function() {
+            startRangeInput.value = '';
+            endRangeInput.value = '';
+            loadAffecteesData({
+                'start_range': '',
+                'end_range': '',
+                'items_per_page': '10',
+                'page': '1'
+            });
+        });
+    }
+
+    // Gestion de la touche Entrée dans les champs de plage
+    [startRangeInput, endRangeInput].forEach(input => {
+        if (input) {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyRangeBtn.click();
+                }
+            });
+        }
+    });
+
+    // Validation en temps réel des champs de plage
+    [startRangeInput, endRangeInput].forEach(input => {
+        if (input) {
+            input.addEventListener('input', function() {
+                const value = this.value;
+                if (value && !/^\d+$/.test(value)) {
+                    this.classList.add('border-red-500');
+                } else {
+                    this.classList.remove('border-red-500');
+                }
+            });
+        }
+    });
+
+    // ✅ Event listener optimisé pour la recherche avec gestion d'erreurs
+    let searchTimeout;
+    if (searchInput) {
+        searchInput.addEventListener('keyup', (e) => {
+            clearTimeout(searchTimeout);
+            
+            // ✅ Éviter les requêtes pour les touches de navigation
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                try {
+                    loadAffecteesData({ 'page': '1' }); // Reset to page 1 on search change
+                } catch (error) {
+                    console.error('Erreur lors de la recherche:', error);
+                    showErrorMessage('Erreur lors de la recherche', 'error');
+                }
+            }, 300); // Même délai que dans Liste des Commandes
+        });
+        
+        // ✅ Gestion de la recherche sur Enter
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                loadAffecteesData({ 'page': '1' });
+            }
+        });
+    }
+
+    // Initialiser les event listeners de pagination au chargement
+    attachPaginationListeners();
 });
 </script>
 {% endblock %}

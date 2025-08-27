@@ -1,0 +1,289 @@
+<!-- Informations détaillées de la commande -->
+<div class="space-y-4">
+    <!-- Informations générales -->
+    <div class="bg-gray-50 rounded-lg p-3">
+        <h4 class="text-base font-semibold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+            Informations générales
+        </h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm text-gray-600">ID YZ: <span class="font-semibold text-gray-900">{{ commande.id_yz }}</span></p>
+                <p class="text-sm text-gray-600">N° Externe: <span class="font-semibold text-gray-900">{{ commande.num_cmd|default:"-" }}</span></p>
+                <p class="text-sm text-gray-600">Total: <span class="font-semibold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</span></p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Client: <span class="font-semibold text-gray-900">{% if commande.client %}{{ commande.client.nom|default:"" }} {{ commande.client.prenom|default:"" }}{% else %}-{% endif %}</span></p>
+                <p class="text-sm text-gray-600">Téléphone: <span class="font-semibold text-gray-900">{% if commande.client %}{{ commande.client.numero_tel|default:"-" }}{% else %}-{% endif %}</span></p>
+                <p class="text-sm text-gray-600">Ville: <span class="font-semibold text-gray-900">{% if commande.ville %}{{ commande.ville.nom|default:"-" }}{% else %}-{% endif %}</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- État actuel -->
+    <div class="bg-blue-50 rounded-lg p-3">
+        <h4 class="text-base font-semibold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-tasks text-blue-600 mr-2"></i>
+            État actuel
+        </h4>
+        {% if etat_actuel and etat_actuel.enum_etat %}
+            <div class="flex items-center">
+                {% if etat_actuel.enum_etat.libelle == 'En préparation' %}
+                    <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        <i class="fas fa-box-open mr-1"></i>
+                        En préparation
+                    </span>
+                {% elif etat_actuel.enum_etat.libelle == 'Collectée' %}
+                    <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        <i class="fas fa-box mr-1"></i>
+                        Collectée
+                    </span>
+                {% elif etat_actuel.enum_etat.libelle == 'Emballée' %}
+                    <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                        <i class="fas fa-boxes mr-1"></i>
+                        Emballée
+                    </span>
+                {% elif etat_actuel.enum_etat.libelle == 'Préparée' %}
+                    <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        Préparée
+                    </span>
+                {% else %}
+                    <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        {{ etat_actuel.enum_etat.libelle }}
+                    </span>
+                {% endif %}
+                <span class="ml-3 text-sm text-gray-600">
+                    <i class="fas fa-calendar mr-1"></i>
+                    {{ etat_actuel.date_debut|date:"d/m/Y H:i" }}
+                </span>
+            </div>
+            {% if etat_actuel and etat_actuel.operateur %}
+                <div class="mt-2 text-sm text-gray-600">
+                    <i class="fas fa-user mr-1"></i>
+                    Opérateur: {{ etat_actuel.operateur.nom|default:"" }} {{ etat_actuel.operateur.prenom|default:"" }}
+                </div>
+            {% endif %}
+        {% else %}
+            <p class="text-gray-500 italic">Aucun état actuel</p>
+        {% endif %}
+    </div>
+
+    <!-- État précédent (si applicable) -->
+    {% if etat_precedent and etat_precedent.enum_etat %}
+    <div class="bg-yellow-50 rounded-lg p-3">
+        <h4 class="text-base font-semibold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-history text-yellow-600 mr-2"></i>
+            État précédent
+        </h4>
+        {% if etat_precedent.enum_etat.libelle == 'En cours de livraison' %}
+            <div class="flex items-center">
+                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                    <i class="fas fa-truck mr-1"></i>
+                    Renvoyée depuis livraison
+                </span>
+                <span class="ml-3 text-sm text-gray-600">
+                    <i class="fas fa-calendar mr-1"></i>
+                    {{ etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                </span>
+            </div>
+        {% elif etat_precedent.enum_etat.libelle == 'Préparée' %}
+            <div class="flex items-center">
+                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                    <i class="fas fa-undo mr-1"></i>
+                    Renvoyée depuis préparation
+                </span>
+                <span class="ml-3 text-sm text-gray-600">
+                    <i class="fas fa-calendar mr-1"></i>
+                    {{ etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                </span>
+            </div>
+        {% else %}
+            <div class="flex items-center">
+                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                    <i class="fas fa-history mr-1"></i>
+                    {{ etat_precedent.enum_etat.libelle }}
+                </span>
+                <span class="ml-3 text-sm text-gray-600">
+                    <i class="fas fa-calendar mr-1"></i>
+                    {{ etat_precedent.date_fin|date:"d/m/Y H:i" }}
+                </span>
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- État de confirmation -->
+    {% if etat_confirmation and etat_confirmation.enum_etat %}
+    <div class="bg-purple-50 rounded-lg p-3">
+        <h4 class="text-base font-semibold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-user-tie text-purple-600 mr-2"></i>
+            Confirmation
+        </h4>
+        <div class="flex items-center">
+            <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                <i class="fas fa-user-tie mr-1"></i>
+                Confirmée par admin
+            </span>
+            <span class="ml-3 text-sm text-gray-600">
+                <i class="fas fa-calendar mr-1"></i>
+                {{ etat_confirmation.date_debut|date:"d/m/Y H:i" }}
+            </span>
+        </div>
+        {% if etat_confirmation and etat_confirmation.operateur %}
+            <div class="mt-2 text-sm text-gray-600">
+                <i class="fas fa-user mr-1"></i>
+                Opérateur: {{ etat_confirmation.operateur.nom|default:"" }} {{ etat_confirmation.operateur.prenom|default:"" }}
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Étapes de préparation -->
+    <div class="bg-green-50 rounded-lg p-3">
+        <h4 class="text-base font-semibold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-list-check text-green-600 mr-2"></i>
+            Étapes de préparation
+        </h4>
+        <div class="space-y-2">
+            <!-- Étape 1: En préparation -->
+            <div class="flex items-center">
+                <span class="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center mr-3">
+                    <i class="fas fa-check text-white text-xs"></i>
+                </span>
+                <span class="text-sm text-green-600 font-medium">En préparation</span>
+                <span class="ml-auto text-sm text-green-500">
+                    <i class="fas fa-check mr-1"></i>Terminé
+                </span>
+            </div>
+            
+            <!-- Étape 2: Collectée -->
+            <div class="flex items-center">
+                {% if etat_actuel and etat_actuel.enum_etat and etat_actuel.enum_etat.libelle == 'Collectée' or etat_actuel.enum_etat.libelle == 'Emballée' or etat_actuel.enum_etat.libelle == 'Préparée' %}
+                    <span class="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center mr-3">
+                        <i class="fas fa-check text-white text-xs"></i>
+                    </span>
+                    <span class="text-sm text-green-600 font-medium">Collectée</span>
+                    <span class="ml-auto text-sm text-green-500">
+                        <i class="fas fa-check mr-1"></i>Terminé
+                    </span>
+                {% else %}
+                    <span class="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center mr-3">
+                        <i class="fas fa-circle text-gray-400 text-xs"></i>
+                    </span>
+                    <span class="text-sm text-gray-400">Collectée</span>
+                    <span class="ml-auto text-sm text-gray-500">
+                        <i class="fas fa-clock mr-1"></i>En attente
+                    </span>
+                {% endif %}
+            </div>
+            
+            <!-- Étape 3: Emballée -->
+            <div class="flex items-center">
+                {% if etat_actuel and etat_actuel.enum_etat and etat_actuel.enum_etat.libelle == 'Emballée' or etat_actuel.enum_etat.libelle == 'Préparée' %}
+                    <span class="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center mr-3">
+                        <i class="fas fa-check text-white text-xs"></i>
+                    </span>
+                    <span class="text-sm text-green-600 font-medium">Emballée</span>
+                    <span class="ml-auto text-sm text-green-500">
+                        <i class="fas fa-check mr-1"></i>Terminé
+                    </span>
+                {% else %}
+                    <span class="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center mr-3">
+                        <i class="fas fa-circle text-gray-400 text-xs"></i>
+                    </span>
+                    <span class="text-sm text-gray-400">Emballée</span>
+                    <span class="ml-auto text-sm text-gray-500">
+                        <i class="fas fa-clock mr-1"></i>En attente
+                    </span>
+                {% endif %}
+            </div>
+            
+            <!-- Étape 4: Préparée -->
+            <div class="flex items-center">
+                {% if etat_actuel and etat_actuel.enum_etat and etat_actuel.enum_etat.libelle == 'Préparée' %}
+                    <span class="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center mr-3">
+                        <i class="fas fa-check text-white text-xs"></i>
+                    </span>
+                    <span class="text-sm text-green-600 font-medium">Préparée</span>
+                    <span class="ml-auto text-sm text-green-500">
+                        <i class="fas fa-check mr-1"></i>Terminé
+                    </span>
+                {% else %}
+                    <span class="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center mr-3">
+                        <i class="fas fa-circle text-gray-400 text-xs"></i>
+                    </span>
+                    <span class="text-sm text-gray-400">Préparée</span>
+                    <span class="ml-auto text-sm text-gray-500">
+                        <i class="fas fa-clock mr-1"></i>En attente
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Affectations -->
+    {% if operations %}
+    <div class="bg-indigo-50 rounded-lg p-3">
+        <h4 class="text-base font-semibold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-users text-indigo-600 mr-2"></i>
+            Affectations
+        </h4>
+        <div class="space-y-1">
+            {% for operation in operations %}
+                {% if operation and operation.type_operation and operation.type_operation == 'AFFECTATION_SUPERVISION' or operation.type_operation == 'REAFFECTATION_SUPERVISION' %}
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 rounded-full bg-indigo-500 flex items-center justify-center mr-2">
+                            <i class="fas fa-user-shield text-white text-xs"></i>
+                        </span>
+                        <span class="text-sm text-indigo-600">
+                            {% if operation.type_operation == 'AFFECTATION_SUPERVISION' %}
+                                Affectée par le supervision
+                            {% else %}
+                                Réaffectée par le supervision
+                            {% endif %}
+                        </span>
+                        <span class="ml-auto text-sm text-gray-500">
+                            <i class="fas fa-calendar mr-1"></i>
+                            {{ operation.date_operation|date:"d/m/Y H:i" }}
+                        </span>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Changements d'état -->
+    {% if operations %}
+    <div class="bg-orange-50 rounded-lg p-3">
+        <h4 class="text-base font-semibold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-exchange-alt text-orange-600 mr-2"></i>
+            Changements d'état
+        </h4>
+        <div class="space-y-1">
+            {% for operation in operations %}
+                {% if operation and operation.type_operation and operation.type_operation == 'CHANGEMENT_ETAT_COLLECTEE' or operation.type_operation == 'CHANGEMENT_ETAT_EMBALLEE' %}
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 rounded-full bg-orange-500 flex items-center justify-center mr-2">
+                            <i class="fas fa-{% if operation.type_operation == 'CHANGEMENT_ETAT_COLLECTEE' %}box{% else %}boxes{% endif %} text-white text-xs"></i>
+                        </span>
+                        <span class="text-sm text-orange-600">
+                            {% if operation.type_operation == 'CHANGEMENT_ETAT_COLLECTEE' %}
+                                Marquée comme collectée
+                            {% else %}
+                                Marquée comme emballée
+                            {% endif %}
+                        </span>
+                        <span class="ml-auto text-sm text-gray-500">
+                            <i class="fas fa-calendar mr-1"></i>
+                            {{ operation.date_operation|date:"d/m/Y H:i" }}
+                        </span>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>

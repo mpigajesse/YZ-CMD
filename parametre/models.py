@@ -6,6 +6,7 @@ from django.utils import timezone
 
 class Region(models.Model):
     nom_region = models.CharField(max_length=100, unique=True)
+    actif = models.BooleanField(default=False)
     
     class Meta:
         verbose_name = "Région"
@@ -38,7 +39,7 @@ class Operateur(models.Model):
         ('LOGISTIQUE', 'Opérateur Logistique'),
         ('PREPARATION', 'Opérateur de Préparation'),
         ('ADMIN', 'Administrateur'),
-        ('LIVREUR', 'Livreur'),
+        ('SUPERVISEUR_PREPARATION', 'Superviseur de Préparation'),
     ]
     
     @property
@@ -46,13 +47,13 @@ class Operateur(models.Model):
         """
         Propriété qui indique si l'opérateur est un opérateur logistique (de livraison)
         """
-        return self.type_operateur == 'LIVREUR'
+        return self.type_operateur == 'LOGISTIQUE'
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profil_operateur')
     nom = models.CharField(max_length=100)
     prenom = models.CharField(max_length=100)
     mail = models.EmailField()
-    type_operateur = models.CharField(max_length=20, choices=TYPE_OPERATEUR_CHOICES, default='CONFIRMATION')
+    type_operateur = models.CharField(max_length=30, choices=TYPE_OPERATEUR_CHOICES, default='CONFIRMATION')
     photo = models.ImageField(upload_to='photos/operateurs/', blank=True, null=True)
     adresse = models.TextField(blank=True, null=True)
     telephone = models.CharField(max_length=20, blank=True, null=True)
@@ -86,12 +87,153 @@ class Operateur(models.Model):
     
     @property
     def is_preparation(self):
-        return self.type_operateur == 'PREPARATION'
+        # Autoriser les superviseurs à être traités comme équipe préparation
+        return self.type_operateur in ['PREPARATION', 'SUPERVISEUR_PREPARATION']
     
+    @property
+    def is_superviseur_preparation(self):
+        return self.type_operateur == 'SUPERVISEUR_PREPARATION'
+        
     @property
     def is_admin(self):
         return self.type_operateur == 'ADMIN'
     
+    @property
+    def is_superviseur(self):
+        """Propriété qui indique si l'opérateur est un superviseur"""
+        return self.type_operateur == 'SUPERVISEUR_PREPARATION'
+    
+    @classmethod
+    def get_superviseurs(cls):
+        """Retourne tous les superviseurs actifs"""
+        return cls.objects.filter(
+            type_operateur='SUPERVISEUR_PREPARATION',
+            actif=True
+        )
+    
+    @classmethod
+    def get_by_group(cls, group_name):
+        """Retourne tous les opérateurs d'un groupe spécifique"""
+        group_mapping = {
+            'operateur_confirme': 'CONFIRMATION',
+            'operateur_logistique': 'LOGISTIQUE',
+            'operateur_preparation': 'PREPARATION',
+            'superviseur': 'SUPERVISEUR_PREPARATION',
+            'admin': 'ADMIN'
+        }
+        
+        if group_name in group_mapping:
+            return cls.objects.filter(
+                type_operateur=group_mapping[group_name],
+                actif=True
+            )
+        return cls.objects.none()
+    
+    def get_group_name(self):
+        """Retourne le nom du groupe Django correspondant au type d'opérateur"""
+        group_mapping = {
+            'CONFIRMATION': 'operateur_confirme',
+            'LOGISTIQUE': 'operateur_logistique',
+            'PREPARATION': 'operateur_preparation',
+            'SUPERVISEUR_PREPARATION': 'superviseur',
+            'ADMIN': 'admin'
+        }
+        return group_mapping.get(self.type_operateur, '')
+    
+    def sync_django_groups(self):
+        """Synchronise les groupes Django avec le type d'opérateur"""
+        from django.contrib.auth.models import Group
+        
+        # Supprimer l'utilisateur de tous les groupes d'opérateurs
+        groups_to_remove = [
+            'operateur_confirme',
+            'operateur_logistique', 
+            'operateur_preparation',
+            'superviseur',
+            'admin'
+        ]
+        
+        for group_name in groups_to_remove:
+            try:
+                group = Group.objects.get(name=group_name)
+                self.user.groups.remove(group)
+            except Group.DoesNotExist:
+                pass
+        
+        # Ajouter l'utilisateur au bon groupe
+        target_group_name = self.get_group_name()
+        if target_group_name:
+            try:
+                target_group = Group.objects.get(name=target_group_name)
+                self.user.groups.add(target_group)
+            except Group.DoesNotExist:
+                # Créer le groupe s'il n'existe pas
+                target_group = Group.objects.create(name=target_group_name)
+                self.user.groups.add(target_group)
+    
+    def check_group_consistency(self):
+        """Vérifie la cohérence entre le type d'opérateur et les groupes Django"""
+        expected_group = self.get_group_name()
+        if not expected_group:
+            return False, f"Type d'opérateur '{self.type_operateur}' non reconnu"
+        
+        user_groups = [group.name for group in self.user.groups.all()]
+        
+        if expected_group not in user_groups:
+            return False, f"Utilisateur pas dans le groupe '{expected_group}'"
+        
+        # Vérifier qu'il n'est pas dans d'autres groupes d'opérateurs
+        operator_groups = [
+            'operateur_confirme',
+            'operateur_logistique',
+            'operateur_preparation', 
+            'superviseur',
+            'admin'
+        ]
+        
+        extra_groups = [group for group in user_groups if group in operator_groups and group != expected_group]
+        if extra_groups:
+            return False, f"Utilisateur dans des groupes supplémentaires: {extra_groups}"
+        
+        return True, "Cohérence OK"
+    
+    @classmethod
+    def create_superviseur_from_user(cls, user, **kwargs):
+        """Crée un superviseur depuis un utilisateur existant"""
+        defaults = {
+            'nom': user.last_name or '',
+            'prenom': user.first_name or '',
+            'mail': user.email or '',
+            'type_operateur': 'SUPERVISEUR_PREPARATION',
+            'actif': True
+        }
+        defaults.update(kwargs)
+        
+        # Créer ou mettre à jour l'opérateur
+        operateur, created = cls.objects.get_or_create(
+            user=user,
+            defaults=defaults
+        )
+        
+        if not created:
+            # Mettre à jour le type d'opérateur
+            operateur.type_operateur = 'SUPERVISEUR_PREPARATION'
+            operateur.nom = defaults['nom']
+            operateur.prenom = defaults['prenom']
+            operateur.mail = defaults['mail']
+            operateur.actif = defaults['actif']
+            operateur.save()
+        
+        # Synchroniser les groupes Django
+        operateur.sync_django_groups()
+        
+        return operateur
+    
+    @classmethod
+    def get_all_types_display(cls):
+        """Retourne tous les types d'opérateur avec leurs noms d'affichage"""
+        return dict(cls.TYPE_OPERATEUR_CHOICES)
+
 
 
 class HistoriqueMotDePasse(models.Model):

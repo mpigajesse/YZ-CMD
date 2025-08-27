@@ -273,10 +273,11 @@
                             {% endif %}
                         </button>
                     </td>
+                    <!-- Total -->
                     <td class="px-3 py-4 whitespace-nowrap">
                         <div class="text-sm font-bold text-green-600" 
-                             title="Total incluant {{ commande.sous_total_articles|floatformat:2 }} DH d'articles + {{ commande.frais_livraison|floatformat:2 }} DH de frais de livraison">
-                            {% with total_final=commande.sous_total_articles|add:commande.frais_livraison %}{{ total_final|floatformat:2 }}{% endwith %} DH
+                             title="Total incluant {{ commande.sous_total_articles|floatformat:2 }} DH d'articles">
+                            {% with total_final=commande.sous_total_articles %}{{ total_final|floatformat:2 }}{% endwith %} DH
                         </div>
                     </td>
                     <td class="px-3 py-4 whitespace-nowrap">
@@ -381,6 +382,12 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Vérifier si l'utilisateur n'a pas les autorisations
+    {% if show_unauthorized_message %}
+        // Afficher la notification d'erreur d'autorisation
+        showUnauthorizedNotification('{{ user_username }}');
+    {% endif %}
+    
     // Fonction pour basculer vers la vue tableau (pour compatibilité)
     window.switchToTable = function() {
         console.log('Vue tableau activée');
@@ -492,6 +499,63 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Fonction pour afficher la notification d'autorisation
+function showUnauthorizedNotification(username) {
+    // Créer le conteneur de notification
+    const notification = document.createElement('div');
+    notification.id = 'unauthorized-notification';
+    notification.className = 'fixed top-4 right-4 z-50 max-w-md';
+    
+    notification.innerHTML = `
+        <div class="bg-red-50 border border-red-200 rounded-lg shadow-lg p-4 transform translate-x-full transition-transform duration-300 ease-in-out">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-red-400 text-xl"></i>
+                </div>
+                <div class="ml-3 flex-1">
+                    <h3 class="text-sm font-medium text-red-800 mb-1">
+                        Accès refusé
+                    </h3>
+                    <div class="text-sm text-red-700">
+                        <p>L'utilisateur "<strong>${username}</strong>" n'est pas enregistré comme opérateur de confirmation.</p>
+                        <p class="mt-1">Contactez un administrateur pour obtenir les autorisations nécessaires.</p>
+                    </div>
+                </div>
+                <div class="ml-4 flex-shrink-0">
+                    <button onclick="closeUnauthorizedNotification()" class="bg-red-50 rounded-md p-1.5 inline-flex items-center justify-center text-red-400 hover:text-red-500 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500">
+                        <i class="fas fa-times text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Animation d'apparition
+    setTimeout(() => {
+        const notifDiv = notification.querySelector('div');
+        notifDiv.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Fermeture automatique après 8 secondes
+    setTimeout(() => {
+        closeUnauthorizedNotification();
+    }, 8000);
+}
+
+// Fonction pour fermer la notification d'autorisation
+function closeUnauthorizedNotification() {
+    const notification = document.getElementById('unauthorized-notification');
+    if (notification) {
+        const notifDiv = notification.querySelector('div');
+        notifDiv.style.transform = 'translateX(full)';
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }
+}
+
 // Fonction pour construire le HTML du panier
 function buildCartHTML(data) {
     const commande = data.commande;
@@ -569,17 +633,8 @@ function buildCartHTML(data) {
     <div class="rounded-lg p-4 mt-4" style="background: linear-gradient(135deg, #f8f4f0, #fff5f0); border: 1px solid #e5d5c8;">
         <div class="space-y-2">
             <div class="flex justify-between">
-                <span class="text-sm text-gray-600">Sous-total articles:</span>
-                <span class="text-sm font-medium">${commande.total_montant.toFixed(2)} DH</span>
-            </div>
-            <div class="flex justify-between">
-                <span class="text-sm text-gray-600">Frais de livraison:</span>
-                <span class="text-sm font-medium">${commande.frais_livraison.toFixed(2)} DH</span>
-            </div>
-            <hr class="border-gray-300">
-            <div class="flex justify-between">
                 <span class="text-lg font-semibold" style="color: #4B352A;">Total commande:</span>
-                <span class="text-lg font-bold text-green-600">${commande.total_final.toFixed(2)} DH</span>
+                <span class="text-lg font-bold text-green-600">${commande.total_montant.toFixed(2)} DH</span>
             </div>
         </div>
     </div>
@@ -596,7 +651,7 @@ function viewCart(commandeId) {
     
     fetch(url)
         .then(response => {
-            console.log('Statut de la réponse:', response.status);
+            console.log('Statut de :', response.status);
             if (!response.ok) {
                 throw new Error(`Erreur HTTP: ${response.status}`);
             }

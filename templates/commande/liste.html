@@ -319,6 +319,89 @@
         </table>
     </div>
     
+    <!-- Contrôles de pagination flexible (style Excel) -->
+    <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 transition-all duration-300 hover:shadow-xl">
+        <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+            <!-- Section Éléments par page -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-list-ol text-sm" style="color: var(--admin-color);"></i>
+                    <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                </div>
+                <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                    <option value="10" {% if items_per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                    <option value="250" {% if items_per_page == 250 %}selected{% endif %}>250</option>
+                    <option value="500" {% if items_per_page == 500 %}selected{% endif %}>500</option>
+                    <option value="1000" {% if items_per_page == 1000 %}selected{% endif %}>1000</option>
+                    <option value="2500" {% if items_per_page == 2500 %}selected{% endif %}>2500</option>
+                    <option value="5000" {% if items_per_page == 5000 %}selected{% endif %}>5000</option>
+                    <option value="10000" {% if items_per_page == 10000 %}selected{% endif %}>10000</option>
+                    <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                </select>
+            </div>
+            
+            <!-- Section Plage personnalisée -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-arrows-alt-h text-sm" style="color: var(--admin-color);"></i>
+                    <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                </div>
+                <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                        <span class="text-gray-500 text-xs font-medium">à</span>
+                        <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-check mr-1"></i>Appliquer
+                        </button>
+                        <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-times mr-1"></i>Effacer
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section Statistiques -->
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                    <i class="fas fa-chart-bar text-sm" style="color: var(--admin-color);"></i>
+                    <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> commandes</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Indicateur de statut -->
+        <div class="mt-3 pt-3 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs text-gray-600">Pagination active</span>
+                    </div>
+                    {% if start_range and end_range %}
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-filter text-xs text-blue-500"></i>
+                        <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                    <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Pagination -->
     <div id="paginationControls" class="flex justify-center mt-8">
         {% include 'commande/partials/_pagination.html' %}
@@ -326,8 +409,13 @@
 
     <!-- Informations de pagination -->
     <div id="totalCommandsDisplay" class="flex justify-center mt-4">
-        <div class="text-sm text-gray-600">
-            Affichage de {{ page_obj.start_index }} à {{ page_obj.end_index }} sur {{ page_obj.paginator.count }} commandes.
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-4 py-2 border border-blue-200 shadow-sm">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-info-circle text-sm" style="color: var(--admin-color);"></i>
+                <span id="paginationInfo" class="text-sm font-medium text-gray-700">
+                    Affichage de <span class="font-bold text-blue-600">{{ page_obj.start_index }}</span> à <span class="font-bold text-blue-600">{{ page_obj.end_index }}</span> sur <span class="font-bold text-blue-600">{{ page_obj.paginator.count }}</span> commandes
+                </span>
+            </div>
         </div>
     </div>
 </div>
@@ -415,16 +503,12 @@
                             <span class="text-sm text-gray-600">Sous-total articles:</span>
                             <span class="text-sm font-medium">${commande.total_montant.toFixed(2)} DH</span>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Frais de livraison:</span>
-                            <span class="text-sm font-medium">${commande.frais_livraison.toFixed(2)} DH</span>
-                        </div>
                         <hr class="border-gray-300">
                         <div class="flex justify-between">
                             <span class="text-lg font-semibold text-gray-900">Total commande:</span>
-                            <span class="text-lg font-bold text-green-600">${commande.total_final.toFixed(2)} DH</span>
+                            <span class="text-lg font-bold text-green-600">${commande.total_montant.toFixed(2)} DH</span>
                         </div>
-                    </div>
+                    </hr>
                 </div>
             </div>`;
         
@@ -556,7 +640,15 @@
                 
                 commandTableBody.innerHTML = data.html_table_body;
                 paginationControls.innerHTML = data.html_pagination;
-                totalCommandsDisplay.querySelector('.text-sm').textContent = data.total_commands_display;
+                
+                // Mettre à jour l'affichage des informations de pagination
+                const paginationInfo = document.getElementById('paginationInfo');
+                if (paginationInfo) {
+                    const parts = data.total_commands_display.split(' ');
+                    paginationInfo.innerHTML = `
+                        Affichage de <span class="font-bold text-blue-600">${parts[2]}</span> à <span class="font-bold text-blue-600">${parts[4]}</span> sur <span class="font-bold text-blue-600">${parts[6]}</span> commandes
+                    `;
+                }
 
                 // Update no results message
                 if (data.total_commands_count === 0) {
@@ -633,6 +725,148 @@
 
         // Initial setup for pagination links
         attachPaginationListeners();
+        
+        // Gestion des contrôles de pagination flexible
+        const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+        const startRangeInput = document.getElementById('startRangeInput');
+        const endRangeInput = document.getElementById('endRangeInput');
+        const applyRangeBtn = document.getElementById('applyRangeBtn');
+        const clearRangeBtn = document.getElementById('clearRangeBtn');
+        
+        // Gestion du changement d'éléments par page
+        if (itemsPerPageSelect) {
+            itemsPerPageSelect.addEventListener('change', function() {
+                const newItemsPerPage = this.value;
+                const currentParams = new URLSearchParams(window.location.search);
+                currentParams.set('items_per_page', newItemsPerPage);
+                currentParams.delete('start_range'); // Effacer les plages personnalisées
+                currentParams.delete('end_range');
+                currentParams.set('page', '1'); // Retour à la première page
+                applyFiltersWithParams(currentParams.toString());
+            });
+        }
+        
+        // Gestion de l'application d'une plage personnalisée
+        if (applyRangeBtn) {
+            applyRangeBtn.addEventListener('click', function() {
+                const startRange = startRangeInput.value.trim();
+                const endRange = endRangeInput.value.trim();
+                
+                if (!startRange || !endRange) {
+                    alert('Veuillez saisir une plage valide (début et fin)');
+                    return;
+                }
+                
+                const start = parseInt(startRange);
+                const end = parseInt(endRange);
+                
+                if (isNaN(start) || isNaN(end) || start < 1 || end < start) {
+                    alert('Veuillez saisir une plage valide (début < fin, nombres positifs)');
+                    return;
+                }
+                
+                const currentParams = new URLSearchParams(window.location.search);
+                currentParams.set('start_range', startRange);
+                currentParams.set('end_range', endRange);
+                currentParams.delete('page'); // La page sera calculée automatiquement
+                applyFiltersWithParams(currentParams.toString());
+            });
+        }
+        
+        // Gestion de l'effacement de la plage personnalisée
+        if (clearRangeBtn) {
+            clearRangeBtn.addEventListener('click', function() {
+                startRangeInput.value = '';
+                endRangeInput.value = '';
+                const currentParams = new URLSearchParams(window.location.search);
+                currentParams.delete('start_range');
+                currentParams.delete('end_range');
+                currentParams.set('page', '1');
+                applyFiltersWithParams(currentParams.toString());
+            });
+        }
+        
+        // Gestion de l'appui sur Entrée dans les champs de plage
+        [startRangeInput, endRangeInput].forEach(input => {
+            if (input) {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        applyRangeBtn.click();
+                    }
+                });
+            }
+        });
+        
+        // Fonction pour appliquer les filtres avec des paramètres spécifiques
+        function applyFiltersWithParams(paramsString) {
+            showLoading();
+            
+            fetch(`{% url 'commande:liste' %}?${paramsString}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                commandTableBody.innerHTML = data.html_table_body;
+                paginationControls.innerHTML = data.html_pagination;
+                
+                // Mettre à jour l'affichage des informations de pagination
+                const paginationInfo = document.getElementById('paginationInfo');
+                if (paginationInfo) {
+                    const parts = data.total_commands_display.split(' ');
+                    paginationInfo.innerHTML = `
+                        Affichage de <span class="font-bold text-blue-600">${parts[2]}</span> à <span class="font-bold text-blue-600">${parts[4]}</span> sur <span class="font-bold text-blue-600">${parts[6]}</span> commandes
+                    `;
+                }
+                
+                // Mettre à jour l'URL sans recharger la page
+                const newUrl = `${window.location.pathname}?${paramsString}`;
+                window.history.pushState({}, '', newUrl);
+                
+                // Réattacher les événements
+                attachPaginationListeners();
+                
+                // Mettre à jour les contrôles de pagination
+                updatePaginationControls();
+            })
+            .catch(error => {
+                console.error('Erreur lors de l\'application des filtres:', error);
+                alert('Erreur lors du chargement des commandes: ' + error.message);
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+        
+        // Fonction pour mettre à jour les contrôles de pagination
+        function updatePaginationControls() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentItemsPerPage = urlParams.get('items_per_page') || '10';
+            const currentStartRange = urlParams.get('start_range') || '';
+            const currentEndRange = urlParams.get('end_range') || '';
+            
+            // Mettre à jour le sélecteur d'éléments par page
+            if (itemsPerPageSelect) {
+                itemsPerPageSelect.value = currentItemsPerPage;
+            }
+            
+            // Mettre à jour les champs de plage
+            if (startRangeInput) {
+                startRangeInput.value = currentStartRange;
+            }
+            if (endRangeInput) {
+                endRangeInput.value = currentEndRange;
+            }
+        }
+        
+        // Initialiser les contrôles de pagination
+        updatePaginationControls();
     });
 
     function getCookie(name) {

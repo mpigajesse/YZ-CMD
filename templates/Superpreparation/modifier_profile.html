@@ -1,0 +1,86 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+
+{% block title %}{{ page_title }} - YZ-CMD{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_subtitle %}{{ page_subtitle }}{% endblock %}
+
+{% block content %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 text-white p-6 rounded-xl shadow-lg"
+         style="background: linear-gradient(to right, var(--preparation-primary), var(--preparation-dark));">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center mb-2">
+                <i class="fas fa-user-edit mr-3" style="color: var(--preparation-border-accent);"></i>
+                {{ page_title }}
+            </h1>
+            <p style="color: var(--preparation-border-accent);">{{ page_subtitle }}</p>
+        </div>
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <a href="{% url 'Superpreparation:profile' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                <i class="fas fa-arrow-left mr-2"></i>Retour au Profil
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg border p-6 mb-8" style="border-color: var(--preparation-border-accent);">
+        <h2 class="text-2xl font-bold mb-6" style="color: var(--preparation-primary);">Formulaire de Modification de Profil</h2>
+        
+        {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                    <div class="p-3 rounded-lg text-sm {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label for="id_nom" class="block text-sm font-semibold mb-2" style="color: var(--preparation-primary);">Nom:</label>
+                    <input type="text" name="nom" id="id_nom" value="{{ form_data.nom|default:profile.nom }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-var(--preparation-border-accent) focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_prenom" class="block text-sm font-semibold mb-2" style="color: var(--preparation-primary);">Prénom:</label>
+                    <input type="text" name="prenom" id="id_prenom" value="{{ form_data.prenom|default:profile.prenom }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-var(--preparation-border-accent) focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_mail" class="block text-sm font-semibold mb-2" style="color: var(--preparation-primary);">Email:</label>
+                    <input type="email" name="mail" id="id_mail" value="{{ form_data.mail|default:profile.mail }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-var(--preparation-border-accent) focus:border-transparent transition duration-200" required>
+                </div>
+                <div>
+                    <label for="id_telephone" class="block text-sm font-semibold mb-2" style="color: var(--preparation-primary);">Téléphone:</label>
+                    <input type="text" name="telephone" id="id_telephone" value="{{ form_data.telephone|default:profile.telephone }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-var(--preparation-border-accent) focus:border-transparent transition duration-200">
+                </div>
+                <div class="col-span-full">
+                    <label for="id_adresse" class="block text-sm font-semibold mb-2" style="color: var(--preparation-primary);">Adresse:</label>
+                    <textarea name="adresse" id="id_adresse" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-var(--preparation-border-accent) focus:border-transparent transition duration-200">{{ form_data.adresse|default:profile.adresse }}</textarea>
+                </div>
+                <div>
+                    <label for="id_photo" class="block text-sm font-semibold mb-2" style="color: var(--preparation-primary);">Photo de profil:</label>
+                    {% if profile.photo %}
+                        <img src="{{ profile.photo.url }}" alt="Photo de profil actuelle" class="w-24 h-24 object-cover rounded-full mb-2">
+                        <p class="text-sm text-gray-600 mb-2">Photo actuelle.</p>
+                    {% else %}
+                        <p class="text-sm text-gray-600 mb-2">Aucune photo actuelle.</p>
+                    {% endif %}
+                    <input type="file" name="photo" id="id_photo" accept="image/*" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-var(--preparation-border-accent) focus:border-transparent transition duration-200">
+                    <p class="text-xs text-gray-500 mt-1">Format: JPG, PNG, GIF. Max 2MB.</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-8">
+                <button type="submit" class="inline-flex items-center text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105" style="background-color: var(--preparation-primary); hover:background-color: var(--preparation-dark);">
+                    <i class="fas fa-save mr-2"></i>Sauvegarder les modifications
+                </button>
+                <a href="{% url 'Superpreparation:profile' %}" class="inline-flex items-center bg-gray-400 hover:bg-gray-500 text-white px-5 py-3 rounded-lg text-lg font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fas fa-times mr-2"></i>Annuler
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

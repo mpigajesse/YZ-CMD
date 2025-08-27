@@ -1,0 +1,179 @@
+<!-- Template pour les étiquettes des articles -->
+<div class="article-labels-container">
+    {% for article in articles %}
+    <div class="article-label-item">
+        <div class="label-checkbox">
+            <input type="checkbox" class="form-checkbox h-4 w-4 text-green-600 rounded" data-label-id="{{ article.id }}" onchange="impressionModals.updateSelectionCount('etiquettes')">
+        </div>
+        <div class="article-label">
+            <!-- QR Code (toujours affiché) -->
+            <img src="data:image/png;base64,{{ article.qr_image }}" 
+                 alt="QR Code {{ article.reference }}" 
+                 class="label-barcode">
+            
+            <!-- Référence complète de l'article -->
+            <div class="article-reference">
+                {{ article.reference }}-{{ article.couleur }}-{{ article.pointure }}-CMD{{ article.commande_id }}
+            </div>
+            
+            <!-- Variante -->
+            <div class="article-variante">
+                {{ article.couleur }} {{ article.pointure }}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+/* Styles d'affichage normal */
+.article-labels-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    padding: 20px;
+}
+
+.article-label-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.label-checkbox {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    z-index: 10;
+    background: white;
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.article-label {
+    width: 200px;
+    height: 120px;
+    border: 2px solid #ddd;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: white;
+    margin: 0 auto;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    padding: 10px;
+}
+
+/* Code-barres */
+.label-barcode {
+    max-width: 100%;
+    max-height: 60px;
+    object-fit: contain;
+    margin-bottom: 8px;
+}
+
+/* Référence de l'article */
+.article-reference {
+    font-size: 10px;
+    text-align: center;
+    font-weight: bold;
+    color: #000;
+    word-break: break-word;
+    margin-bottom: 4px;
+}
+
+/* Variante */
+.article-variante {
+    font-size: 9px;
+    text-align: center;
+    color: #666;
+}
+
+/* Styles pour l'impression */
+@media print {
+    @page {
+        size: A4;
+        margin: 5mm;
+    }
+
+    body, html {
+        margin: 0;
+        padding: 0;
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+    
+    /* Container pour les étiquettes d'articles */
+    .article-labels-container {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 5mm !important;
+        width: 100% !important;
+        max-width: 160mm !important;
+        margin: 0 auto !important;
+        padding: 5mm !important;
+    }
+    
+    /* Format compact d'étiquette d'article */
+    .article-label {
+        width: 60mm !important;
+        height: 40mm !important;
+        border: 1px solid black !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 8px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        background: white !important;
+        page-break-inside: avoid !important;
+        margin: 0 !important;
+        overflow: hidden;
+        padding: 2mm !important;
+    }
+    
+    .article-label * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    
+    /* Code-barres de l'article */
+    .label-barcode {
+        max-width: 100% !important;
+        max-height: 25mm !important;
+        object-fit: contain !important;
+        margin-bottom: 2mm !important;
+    }
+    
+    /* Référence de l'article */
+    .article-reference {
+        font-size: 8px !important;
+        text-align: center !important;
+        font-weight: bold !important;
+        color: #000 !important;
+        word-break: break-word !important;
+        margin-bottom: 1mm !important;
+    }
+    
+    /* Variante */
+    .article-variante {
+        font-size: 7px !important;
+        text-align: center !important;
+        color: #666 !important;
+    }
+    
+    .label-checkbox {
+        display: none !important;
+    }
+}
+</style>

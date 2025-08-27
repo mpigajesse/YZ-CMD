@@ -1,0 +1,126 @@
+{% for commande in page_obj %}
+<tr class="hover:bg-gray-50 transition-colors border-b border-gray-200">
+
+    <!-- Checkbox de sélection -->
+    <td class="px-4 py-4 whitespace-nowrap text-center">
+        <input type="checkbox" class="commande-checkbox form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-commande-id="{{ commande.id }}">
+    </td>
+
+    <!-- ID YZ -->
+    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: #F5DEB3;">
+        <span class="font-bold" style="color: #2e1b22;">{{ commande.id_yz }}</span>
+    </td>
+
+    <!-- N° Externe -->
+    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600 border-r" style="border-color: #F5DEB3;">
+        {{ commande.num_cmd|default:"-" }}
+    </td>
+
+    <!-- Client -->
+    <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+        {% if commande.client %}
+            <div>
+                <div class="font-semibold text-gray-900">{{ commande.client.nom }} {{ commande.client.prenom }}</div>
+                <div class="text-sm text-gray-500">{{ commande.client.numero_tel }}</div>
+            </div>
+        {% else %}
+            <span class="text-gray-400 italic">Client non défini</span>
+        {% endif %}
+    </td>
+
+    <!-- Téléphone -->
+    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600 border-r" style="border-color: #F5DEB3;">
+        {% if commande.client %}
+            <span class="font-medium">{{ commande.client.numero_tel|default:"Non renseigné" }}</span>
+        {% else %}
+            <span class="text-gray-400">-</span>
+        {% endif %}
+    </td>
+
+    <!-- Ville & Région -->
+    <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+        {% if commande.ville %}
+            <div>
+                <div class="font-medium text-gray-900">{{ commande.ville.nom }}</div>
+                {% if commande.ville.region %}
+                    <div class="text-xs text-gray-500">{{ commande.ville.region.nom }}</div>
+                {% endif %}
+            </div>
+        {% else %}
+            <span class="text-gray-400 italic">{{ commande.ville_init|default:"Non spécifiée" }}</span>
+        {% endif %}
+    </td>
+
+    <!-- Total -->
+    <td class="px-4 py-4 whitespace-nowrap text-sm font-bold border-r" style="border-color: #F5DEB3;">
+        <span class="text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</span>
+    </td>
+
+    <!-- Date Confirmation -->
+    <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+        {% if commande.etat_confirmation %}
+            <div class="text-center">
+                <div class="font-medium text-gray-900">{{ commande.etat_confirmation.date_debut|date:"d/m/Y" }}</div>
+                <div class="text-xs text-gray-500">{{ commande.etat_confirmation.date_debut|date:"H:i" }}</div>
+            </div>
+        {% else %}
+            <span class="text-gray-400 italic">Non confirmée</span>
+        {% endif %}
+    </td>
+
+    <!-- Opérateur Confirmation -->
+    <td class="px-4 py-4 whitespace-nowrap text-sm border-r" style="border-color: #F5DEB3;">
+        {% if commande.etat_confirmation and commande.etat_confirmation.operateur %}
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background-color: #2e1b22;">
+                    <i class="fas fa-user text-white text-sm"></i>
+                </div>
+                <div>
+                    <div class="font-medium text-gray-900">{{ commande.etat_confirmation.operateur.nom }}</div>
+                    <div class="text-xs text-gray-500">{{ commande.etat_confirmation.operateur.type_operateur }}</div>
+                </div>
+            </div>
+        {% elif commande.etat_actuel and commande.etat_actuel.operateur %}
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background-color: #2e1b22;">
+                    <i class="fas fa-user text-white text-sm"></i>
+                </div>
+                <div>
+                    <div class="font-medium text-gray-900">{{ commande.etat_actuel.operateur.nom }}</div>
+                    <div class="text-xs text-gray-500">{{ commande.etat_actuel.operateur.type_operateur }}</div>
+                </div>
+            </div>
+        {% else %}
+            <span class="text-gray-400 italic">Non affectée</span>
+        {% endif %}
+    </td>
+
+    <!-- Actions -->
+    <td class="px-4 py-4 whitespace-nowrap text-center">
+        <div class="flex justify-center space-x-2">
+            <!-- Bouton Détails -->
+            <a href="{% url 'commande:detail' commande.pk %}" 
+               class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md flex items-center gap-1">
+                <i class="fas fa-eye text-xs"></i>
+                <span class="hidden sm:inline">Détails</span>
+            </a>
+            
+            <!-- Bouton Affecter (si pas encore affectée) -->
+            {% if not commande.etat_actuel or not commande.etat_actuel.operateur %}
+            <button onclick="showAffectationModal({{ commande.id }}, '{{ commande.id_yz }}')" 
+                    class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md flex items-center gap-1">
+                <i class="fas fa-users text-xs"></i>
+                <span class="hidden sm:inline">Affecter</span>
+            </button>
+            {% else %}
+            <!-- Bouton Modifier affectation -->
+            <button onclick="showAffectationModal({{ commande.id }}, '{{ commande.id_yz }}')" 
+                    class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md flex items-center gap-1">
+                <i class="fas fa-edit text-xs"></i>
+                <span class="hidden sm:inline">Modifier</span>
+            </button>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+{% endfor %}

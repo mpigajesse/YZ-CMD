@@ -95,13 +95,7 @@ def changer_etat_livraison(request, commande_id):
                 
                 details_supplementaires = f"\nType d'annulation : {type_annulation}"
                 
-                # Réincrémenter le stock si c'est une bonne annulation
-                if type_annulation == 'bonne':
-                    for panier in commande.paniers.all():
-                        article = panier.article
-                        article.stock += panier.quantite
-                        article.save()
-                        details_supplementaires += f"\nStock réincrémenté pour {article.nom} : +{panier.quantite}"
+
 
             # Créer le nouvel état avec le commentaire complet
             commentaire_complet = commentaire + details_supplementaires
@@ -128,6 +122,13 @@ def _render_sav_list(request, commandes, page_title, page_subtitle):
         'page_subtitle': page_subtitle,
     }
     return render(request, 'operatLogistic/sav/liste_commandes_sav.html', context)
+
+def _render_sav_list_custom(request, commandes, template_name):
+    """Fonction utilitaire pour rendre la liste SAV avec un template personnalisé."""
+    context = {
+        'commandes': commandes,
+    }
+    return render(request, f'operatLogistic/sav/{template_name}', context)
 
 @login_required
 def commandes_reportees(request):
@@ -251,7 +252,7 @@ def commandes_reportees(request):
             ]
             commande.articles_renvoyes = []
     
-    return _render_sav_list(request, commandes, 'Commandes Reportées', 'Liste des livraisons reportées.')
+    return _render_sav_list_custom(request, commandes, 'commandes_reportees.html')
 
 @login_required
 def commandes_livrees_partiellement(request):
@@ -401,7 +402,7 @@ def commandes_livrees_partiellement(request):
         # La logique de recherche de `commande_renvoi` n'est pas pertinente pour l'affichage des états
         # dans la modale de détails des articles de la commande originale.
 
-    return _render_sav_list(request, commandes, 'Commandes Livrées Partiellement', 'Liste des livraisons partielles.')
+    return _render_sav_list_custom(request, commandes, 'commandes_livrees_partiellement.html')
 
 @login_required
 def commandes_livrees_avec_changement(request):
@@ -440,45 +441,8 @@ def commandes_livrees_avec_changement(request):
         ]
         commande.articles_renvoyes = []
     
-    return _render_sav_list(request, commandes, 'Commandes Livrées avec Changement', 'Liste des livraisons avec modifications.')
+    return _render_sav_list_custom(request, commandes, 'commandes_livrees_avec_changement.html')
 
-@login_required
-def commandes_annulees_sav(request):
-    """Affiche les commandes annulées au stade de la livraison."""
-    commandes = Commande.objects.filter(
-        etats__enum_etat__libelle='Annulée (SAV)',
-        etats__date_fin__isnull=True
-    ).select_related('client', 'ville', 'ville__region').prefetch_related(
-        'etats__enum_etat', 'etats__operateur',
-        'envois', 'paniers__article'
-    ).order_by('-etats__date_debut').distinct()
-    
-    # Enrichir les données pour chaque commande
-    for commande in commandes:
-        # Trouver l'état actuel
-        commande.etat_actuel_sav = commande.etats.filter(
-            enum_etat__libelle='Annulée (SAV)',
-            date_fin__isnull=True
-        ).first()
-        
-        # Calculer le nombre d'articles dans la commande
-        commande.nombre_articles = commande.paniers.count()
-        
-        commande.articles_livres_partiellement = [
-            {
-                'article_id': panier.article.id,
-                'nom': panier.article.nom,
-                'reference': panier.article.reference,
-                'pointure': getattr(panier.article, 'pointure', ''),
-                'couleur': getattr(panier.article, 'couleur', ''),
-                'quantite_livree': panier.quantite,
-                'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0)
-            }
-            for panier in commande.paniers.all()
-        ]
-        commande.articles_renvoyes = []
-    
-    return _render_sav_list(request, commandes, 'Commandes Annulées (SAV)', 'Liste des commandes annulées lors de la livraison.')
 
 @login_required
 def commandes_retournees(request):
@@ -510,13 +474,14 @@ def commandes_retournees(request):
                 'pointure': getattr(panier.article, 'pointure', ''),
                 'couleur': getattr(panier.article, 'couleur', ''),
                 'quantite_livree': panier.quantite,
-                'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0)
+                'prix_unitaire': float(getattr(panier.article, 'prix_unitaire', 0.0) or 0.0),
+                'prix_actuel': float(getattr(panier.article, 'prix_actuel', 0.0) or 0.0)
             }
             for panier in commande.paniers.all()
         ]
         commande.articles_renvoyes = []
     
-    return _render_sav_list(request, commandes, 'Commandes Retournées', 'Liste des commandes retournées par l\'opérateur logistique.')
+    return _render_sav_list_custom(request, commandes, 'commandes_retournees.html')
 
 @login_required
 def commandes_livrees(request):
@@ -554,4 +519,4 @@ def commandes_livrees(request):
         ]
         commande.articles_renvoyes = []
     
-    return _render_sav_list(request, commandes, 'Commandes Livrées', 'Liste des commandes livrées avec succès.') 
+    return _render_sav_list_custom(request, commandes, 'commandes_livrees.html') 

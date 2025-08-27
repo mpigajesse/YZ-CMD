@@ -1,25 +1,59 @@
 from django import forms
-from article.models import Article
+from article.models import Article, VarianteArticle, Categorie, Couleur, Pointure
 
 class ArticleForm(forms.ModelForm):
     class Meta:
         model = Article
         fields = [
-            'nom', 'reference', 'couleur', 'pointure', 'prix_unitaire', 
-            'categorie', 'phase', 'description', 'image', 'actif'
+            'nom', 'reference', 'prix_unitaire', 'prix_achat', 'prix_actuel',
+            'categorie', 'phase', 'description', 'image', 'image_url', 'actif',
+            'isUpsell', 'prix_upsell_1', 'prix_upsell_2', 'prix_upsell_3', 'prix_upsell_4'
         ]
         widgets = {
             'nom': forms.TextInput(attrs={'class': 'w-full p-3 border rounded-lg'}),
             'reference': forms.TextInput(attrs={'class': 'w-full p-3 border rounded-lg'}),
-            'couleur': forms.TextInput(attrs={'class': 'w-full p-3 border rounded-lg'}),
-            'pointure': forms.TextInput(attrs={'class': 'w-full p-3 border rounded-lg'}),
-            'prix_unitaire': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg'}),
-            'categorie': forms.TextInput(attrs={'class': 'w-full p-3 border rounded-lg'}),
+            'prix_unitaire': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'step': '0.01'}),
+            'prix_achat': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'step': '0.01'}),
+            'prix_actuel': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'step': '0.01'}),
+            'categorie': forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'}),
             'phase': forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'}),
             'description': forms.Textarea(attrs={'class': 'w-full p-3 border rounded-lg', 'rows': 4}),
             'image': forms.ClearableFileInput(attrs={'class': 'w-full p-3 border rounded-lg'}),
+            'image_url': forms.URLInput(attrs={'class': 'w-full p-3 border rounded-lg'}),
+            'actif': forms.CheckboxInput(attrs={'class': 'h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'}),
+            'isUpsell': forms.CheckboxInput(attrs={'class': 'h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'}),
+            'prix_upsell_1': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'step': '0.01'}),
+            'prix_upsell_2': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'step': '0.01'}),
+            'prix_upsell_3': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'step': '0.01'}),
+            'prix_upsell_4': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'step': '0.01'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Charger les choix pour la catégorie
+        self.fields['categorie'].queryset = Categorie.objects.filter(actif=True)
+        self.fields['categorie'].empty_label = "Sélectionnez une catégorie"
+
+class VarianteArticleForm(forms.ModelForm):
+    """Formulaire pour créer/modifier les variantes d'articles (couleur + pointure)"""
+    
+    class Meta:
+        model = VarianteArticle
+        fields = ['couleur', 'pointure', 'qte_disponible', 'actif']
+        widgets = {
+            'couleur': forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'}),
+            'pointure': forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'}),
+            'qte_disponible': forms.NumberInput(attrs={'class': 'w-full p-3 border rounded-lg', 'min': '0'}),
             'actif': forms.CheckboxInput(attrs={'class': 'h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Charger les choix pour couleur et pointure
+        self.fields['couleur'].queryset = Couleur.objects.filter(actif=True)
+        self.fields['couleur'].empty_label = "Sélectionnez une couleur"
+        self.fields['pointure'].queryset = Pointure.objects.filter(actif=True)
+        self.fields['pointure'].empty_label = "Sélectionnez une pointure"
 
 class AjusterStockForm(forms.Form):
     TYPE_MOUVEMENT_CHOICES = [
@@ -41,4 +75,41 @@ class AjusterStockForm(forms.Form):
     commentaire = forms.CharField(
         widget=forms.Textarea(attrs={'class': 'w-full p-3 border rounded-lg', 'rows': 3, 'placeholder': 'Ex: Inventaire mensuel'}),
         required=False
+    )
+
+class RechercheArticleForm(forms.Form):
+    """Formulaire de recherche d'articles"""
+    nom = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full p-3 border rounded-lg',
+            'placeholder': 'Nom de l\'article...'
+        })
+    )
+    reference = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full p-3 border rounded-lg',
+            'placeholder': 'Référence...'
+        })
+    )
+    categorie = forms.ModelChoiceField(
+        queryset=Categorie.objects.filter(actif=True),
+        required=False,
+        empty_label="Toutes les catégories",
+        widget=forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'})
+    )
+    phase = forms.ChoiceField(
+        choices=[('', 'Toutes les phases')] + Article.PHASE_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'})
+    )
+    actif = forms.ChoiceField(
+        choices=[
+            ('', 'Tous'),
+            ('True', 'Actifs'),
+            ('False', 'Inactifs')
+        ],
+        required=False,
+        widget=forms.Select(attrs={'class': 'w-full p-3 border rounded-lg'})
     ) 

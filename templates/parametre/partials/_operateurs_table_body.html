@@ -1,0 +1,35 @@
+{% for operateur in page_obj.object_list %}
+<tr class="hover:bg-gray-50 transition-colors">
+    <td class="px-4 py-4 whitespace-nowrap text-sm border-r border-gray-200">
+        <input type="checkbox" class="operateur-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-operateur-id="{{ operateur.pk }}" />
+    </td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg leading-none" style="background-color: var(--admin-color);">
+            {{ operateur.prenom|first|upper }}{{ operateur.nom|first|upper }}
+        </div>
+    </td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">{{ operateur.user.username }}</td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ operateur.prenom }} {{ operateur.nom }}</td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ operateur.mail }}</td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ operateur.telephone|default:'N/A' }}</td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{{ operateur.get_type_operateur_display }}</td>
+    <td class="px-4 py-4 whitespace-nowrap text-sm border-r border-gray-200">
+        {% if operateur.actif %}
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Oui</span>
+        {% else %}
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Non</span>
+        {% endif %}
+    </td>
+    <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <a href="{% url 'app_admin:detail_operateur' operateur.pk %}" class="text-blue-500 hover:text-blue-700 mx-1 transition-colors" title="Voir Détails">
+            <i class="fas fa-eye"></i>
+        </a>
+        <a href="{% url 'app_admin:modifier_operateur' operateur.pk %}" class="text-yellow-500 hover:text-yellow-700 mx-1 transition-colors" title="Modifier">
+            <i class="fas fa-edit"></i>
+        </a>
+        <a href="#" onclick="return confirmDelete('{% url 'app_admin:supprimer_operateur' operateur.pk %}', '{{ operateur.nom }}')" class="text-red-500 hover:text-red-700 mx-1 transition-colors" title="Supprimer">
+            <i class="fas fa-trash-alt"></i>
+        </a>
+    </td>
+</tr>
+{% endfor %}

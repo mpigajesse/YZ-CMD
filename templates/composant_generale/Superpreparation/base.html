@@ -1,0 +1,279 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}YZ-CMD - Superviseur de Préparation{% endblock %}</title>
+    
+    {% tailwind_css %}
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="{% static 'vendor/sweetalert2.min.css' %}">
+
+    {% block extra_css %}
+    <style>
+        :root {
+            /* Thème Superviseur: Navy */
+            --preparation-primary: #070F2B; /* Couleur principale */
+            --preparation-dark: #050A1F;   /* Plus sombre */
+            --preparation-light: #0E1D3D;  /* Plus clair */
+            --preparation-text-light: #E6F0FF; /* Texte très clair */
+            --preparation-border-accent: #1E3A8A; /* Accent (indigo) */
+            --preparation-hover-bg: #0B1733; /* Arrière-plan au survol */
+        }
+
+        /* --- Sidebar --- */
+        #sidebar { 
+            width: 256px; 
+            transition: width 0.3s ease, transform 0.3s ease;
+            overflow-y: auto;
+        }
+
+        /* Comportement sur grand écran */
+        @media (min-width: 1024px) {
+            body.sidebar-open #sidebar { 
+                width: 256px; 
+                transform: translateX(0);
+            }
+            body.sidebar-collapsed #sidebar { 
+                width: 0; 
+                transform: translateX(-100%);
+            }
+        }
+
+        /* Comportement sur petit écran (overlay) */
+        @media (max-width: 1023.98px) {
+            #sidebar { 
+                position: absolute; 
+                height: 100%; 
+                z-index: 100; 
+                width: 256px;
+            }
+            body.sidebar-collapsed #sidebar { 
+                transform: translateX(-100%); 
+            }
+            body.sidebar-open #sidebar { 
+                transform: translateX(0); 
+            }
+            
+            #content-overlay { 
+                display: none; 
+                position: fixed; 
+                inset: 0; 
+                background-color: rgba(0, 0, 0, 0.5); 
+                z-index: 99; 
+            }
+            body.sidebar-open #content-overlay { 
+                display: block; 
+            }
+        }
+
+        /* Gestion des barres de défilement */
+        body {
+            overflow: hidden;
+        }
+
+        /* Container principal */
+        .relative.flex.h-screen.overflow-x-hidden {
+            overflow: hidden;
+        }
+
+        /* Main content avec une seule barre de défilement */
+        main.flex-1.overflow-x-hidden.overflow-y-auto {
+            overflow-x: hidden;
+            overflow-y: auto;
+            height: calc(100vh - 80px); /* Hauteur calculée moins le header */
+        }
+
+        /* Notifications SweetAlert2 personnalisées - avec haute spécificité */
+        body .swal2-toast.swal2-success {
+            background-color: #2f855a !important;
+            color: white !important;
+        }
+        body .swal2-toast.swal2-error {
+            background-color: #c53030 !important;
+            color: white !important;
+        }
+        body .swal2-toast.swal2-warning {
+            background-color: #dd6b20 !important;
+            color: white !important;
+        }
+        body .swal2-toast.swal2-info {
+            background-color: #2b6cb0 !important;
+            color: white !important;
+        }
+        body .swal2-toast .swal2-title {
+            color: white !important;
+        }
+        body .swal2-toast .swal2-icon.swal2-success .swal2-success-line-tip,
+        body .swal2-toast .swal2-icon.swal2-success .swal2-success-line-long {
+            stroke: white !important;
+        }
+    </style>
+    {% endblock %}
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="relative flex h-screen overflow-x-hidden">
+        <!-- Sidebar -->
+        {% include 'composant_generale/Superpreparation/sidebar.html' %}
+        
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            {% include 'composant_generale/Superpreparation/header.html' %}
+            
+            <!-- Page Content -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+        
+        <!-- Overlay for mobile -->
+        <div id="content-overlay"></div>
+    </div>
+    
+    <!-- SweetAlert2 -->
+    <script src="{% static 'vendor/sweetalert2.min.js' %}"></script>
+
+    {% block extra_js %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Afficher les messages Django avec SweetAlert2
+        {% if messages %}
+            {% for message in messages %}
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3500,
+                    timerProgressBar: true,
+                    icon: '{{ message.tags }}',
+                    title: '{{ message }}',
+                    customClass: {
+                        popup: 'swal2-toast swal2-{{ message.tags|lower }}'
+                    },
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer);
+                        toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    }
+                });
+            {% endfor %}
+        {% endif %}
+
+        const body = document.body;
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const contentOverlay = document.getElementById('content-overlay');
+        
+        function toggleSidebar() {
+            body.classList.toggle('sidebar-open');
+            body.classList.toggle('sidebar-collapsed');
+        }
+
+        function closeSidebarMobile() {
+            if (window.innerWidth <= 1023) {
+                body.classList.add('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
+            }
+        }
+
+        // Initialisation de l'état de la sidebar
+        if (window.innerWidth <= 1023) {
+            body.classList.add('sidebar-collapsed');
+            body.classList.remove('sidebar-open');
+        } else {
+            body.classList.add('sidebar-open');
+            body.classList.remove('sidebar-collapsed');
+        }
+
+        if (menuToggle) {
+            menuToggle.addEventListener('click', toggleSidebar);
+        }
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', closeSidebarMobile);
+        }
+        if (contentOverlay) {
+            contentOverlay.addEventListener('click', closeSidebarMobile);
+        }
+
+        document.querySelectorAll('.toggle-dropdown').forEach(dropdownToggle => {
+            dropdownToggle.addEventListener('click', () => {
+                const targetId = dropdownToggle.dataset.target;
+                const targetMenu = document.querySelector(targetId);
+                const chevronIcon = dropdownToggle.querySelector('.fa-chevron-down');
+
+                if (targetMenu && chevronIcon) {
+                    targetMenu.classList.toggle('hidden');
+                    chevronIcon.classList.toggle('rotate-180');
+                }
+            });
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1023) {
+                body.classList.add('sidebar-open');
+                body.classList.remove('sidebar-collapsed');
+            } else {
+                body.classList.add('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
+            }
+        });
+    });
+    </script>
+    {% endblock %}
+
+    <!-- Modal de recherche globale au niveau racine -->
+    <div id="headerSearchResults" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto hidden" style="min-width: 400px; max-width: 600px; z-index: 999999 !important; position: fixed !important;">
+        <!-- En-tête des résultats -->
+        <div class="p-3 border-b border-gray-100 bg-gray-50">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-700">Résultats de recherche</span>
+                <span id="headerSearchCount" class="text-xs text-gray-500">0 résultats</span>
+            </div>
+        </div>
+        
+        <!-- Contenu des résultats -->
+        <div id="headerSearchContent" class="p-2">
+            <!-- Les résultats seront injectés ici -->
+        </div>
+        
+        <!-- Pied de page -->
+        <div class="p-3 border-t border-gray-100 bg-gray-50">
+            <div class="flex items-center justify-between text-xs text-gray-500">
+                <span>Utilisez ↑↓ pour naviguer, Entrée pour sélectionner</span>
+                <a href="{% url 'Superpreparation:home' %}" class="text-blue-600 hover:text-blue-800">
+                    Retour à l'accueil <i class="fas fa-home ml-1"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de profil au niveau racine -->
+    <div id="header-profile-menu-root" class="fixed right-4 top-16 w-64 bg-white rounded-xl shadow-2xl border-2 origin-top-right hidden modal-force-top" style="border-color: var(--preparation-primary);">
+        <div class="py-2">
+            <a href="{% url 'Superpreparation:profile' %}" class="flex items-center px-4 py-3 text-sm text-gray-700 transition-all duration-200 transform hover:translate-x-1" style="hover:background: linear-gradient(to right, var(--preparation-light), var(--preparation-light));">
+                <i class="fas fa-user-circle mr-3 text-orange-600"></i>
+                <span>Voir Profil</span>
+            </a>
+            <a href="{% url 'Superpreparation:modifier_profile' %}" class="flex items-center px-4 py-3 text-sm text-gray-700 transition-all duration-200 transform hover:translate-x-1" style="hover:background: linear-gradient(to right, var(--preparation-light), var(--preparation-light));">
+                <i class="fas fa-edit mr-3 text-blue-600"></i>
+                <span>Modifier Profil</span>
+            </a>
+            <div class="border-t border-gray-100 my-1"></div>
+            <a href="{% url 'logout' %}" class="flex items-center px-4 py-3 text-sm text-red-600 transition-all duration-200 transform hover:translate-x-1 hover:bg-red-50">
+                <i class="fas fa-sign-out-alt mr-3"></i>
+                <span>Déconnexion</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Overlay pour fermer les résultats -->
+    <div id="searchOverlay" class="fixed inset-0 bg-black bg-opacity-25 hidden" style="z-index: 999998 !important; position: fixed !important;"></div>
+
+</body>
+</html> 

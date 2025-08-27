@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q, Sum, Count
 from django.db import models, transaction
 from django.core.paginator import Paginator
@@ -9,7 +10,7 @@ from django.contrib import messages
 from django.core import serializers
 from django.http import JsonResponse, HttpResponse # Import HttpResponse for partial rendering
 import json
-from .models import Commande, Panier, EnumEtatCmd
+from .models import Commande, Panier, EnumEtatCmd, Operation
 from client.models import Client
 from parametre.models import Ville, Operateur, Region # Import Region
 from article.models import Article
@@ -80,7 +81,7 @@ def liste_commandes(request):
 
     # Nouveau filtre pour les commandes synchronisées
     if sync_filter:
-        commandes = commandes.filter(origine='GSheet') # Ensure we only filter GSheet origin commands
+        commandes = commandes.filter(origine='SYNC') # Ensure we only filter synchronized commands
         if sync_filter == 'last_minute':
             commandes = commandes.filter(last_sync_date__gte=timezone.now() - timedelta(minutes=1))
         elif sync_filter == 'last_hour':
@@ -102,8 +103,52 @@ def liste_commandes(request):
     # Triez par ID YZ croissant (1, 2, 3, ...)
     commandes = commandes.order_by('id_yz')
 
-    paginator = Paginator(commandes, 10)  # 10 commandes par page
-    page_number = request.GET.get('page')
+    # Pagination flexible pour les administrateurs
+    items_per_page = request.GET.get('items_per_page', '10')
+    start_range = request.GET.get('start_range', '')
+    end_range = request.GET.get('end_range', '')
+    
+    # Validation et conversion des paramètres
+    try:
+        if items_per_page == 'all':
+            items_per_page = commandes.count()  # Afficher tous les éléments
+        else:
+            items_per_page = int(items_per_page)
+            if items_per_page < 1:
+                items_per_page = 10
+            # Pas de limite supérieure pour permettre l'affichage de tous les éléments
+    except (ValueError, TypeError):
+        items_per_page = 10
+    
+    # Gestion des plages personnalisées (style Excel)
+    if start_range and end_range:
+        try:
+            start_range = int(start_range)
+            end_range = int(end_range)
+            if start_range > 0 and end_range >= start_range:
+                # Calculer la page correspondante
+                total_count = commandes.count()
+                if end_range > total_count:
+                    end_range = total_count
+                if start_range > total_count:
+                    start_range = 1
+                
+                # Calculer la page de départ
+                page_number = ((start_range - 1) // items_per_page) + 1
+                # Ajuster items_per_page pour couvrir la plage demandée
+                range_size = end_range - start_range + 1
+                if range_size < items_per_page:
+                    items_per_page = range_size
+            else:
+                start_range = ''
+                end_range = ''
+        except (ValueError, TypeError):
+            start_range = ''
+            end_range = ''
+    else:
+        page_number = request.GET.get('page', 1)
+    
+    paginator = Paginator(commandes, items_per_page)
     page_obj = paginator.get_page(page_number)
 
     # Calculer les statistiques des états de commandes
@@ -155,6 +200,9 @@ def liste_commandes(request):
         'etat_filter': etat_filter,
         'sync_filter': sync_filter, # Ajouter le nouveau filtre au contexte
         'custom_sync_date': custom_sync_date, # Ajouter la date personnalisée au contexte
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
         'villes': villes,
         'villes_init': villes_init,
         'regions': regions,
@@ -467,16 +515,61 @@ def modifier_commande(request, pk):
 
 @login_required
 def gestion_etats(request):
-    """Page de gestion des états de commande"""
+    """Page de gestion des états de commande avec pagination flexible"""
     from django.db.models import Count
+    from django.core.paginator import Paginator
+    from django.template.loader import render_to_string
+    from django.http import JsonResponse
     from .models import EtatCommande
     
-    # Récupérer tous les états définis
-    etats_definis = EnumEtatCmd.objects.all().order_by('ordre', 'libelle')
+    # Récupérer tous les états définis pour les statistiques
+    etats_definis_all = EnumEtatCmd.objects.all().order_by('ordre', 'libelle')
     
-    # Statistiques par état
+    # Gestion de la pagination flexible
+    items_per_page = request.GET.get('items_per_page', 15)
+    start_range = request.GET.get('start_range', '')
+    end_range = request.GET.get('end_range', '')
+    
+    # Filtrage et pagination
+    etats_definis = etats_definis_all
+    
+    # Gestion de la plage personnalisée
+    if start_range and end_range:
+        try:
+            start_idx = int(start_range) - 1  # Index commence à 0
+            end_idx = int(end_range)
+            if start_idx >= 0 and end_idx > start_idx:
+                etats_definis = list(etats_definis_all)[start_idx:end_idx]
+                # Créer un paginator factice pour la plage
+                paginator = Paginator(etats_definis, len(etats_definis))
+                page_obj = paginator.get_page(1)
+        except (ValueError, TypeError):
+            # En cas d'erreur, utiliser la pagination normale
+            items_per_page = 15
+            paginator = Paginator(etats_definis, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        page_number = request.GET.get('page', 1)
+        if items_per_page == 'all':
+            # Afficher tous les états
+            paginator = Paginator(etats_definis, etats_definis.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 15
+            except (ValueError, TypeError):
+                items_per_page = 15
+            
+            paginator = Paginator(etats_definis, items_per_page)
+            page_obj = paginator.get_page(page_number)
+    
+    # Statistiques par état (pour tous les états, pas seulement ceux paginés)
     stats_etats = {}
-    for etat in etats_definis:
+    for etat in etats_definis_all:
         # Compter les commandes actuellement dans cet état
         commandes_actuelles = EtatCommande.objects.filter(
             enum_etat=etat,
@@ -494,16 +587,47 @@ def gestion_etats(request):
     # Statistiques générales
     total_commandes = Commande.objects.count()
     commandes_sans_etat = Commande.objects.filter(etats__isnull=True).count()
-    total_etats_definis = etats_definis.count()
+    total_etats_definis = etats_definis_all.count()
     total_transitions = EtatCommande.objects.count()
     
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('commande/partials/_etats_table_body.html', {
+            'page_obj': page_obj,
+            'stats_etats': stats_etats
+        }, request=request)
+        
+        html_pagination = render_to_string('commande/partials/_etats_pagination.html', {
+            'page_obj': page_obj,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('commande/partials/_etats_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': etats_definis_all.count()
+        })
+    
     context = {
-        'etats_definis': etats_definis,
+        'page_obj': page_obj,
+        'etats_definis': etats_definis_all,  # Pour les stats et le modal
         'stats_etats': stats_etats,
         'total_commandes': total_commandes,
         'commandes_sans_etat': commandes_sans_etat,
         'total_etats_definis': total_etats_definis,
         'total_transitions': total_transitions,
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     return render(request, 'commande/etats.html', context)
 
@@ -667,9 +791,14 @@ def commandes_affectees(request):
     from .models import EtatCommande
     
     # Récupérer SEULEMENT les commandes avec un état "Affectée" exact et actuel
+    # ✅ Optimisation : select_related pour éviter les N+1 queries
     commandes_affectees = Commande.objects.filter(
         etats__enum_etat__libelle__exact='Affectée',
         etats__date_fin__isnull=True
+    ).select_related(
+        'client', 'ville', 'ville__region'
+    ).prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
     ).distinct().order_by('-date_cmd')
     
     # Filtrage par recherche
@@ -680,38 +809,140 @@ def commandes_affectees(request):
             Q(id_yz__icontains=search_query) |
             Q(client__nom__icontains=search_query) |
             Q(client__prenom__icontains=search_query) |
-            Q(client__numero_tel__icontains=search_query)
+            Q(client__numero_tel__icontains=search_query) |
+            Q(ville__nom__icontains=search_query)
         )
     
-    # Pagination
-    paginator = Paginator(commandes_affectees, 15)
-    page_number = request.GET.get('page')
+    # Pagination flexible
+    items_per_page = request.GET.get('items_per_page', '10')
+    start_range = request.GET.get('start_range', '')
+    end_range = request.GET.get('end_range', '')
+    
+    # Gestion de la pagination flexible
+    if start_range and end_range:
+        try:
+            start = int(start_range)
+            end = int(end_range)
+            if start > 0 and end >= start:
+                # Calculer la page correspondante
+                items_per_page = end - start + 1
+                page_number = ((start - 1) // int(items_per_page)) + 1
+            else:
+                page_number = request.GET.get('page', 1)
+        except ValueError:
+            page_number = request.GET.get('page', 1)
+    else:
+        page_number = request.GET.get('page', 1)
+    
+    # Gestion des éléments par page
+    if items_per_page == 'all':
+        paginator = Paginator(commandes_affectees, commandes_affectees.count() or 1)
+        page_obj = paginator.get_page(1)
+    else:
+        try:
+            items_per_page = int(items_per_page)
+        except ValueError:
+            items_per_page = 10
+        paginator = Paginator(commandes_affectees, items_per_page)
     page_obj = paginator.get_page(page_number)
     
-    # Statistiques
-    total_affectees = commandes_affectees.count()
-    total_montant = sum(cmd.total_cmd for cmd in commandes_affectees)
+    # ✅ Optimisation : Statistiques calculées en base de données
+    stats_data = commandes_affectees.aggregate(
+        total_count=Count('id'),
+        total_montant=Sum('total_cmd')
+    )
+    total_affectees = stats_data['total_count'] or 0
+    total_montant = stats_data['total_montant'] or 0
     
-    # Statistiques par opérateur (pour les commandes affectées)
-    operateurs_stats = {}
-    for commande in commandes_affectees:
-        etat_actuel = commande.etat_actuel
-        if etat_actuel and etat_actuel.operateur:
-            operateur_nom = etat_actuel.operateur.get_full_name()
-            if operateur_nom not in operateurs_stats:
-                operateurs_stats[operateur_nom] = {'count': 0, 'montant': 0}
-            operateurs_stats[operateur_nom]['count'] += 1
-            operateurs_stats[operateur_nom]['montant'] += commande.total_cmd
+    # ✅ Optimisation : Statistiques par opérateur en une seule requête
+    operateurs_stats = commandes_affectees.filter(
+        etats__date_fin__isnull=True,
+        etats__operateur__isnull=False
+    ).values(
+        'etats__operateur__nom', 
+        'etats__operateur__prenom'
+    ).annotate(
+        count=Count('id'),
+        montant=Sum('total_cmd')
+    ).order_by('-count')
+    
+    # Transformer en dictionnaire pour compatibilité avec le template
+    operateurs_dict = {}
+    for stat in operateurs_stats:
+        nom_complet = f"{stat['etats__operateur__prenom']} {stat['etats__operateur__nom']}"
+        operateurs_dict[nom_complet] = {
+            'count': stat['count'],
+            'montant': stat['montant']
+        }
     
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
         'total_affectees': total_affectees,
         'total_montant': total_montant,
-        'operateurs_stats': operateurs_stats,
+        'operateurs_stats': operateurs_dict,
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
         'page_title': 'Commandes Affectées',
         'page_subtitle': 'Gestion des commandes assignées aux opérateurs',
     }
+    
+    # Si c'est une requête AJAX, retourner JSON
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        
+        # ✅ Optimisation : Rendu groupé des templates avec contexte unifié
+        ajax_context = {
+            'page_obj': page_obj,
+            'request': request,
+            'search_query': search_query,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }
+        
+        # Templates à rendre
+        templates_data = {
+            'html_table_body': 'commande/partials/_affectees_table_body.html',
+            'html_pagination': 'commande/partials/_affectees_pagination.html',
+            'html_pagination_info': 'commande/partials/_affectees_pagination_info.html'
+        }
+        
+        # Rendu optimisé en une seule boucle avec gestion d'erreurs détaillée
+        rendered_data = {}
+        try:
+            for key, template_path in templates_data.items():
+                try:
+                    rendered_data[key] = render_to_string(template_path, ajax_context, request=request)
+                except Exception as template_error:
+                    # ✅ Erreur spécifique au template
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Erreur dans le template {template_path}: {str(template_error)}'
+                    }, status=500)
+        except Exception as e:
+            # ✅ Gestion d'erreurs générales
+            return JsonResponse({
+                'success': False,
+                'error': f'Erreur générale de rendu: {str(e)}'
+            }, status=500)
+        
+        # ✅ Réponse JSON enrichie avec gestion d'erreurs
+        response_data = {
+            'success': True,
+            **rendered_data,
+            'total_commands_count': total_affectees,
+            'total_commands_display': f"Affichage de {page_obj.start_index} à {page_obj.end_index} sur {page_obj.paginator.count} commandes affectées.",
+            'stats': {
+                'total_affectees': total_affectees,
+                'total_montant': float(total_montant),
+                'moyenne_montant': float(total_montant / total_affectees) if total_affectees > 0 else 0
+            }
+        }
+        
+        return JsonResponse(response_data)
+    
     return render(request, 'commande/affectees.html', context)
 
 @login_required
@@ -719,10 +950,15 @@ def commandes_annulees(request):
     """Page des commandes annulées"""
     from .models import EtatCommande
     
-    # Récupérer les commandes avec un état "Annulée" actuel
+    # ✅ Optimisation : Récupérer les commandes avec un état "Annulée" actuel
+    # Avec select_related pour éviter les N+1 queries
     commandes_annulees = Commande.objects.filter(
         etats__enum_etat__libelle__icontains='Annulée',
         etats__date_fin__isnull=True
+    ).select_related(
+        'client', 'ville', 'ville__region'
+    ).prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
     ).distinct().order_by('-date_cmd')
     
     # Filtrage par recherche
@@ -736,20 +972,103 @@ def commandes_annulees(request):
             Q(client__numero_tel__icontains=search_query)
         )
     
-    # Pagination
-    paginator = Paginator(commandes_annulees, 15)
-    page_number = request.GET.get('page')
+    # Paramètres de pagination flexible
+    items_per_page = request.GET.get('items_per_page', 10)
+    start_range = request.GET.get('start_range')
+    end_range = request.GET.get('end_range')
+    
+    # Gestion de la pagination flexible
+    if start_range and end_range:
+        try:
+            start_range = int(start_range)
+            end_range = int(end_range)
+            if start_range > 0 and end_range >= start_range:
+                # Pagination par plage personnalisée
+                commandes_annulees = commandes_annulees[start_range-1:end_range]
+                paginator = Paginator(commandes_annulees, end_range - start_range + 1)
+                page_obj = paginator.get_page(1)
+            else:
+                # Plage invalide, utiliser la pagination normale
+                items_per_page = 10
+                paginator = Paginator(commandes_annulees, items_per_page)
+                page_number = request.GET.get('page', 1)
+                page_obj = paginator.get_page(page_number)
+        except (ValueError, TypeError):
+            # Erreur de conversion, utiliser la pagination normale
+            items_per_page = 10
+            paginator = Paginator(commandes_annulees, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        if items_per_page == 'all':
+            # Afficher toutes les commandes
+            paginator = Paginator(commandes_annulees, commandes_annulees.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 10
+            except (ValueError, TypeError):
+                items_per_page = 10
+            
+            paginator = Paginator(commandes_annulees, items_per_page)
+            page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
-    # Statistiques
-    total_annulees = commandes_annulees.count()
-    total_montant_perdu = sum(cmd.total_cmd for cmd in commandes_annulees)
+    # ✅ Optimisation : Statistiques calculées en base de données
+    stats_data = commandes_annulees.aggregate(
+        total_count=Count('id'),
+        total_montant_perdu=Sum('total_cmd')
+    )
+    total_annulees = stats_data['total_count'] or 0
+    total_montant_perdu = stats_data['total_montant_perdu'] or 0
     
-    # Statistiques par motif d'annulation
+    # ✅ Optimisation : Statistiques par motif en une seule requête
+    motifs_stats = commandes_annulees.values('motif_annulation').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Transformer en dictionnaire pour compatibilité avec le template
     motifs_annulation = {}
-    for commande in commandes_annulees:
-        motif = commande.motif_annulation or 'Non spécifié'
-        motifs_annulation[motif] = motifs_annulation.get(motif, 0) + 1
+    for stat in motifs_stats:
+        motif = stat['motif_annulation'] or 'Non spécifié'
+        motifs_annulation[motif] = stat['count']
+    
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('commande/partials/_annulees_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('commande/partials/_annulees_pagination.html', {
+            'page_obj': page_obj,
+            'search_query': search_query,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('commande/partials/_annulees_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        # ✅ Réponse JSON enrichie avec statistiques
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_commands_count': total_annulees,
+            'total_commands_display': f"Affichage de {page_obj.start_index} à {page_obj.end_index} sur {page_obj.paginator.count} commandes annulées.",
+            'stats': {
+                'total_annulees': total_annulees,
+                'total_montant_perdu': float(total_montant_perdu),
+                'moyenne_montant_perdu': float(total_montant_perdu / total_annulees) if total_annulees > 0 else 0
+            }
+        })
     
     context = {
         'page_obj': page_obj,
@@ -759,6 +1078,9 @@ def commandes_annulees(request):
         'motifs_annulation': motifs_annulation,
         'page_title': 'Commandes Annulées',
         'page_subtitle': 'Suivi des commandes annulées et motifs',
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     return render(request, 'commande/annulees.html', context)
 
@@ -766,26 +1088,32 @@ def commandes_annulees(request):
 def commandes_non_affectees(request):
     """Page des commandes non affectées"""
     from .models import EtatCommande
+    from django.db.models import Q, OuterRef, Exists
     
-    # Récupérer les IDs des commandes avec état "Non affectée" actuel
-    commandes_avec_etat_non_affectee_ids = Commande.objects.filter(
-        etats__enum_etat__libelle__exact='Non affectée',
-        etats__date_fin__isnull=True
-    ).values_list('id', flat=True)
-    
-    # Récupérer les IDs des commandes sans état actuel (nouvelles commandes)
-    commandes_avec_etat_ids = EtatCommande.objects.filter(
+    # ✅ Optimisation : Requête unifiée avec subquery pour les commandes non affectées
+    # Sous-requête pour identifier les commandes avec un état actuel
+    commandes_avec_etat_actuel = EtatCommande.objects.filter(
+        commande=OuterRef('pk'),
         date_fin__isnull=True
-    ).values_list('commande_id', flat=True).distinct()
+    )
     
-    commandes_sans_etat_ids = Commande.objects.exclude(
-        id__in=commandes_avec_etat_ids
-    ).values_list('id', flat=True)
-    
-    # Combiner les IDs et récupérer les commandes
-    tous_les_ids = list(commandes_avec_etat_non_affectee_ids) + list(commandes_sans_etat_ids)
+    # Récupérer les commandes soit :
+    # 1. Avec état "Non affectée" actuel
+    # 2. Sans état actuel (nouvelles commandes)
     commandes_non_affectees = Commande.objects.filter(
-        id__in=tous_les_ids
+        Q(
+            # Commandes avec état "Non affectée" actuel
+            etats__enum_etat__libelle__exact='Non affectée',
+            etats__date_fin__isnull=True
+        ) |
+        Q(
+            # Commandes sans état actuel (nouvelles)
+            ~Exists(commandes_avec_etat_actuel)
+        )
+    ).select_related(
+        'client', 'ville', 'ville__region'
+    ).prefetch_related(
+        'etats__enum_etat', 'etats__operateur'
     ).distinct().order_by('-date_cmd')
     
     # Filtrage par recherche
@@ -800,18 +1128,71 @@ def commandes_non_affectees(request):
             Q(ville__nom__icontains=search_query)
         )
     
-    # Pagination
-    paginator = Paginator(commandes_non_affectees, 20)
-    page_number = request.GET.get('page')
+    # Pagination flexible pour les administrateurs
+    items_per_page = request.GET.get('items_per_page', '10')
+    start_range = request.GET.get('start_range', '')
+    end_range = request.GET.get('end_range', '')
+    
+    # Validation et conversion des paramètres
+    try:
+        if items_per_page == 'all':
+            items_per_page = commandes_non_affectees.count()  # Afficher tous les éléments
+        else:
+            items_per_page = int(items_per_page)
+            if items_per_page < 1:
+                items_per_page = 10
+            # Pas de limite supérieure pour permettre l'affichage de tous les éléments
+    except (ValueError, TypeError):
+        items_per_page = 10
+    
+    # Gestion des plages personnalisées (style Excel)
+    if start_range and end_range:
+        try:
+            start_range = int(start_range)
+            end_range = int(end_range)
+            if start_range > 0 and end_range >= start_range:
+                # Calculer la page correspondante
+                total_count = commandes_non_affectees.count()
+                if end_range > total_count:
+                    end_range = total_count
+                if start_range > total_count:
+                    start_range = 1
+                
+                # Calculer la page de départ
+                page_number = ((start_range - 1) // items_per_page) + 1
+                # Ajuster items_per_page pour couvrir la plage demandée
+                range_size = end_range - start_range + 1
+                if range_size < items_per_page:
+                    items_per_page = range_size
+            else:
+                start_range = ''
+                end_range = ''
+        except (ValueError, TypeError):
+            start_range = ''
+            end_range = ''
+    else:
+        page_number = request.GET.get('page', 1)
+    
+    paginator = Paginator(commandes_non_affectees, items_per_page)
     page_obj = paginator.get_page(page_number)
     
-    # Statistiques
-    total_non_affectees = commandes_non_affectees.count()
-    total_montant = sum(cmd.total_cmd for cmd in commandes_non_affectees)
+    # ✅ Optimisation : Statistiques calculées en base de données
+    stats_data = commandes_non_affectees.aggregate(
+        total_count=Count('id'),
+        total_montant=Sum('total_cmd')
+    )
+    total_non_affectees = stats_data['total_count'] or 0
+    total_montant = stats_data['total_montant'] or 0
     
-    # Statistiques détaillées des commandes non affectées
-    commandes_avec_etat_non_affectee_count = len(commandes_avec_etat_non_affectee_ids)
-    commandes_sans_etat_count = len(commandes_sans_etat_ids)
+    # ✅ Optimisation : Statistiques détaillées avec requêtes optimisées
+    # Compter les commandes avec état "Non affectée"
+    commandes_avec_etat_non_affectee_count = Commande.objects.filter(
+        etats__enum_etat__libelle__exact='Non affectée',
+        etats__date_fin__isnull=True
+    ).distinct().count()
+    
+    # Compter les nouvelles commandes (sans état)
+    commandes_sans_etat_count = total_non_affectees - commandes_avec_etat_non_affectee_count
     
     # Statistiques des commandes affectées pour comparaison
     total_affectees = Commande.objects.filter(
@@ -835,6 +1216,9 @@ def commandes_non_affectees(request):
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
         'total_non_affectees': total_non_affectees,
         'total_affectees': total_affectees,
         'total_montant': total_montant,
@@ -846,6 +1230,39 @@ def commandes_non_affectees(request):
         'page_title': 'Commandes Non Affectées',
         'page_subtitle': 'Gestion des affectations de commandes',
     }
+    # Si c'est une requête AJAX, retourner JSON
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        
+        # Rendre le tableau des commandes
+        html_table_body = render_to_string('commande/partials/_non_affectees_table_body.html', {
+            'page_obj': page_obj,
+            'request': request
+        }, request=request)
+        
+        # Rendre la pagination (navigation seulement)
+        html_pagination = render_to_string('commande/partials/_non_affectees_pagination.html', {
+            'page_obj': page_obj,
+            'search_query': search_query,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        # Rendre les informations de pagination
+        html_pagination_info = render_to_string('commande/partials/_non_affectees_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_commands_count': total_non_affectees,
+            'total_commands_display': f"Affichage de {page_obj.start_index} à {page_obj.end_index} sur {page_obj.paginator.count} commandes non affectées."
+        })
+    
     return render(request, 'commande/non_affectees.html', context)
 
 @login_required
@@ -872,9 +1289,49 @@ def commandes_a_traiter(request):
             Q(ville__nom__icontains=search_query)
         )
     
-    # Pagination
-    paginator = Paginator(commandes_a_traiter, 20)
-    page_number = request.GET.get('page')
+    # Paramètres de pagination flexible
+    items_per_page = request.GET.get('items_per_page', 10)
+    start_range = request.GET.get('start_range')
+    end_range = request.GET.get('end_range')
+    
+    # Gestion de la pagination flexible
+    if start_range and end_range:
+        try:
+            start_range = int(start_range)
+            end_range = int(end_range)
+            if start_range > 0 and end_range >= start_range:
+                # Pagination par plage personnalisée
+                commandes_a_traiter = commandes_a_traiter[start_range-1:end_range]
+                paginator = Paginator(commandes_a_traiter, end_range - start_range + 1)
+                page_obj = paginator.get_page(1)
+            else:
+                # Plage invalide, utiliser la pagination normale
+                items_per_page = 10
+                paginator = Paginator(commandes_a_traiter, items_per_page)
+                page_number = request.GET.get('page', 1)
+                page_obj = paginator.get_page(page_number)
+        except (ValueError, TypeError):
+            # Erreur de conversion, utiliser la pagination normale
+            items_per_page = 10
+            paginator = Paginator(commandes_a_traiter, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        if items_per_page == 'all':
+            # Afficher toutes les commandes
+            paginator = Paginator(commandes_a_traiter, commandes_a_traiter.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 10
+            except (ValueError, TypeError):
+                items_per_page = 10
+            
+            paginator = Paginator(commandes_a_traiter, items_per_page)
+            page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
     # Statistiques détaillées
@@ -898,6 +1355,33 @@ def commandes_a_traiter(request):
         etats__date_fin__isnull=True
     ).distinct().count()
     
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('commande/partials/_a_traiter_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('commande/partials/_a_traiter_pagination.html', {
+            'page_obj': page_obj,
+            'search_query': search_query,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('commande/partials/_a_traiter_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': total_a_traiter
+        })
+    
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
@@ -908,6 +1392,9 @@ def commandes_a_traiter(request):
         'commandes_confirmees': commandes_confirmees,
         'page_title': 'Commandes à Traiter',
         'page_subtitle': 'Gestion des doublons et erreurs',
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     return render(request, 'commande/a_traiter.html', context)
 
@@ -1206,15 +1693,58 @@ def liste_paniers(request):
     if article_filter:
         paniers = paniers.filter(article_id=article_filter)
     
-    # Pagination (réduite pour de meilleures performances)
-    paginator = Paginator(paniers, 15)  # 15 paniers par page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    # Créer une copie des données non paginées pour les statistiques AVANT la pagination
+    paniers_non_pagines = paniers
+    
+    # Paramètres de pagination flexible
+    items_per_page = request.GET.get('items_per_page', 15)
+    start_range = request.GET.get('start_range')
+    end_range = request.GET.get('end_range')
+    
+    # Gestion de la pagination flexible
+    if start_range and end_range:
+        try:
+            start_range = int(start_range)
+            end_range = int(end_range)
+            if start_range > 0 and end_range >= start_range:
+                # Pagination par plage personnalisée
+                paniers = paniers[start_range-1:end_range]
+                paginator = Paginator(paniers, end_range - start_range + 1)
+                page_obj = paginator.get_page(1)
+            else:
+                # Plage invalide, utiliser la pagination normale
+                items_per_page = 15
+                paginator = Paginator(paniers, items_per_page)
+                page_number = request.GET.get('page', 1)
+                page_obj = paginator.get_page(page_number)
+        except (ValueError, TypeError):
+            # Erreur de conversion, utiliser la pagination normale
+            items_per_page = 15
+            paginator = Paginator(paniers, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        page_number = request.GET.get('page', 1)
+        if items_per_page == 'all':
+            # Afficher tous les paniers
+            paginator = Paginator(paniers, paniers.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 15
+            except (ValueError, TypeError):
+                items_per_page = 15
+            
+            paginator = Paginator(paniers, items_per_page)
+            page_obj = paginator.get_page(page_number)
     
     # Statistiques principales
-    total_paniers = paniers.count()
-    total_articles = paniers.aggregate(total=Sum('quantite'))['total'] or 0
-    total_valeur = paniers.aggregate(total=Sum('sous_total'))['total'] or 0
+    total_paniers = paniers_non_pagines.count()
+    total_articles = paniers_non_pagines.aggregate(total=Sum('quantite'))['total'] or 0
+    total_valeur = paniers_non_pagines.aggregate(total=Sum('sous_total'))['total'] or 0
     
     # Statistiques par état pour les filtres rapides
     from .models import EtatCommande
@@ -1253,7 +1783,7 @@ def liste_paniers(request):
     articles_populaires = []
     clients_actifs = []
     if not etat_filter:
-        articles_populaires = paniers.values(
+        articles_populaires = paniers_non_pagines.values(
             'article__nom', 
             'article__reference'
         ).annotate(
@@ -1262,7 +1792,7 @@ def liste_paniers(request):
         ).order_by('-total_quantite')[:10]
         
         # Clients les plus actifs
-        clients_actifs = paniers.values(
+        clients_actifs = paniers_non_pagines.values(
             'commande__client__nom',
             'commande__client__prenom',
             'commande__client__numero_tel'
@@ -1271,6 +1801,41 @@ def liste_paniers(request):
             total_articles=Sum('quantite'),
             total_depense=Sum('sous_total')
         ).order_by('-total_commandes')[:10]
+    
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('commande/partials/_paniers_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_cards_body = render_to_string('commande/partials/_paniers_cards_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('commande/partials/_paniers_pagination.html', {
+            'page_obj': page_obj,
+            'search_query': search_query,
+            'client_filter': client_filter,
+            'article_filter': article_filter,
+            'etat_filter': etat_filter,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('commande/partials/_paniers_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_cards_body': html_cards_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': paniers.count()
+        })
     
     context = {
         'page_obj': page_obj,
@@ -1288,6 +1853,9 @@ def liste_paniers(request):
         'clients_actifs': clients_actifs,
         'page_title': 'Gestion des Paniers',
         'page_subtitle': f'Vue d\'ensemble des paniers {etat_filter.lower() if etat_filter else "de toutes les commandes"}',
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     
     return render(request, 'commande/paniers.html', context)
@@ -1636,10 +2204,10 @@ def commandes_confirmees(request):
     from django.utils import timezone
     from datetime import datetime, timedelta
     
-    # Récupérer toutes les commandes confirmées
+    # Récupérer toutes les commandes confirmées (qui ont eu l'état "Confirmée" dans leur historique)
+    # Note: On ne filtre pas sur l'état actuel car l'état "Confirmée" est fermé après confirmation
     commandes_confirmees = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True
+        etats__enum_etat__libelle='Confirmée'
     ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
     
     # Recherche
@@ -1658,54 +2226,139 @@ def commandes_confirmees(request):
     # Tri par date de confirmation (plus récentes en premier)
     commandes_confirmees = commandes_confirmees.order_by('-etats__date_debut')
     
-    # Pagination
-    paginator = Paginator(commandes_confirmees, 25)  # 25 commandes par page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    # Créer une copie des données non paginées pour les statistiques AVANT la pagination
+    commandes_non_paginees = commandes_confirmees
+    
+    # Paramètres de pagination flexible
+    items_per_page = request.GET.get('items_per_page', 25)
+    start_range = request.GET.get('start_range')
+    end_range = request.GET.get('end_range')
+    
+    # Gestion de la pagination flexible
+    if start_range and end_range:
+        try:
+            start_range = int(start_range)
+            end_range = int(end_range)
+            if start_range > 0 and end_range >= start_range:
+                # Pagination par plage personnalisée
+                commandes_confirmees = commandes_confirmees[start_range-1:end_range]
+                paginator = Paginator(commandes_confirmees, end_range - start_range + 1)
+                page_obj = paginator.get_page(1)
+            else:
+                # Plage invalide, utiliser la pagination normale
+                items_per_page = 25
+                paginator = Paginator(commandes_confirmees, items_per_page)
+                page_number = request.GET.get('page', 1)
+                page_obj = paginator.get_page(page_number)
+        except (ValueError, TypeError):
+            # Erreur de conversion, utiliser la pagination normale
+            items_per_page = 25
+            paginator = Paginator(commandes_confirmees, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        if items_per_page == 'all':
+            # Afficher toutes les commandes
+            paginator = Paginator(commandes_confirmees, commandes_confirmees.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 25
+            except (ValueError, TypeError):
+                items_per_page = 25
+            
+            paginator = Paginator(commandes_confirmees, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
     
     # Statistiques
     today = timezone.now().date()
     week_start = today - timedelta(days=today.weekday())
     month_start = today.replace(day=1)
     
-    # Confirmées aujourd'hui
-    confirmees_aujourd_hui = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
-        etats__date_debut__date=today
-    ).distinct().count()
+    # ✅ Optimisation : Statistiques temporelles en une seule requête avec annotations
+    from django.db.models import Case, When, IntegerField
     
-    # Confirmées cette semaine
-    confirmees_semaine = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
-        etats__date_debut__date__gte=week_start
-    ).distinct().count()
+    stats_temporelles = Commande.objects.filter(
+        etats__enum_etat__libelle='Confirmée'
+    ).aggregate(
+        confirmees_aujourd_hui=Count(
+            'id',
+            filter=Q(etats__date_debut__date=today),
+            distinct=True
+        ),
+        confirmees_semaine=Count(
+            'id', 
+            filter=Q(etats__date_debut__date__gte=week_start),
+            distinct=True
+        ),
+        confirmees_mois=Count(
+            'id',
+            filter=Q(etats__date_debut__date__gte=month_start),
+            distinct=True
+        )
+    )
     
-    # Confirmées ce mois
-    confirmees_mois = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True,
-        etats__date_debut__date__gte=month_start
-    ).distinct().count()
+    confirmees_aujourd_hui = stats_temporelles['confirmees_aujourd_hui'] or 0
+    confirmees_semaine = stats_temporelles['confirmees_semaine'] or 0
+    confirmees_mois = stats_temporelles['confirmees_mois'] or 0
     
-    # Total des commandes confirmées
-    total_confirmees = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True
-    ).distinct().count()
+    # Total des commandes confirmées (utiliser les données non paginées)
+    total_confirmees = commandes_non_paginees.count()
     
-    # Montant total des commandes confirmées
-    montant_total = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
-        etats__date_fin__isnull=True
-    ).aggregate(total=Sum('total_cmd'))['total'] or 0
+    # Montant total des commandes confirmées (utiliser les données non paginées)
+    montant_total = commandes_non_paginees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Ajouter l'état de confirmation à chaque commande
+    for commande in page_obj:
+        # Priorité: état Confirmée porté par un opérateur de type CONFIRMATION
+        etat_conf_op = commande.etats.filter(
+            enum_etat__libelle='Confirmée',
+            operateur__type_operateur='CONFIRMATION'
+        ).order_by('-date_debut').first()
+
+        if etat_conf_op:
+            commande.etat_confirmation = etat_conf_op
+        else:
+            # Fallback: n'importe quel état Confirmée (le plus ancien pour refléter l'action originale)
+            etat_conf_any = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('date_debut').first()
+            commande.etat_confirmation = etat_conf_any
     
     # Récupérer les opérateurs de préparation actifs
     operateurs_preparation = Operateur.objects.filter(
         type_operateur='PREPARATION',
         actif=True
     ).order_by('nom', 'prenom')
+    
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('commande/partials/_confirmees_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('commande/partials/_confirmees_pagination.html', {
+            'page_obj': page_obj,
+            'search_query': search_query,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('commande/partials/_confirmees_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': commandes_confirmees.count()
+        })
     
     context = {
         'page_obj': page_obj,
@@ -1718,6 +2371,9 @@ def commandes_confirmees(request):
         'operateurs_preparation': operateurs_preparation,
         'page_title': 'Commandes Confirmées',
         'page_subtitle': 'Liste des commandes validées prêtes pour la préparation',
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     
     return render(request, 'commande/confirmees.html', context)
@@ -1741,15 +2397,6 @@ def commandes_preparees(request):
     today = timezone.now().date()
     start_of_week = today - timedelta(days=today.weekday())
     start_of_month = today.replace(day=1)
-    
-    # Le filtre `etats__date_fin__date` peut causer des doublons si une commande a plusieurs états "En préparation" terminés le même jour.
-    # Bien que ce soit un cas rare, l'utilisation de `distinct()` sur la clé primaire de la commande est une bonne pratique.
-    preparees_aujourd_hui = base_commandes_preparees.filter(etats__date_fin__date=today).count()
-    preparees_semaine = base_commandes_preparees.filter(etats__date_fin__date__gte=start_of_week).count()
-    preparees_mois = base_commandes_preparees.filter(etats__date_fin__date__gte=start_of_month).count()
-    
-    total_preparees = base_commandes_preparees.count()
-    total_montant = base_commandes_preparees.aggregate(total=Sum('total_cmd'))['total'] or 0
 
     # La queryset pour la liste affichée, avec l'optimisation `select_related`
     commandes_preparees = base_commandes_preparees.select_related('client', 'ville', 'ville__region').order_by('-etats__date_fin')
@@ -1765,9 +2412,61 @@ def commandes_preparees(request):
             Q(client__numero_tel__icontains=search_query)
         )
     
-    # Pagination
-    paginator = Paginator(commandes_preparees, 15)
-    page_number = request.GET.get('page')
+    # Créer une copie des données non paginées pour les statistiques AVANT la pagination
+    commandes_non_paginees = commandes_preparees
+    
+    # Le filtre `etats__date_fin__date` peut causer des doublons si une commande a plusieurs états "En préparation" terminés le même jour.
+    # Bien que ce soit un cas rare, l'utilisation de `distinct()` sur la clé primaire de la commande est une bonne pratique.
+    preparees_aujourd_hui = commandes_non_paginees.filter(etats__date_fin__date=today).count()
+    preparees_semaine = commandes_non_paginees.filter(etats__date_fin__date__gte=start_of_week).count()
+    preparees_mois = commandes_non_paginees.filter(etats__date_fin__date__gte=start_of_month).count()
+    
+    total_preparees = commandes_non_paginees.count()
+    total_montant = commandes_non_paginees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    
+    # Paramètres de pagination flexible
+    items_per_page = request.GET.get('items_per_page', 15)
+    start_range = request.GET.get('start_range')
+    end_range = request.GET.get('end_range')
+    
+    # Gestion de la pagination flexible
+    if start_range and end_range:
+        try:
+            start_range = int(start_range)
+            end_range = int(end_range)
+            if start_range > 0 and end_range >= start_range:
+                # Pagination par plage personnalisée
+                commandes_preparees = commandes_preparees[start_range-1:end_range]
+                paginator = Paginator(commandes_preparees, end_range - start_range + 1)
+                page_obj = paginator.get_page(1)
+            else:
+                # Plage invalide, utiliser la pagination normale
+                items_per_page = 15
+                paginator = Paginator(commandes_preparees, items_per_page)
+                page_number = request.GET.get('page', 1)
+                page_obj = paginator.get_page(page_number)
+        except (ValueError, TypeError):
+            # Erreur de conversion, utiliser la pagination normale
+            items_per_page = 15
+            paginator = Paginator(commandes_preparees, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        if items_per_page == 'all':
+            # Afficher toutes les commandes
+            paginator = Paginator(commandes_preparees, commandes_preparees.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 15
+            except (ValueError, TypeError):
+                items_per_page = 15
+            
+            paginator = Paginator(commandes_preparees, items_per_page)
+            page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
     # Récupérer les opérateurs de livraison ou logistiques actifs pour l'affectation
@@ -1775,6 +2474,33 @@ def commandes_preparees(request):
         Q(type_operateur='LIVRAISON') | Q(type_operateur='LOGISTIQUE'),
         actif=True
     )
+    
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('commande/partials/_preparees_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('commande/partials/_preparees_pagination.html', {
+            'page_obj': page_obj,
+            'search_query': search_query,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('commande/partials/_preparees_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': commandes_preparees.count()
+        })
     
     context = {
         'page_obj': page_obj,
@@ -1787,6 +2513,9 @@ def commandes_preparees(request):
         'operateurs_livraison': operateurs_livraison,
         'page_title': 'Commandes Préparées',
         'page_subtitle': 'Liste des commandes prêtes pour la livraison',
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     return render(request, 'commande/preparees.html', context)
 
@@ -1796,16 +2525,16 @@ def suivi_confirmations(request):
     from django.utils import timezone
     from datetime import datetime, timedelta
     
-    # Récupérer toutes les commandes confirmées par les opérateurs
-    commandes_confirmees = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
+    # Récupérer toutes les commandes EN COURS DE CONFIRMATION
+    commandes_en_cours = Commande.objects.filter(
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True
     ).select_related('client', 'ville', 'ville__region').prefetch_related('etats', 'operations').distinct()
     
     # Recherche
     search_query = request.GET.get('search', '')
     if search_query:
-        commandes_confirmees = commandes_confirmees.filter(
+        commandes_en_cours = commandes_en_cours.filter(
             Q(id_yz__icontains=search_query) |
             Q(num_cmd__icontains=search_query) |
             Q(client__nom__icontains=search_query) |
@@ -1815,34 +2544,38 @@ def suivi_confirmations(request):
             Q(etats__operateur__prenom__icontains=search_query)
         ).distinct()
     
-    # Tri par date de confirmation (plus récentes en premier)
-    commandes_confirmees = commandes_confirmees.order_by('-etats__date_debut')
+    # Tri par date de début de confirmation (plus récentes en premier)
+    commandes_en_cours = commandes_en_cours.order_by('-etats__date_debut')
     
     # Pagination
-    paginator = Paginator(commandes_confirmees, 25)  # 25 commandes par page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    if commandes_en_cours.exists():
+        paginator = Paginator(commandes_en_cours, 25)  # 25 commandes par page
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+    else:
+        paginator = Paginator([], 25)
+        page_obj = paginator.get_page(1)
     
     # Statistiques
     today = timezone.now().date()
     yesterday = today - timedelta(days=1)
     this_week = today - timedelta(days=7)
     
-    # Compter par période
-    confirmees_aujourd_hui = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
+    # Compter par période - commandes EN COURS DE CONFIRMATION
+    en_cours_aujourd_hui = Commande.objects.filter(
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True,
         etats__date_debut__date=today
     ).distinct().count()
     
-    confirmees_hier = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
+    en_cours_hier = Commande.objects.filter(
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True,
         etats__date_debut__date=yesterday
     ).distinct().count()
     
-    confirmees_semaine = Commande.objects.filter(
-        etats__enum_etat__libelle='Confirmée',
+    en_cours_semaine = Commande.objects.filter(
+        etats__enum_etat__libelle='En cours de confirmation',
         etats__date_fin__isnull=True,
         etats__date_debut__date__gte=this_week
     ).distinct().count()
@@ -1853,23 +2586,28 @@ def suivi_confirmations(request):
         etats__date_fin__isnull=True
     ).distinct().count()
     
-    # Montant total des commandes confirmées
-    montant_total = commandes_confirmees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    # Montant total des commandes en cours de confirmation
+    if commandes_en_cours.exists():
+        montant_total = commandes_en_cours.aggregate(total=Sum('total_cmd'))['total'] or 0
+    else:
+        montant_total = 0
     
-    # Récupérer les opérateurs de préparation actifs
-    operateurs_preparation = Operateur.objects.filter(
-        type_operateur='PREPARATION',
+    # Récupérer les opérateurs de confirmation actifs
+    operateurs_confirmation = Operateur.objects.filter(
+        type_operateur='CONFIRMATION',
         actif=True
     ).order_by('nom', 'prenom')
     
-    # Récupérer les commandes par opérateur
+    # Récupérer les commandes par opérateur (utiliser les données non paginées)
     commandes_par_operateur = {}
-    for commande in commandes_confirmees:
-        operateur = commande.etats.filter(enum_etat__libelle='Confirmée').first().operateur
-        if operateur:
-            if operateur.nom not in commandes_par_operateur:
-                commandes_par_operateur[operateur.nom] = []
-            commandes_par_operateur[operateur.nom].append(commande)
+    if commandes_en_cours.exists():
+        for commande in commandes_en_cours:
+            etat_en_cours = commande.etats.filter(enum_etat__libelle='En cours de confirmation').first()
+            if etat_en_cours and etat_en_cours.operateur:
+                operateur_nom = f"{etat_en_cours.operateur.prenom} {etat_en_cours.operateur.nom}"
+                if operateur_nom not in commandes_par_operateur:
+                    commandes_par_operateur[operateur_nom] = []
+                commandes_par_operateur[operateur_nom].append(commande)
     
     # Récupérer les jours de vérification
     jours_verification = {
@@ -1878,16 +2616,40 @@ def suivi_confirmations(request):
         'semaine': this_week
     }
     
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('commande/partials/_suivi_confirmations_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('commande/partials/_suivi_confirmations_pagination.html', {
+            'page_obj': page_obj,
+            'search_query': search_query
+        }, request=request)
+        
+        html_pagination_info = render_to_string('commande/partials/_suivi_confirmations_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': commandes_en_cours.count() if commandes_en_cours.exists() else 0
+        })
+    
     context = {
-        'commandes_confirmees': commandes_confirmees,
+        'commandes_en_cours': commandes_en_cours,
         'page_obj': page_obj,
         'search_query': search_query,
-        'confirmees_aujourd_hui': confirmees_aujourd_hui,
-        'confirmees_hier': confirmees_hier,
-        'confirmees_semaine': confirmees_semaine,
+        'en_cours_aujourd_hui': en_cours_aujourd_hui,
+        'en_cours_hier': en_cours_hier,
+        'en_cours_semaine': en_cours_semaine,
         'en_attente_count': en_attente_count,
         'montant_total': montant_total,
-        'operateurs_preparation': operateurs_preparation,
+        'operateurs_confirmation': operateurs_confirmation,
         'commandes_par_operateur': sorted(commandes_par_operateur.items()),
         'jours_verification': jours_verification,
     }
@@ -1900,9 +2662,9 @@ def affecter_preparation(request, commande_id):
     """Affecter une commande à un opérateur de préparation."""
     if request.method == 'POST':
         try:
-            # Vérifier que l'utilisateur est admin
+            # Vérifier que l'utilisateur est admin ou superviseur
             try:
-                operateur_admin = Operateur.objects.get(user=request.user, type_operateur='ADMIN')
+                operateur_admin = Operateur.objects.get(user=request.user, type_operateur__in=['ADMIN', 'SUPERVISEUR_PREPARATION'])
             except Operateur.DoesNotExist:
                 return JsonResponse({'success': False, 'message': 'Accès non autorisé.'})
             
@@ -1946,6 +2708,24 @@ def affecter_preparation(request, commande_id):
                     commentaire=f"Affectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
                     date_debut=timezone.now()
                 )
+                
+                # Créer une opération d'affectation selon le type d'opérateur
+                if operateur_admin.type_operateur == 'SUPERVISEUR_PREPARATION':
+                    # Créer une opération d'affectation par supervision
+                    Operation.objects.create(
+                        commande=commande,
+                        type_operation='AFFECTATION_SUPERVISION',
+                        operateur=operateur_admin,
+                        conclusion=f"Commande affectée à {operateur_preparation.nom_complet} par le superviseur de préparation. {commentaire}".strip()
+                    )
+                else:
+                    # Créer une opération d'affectation par admin
+                    Operation.objects.create(
+                        commande=commande,
+                        type_operation='AFFECTATION_ADMIN',
+                        operateur=operateur_admin,
+                        conclusion=f"Commande affectée à {operateur_preparation.nom_complet} par l'administrateur. {commentaire}".strip()
+                    )
                 
                 return JsonResponse({
                     'success': True, 
@@ -2059,12 +2839,15 @@ def affecter_livraison_multiple(request):
 
 @require_POST
 @login_required
+@csrf_exempt
 def affecter_preparation_multiple(request):
     """Affecte plusieurs commandes confirmées à un opérateur de préparation."""
     try:
-        # Vérifier que l'utilisateur est admin
+        # Vérifier que l'utilisateur est Admin ou Superviseur préparation
         try:
-            operateur_admin = Operateur.objects.get(user=request.user, type_operateur='ADMIN')
+            operateur_admin = Operateur.objects.get(user=request.user)
+            if operateur_admin.type_operateur not in ['ADMIN', 'SUPERVISEUR_PREPARATION']:
+                return JsonResponse({'success': False, 'message': 'Accès non autorisé.'})
         except Operateur.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'Accès non autorisé.'})
         
@@ -2099,24 +2882,80 @@ def affecter_preparation_multiple(request):
             commandes_a_traiter = Commande.objects.filter(id__in=commandes_ids)
             for commande in commandes_a_traiter:
                 try:
-                    # Vérifier que la commande est confirmée
+                    # Si la commande est Confirmée (même si l'état est déjà clos) OU déjà en file de prépa, on permet l'affectation
                     etat_actuel = commande.etat_actuel
-                    if not etat_actuel or etat_actuel.enum_etat.libelle != 'Confirmée':
+                    etat_confirm = commande.etats.filter(enum_etat__libelle='Confirmée').order_by('-date_debut').first()
+                    if not etat_confirm:
                         commandes_erreurs_yz.append(f"{commande.id_yz} (non confirmée)")
                         continue
 
-                    # Terminer l'état actuel (Confirmée)
-                    etat_actuel.terminer_etat(operateur=operateur_admin)
+                    # Si l'état actuel est Confirmée, le clore; sinon, si déjà À imprimer/En préparation, on ne clôture pas
+                    if etat_actuel and etat_actuel.enum_etat.libelle == 'Confirmée':
+                        # Ne pas écraser l'opérateur de confirmation
+                        etat_actuel.terminer_etat()
                     
-                    # Créer le nouvel état "En préparation"
-                    from .models import EtatCommande
-                    EtatCommande.objects.create(
-                        commande=commande,
-                        enum_etat=etat_preparation,
-                        operateur=operateur_preparation,
-                        commentaire=f"Affectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
-                        date_debut=timezone.now()
-                    )
+                    # Gestion réaffectation propre
+                    etat_a_imprimer_actif = commande.etats.filter(
+                        enum_etat__libelle='À imprimer', date_fin__isnull=True
+                    ).first()
+                    etat_en_prep_actif = commande.etats.filter(
+                        enum_etat__libelle='En préparation', date_fin__isnull=True
+                    ).first()
+
+                    # Si déjà en préparation
+                    if etat_en_prep_actif:
+                        # Même opérateur => idempotent, rien à faire
+                        if etat_en_prep_actif.operateur and etat_en_prep_actif.operateur_id == operateur_preparation.id:
+                            pass
+                        else:
+                            # Clore l'état en cours puis créer un nouvel état pour le nouvel opérateur
+                            try:
+                                etat_en_prep_actif.terminer_etat()
+                            except Exception:
+                                etat_en_prep_actif.date_fin = timezone.now()
+                                etat_en_prep_actif.save(update_fields=['date_fin'])
+                            from .models import EtatCommande
+                            EtatCommande.objects.create(
+                                commande=commande,
+                                enum_etat=etat_preparation,
+                                operateur=operateur_preparation,
+                                commentaire=f"Réaffectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
+                                date_debut=timezone.now()
+                            )
+                    else:
+                        # Pas encore en préparation: clore À imprimer si actif, puis créer En préparation
+                        if etat_a_imprimer_actif:
+                            try:
+                                etat_a_imprimer_actif.terminer_etat()
+                            except Exception:
+                                etat_a_imprimer_actif.date_fin = timezone.now()
+                                etat_a_imprimer_actif.save(update_fields=['date_fin'])
+                        from .models import EtatCommande
+                        EtatCommande.objects.create(
+                            commande=commande,
+                            enum_etat=etat_preparation,
+                            operateur=operateur_preparation,
+                            commentaire=f"Affectée à la préparation par {operateur_admin.nom_complet}. {commentaire}".strip(),
+                            date_debut=timezone.now()
+                        )
+                    
+                    # Créer une opération d'affectation selon le type d'opérateur
+                    if operateur_admin.type_operateur == 'SUPERVISEUR_PREPARATION':
+                        # Créer une opération d'affectation par supervision
+                        Operation.objects.create(
+                            commande=commande,
+                            type_operation='AFFECTATION_SUPERVISION',
+                            operateur=operateur_admin,
+                            conclusion=f"Commande affectée à {operateur_preparation.nom_complet} par le superviseur de préparation. {commentaire}".strip()
+                        )
+                    else:
+                        # Créer une opération d'affectation par admin
+                        Operation.objects.create(
+                            commande=commande,
+                            type_operation='AFFECTATION_ADMIN',
+                            operateur=operateur_admin,
+                            conclusion=f"Commande affectée à {operateur_preparation.nom_complet} par l'administrateur. {commentaire}".strip()
+                        )
                     
                     commandes_affectees_yz.append(commande.id_yz)
                 except Exception as e:
@@ -2226,9 +3065,52 @@ def suivi_preparations(request):
     # Tri par date de début de préparation (plus récentes en premier)
     commandes_preparation = commandes_preparation.order_by('-etats__date_debut')
     
-    # Pagination
-    paginator = Paginator(commandes_preparation, 25)  # 25 commandes par page
-    page_number = request.GET.get('page')
+    # Créer une copie des données non paginées pour les statistiques AVANT la pagination
+    commandes_non_paginees = commandes_preparation
+    
+    # Paramètres de pagination flexible
+    items_per_page = request.GET.get('items_per_page', 25)
+    start_range = request.GET.get('start_range')
+    end_range = request.GET.get('end_range')
+    
+    # Gestion de la pagination flexible
+    if start_range and end_range:
+        try:
+            start_range = int(start_range)
+            end_range = int(end_range)
+            if start_range > 0 and end_range >= start_range:
+                # Pagination par plage personnalisée
+                commandes_preparation = commandes_preparation[start_range-1:end_range]
+                paginator = Paginator(commandes_preparation, end_range - start_range + 1)
+                page_obj = paginator.get_page(1)
+            else:
+                # Plage invalide, utiliser la pagination normale
+                items_per_page = 25
+                paginator = Paginator(commandes_preparation, items_per_page)
+                page_number = request.GET.get('page', 1)
+                page_obj = paginator.get_page(page_number)
+        except (ValueError, TypeError):
+            # Erreur de conversion, utiliser la pagination normale
+            items_per_page = 25
+            paginator = Paginator(commandes_preparation, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        if items_per_page == 'all':
+            # Afficher toutes les commandes
+            paginator = Paginator(commandes_preparation, commandes_preparation.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 25
+            except (ValueError, TypeError):
+                items_per_page = 25
+            
+            paginator = Paginator(commandes_preparation, items_per_page)
+            page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
     # Statistiques
@@ -2257,12 +3139,12 @@ def suivi_preparations(request):
         etats__date_debut__date__gte=this_week
     ).distinct().count()
     
-    # Montant total des commandes en préparation
-    montant_total = commandes_preparation.aggregate(total=Sum('total_cmd'))['total'] or 0
+    # Montant total des commandes en préparation (utiliser les données non paginées)
+    montant_total = commandes_non_paginees.aggregate(total=Sum('total_cmd'))['total'] or 0
     
-    # Récupérer les commandes par opérateur de préparation
+    # Récupérer les commandes par opérateur de préparation (utiliser les données non paginées)
     commandes_par_operateur = {}
-    for commande in commandes_preparation:
+    for commande in commandes_non_paginees:
         etat_actuel = commande.etats.filter(
             enum_etat__libelle__in=['À imprimer', 'En préparation'],
             date_fin__isnull=True
@@ -2274,6 +3156,33 @@ def suivi_preparations(request):
                 commandes_par_operateur[operateur_nom] = []
             commandes_par_operateur[operateur_nom].append(commande)
     
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('commande/partials/_suivi_preparations_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('commande/partials/_suivi_preparations_pagination.html', {
+            'page_obj': page_obj,
+            'search_query': search_query,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('commande/partials/_suivi_preparations_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': commandes_preparation.count()
+        })
+    
     context = {
         'commandes_preparation': page_obj,
         'page_obj': page_obj,
@@ -2284,6 +3193,9 @@ def suivi_preparations(request):
         'preparees_semaine': preparees_semaine,
         'montant_total': montant_total,
         'commandes_par_operateur': sorted(commandes_par_operateur.items()),
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     
     return render(request, 'commande/suivi_preparations.html', context)
@@ -2318,9 +3230,52 @@ def commandes_livrees(request):
     # Tri par date de livraison (plus récentes en premier)
     commandes_livrees = commandes_livrees.order_by('-etats__date_debut')
     
-    # Pagination
-    paginator = Paginator(commandes_livrees, 25)  # 25 commandes par page
-    page_number = request.GET.get('page')
+    # Créer une copie des données non paginées pour les statistiques AVANT la pagination
+    commandes_non_paginees = commandes_livrees
+    
+    # Paramètres de pagination flexible
+    items_per_page = request.GET.get('items_per_page', 25)
+    start_range = request.GET.get('start_range')
+    end_range = request.GET.get('end_range')
+    
+    # Gestion de la pagination flexible
+    if start_range and end_range:
+        try:
+            start_range = int(start_range)
+            end_range = int(end_range)
+            if start_range > 0 and end_range >= start_range:
+                # Pagination par plage personnalisée
+                commandes_livrees = commandes_livrees[start_range-1:end_range]
+                paginator = Paginator(commandes_livrees, end_range - start_range + 1)
+                page_obj = paginator.get_page(1)
+            else:
+                # Plage invalide, utiliser la pagination normale
+                items_per_page = 25
+                paginator = Paginator(commandes_livrees, items_per_page)
+                page_number = request.GET.get('page', 1)
+                page_obj = paginator.get_page(page_number)
+        except (ValueError, TypeError):
+            # Erreur de conversion, utiliser la pagination normale
+            items_per_page = 25
+            paginator = Paginator(commandes_livrees, items_per_page)
+            page_number = request.GET.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+    else:
+        # Pagination normale
+        if items_per_page == 'all':
+            # Afficher toutes les commandes
+            paginator = Paginator(commandes_livrees, commandes_livrees.count())
+            page_obj = paginator.get_page(1)
+        else:
+            try:
+                items_per_page = int(items_per_page)
+                if items_per_page <= 0:
+                    items_per_page = 25
+            except (ValueError, TypeError):
+                items_per_page = 25
+            
+            paginator = Paginator(commandes_livrees, items_per_page)
+            page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
     # Statistiques
@@ -2355,10 +3310,10 @@ def commandes_livrees(request):
     ).distinct().count()
     
     # Montant total des commandes livrées
-    montant_total = commandes_livrees.aggregate(total=Sum('total_cmd'))['total'] or 0
+    montant_total = commandes_non_paginees.aggregate(total=Sum('total_cmd'))['total'] or 0
     
     # Total des commandes livrées
-    total_livrees = commandes_livrees.count()
+    total_livrees = commandes_non_paginees.count()
     
     # Récupérer les commandes par opérateur de livraison
     commandes_par_operateur = {}
@@ -2374,6 +3329,33 @@ def commandes_livrees(request):
                 commandes_par_operateur[operateur_nom] = []
             commandes_par_operateur[operateur_nom].append(commande)
     
+    # Vérifier si c'est une requête AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Rendre les templates partiels pour AJAX
+        html_table_body = render_to_string('commande/partials/_livrees_table_body.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        html_pagination = render_to_string('commande/partials/_livrees_pagination.html', {
+            'page_obj': page_obj,
+            'search_query': search_query,
+            'items_per_page': items_per_page,
+            'start_range': start_range,
+            'end_range': end_range
+        }, request=request)
+        
+        html_pagination_info = render_to_string('commande/partials/_livrees_pagination_info.html', {
+            'page_obj': page_obj
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'html_table_body': html_table_body,
+            'html_pagination': html_pagination,
+            'html_pagination_info': html_pagination_info,
+            'total_count': commandes_livrees.count()
+        })
+    
     context = {
         'commandes_livrees': page_obj,
         'page_obj': page_obj,
@@ -2386,7 +3368,10 @@ def commandes_livrees(request):
         'montant_total': montant_total,
         'commandes_par_operateur': sorted(commandes_par_operateur.items()),
         'page_title': 'Commandes Livrées',
-        'page_subtitle': 'Suivi des commandes livrées avec succès'
+        'page_subtitle': 'Suivi des commandes livrées avec succès',
+        'items_per_page': items_per_page,
+        'start_range': start_range,
+        'end_range': end_range,
     }
     
     return render(request, 'commande/livrees.html', context)

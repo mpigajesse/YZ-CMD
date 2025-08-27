@@ -9,6 +9,13 @@ class GoogleSheetConfig(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    # Nouveau champ pour optimiser la synchronisation incrémentale
+    last_processed_row = models.IntegerField(
+        default=0, 
+        verbose_name="Dernière ligne traitée",
+        help_text="Numéro de la dernière ligne traitée lors de la synchronisation précédente"
+    )
+    
     def __str__(self):
         return f"{self.sheet_name} ({self.sheet_url})"
     
@@ -29,6 +36,11 @@ class GoogleSheetConfig(models.Model):
         """Retourne le nombre d'enregistrements de la dernière synchronisation"""
         latest_log = self.sync_logs.filter(status__in=['success', 'partial']).first()
         return latest_log.records_imported if latest_log else 0
+    
+    @property
+    def next_sync_start_row(self):
+        """Retourne la ligne de départ pour la prochaine synchronisation"""
+        return self.last_processed_row + 1
     
     class Meta:
         verbose_name = "Configuration Google Sheet"

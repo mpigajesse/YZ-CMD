@@ -217,71 +217,8 @@
                     <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for commande in page_obj %}
-                <tr class="hover:bg-gray-50 transition-colors" id="commande-row-{{ commande.id }}">
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <input type="checkbox" class="commande-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-commande-id="{{ commande.id }}">
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{{ commande.id_yz }}</div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm text-gray-700">{{ commande.num_cmd|default:"Non spécifié" }}</div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
-                        {% if commande.client.email %}
-                        <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <a href="tel:{{ commande.client.numero_tel }}" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
-                            <i class="fas fa-phone mr-1"></i>
-                            {{ commande.client.numero_tel }}
-                        </a>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        {% if commande.ville %}
-                            <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
-                            <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
-                        {% else %}
-                            <div class="text-sm text-gray-500">Non définie</div>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        {% with etat_preparee=commande|get_etat:'En préparation' %}
-                            {% if etat_preparee %}
-                                <div class="text-sm text-gray-900">{{ etat_preparee.date_fin|date:"d/m/Y" }}</div>
-                                <div class="text-xs text-gray-500">{{ etat_preparee.date_fin|date:"H:i" }}</div>
-                            {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        {% with etat_preparee=commande|get_etat:'En préparation' %}
-                            {% if etat_preparee and etat_preparee.operateur %}
-                                <div class="text-sm text-gray-900">{{ etat_preparee.operateur.mail }}</div>
-                            {% else %}
-                                 <span class="text-xs text-gray-500 italic">Non assigné</span>
-                            {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-center">
-                        <div class="flex justify-center items-center space-x-3">
-                            <a href="{% url 'commande:detail' commande.pk %}" class="text-indigo-600 hover:text-indigo-900 transition-colors" title="Voir les détails">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            <button onclick="showAffectationModal({{ commande.id }}, '{{ commande.id_yz }}')" 
-                                    class="text-blue-500 hover:text-blue-700 transition-colors" title="Affecter à un livreur">
-                                <i class="fas fa-user-plus"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
+            <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
+                {% include 'commande/partials/_preparees_table_body.html' with page_obj=page_obj %}
             </tbody>
         </table>
     </div>
@@ -337,6 +274,100 @@
         </div>
     </div>
     {% endif %}
+</div>
+
+    <!-- Contrôles de pagination flexible (style Excel) -->
+    <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 transition-all duration-300 hover:shadow-xl">
+        <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+            <!-- Section Éléments par page -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-list-ol text-sm" style="color: var(--admin-color);"></i>
+                    <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                </div>
+                <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                    <option value="15" {% if items_per_page == 15 %}selected{% endif %}>15</option>
+                    <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if items_per_page == 100 %}selected{% endif %}>100</option>
+                    <option value="250" {% if items_per_page == 250 %}selected{% endif %}>250</option>
+                    <option value="500" {% if items_per_page == 500 %}selected{% endif %}>500</option>
+                    <option value="1000" {% if items_per_page == 1000 %}selected{% endif %}>1000</option>
+                    <option value="2500" {% if items_per_page == 2500 %}selected{% endif %}>2500</option>
+                    <option value="5000" {% if items_per_page == 5000 %}selected{% endif %}>5000</option>
+                    <option value="10000" {% if items_per_page == 10000 %}selected{% endif %}>10000</option>
+                    <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                </select>
+            </div>
+            
+            <!-- Section Plage personnalisée -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-arrows-alt-h text-sm" style="color: var(--admin-color);"></i>
+                    <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                </div>
+                <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                        <span class="text-gray-500 text-xs font-medium">à</span>
+                        <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                               class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                               style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-check mr-1"></i>Appliquer
+                        </button>
+                        <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                            <i class="fas fa-times mr-1"></i>Effacer
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section Statistiques -->
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                    <i class="fas fa-chart-bar text-sm" style="color: var(--admin-color);"></i>
+                    <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> commandes préparées</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Indicateur de statut -->
+        <div class="mt-3 pt-3 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs text-gray-600">Pagination active</span>
+                    </div>
+                    {% if start_range and end_range %}
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-filter text-xs text-blue-500"></i>
+                        <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                    <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="paginationControls" class="flex justify-center mt-8">
+        {% include 'commande/partials/_preparees_pagination.html' %}
+    </div>
+
+    <!-- Informations de pagination -->
+    <div id="paginationInfoContainer">
+        {% include 'commande/partials/_preparees_pagination_info.html' %}
+    </div>
     {% endif %}
 </div>
 
@@ -647,5 +678,157 @@
             }
         });
     }
+
+    // ===== PAGINATION AJAX FLEXIBLE =====
+    
+    // Variables globales pour la pagination
+    let currentPage = 1;
+    let currentItemsPerPage = {{ items_per_page|default:15 }};
+    let currentStartRange = '{{ start_range|default:"" }}';
+    let currentEndRange = '{{ end_range|default:"" }}';
+    let currentSearchQuery = '{{ search_query|default:"" }}';
+
+    // Fonction pour mettre à jour l'URL sans recharger la page
+    function updateUrl(page, itemsPerPage, startRange, endRange, searchQuery) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        
+        if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+        if (startRange !== null) url.searchParams.set('start_range', startRange);
+        if (endRange !== null) url.searchParams.set('end_range', endRange);
+        if (searchQuery !== null) url.searchParams.set('search', searchQuery);
+        
+        window.history.pushState({}, '', url.toString());
+    }
+
+    // Fonction pour charger les données via AJAX
+    function loadData(page, itemsPerPage, startRange, endRange, searchQuery) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        
+        if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+        if (startRange !== null) url.searchParams.set('start_range', startRange);
+        if (endRange !== null) url.searchParams.set('end_range', endRange);
+        if (searchQuery !== null) url.searchParams.set('search', searchQuery);
+        
+        // Ajouter le header AJAX
+        fetch(url.toString(), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour le tableau
+                const tableBody = document.getElementById('commandTableBody');
+                if (tableBody) {
+                    tableBody.innerHTML = data.html_table_body;
+                }
+                
+                // Mettre à jour la pagination
+                const paginationControls = document.getElementById('paginationControls');
+                if (paginationControls) {
+                    paginationControls.innerHTML = data.html_pagination;
+                }
+                
+                // Mettre à jour les informations de pagination
+                const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+                if (paginationInfoContainer) {
+                    paginationInfoContainer.innerHTML = data.html_pagination_info;
+                }
+                
+                // Mettre à jour l'URL
+                updateUrl(page, itemsPerPage, startRange, endRange, searchQuery);
+                
+                // Mettre à jour les variables globales
+                currentPage = page;
+                if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
+                if (startRange !== null) currentStartRange = startRange;
+                if (endRange !== null) currentEndRange = endRange;
+                if (searchQuery !== null) currentSearchQuery = searchQuery;
+                
+                // Réattacher les event listeners
+                attachEventListeners();
+            } else {
+                console.error('Erreur lors du chargement des données:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+        });
+    }
+
+    // Fonction pour changer de page
+    function changePage(page) {
+        loadData(page, currentItemsPerPage, currentStartRange, currentEndRange, currentSearchQuery);
+    }
+
+    // Fonction pour changer le nombre d'éléments par page
+    function changeItemsPerPage(itemsPerPage) {
+        loadData(1, itemsPerPage, currentStartRange, currentEndRange, currentSearchQuery);
+    }
+
+    // Fonction pour appliquer une plage personnalisée
+    function applyCustomRange(startRange, endRange) {
+        loadData(1, null, startRange, endRange, currentSearchQuery);
+    }
+
+    // Fonction pour effacer la plage personnalisée
+    function clearCustomRange() {
+        loadData(1, currentItemsPerPage, '', '', currentSearchQuery);
+    }
+
+    // Fonction pour attacher les event listeners
+    function attachEventListeners() {
+        // Event listener pour le select des éléments par page
+        const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+        if (itemsPerPageSelect) {
+            itemsPerPageSelect.removeEventListener('change', handleItemsPerPageChange);
+            itemsPerPageSelect.addEventListener('change', handleItemsPerPageChange);
+        }
+        
+        // Event listener pour le bouton d'application de la plage
+        const applyRangeBtn = document.getElementById('applyRangeBtn');
+        if (applyRangeBtn) {
+            applyRangeBtn.removeEventListener('click', handleApplyRange);
+            applyRangeBtn.addEventListener('click', handleApplyRange);
+        }
+        
+        // Event listener pour le bouton d'effacement de la plage
+        const clearRangeBtn = document.getElementById('clearRangeBtn');
+        if (clearRangeBtn) {
+            clearRangeBtn.removeEventListener('click', handleClearRange);
+            clearRangeBtn.addEventListener('click', handleClearRange);
+        }
+    }
+
+    // Handlers pour les event listeners
+    function handleItemsPerPageChange(event) {
+        const itemsPerPage = event.target.value;
+        changeItemsPerPage(itemsPerPage);
+    }
+
+    function handleApplyRange() {
+        const startRange = document.getElementById('startRangeInput').value;
+        const endRange = document.getElementById('endRangeInput').value;
+        
+        if (startRange && endRange) {
+            applyCustomRange(startRange, endRange);
+        } else {
+            alert('Veuillez remplir les deux champs de plage');
+        }
+    }
+
+    function handleClearRange() {
+        document.getElementById('startRangeInput').value = '';
+        document.getElementById('endRangeInput').value = '';
+        clearCustomRange();
+    }
+
+    // Initialisation de la pagination AJAX au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        attachEventListeners();
+    });
 </script>
 {% endblock %} 

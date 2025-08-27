@@ -1,203 +1,117 @@
 #!/usr/bin/env python
 """
-Script d'importation des articles depuis le fichier CSV
+Script d'import automatique des articles CSV - YZ-CMD
 Usage: python import_articles.py
 """
 
 import os
 import sys
 import django
-import csv
-from decimal import Decimal
+from datetime import datetime
 
-# Configuration Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-django.setup()
-
-from article.models import Article
-
-def clean_price(price_str):
-    """Nettoie et convertit le prix en float"""
-    if not price_str or price_str.strip() == '':
-        return 0.0
-    
-    # Supprime les caractères non numériques sauf le point
-    cleaned = ''.join(c for c in str(price_str) if c.isdigit() or c == '.')
-    
+def setup_django():
+    """Configuration et initialisation de Django"""
     try:
-        return float(cleaned) if cleaned else 0.0
-    except ValueError:
-        return 0.0
-
-def clean_quantity(qty_str):
-    """Nettoie et convertit la quantité en int"""
-    if not qty_str or qty_str.strip() == '':
-        return 0
-    
-    # Supprime les caractères non numériques
-    cleaned = ''.join(c for c in str(qty_str) if c.isdigit())
-    
-    try:
-        return int(cleaned) if cleaned else 0
-    except ValueError:
-        return 0
-
-def determine_category(name):
-    """Détermine la catégorie basée sur le nom du produit"""
-    name_upper = name.upper()
-    
-    if 'SAB' in name_upper and 'FEM' in name_upper:
-        return 'Chaussures Femme'
-    elif 'SAB' in name_upper and 'HOM' in name_upper:
-        return 'Chaussures Homme'
-    elif 'SAB' in name_upper:
-        return 'Chaussures'
-    elif 'BASKET' in name_upper:
-        return 'Baskets'
-    elif 'SANDAL' in name_upper:
-        return 'Sandales'
-    else:
-        return 'Chaussures'
+        # Configuration Django
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+        django.setup()
+        return True
+    except Exception as e:
+        print(f"❌ Erreur lors de l'initialisation de Django : {e}")
+        return False
 
 def import_articles():
-    """Importe les articles depuis le fichier CSV"""
+    """Import automatique des articles depuis le CSV"""
     
-    print("🚀 Début de l'importation des articles...")
+    # Nom du fichier CSV (à adapter selon vos besoins)
+    csv_filename = 'EXMPLE JOURNEE YOOZAK_EIGSI  - GESTIONNAIRE ARTICLE.csv'
     
-    # Compteurs
-    articles_created = 0
-    articles_updated = 0
-    errors = 0
+    print("🚀 SCRIPT D'IMPORT DES ARTICLES CSV - YZ-CMD")
+    print("=" * 60)
+    print(f"⏰ Début de l'import : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60)
+    
+    # Vérifier que le fichier existe
+    if not os.path.exists(csv_filename):
+        print(f"❌ Fichier CSV non trouvé : {csv_filename}")
+        print("\n📁 Fichiers CSV disponibles dans le répertoire :")
+        csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
+        if csv_files:
+            for i, file in enumerate(csv_files, 1):
+                size_kb = os.path.getsize(file) / 1024
+                print(f"   {i}. {file} ({size_kb:.1f} KB)")
+        else:
+            print("   Aucun fichier CSV trouvé")
+        return False
+    
+    # Afficher les informations du fichier
+    file_size = os.path.getsize(csv_filename)
+    file_size_kb = file_size / 1024
+    print(f"✅ Fichier trouvé : {csv_filename}")
+    print(f"📊 Taille : {file_size_kb:.1f} KB")
+    print(f"📅 Dernière modification : {datetime.fromtimestamp(os.path.getmtime(csv_filename)).strftime('%Y-%m-%d %H:%M:%S')}")
     
     try:
-        with open('CMD_PRODUCT - CMD_PRODUCT.csv', 'r', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            
-            for row_num, row in enumerate(reader, start=2):  # Start=2 car ligne 1 = headers
-                try:
-                    # Extraction des données
-                    reference = row['reference'].strip()
-                    nom = row['name'].strip()
-                    couleur = row['color'].strip()
-                    pointure = row['size'].strip()
-                    prix = clean_price(row['price'])
-                    quantite = clean_quantity(row['quantity'])
-                    
-                    # Skip les lignes vides
-                    if not nom or not couleur or not pointure:
-                        print(f"⚠️  Ligne {row_num}: Données manquantes - ignorée")
-                        continue
-                    
-                    # Déterminer la catégorie
-                    categorie = determine_category(nom)
-                    
-                    # Créer ou mettre à jour l'article
-                    article, created = Article.objects.get_or_create(
-                        reference=reference,  # Utiliser la référence comme identifiant unique
-                        defaults={
-                            'nom': nom,
-                            'couleur': couleur,
-                            'pointure': pointure,
-                            'prix_unitaire': prix,
-                            'qte_disponible': quantite,
-                            'categorie': categorie,
-                            'actif': True
-                        }
-                    )
-                    
-                    if created:
-                        articles_created += 1
-                        print(f"✅ Article créé: {reference} - {nom} - {couleur} - {pointure} - {prix}DH (Stock: {quantite})")
-                    else:
-                        # Mettre à jour tous les champs
-                        article.nom = nom
-                        article.couleur = couleur
-                        article.pointure = pointure
-                        article.prix_unitaire = prix
-                        article.qte_disponible = quantite
-                        article.categorie = categorie
-                        article.save()
-                        articles_updated += 1
-                        print(f"🔄 Article mis à jour: {reference} - {nom} - {couleur} - {pointure} - {prix}DH (Stock: {quantite})")
-                
-                except Exception as e:
-                    errors += 1
-                    print(f"❌ Erreur ligne {row_num}: {str(e)}")
-                    print(f"   Données: {row}")
-                    continue
-    
-    except FileNotFoundError:
-        print("❌ Fichier 'CMD_PRODUCT - CMD_PRODUCT.csv' non trouvé!")
-        print("   Assurez-vous que le fichier est dans le même répertoire que ce script.")
-        return
-    
-    except Exception as e:
-        print(f"❌ Erreur lors de la lecture du fichier: {str(e)}")
-        return
-    
-    # Résumé
-    print("\n" + "="*60)
-    print("📊 RÉSUMÉ DE L'IMPORTATION")
-    print("="*60)
-    print(f"✅ Articles créés: {articles_created}")
-    print(f"🔄 Articles mis à jour: {articles_updated}")
-    print(f"❌ Erreurs: {errors}")
-    print(f"📈 Total articles en base: {Article.objects.count()}")
-    
-    # Statistiques par catégorie
-    print("\n📦 RÉPARTITION PAR CATÉGORIE:")
-    categories = Article.objects.values('categorie').distinct().order_by('categorie')
-    for cat in categories:
-        count = Article.objects.filter(categorie=cat['categorie']).count()
-        print(f"   • {cat['categorie']}: {count} articles")
-    
-    print("\n🎉 Importation terminée avec succès!")
-
-def show_stats():
-    """Affiche les statistiques des articles"""
-    print("\n" + "="*60)
-    print("📊 STATISTIQUES DES ARTICLES")
-    print("="*60)
-    
-    total_articles = Article.objects.count()
-    articles_actifs = Article.objects.filter(actif=True).count()
-    articles_disponibles = Article.objects.filter(qte_disponible__gt=0, actif=True).count()
-    
-    print(f"📦 Total articles: {total_articles}")
-    print(f"✅ Articles actifs: {articles_actifs}")
-    print(f"📈 Articles en stock: {articles_disponibles}")
-    
-    # Statistiques par catégorie
-    print("\n📂 PAR CATÉGORIE:")
-    categories = Article.objects.values('categorie').distinct().order_by('categorie')
-    for cat in categories:
-        articles = Article.objects.filter(categorie=cat['categorie'])
-        count = articles.count()
-        stock_total = sum(a.qte_disponible for a in articles)
-        prix_moyen = sum(a.prix_unitaire for a in articles) / count if count > 0 else 0
+        print("\n🔄 Début de l'import...")
+        print("-" * 40)
         
-        print(f"   • {cat['categorie']}: {count} articles, Stock: {stock_total}, Prix moyen: {prix_moyen:.0f}DH")
-    
-    # Statistiques par couleur
-    print("\n🎨 PAR COULEUR:")
-    couleurs = Article.objects.values('couleur').distinct().order_by('couleur')
-    for couleur in couleurs:
-        count = Article.objects.filter(couleur=couleur['couleur']).count()
-        print(f"   • {couleur['couleur']}: {count} articles")
-    
-    # Articles les plus chers
-    print("\n💰 TOP 5 ARTICLES LES PLUS CHERS:")
-    articles_chers = Article.objects.filter(actif=True).order_by('-prix_unitaire')[:5]
-    for article in articles_chers:
-        print(f"   • {article.nom} - {article.couleur} - {article.pointure} - {article.prix_unitaire}DH")
-    
-    # Articles en rupture de stock
-    rupture_stock = Article.objects.filter(qte_disponible=0, actif=True).count()
-    print(f"\n⚠️  Articles en rupture de stock: {rupture_stock}")
+        # Importer la commande Django
+        from django.core.management import call_command
+        
+        # Appeler la commande Django
+        call_command('import_articles_csv', csv_filename)
+        
+        print("-" * 40)
+        print("✅ Import terminé avec succès !")
+        print(f"⏰ Fin de l'import : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur lors de l'import : {e}")
+        print("\n🔧 Suggestions de dépannage :")
+        print("   - Vérifiez que le fichier CSV est valide")
+        print("   - Assurez-vous que Django est correctement configuré")
+        print("   - Vérifiez les permissions du fichier")
+        return False
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == 'stats':
-        show_stats()
+def main():
+    """Fonction principale"""
+    print("🔧 Initialisation de Django...")
+    
+    if not setup_django():
+        print("💥 Impossible d'initialiser Django. Arrêt du script.")
+        sys.exit(1)
+    
+    print("✅ Django initialisé avec succès")
+    
+    # Lancer l'import
+    success = import_articles()
+    
+    # Affichage du résultat final
+    print("\n" + "=" * 60)
+    if success:
+        print("🎉 IMPORT RÉUSSI ! Tous les articles ont été importés.")
+        print("📋 Vous pouvez maintenant utiliser l'interface web pour vérifier les articles.")
     else:
-        import_articles()
-        show_stats() 
+        print("💥 IMPORT ÉCHOUÉ ! Vérifiez les erreurs ci-dessus.")
+    
+    print("=" * 60)
+    
+    # Pause pour voir les résultats (optionnel)
+    try:
+        input("\nAppuyez sur Entrée pour fermer le script...")
+    except KeyboardInterrupt:
+        print("\n\n👋 Script interrompu par l'utilisateur")
+    
+    return success
+
+if __name__ == '__main__':
+    try:
+        success = main()
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\n\n👋 Script interrompu par l'utilisateur")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n💥 Erreur inattendue : {e}")
+        sys.exit(1) 

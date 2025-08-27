@@ -122,84 +122,101 @@
                         <th class="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider border-b border-gray-200">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for etat in etats_definis %}
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r" style="border-color: var(--admin-light-accent);">
-                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold text-white" style="background-color: {{ etat.couleur }};">
-                                {{ etat.ordre }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium border-r" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" style="background-color: {{ etat.couleur }}20; color: {{ etat.couleur }};">
-                                {{ etat.libelle }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">
-                            <div class="flex items-center">
-                                <div class="w-6 h-6 rounded border-2 border-gray-300 mr-2 cursor-pointer" style="background-color: {{ etat.couleur }};" onclick="openColorPicker({{ etat.id }}, '{{ etat.couleur }}')"></div>
-                                <code class="text-xs bg-gray-100 px-2 py-1 rounded">{{ etat.couleur }}</code>
-                            </div>
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-center border-r" style="border-color: var(--admin-light-accent);">
-                            {% with stats_etats|lookup:etat.id as stats %}
-                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold
-                                {% if stats.commandes_actuelles > 0 %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-500{% endif %}">
-                                {{ stats.commandes_actuelles }}
-                            </span>
-                            {% endwith %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-center border-r" style="border-color: var(--admin-light-accent);">
-                            {% with stats_etats|lookup:etat.id as stats %}
-                            <span class="text-gray-600 font-medium">{{ stats.total_historique }}</span>
-                            {% endwith %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 border-r" style="border-color: var(--admin-light-accent);">
-                            {% if 'payé' in etat.libelle|lower %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    <i class="fas fa-credit-card mr-1"></i> Paiement
-                                </span>
-                            {% elif 'livr' in etat.libelle|lower or 'préparation' in etat.libelle|lower or 'expédié' in etat.libelle|lower %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                    <i class="fas fa-truck mr-1"></i> Livraison
-                                </span>
-                            {% else %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                    <i class="fas fa-clipboard-list mr-1"></i> Commande
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
-                            <div class="flex justify-center space-x-2">
-                                <button onclick="openEditStateModal({{ etat.id }}, '{{ etat.libelle|escapejs }}', '{{ etat.couleur }}', {{ etat.ordre }})" class="text-blue-500 hover:text-blue-700 transition-colors" title="Modifier">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button onclick="moveStateUp({{ etat.id }})" class="text-green-500 hover:text-green-700 transition-colors" title="Monter">
-                                    <i class="fas fa-arrow-up"></i>
-                                </button>
-                                <button onclick="moveStateDown({{ etat.id }})" class="text-orange-500 hover:text-orange-700 transition-colors" title="Descendre">
-                                    <i class="fas fa-arrow-down"></i>
-                                </button>
-                                <button onclick="confirmDeleteState({{ etat.id }}, '{{ etat.libelle|escapejs }}')" class="text-red-500 hover:text-red-700 transition-colors" title="Supprimer">
-                                    <i class="fas fa-trash-can"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
-                            <i class="fas fa-exclamation-circle text-3xl mb-3" style="color: var(--admin-accent-color);"></i>
-                            <p>Aucun état défini.</p>
-                            <button onclick="openAddStateModal()" class="mt-3 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
-                                <i class="fas fa-plus mr-2"></i>Créer le premier état
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
+                <tbody id="etatsTableBody" class="bg-white divide-y divide-gray-200">
+                    {% include 'commande/partials/_etats_table_body.html' with page_obj=page_obj %}
                 </tbody>
             </table>
         </div>
+        
+        <!-- Contrôles de pagination flexible -->
+        {% if page_obj %}
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-4 mb-6 mt-6 transition-all duration-300 hover:shadow-xl">
+            <div class="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+                <!-- Section Éléments par page -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-list-ol text-sm" style="color: var(--admin-color);"></i>
+                        <label class="text-xs font-semibold text-gray-700">Éléments par page:</label>
+                    </div>
+                    <select id="itemsPerPageSelect" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                        <option value="5" {% if items_per_page == 5 %}selected{% endif %}>5</option>
+                        <option value="10" {% if items_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="15" {% if items_per_page == 15 %}selected{% endif %}>15</option>
+                        <option value="25" {% if items_per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if items_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="all" {% if items_per_page == 'all' %}selected{% endif %}>Tous</option>
+                    </select>
+                </div>
+                
+                <!-- Section Plage personnalisée -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-arrows-alt-h text-sm" style="color: var(--admin-color);"></i>
+                        <label class="text-xs font-semibold text-gray-700">Plage personnalisée:</label>
+                    </div>
+                    <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="startRangeInput" placeholder="Début" min="1" value="{{ start_range|default:'' }}" 
+                                   class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                                   style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                            <span class="text-gray-500 text-xs font-medium">à</span>
+                            <input type="number" id="endRangeInput" placeholder="Fin" min="1" value="{{ end_range|default:'' }}" 
+                                   class="px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-16 text-center bg-white shadow-sm transition-all duration-200 hover:border-gray-300 focus:shadow-md text-sm" 
+                                   style="color: var(--admin-color); border-color: var(--admin-light-accent);">
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <button id="applyRangeBtn" class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                                <i class="fas fa-check mr-1"></i>Appliquer
+                            </button>
+                            <button id="clearRangeBtn" class="px-3 py-1 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-md hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md text-xs font-medium">
+                                <i class="fas fa-times mr-1"></i>Effacer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section Statistiques -->
+                <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-3 py-1.5 border border-blue-200">
+                        <i class="fas fa-chart-bar text-sm" style="color: var(--admin-color);"></i>
+                        <span class="text-xs font-semibold text-gray-700">Total: <span class="text-blue-600 font-bold">{{ page_obj.paginator.count }}</span> état(s)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Indicateur de statut -->
+            <div class="mt-3 pt-3 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                            <span class="text-xs text-gray-600">Pagination active</span>
+                        </div>
+                        {% if start_range and end_range %}
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-filter text-xs text-blue-500"></i>
+                            <span class="text-xs text-blue-600 font-medium">Plage personnalisée: {{ start_range }} - {{ end_range }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                        <span class="text-xs text-gray-500">Utilisez les contrôles ci-dessus pour personnaliser l'affichage</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div id="paginationControls" class="flex justify-center mt-8">
+            {% include 'commande/partials/_etats_pagination.html' %}
+        </div>
+
+        <!-- Informations de pagination -->
+        <div id="paginationInfoContainer">
+            {% include 'commande/partials/_etats_pagination_info.html' %}
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -428,6 +445,154 @@ function saveColorChange() {
         }
     });
 }
+
+// ===== PAGINATION AJAX FLEXIBLE =====
+
+// Variables globales pour la pagination
+let currentPage = 1;
+let currentItemsPerPage = {{ items_per_page|default:15 }};
+let currentStartRange = '{{ start_range|default:"" }}';
+let currentEndRange = '{{ end_range|default:"" }}';
+
+// Fonction pour mettre à jour l'URL sans recharger la page
+function updateUrl(page, itemsPerPage, startRange, endRange) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', page);
+    
+    if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+    if (startRange !== null) url.searchParams.set('start_range', startRange);
+    if (endRange !== null) url.searchParams.set('end_range', endRange);
+    
+    window.history.pushState({}, '', url.toString());
+}
+
+// Fonction pour charger les données via AJAX
+function loadData(page, itemsPerPage, startRange, endRange) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', page);
+    
+    if (itemsPerPage !== null) url.searchParams.set('items_per_page', itemsPerPage);
+    if (startRange !== null) url.searchParams.set('start_range', startRange);
+    if (endRange !== null) url.searchParams.set('end_range', endRange);
+    
+    // Ajouter le header AJAX
+    fetch(url.toString(), {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Mettre à jour le tableau
+            const tableBody = document.getElementById('etatsTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = data.html_table_body;
+            }
+            
+            // Mettre à jour la pagination
+            const paginationControls = document.getElementById('paginationControls');
+            if (paginationControls) {
+                paginationControls.innerHTML = data.html_pagination;
+            }
+            
+            // Mettre à jour les informations de pagination
+            const paginationInfoContainer = document.getElementById('paginationInfoContainer');
+            if (paginationInfoContainer) {
+                paginationInfoContainer.innerHTML = data.html_pagination_info;
+            }
+            
+            // Mettre à jour l'URL
+            updateUrl(page, itemsPerPage, startRange, endRange);
+            
+            // Mettre à jour les variables globales
+            currentPage = page;
+            if (itemsPerPage !== null) currentItemsPerPage = itemsPerPage;
+            if (startRange !== null) currentStartRange = startRange;
+            if (endRange !== null) currentEndRange = endRange;
+            
+            // Réattacher les event listeners
+            attachEventListeners();
+        } else {
+            console.error('Erreur lors du chargement des données:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+    });
+}
+
+// Fonction pour changer de page
+function changePage(page) {
+    loadData(page, currentItemsPerPage, currentStartRange, currentEndRange);
+}
+
+// Fonction pour changer le nombre d'éléments par page
+function changeItemsPerPage(itemsPerPage) {
+    loadData(1, itemsPerPage, currentStartRange, currentEndRange);
+}
+
+// Fonction pour appliquer une plage personnalisée
+function applyCustomRange(startRange, endRange) {
+    loadData(1, null, startRange, endRange);
+}
+
+// Fonction pour effacer la plage personnalisée
+function clearCustomRange() {
+    loadData(1, currentItemsPerPage, '', '');
+}
+
+// Fonction pour attacher les event listeners
+function attachEventListeners() {
+    // Event listener pour le select des éléments par page
+    const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+    if (itemsPerPageSelect) {
+        itemsPerPageSelect.removeEventListener('change', handleItemsPerPageChange);
+        itemsPerPageSelect.addEventListener('change', handleItemsPerPageChange);
+    }
+    
+    // Event listener pour le bouton d'application de la plage
+    const applyRangeBtn = document.getElementById('applyRangeBtn');
+    if (applyRangeBtn) {
+        applyRangeBtn.removeEventListener('click', handleApplyRange);
+        applyRangeBtn.addEventListener('click', handleApplyRange);
+    }
+    
+    // Event listener pour le bouton d'effacement de la plage
+    const clearRangeBtn = document.getElementById('clearRangeBtn');
+    if (clearRangeBtn) {
+        clearRangeBtn.removeEventListener('click', handleClearRange);
+        clearRangeBtn.addEventListener('click', handleClearRange);
+    }
+}
+
+// Handlers pour les event listeners
+function handleItemsPerPageChange(event) {
+    const itemsPerPage = event.target.value;
+    changeItemsPerPage(itemsPerPage);
+}
+
+function handleApplyRange() {
+    const startRange = document.getElementById('startRangeInput').value;
+    const endRange = document.getElementById('endRangeInput').value;
+    
+    if (startRange && endRange) {
+        applyCustomRange(startRange, endRange);
+    } else {
+        alert('Veuillez remplir les deux champs de plage');
+    }
+}
+
+function handleClearRange() {
+    document.getElementById('startRangeInput').value = '';
+    document.getElementById('endRangeInput').value = '';
+    clearCustomRange();
+}
+
+// Initialisation de la pagination AJAX au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    attachEventListeners();
+});
 
 // Fonction pour récupérer le token CSRF
 function getCookie(name) {

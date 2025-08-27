@@ -1,0 +1,1266 @@
+{% extends 'composant_generale/Superpreparation/base.html' %}
+{% load static %}
+{% load commande_filters %}
+
+{% block title %}Commandes en Préparation - YZ-CMD{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Variables CSS harmonisées */
+    :root {
+        --preparation-primary: #070F2B;
+        --preparation-dark: #050A1F;
+        --preparation-light: #0E1D3D;
+        --preparation-text-light: #E6F0FF;
+        --preparation-border-accent: #1E3A8A;
+        --preparation-hover-bg: #0B1733;
+        --preparation-success: #10b981;
+        --preparation-warning: #f59e0b;
+        --preparation-error: #ef4444;
+        --preparation-info: #3b82f6;
+    }
+
+    /* Animations */
+    @keyframes slideInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-slideInUp {
+        animation: slideInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    /* Styles harmonisés */
+    .theme-header {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+    }
+
+    .theme-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+    }
+
+    .theme-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
+    }
+
+    /* Styles pour les cartes de statistiques */
+    .stats-card {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+    }
+
+    .stats-card:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        transform: translateY(-5px);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--preparation-primary), var(--preparation-light));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .stats-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    /* Styles pour les icônes des statistiques */
+    .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border-radius: 50%;
+        padding: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stats-card:hover .stats-icon {
+        background: linear-gradient(135deg, var(--preparation-light) 0%, var(--preparation-primary) 100%);
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Optimisations d'espacement pour éviter la compression */
+    .main-content {
+        padding: 1rem;
+        min-height: 100vh;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+    
+    /* Container principal responsive */
+    .dashboard-container {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .page-header {
+        margin-bottom: 32px;
+        padding: 24px;
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        color: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(7, 15, 43, 0.3);
+    }
+    
+    /* Adaptations page-header pour sidebar */
+    body.sidebar-open .page-header {
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+    
+    body.sidebar-collapsed .page-header {
+        padding: 28px;
+        margin-bottom: 36px;
+    }
+
+    .info-section {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Adaptations pour sidebar */
+    body.sidebar-open .info-section {
+        padding: 1.25rem;
+        margin-bottom: 1.25rem;
+    }
+    
+    body.sidebar-collapsed .info-section {
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-section {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .table-cell {
+        padding: 12px 16px;
+        font-size: 0.875rem;
+    }
+
+    .stats-card {
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Réduction de la taille des icônes pour économiser l'espace */
+    .info-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    /* Optimisation des marges et paddings */
+    .section-title {
+        color: var(--preparation-primary);
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:hover {
+        background: #f1f5f9;
+        border-color: var(--preparation-border-accent);
+        transform: translateY(-2px);
+    }
+
+    .info-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+    }
+
+    .info-icon.blue {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+    }
+
+    .info-icon.green {
+        background: linear-gradient(135deg, #059669 0%, var(--preparation-success) 100%);
+    }
+
+    .info-icon.orange {
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    }
+
+    /* Styles pour le tableau */
+    .table-container {
+        background: white;
+        border: 2px solid var(--preparation-text-light);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-container:hover {
+        border-color: var(--preparation-border-accent);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Tableau responsive professionnel */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-responsive table {
+        width: 100%;
+        min-width: 1200px; /* Largeur minimale pour éviter la compression */
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        table-layout: fixed;
+    }
+    
+    /* Adaptations selon l'état de la sidebar */
+    body.sidebar-open .table-responsive table {
+        min-width: 1100px; /* Ajusté pour sidebar ouverte */
+    }
+    
+    body.sidebar-collapsed .table-responsive table {
+        min-width: 1300px; /* Plus d'espace disponible sans sidebar */
+    }
+
+    /* Optimisation des colonnes du tableau */
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px; /* Largeur maximale par colonne */
+    }
+
+    /* Largeurs de colonnes adaptatives */
+    .table-responsive th:nth-child(1), .table-responsive td:nth-child(1) { width: 70px; min-width: 70px; }  /* ID YZ */
+    .table-responsive th:nth-child(2), .table-responsive td:nth-child(2) { width: 90px; min-width: 90px; }  /* N° Externe */
+    .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 140px; min-width: 140px; } /* Client */
+    .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 100px; min-width: 100px; } /* Téléphone */
+    .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 120px; min-width: 120px; } /* Ville Client */
+    .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 120px; min-width: 120px; } /* Ville & Région */
+    .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 100px; min-width: 100px; } /* Date Début */
+    .table-responsive th:nth-child(8), .table-responsive td:nth-child(8) { width: 80px; min-width: 80px; }  /* Total */
+    .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 120px; min-width: 120px; } /* État */
+    .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 150px; min-width: 150px; } /* État Préparation */
+    .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 120px; min-width: 120px; } /* Panier */
+
+    /* Amélioration du scroll horizontal */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--preparation-primary);
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--preparation-light);
+    }
+
+    /* Optimisation pour les très grands écrans */
+    @media (min-width: 1600px) {
+        body.sidebar-open .main-content {
+            padding: 2rem 2.5rem;
+        }
+        
+        body.sidebar-collapsed .main-content {
+            padding: 2rem 3rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1400px;
+        }
+    }
+    
+    /* Optimisation pour les grands écrans avec sidebar */
+    @media (min-width: 1400px) {
+        .main-content {
+            padding: 1.5rem 2rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1350px;
+        }
+    }
+    
+    /* Optimisation pour les écrans moyens */
+    @media (max-width: 1400px) {
+        .table-responsive table {
+            min-width: 1000px;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1150px;
+        }
+        
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.8rem;
+        }
+        
+        .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 120px; min-width: 120px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 100px; min-width: 100px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 110px; min-width: 110px; } /* État */
+        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 130px; min-width: 130px; } /* État Préparation */
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 110px; min-width: 110px; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+    }
+
+    /* Optimisation pour les écrans moyens avec sidebar fermé */
+    @media (min-width: 1200px) and (max-width: 1399px) {
+        body.sidebar-collapsed .main-content {
+            padding: 1rem 1.5rem;
+        }
+        
+        body.sidebar-collapsed .stats-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1250px;
+        }
+        
+        body.sidebar-open .table-responsive table {
+            min-width: 1000px;
+        }
+    }
+    
+    /* Optimisation pour les petits écrans */
+    @media (max-width: 1200px) {
+        .table-responsive table {
+            min-width: 900px;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 1000px;
+        }
+        
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.35rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .table-responsive th:nth-child(3), .table-responsive td:nth-child(3) { width: 100px; min-width: 100px; }
+        .table-responsive th:nth-child(4), .table-responsive td:nth-child(4) { width: 80px; min-width: 80px; }
+        .table-responsive th:nth-child(5), .table-responsive td:nth-child(5) { width: 80px; min-width: 80px; }
+        .table-responsive th:nth-child(6), .table-responsive td:nth-child(6) { width: 80px; min-width: 80px; }
+        .table-responsive th:nth-child(7), .table-responsive td:nth-child(7) { width: 80px; min-width: 80px; }
+        .table-responsive th:nth-child(9), .table-responsive td:nth-child(9) { width: 100px; min-width: 100px; } /* État */
+        .table-responsive th:nth-child(10), .table-responsive td:nth-child(10) { width: 120px; min-width: 120px; } /* État Préparation */
+        .table-responsive th:nth-child(11), .table-responsive td:nth-child(11) { width: 100px; min-width: 100px; }
+    }
+
+    /* Optimisation pour les très petits écrans */
+    @media (max-width: 768px) {
+        .table-responsive table {
+            min-width: 800px;
+        }
+        
+        body.sidebar-collapsed .table-responsive table {
+            min-width: 850px;
+        }
+        
+        .main-content {
+            padding: 0.5rem;
+        }
+        
+        .page-header {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .stats-card {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+        
+        .table-responsive th,
+        .table-responsive td {
+            padding: 0.3rem 0.4rem;
+            font-size: 0.7rem;
+        }
+    }
+
+    /* Optimisation pour les écrans moyens */
+    @media (min-width: 769px) and (max-width: 1200px) {
+        .main-content {
+            padding: 1.5rem;
+        }
+        
+        .page-header {
+            padding: 1.5rem;
+        }
+        
+        .stats-card {
+            padding: 1.25rem;
+        }
+        
+        .info-section {
+            padding: 1.25rem;
+        }
+    }
+
+    /* Optimisation pour les tablettes */
+    @media (min-width: 769px) and (max-width: 1023px) {
+        .main-content {
+            padding: 1rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .page-header {
+            padding: 1.25rem;
+        }
+        
+        .info-section {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+    }
+    
+    /* Optimisation pour les grands écrans */
+    @media (min-width: 1201px) {
+        .main-content {
+            padding: 1.5rem;
+        }
+        
+        body.sidebar-open .main-content {
+            padding: 1.25rem 1.75rem;
+        }
+        
+        body.sidebar-collapsed .main-content {
+            padding: 1.5rem 2.5rem;
+        }
+    }
+
+    /* Réduction des marges pour les éléments de pagination */
+    .pagination {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Optimisation des modales pour qu'elles prennent moins d'espace */
+    .modal-content {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    /* Réduction de l'espacement des éléments de formulaire */
+    .form-group {
+        margin-bottom: 0.75rem;
+    }
+
+    /* Optimisation des tooltips pour qu'ils ne prennent pas trop d'espace */
+    .tooltip::after {
+        max-width: 200px;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+
+    /* Styles pour les badges d'état */
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-badge.en-preparation {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .etat-badge {
+        padding: 4px 8px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .etat-badge.en-preparation {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    /* Optimisation des boutons d'action */
+    .action-button {
+        background: linear-gradient(135deg, var(--preparation-primary) 0%, var(--preparation-light) 100%);
+        border: 2px solid var(--preparation-border-accent);
+        color: white;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .action-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(7, 15, 43, 0.3);
+        color: white;
+    }
+
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        pointer-events: none;
+    }
+
+    .toast {
+        background: white;
+        border: 2px solid var(--preparation-border-accent);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 10px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        max-width: 400px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.success { border-left: 4px solid var(--preparation-success); }
+    .toast.error { border-left: 4px solid var(--preparation-error); }
+    .toast.info { border-left: 4px solid var(--preparation-info); }
+    .toast.warning { border-left: 4px solid var(--preparation-warning); }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="main-content transition-all duration-300" id="mainContent">
+    <!-- Toast notifications container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- En-tête de la page -->
+    <div class="page-header">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+            <div>
+                <h1 class="text-3xl font-bold flex items-center mb-2">
+                    <i class="fas fa-box-open mr-3 text-orange-300"></i>
+                    {{ page_title|default:'Commandes en Préparation' }}
+                </h1>
+                <p class="text-white opacity-90">{{ page_subtitle|default:'Gestion et suivi des commandes en cours de préparation' }}</p>
+            </div>
+            <div class="flex items-center gap-6 mt-4 md:mt-0">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-white">{{ stats.total_commandes|default:0 }}</div>
+                    <div class="text-sm text-white opacity-80">En préparation</div>
+                </div>
+                <div class="text-center border-l border-white/30 pl-6 ml-6">
+                    <div class="text-3xl font-bold text-white">{{ stats.valeur_totale|default:0|floatformat:0 }} DH</div>
+                    <div class="text-sm text-white opacity-80">Valeur totale</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <!-- En préparation -->
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.1s;">
+            <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-box-open text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">En préparation</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{{ stats.total_commandes|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Valeur totale -->
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.2s;">
+            <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-coins text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Valeur Totale</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">{{ stats.valeur_totale|default:0|floatformat:0 }} DH</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Commandes urgentes -->
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.3s;">
+            <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-exclamation-triangle text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Urgentes</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-red-600 transition-colors">{{ stats.commandes_urgentes|default:0 }}</p>
+                </div>
+            </div>
+                    </div>
+        
+        <!-- Total articles -->
+        <div class="stats-card group rounded-xl shadow-lg p-4 transition-all duration-300 hover:shadow-2xl border animate-slideInUp" style="animation-delay: 0.4s;">
+            <div class="flex items-center">
+                <div class="stats-icon group-hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-medium text-gray-600">Total Articles</p>
+                    <p class="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ stats.total_articles|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section d'informations -->
+    <div class="info-section mb-4">
+        <h2 class="section-title">
+            <i class="fas fa-info-circle text-blue-600"></i>
+            Informations générales
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="info-item">
+                <div class="info-icon blue">
+                    <i class="fas fa-box-open"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Commandes en préparation</h3>
+                    <p class="text-xs text-gray-600">Commandes en cours de préparation par les opérateurs</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon green">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Opérateurs actifs</h3>
+                    <p class="text-xs text-gray-600">Opérateurs actuellement en train de préparer des commandes</p>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-icon orange">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">Temps moyen</h3>
+                    <p class="text-xs text-gray-600">Temps moyen de préparation par commande</p>
+                </div>
+            </div>
+        </div>
+        </div>
+
+            <!-- Barre de recherche intelligente -->
+    <div class="info-section mb-4">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h2 class="section-title">
+                    <i class="fas fa-search text-blue-600"></i>
+                    Recherche et filtres
+                </h2>
+                <p class="text-sm text-gray-600">Recherche intelligente et filtres avancés pour optimiser votre suivi</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <input type="text" id="smartSearch" 
+                               placeholder="Recherche intelligente..." 
+                           class="block px-4 py-2 pr-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm w-64 h-10"
+                               autocomplete="off">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <i class="fas fa-search text-gray-400"></i>
+                </div>
+            </div>
+                    <button onclick="clearSmartSearch()" 
+                        class="inline-flex items-center px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors h-10">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button onclick="toggleAdvancedSearch()" 
+                        class="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors h-10">
+                        <i class="fas fa-filter mr-2"></i>
+                        Filtres
+                    </button>
+            </div>
+                </div>
+                
+                <!-- Filtres avancés -->
+        <div id="advancedSearch" class="hidden mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ID YZ</label>
+                            <input type="text" id="filterIdYz" placeholder="ID YZ..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">N° Externe</label>
+                            <input type="text" id="filterNumCmd" placeholder="N° commande..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                            <input type="text" id="filterClient" placeholder="Nom ou prénom..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                            <input type="text" id="filterPhone" placeholder="Numéro..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" id="filterEmail" placeholder="Email..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Ville Client</label>
+                            <input type="text" id="filterVilleClient" placeholder="Ville client..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Ville & Région</label>
+                            <input type="text" id="filterVilleRegion" placeholder="Ville/région..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date Début</label>
+                            <input type="date" id="filterDateDebut" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Min</label>
+                            <input type="number" id="filterTotalMin" placeholder="0" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Max</label>
+                            <input type="number" id="filterTotalMax" placeholder="1000" 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">État</label>
+                            <input type="text" id="filterEtat" placeholder="État..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Opérateur</label>
+                            <input type="text" id="filterOperateur" placeholder="Opérateur..." 
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-between">
+                        <button onclick="applyFilters()" 
+                                class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors h-10">
+                            <i class="fas fa-check mr-2"></i>
+                            Appliquer
+                        </button>
+                        <button onclick="clearFilters()" 
+                                class="inline-flex items-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition-colors h-10">
+                            <i class="fas fa-eraser mr-2"></i>
+                            Effacer
+                        </button>
+            </div>
+                </div>
+
+        <!-- Indicateur de résultats -->
+        <div id="searchResults" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md hidden">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-search text-blue-600 mr-2"></i>
+                    <span class="text-blue-800">
+                        <span id="resultCount">0</span> résultat(s) trouvé(s)
+                    </span>
+                </div>
+                <button onclick="clearAllSearch()" class="text-blue-600 hover:text-blue-800 text-sm">
+                    <i class="fas fa-times mr-1"></i>Effacer tout
+                </button>
+            </div>
+            </div>
+        </div>
+
+    <!-- Message si aucun résultat -->
+    {% if not commandes %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    {% if search_query %}
+                        Aucune commande en préparation trouvée pour la recherche "{{ search_query }}".
+                    {% else %}
+                        Aucune commande en préparation pour le moment.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tableau des commandes en préparation -->
+    {% if commandes %}
+    <div class="table-responsive mb-6 theme-card rounded-xl shadow-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-[var(--preparation-primary)] border-b-[3px] border-[var(--preparation-primary)] text-white">
+                <tr>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">ID YZ</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">N° Externe</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Client</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Téléphone</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Ville Client</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Ville & Région</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Date Début</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Total</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">État</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">État Préparation</th>
+                    <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider">Panier</th>
+                </tr>
+            </thead>
+            <tbody id="commandTableBody" class="bg-white divide-y divide-gray-200">
+                {% for commande in commandes %}
+                <tr class="hover:bg-gray-50 commande-row table-row" 
+                    data-id-yz="{{ commande.id_yz }}"
+                    data-num-cmd="{{ commande.num_cmd|default:'' }}"
+                    data-client="{{ commande.client.prenom }} {{ commande.client.nom }}"
+                    data-phone="{{ commande.client.numero_tel|default:'' }}"
+                    data-email="{{ commande.client.email|default:'' }}"
+                    data-ville-client="{{ commande.ville_init|default:'' }}"
+                    data-ville-region="{% if commande.ville %}{{ commande.ville.nom }} {{ commande.ville.region.nom_region }}{% endif %}"
+                    data-adresse="{% if commande.client.adresse %}{{ commande.client.adresse }}{% endif %}"
+                    data-date-preparation="{% if commande.etat_actuel %}{{ commande.etat_actuel.date_debut|date:'d/m/Y' }}{% endif %}"
+                    data-total="{{ commande.total_cmd }}"
+                    data-etat="En préparation"
+                    data-operateur="{% if commande.etat_actuel.operateur %}{{ commande.etat_actuel.operateur.nom }} {{ commande.etat_actuel.operateur.prenom }}{% endif %}">
+                    
+                    <!-- ID YZ -->
+                    <td class="table-cell text-sm font-medium text-gray-900">
+                        {{ commande.id_yz }}
+                    </td>
+                    
+                    <!-- N° Externe -->
+                    <td class="table-cell text-sm text-gray-500">{{ commande.num_cmd|default:"-" }}</td>
+                    
+                    <!-- Client -->
+                    <td class="table-cell">
+                        <div class="text-sm font-medium text-gray-900">{{ commande.client.prenom }} {{ commande.client.nom }}</div>
+                        {% if commande.client.email %}
+                        <div class="text-xs text-gray-500">{{ commande.client.email }}</div>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Téléphone -->
+                    <td class="table-cell">
+                        {% if commande.client.numero_tel %}
+                        <div class="text-sm text-gray-900 font-medium">
+                            <i class="fas fa-phone mr-1"></i>
+                            {{ commande.client.numero_tel }}
+                        </div>
+                        {% else %}
+                        <div class="text-sm text-gray-500">Non renseigné</div>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Ville Client -->
+                    <td class="table-cell text-sm">
+                        {% if commande.ville_init and commande.ville_init != '' %}
+                            <div style="color: var(--preparation-primary);" class="font-medium">{{ commande.ville_init }}</div>
+                        {% else %}
+                            <div style="color: var(--preparation-primary);">Non spécifiée</div>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Ville & Région -->
+                    <td class="table-cell">
+                        {% if commande.ville %}
+                            <div class="text-sm text-gray-900">{{ commande.ville.nom }}</div>
+                            <div class="text-xs text-gray-500">{{ commande.ville.region.nom_region }}</div>
+                        {% else %}
+                            <div class="text-sm text-gray-500">Non définie</div>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Date Début -->
+                    <td class="table-cell">
+                        {% with etat_actuel=commande.etat_actuel %}
+                            {% if etat_actuel %}
+                                <div class="text-sm text-gray-900">{{ etat_actuel.date_debut|date:"d/m/Y" }}</div>
+                                <div class="text-xs text-gray-500">{{ etat_actuel.date_debut|date:"H:i" }}</div>
+                            {% else %}
+                                <div class="text-sm text-gray-500">Non définie</div>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    
+                    <!-- Total -->
+                    <td class="table-cell">
+                        <div class="text-sm font-bold text-green-600">{{ commande.total_cmd|floatformat:2 }} DH</div>
+                    </td>
+
+                    <!-- État -->
+                    <td class="table-cell">
+                        <span class="status-badge en-preparation">
+                            <i class="fas fa-cog fa-spin mr-1"></i>
+                            En préparation
+                        </span>
+                    </td>
+                    
+                    <!-- État Préparation -->
+                    <td class="table-cell text-sm">
+                        <div class="flex flex-col space-y-1">
+                            <!-- État actuel avec icône d'information -->
+                            <div class="flex items-center">
+                                <span class="etat-badge en-preparation">
+                                    <i class="fas fa-box-open mr-1"></i>
+                                    En préparation
+                                </span>
+                                
+                                <!-- Bouton pour afficher/masquer les détails d'état -->
+                                <button onclick="toggleEtatDetails('{{ commande.id }}')" 
+                                        class="ml-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                                        title="Afficher/masquer les détails d'état">
+                                    <i class="fas fa-info text-gray-600 text-xs"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Détails d'état (masqués par défaut) -->
+                            <div id="etat-details-{{ commande.id }}" class="hidden mt-2 space-y-1">
+                                <!-- Affichage des étapes de préparation -->
+                                <div class="mt-2 pt-2 border-t border-gray-200">
+                                    <div class="text-xs font-medium text-gray-700 mb-1">Étapes de préparation :</div>
+                                    
+                                    <!-- Étape 1: En préparation -->
+                                    <div class="flex items-center mb-1">
+                                        <span class="w-3 h-3 rounded-full bg-blue-500 flex items-center justify-center mr-2">
+                                            <i class="fas fa-check text-white text-xs"></i>
+                                        </span>
+                                        <span class="text-xs text-blue-600">En préparation</span>
+                                        <span class="text-xs text-blue-500 ml-2">
+                                            <i class="fas fa-clock mr-1"></i>En cours
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- Étape 2: Collectée -->
+                                    <div class="flex items-center mb-1">
+                                        <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                                            <i class="fas fa-circle text-gray-400 text-xs"></i>
+                                        </span>
+                                        <span class="text-xs text-gray-400">Collectée</span>
+                                        <span class="text-xs text-gray-500 ml-2">
+                                            <i class="fas fa-clock mr-1"></i>En attente
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- Étape 3: Emballée -->
+                                    <div class="flex items-center mb-1">
+                                        <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                                            <i class="fas fa-circle text-gray-400 text-xs"></i>
+                                        </span>
+                                        <span class="text-xs text-gray-400">Emballée</span>
+                                        <span class="text-xs text-gray-500 ml-2">
+                                            <i class="fas fa-clock mr-1"></i>En attente
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- Étape 4: Préparée -->
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                                            <i class="fas fa-circle text-gray-400 text-xs"></i>
+                                        </span>
+                                        <span class="text-xs text-gray-400">Préparée</span>
+                                        <span class="text-xs text-gray-500 ml-2">
+                                            <i class="fas fa-clock mr-1"></i>En attente
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- Panier -->
+                    <td class="table-cell text-center">
+                        <a href="{% url 'Superpreparation:detail_prepa' commande.pk %}" 
+                           class="action-button"
+                           title="Voir le panier de cette commande">
+                            <i class="fas fa-shopping-cart mr-1"></i> 
+                            {{ commande.paniers.count }} article{{ commande.paniers.count|pluralize }}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <i class="fas fa-inbox"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-600 mb-2">Aucune commande en préparation</h3>
+        <p class="text-gray-500">Aucune commande n'est actuellement en cours de préparation.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Toast notification system harmonisé
+    function showToast(message, type = 'info', duration = 4000) {
+        const toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            const container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        const icon = {
+            success: 'fas fa-check-circle text-green-500',
+            error: 'fas fa-exclamation-circle text-red-500',
+            info: 'fas fa-info-circle text-blue-500',
+            warning: 'fas fa-exclamation-triangle text-yellow-500'
+        }[type];
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <i class="${icon} mr-3 text-lg"></i>
+                <div class="flex-1">
+                    <p class="font-medium text-gray-900">${message}</p>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        document.getElementById('toastContainer').appendChild(toast);
+        
+        // Show animation
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        // Auto remove
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
+    // Fonction pour afficher les notifications (compatibilité)
+    function showNotification(title, message, type = 'info') {
+        showToast(`${title}: ${message}`, type);
+    }
+
+    // Fonction pour afficher/masquer les détails d'état
+    function toggleEtatDetails(commandeId) {
+        const detailsElement = document.getElementById(`etat-details-${commandeId}`);
+        if (detailsElement) {
+            detailsElement.classList.toggle('hidden');
+        }
+    }
+
+    // Fonctions pour la recherche intelligente
+    function clearSmartSearch() {
+        document.getElementById('smartSearch').value = '';
+        showToast('Recherche effacée', 'info');
+    }
+
+    function toggleAdvancedSearch() {
+        const advancedSearch = document.getElementById('advancedSearch');
+        if (advancedSearch) {
+            advancedSearch.classList.toggle('hidden');
+        }
+    }
+
+    function applyFilters() {
+        showToast('Filtres appliqués', 'success');
+    }
+
+    function clearFilters() {
+        showToast('Filtres effacés', 'info');
+    }
+
+    function clearAllSearch() {
+        showToast('Recherche effacée', 'info');
+    }
+
+    // Script de gestion de la sidebar
+    document.addEventListener('DOMContentLoaded', function() {
+        const menuToggle = document.getElementById('menu-toggle');
+        const body = document.body;
+        
+        if (menuToggle) {
+            menuToggle.addEventListener('click', function() {
+                body.classList.toggle('sidebar-open');
+                body.classList.toggle('sidebar-collapsed');
+                menuToggle.classList.toggle('hamburger-active');
+            });
+        }
+        
+        // Gestion du redimensionnement
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1023) {
+                body.classList.add('sidebar-open');
+                body.classList.remove('sidebar-collapsed');
+            } else {
+                body.classList.add('sidebar-collapsed');
+                body.classList.remove('sidebar-open');
+            }
+            
+            // Forcer le recalcul du layout après redimensionnement
+            setTimeout(() => {
+                const table = document.querySelector('.table-responsive');
+                if (table) {
+                    table.style.width = '100%';
+                }
+            }, 100);
+        });
+        
+        // Show welcome message
+        setTimeout(() => {
+            showToast('Bienvenue dans le suivi des commandes en préparation !', 'info', 3000);
+        }, 1000);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'r':
+                    e.preventDefault();
+                    window.location.reload();
+                    showToast('Page actualisée !', 'info');
+                    break;
+            }
+        }
+    });
+</script>
+
+<!-- Script de recherche intelligente -->
+<script src="{% static 'js/Suivi_des_Commandes/suivi-commandes-smart-search.js' %}"></script>
+<script>
+// Initialiser la recherche intelligente pour cette page
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof initSuiviCommandesSearch === 'function') {
+    initSuiviCommandesSearch('en_preparation');
+    }
+});
+</script>
+
+{% endblock %}
