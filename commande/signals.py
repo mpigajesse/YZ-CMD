@@ -1,6 +1,7 @@
 from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_migrate
 from django.dispatch import receiver
-from .models import Commande
+from .models import Commande, EnumEtatCmd
 
 
 @receiver(pre_save, sender=Commande)
@@ -52,3 +53,36 @@ def auto_recalcul_totaux_upsell(sender, instance, created, **kwargs):
         finally:
             # Nettoyer le flag
             delattr(instance, '_recalcul_en_cours') 
+
+
+@receiver(post_migrate)
+def ensure_default_enum_etats(sender, app_config, **kwargs):
+    """
+    Garantit la présence des états par défaut après les migrations.
+    Intègre tous les états nécessaires directement dans le projet.
+    """
+    if app_config.name != 'commande':
+        return
+
+    default_states = [
+        {'libelle': 'Non affectée', 'ordre': 1, 'couleur': '#6B7280'},
+        {'libelle': 'Affectée', 'ordre': 2, 'couleur': '#3B82F6'},
+        {'libelle': 'En cours de confirmation', 'ordre': 3, 'couleur': '#F59E0B'},
+        {'libelle': 'Confirmée', 'ordre': 4, 'couleur': '#10B981'},
+        {'libelle': 'Annulée', 'ordre': 5, 'couleur': '#EF4444'},
+        {'libelle': 'Doublon', 'ordre': 6, 'couleur': '#EF4444'},
+        {'libelle': 'Erronée', 'ordre': 7, 'couleur': '#F97316'},
+        {'libelle': 'Retour Confirmation', 'ordre': 8, 'couleur': '#8B5CF6'},
+        {'libelle': 'Livrée', 'ordre': 9, 'couleur': '#22C55E'},
+        {'libelle': 'En préparation', 'ordre': 10, 'couleur': '#06B6D4'},
+        {'libelle': 'Préparée', 'ordre': 11, 'couleur': '#14B8A6'},
+        {'libelle': 'Collectée', 'ordre': 12, 'couleur': '#6366F1'},
+        {'libelle': 'Emballée', 'ordre': 13, 'couleur': '#8B5CF6'},
+        {'libelle': 'Validée', 'ordre': 14, 'couleur': '#22C55E'},
+    ]
+
+    for state in default_states:
+        EnumEtatCmd.objects.get_or_create(
+            libelle=state['libelle'],
+            defaults={'ordre': state['ordre'], 'couleur': state['couleur']}
+        )
