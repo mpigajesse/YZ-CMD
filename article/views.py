@@ -19,8 +19,9 @@ def creer_categorie_ajax(request):
     try:
         data = json.loads(request.body.decode('utf-8'))
         nom = (data.get('nom') or '').strip()
-        if not nom:
-            return JsonResponse({'success': False, 'error': "Le nom de la catégorie est obligatoire."}, status=400)
+        # Validation plus stricte : rejeter les noms vides, composés uniquement de tirets, espaces, etc.
+        if not nom or nom.replace('-', '').replace('_', '').replace(' ', '').strip() == '':
+            return JsonResponse({'success': False, 'error': "Le nom de la catégorie est obligatoire et ne peut pas être composé uniquement de tirets ou d'espaces."}, status=400)
 
         # Vérifier l'existence (insensible à la casse)
         existante = Categorie.objects.filter(nom__iexact=nom).first()
@@ -50,8 +51,9 @@ def creer_genre_ajax(request):
     try:
         data = json.loads(request.body.decode('utf-8'))
         nom = (data.get('nom') or '').strip()
-        if not nom:
-            return JsonResponse({'success': False, 'error': "Le nom du genre est obligatoire."}, status=400)
+        # Validation plus stricte : rejeter les noms vides, composés uniquement de tirets, espaces, etc.
+        if not nom or nom.replace('-', '').replace('_', '').replace(' ', '').strip() == '':
+            return JsonResponse({'success': False, 'error': "Le nom du genre est obligatoire et ne peut pas être composé uniquement de tirets ou d'espaces."}, status=400)
 
         # Vérifier l'existence (insensible à la casse)
         existant = Genre.objects.filter(nom__iexact=nom).first()
