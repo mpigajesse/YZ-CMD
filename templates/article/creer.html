@@ -312,7 +312,11 @@ function closeGenreModal(){document.getElementById('genreModal').classList.add('
 
 async function submitCategorie(){
   const nom = document.getElementById('categorie_nom').value.trim();
-  if(!nom){alert('Veuillez saisir un nom de catégorie.');return}
+  // Validation côté client plus stricte
+  if(!nom || nom.replace(/-/g, '').replace(/_/g, '').replace(/\s/g, '').length === 0){
+    alert('Veuillez saisir un nom de catégorie valide (pas uniquement des tirets, espaces ou caractères spéciaux).');
+    return;
+  }
   const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
   try{
     const resp = await fetch('{% url "article:creer_categorie_ajax" %}',{
@@ -333,7 +337,11 @@ async function submitCategorie(){
 
 async function submitGenre(){
   const nom = document.getElementById('genre_nom').value.trim();
-  if(!nom){alert('Veuillez saisir un nom de genre.');return}
+  // Validation côté client plus stricte
+  if(!nom || nom.replace(/-/g, '').replace(/_/g, '').replace(/\s/g, '').length === 0){
+    alert('Veuillez saisir un nom de genre valide (pas uniquement des tirets, espaces ou caractères spéciaux).');
+    return;
+  }
   const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
   try{
     const resp = await fetch('{% url "article:creer_genre_ajax" %}',{
