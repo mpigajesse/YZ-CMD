@@ -259,10 +259,23 @@ class ImpressionModals {
     }
 
     /**
-     * Afficher la modale des codes-barres des commandes - SUPPRIMÉE
-     * Plus nécessaire car nous utilisons uniquement les QR codes
+     * Afficher la modale des codes-barres des commandes
+     * Réimplémentée pour éviter l'erreur et permettre l'impression de codes-barres
      */
-    // showCodesBarresModal() - SUPPRIMÉE
+    showCodesBarresModal(data) {
+        // Créer ou récupérer la modale
+        let modal = document.getElementById('codesBarresModal');
+        if (!modal) {
+            modal = this.createCodesBarresModal();
+        }
+        // Mettre à jour le contenu
+        const content = modal.querySelector('#codesBarresContent');
+        if (content) {
+            content.innerHTML = (data && data.html) ? data.html : 'Aucun contenu disponible';
+        }
+        // Afficher la modale
+        modal.classList.remove('hidden');
+    }
 
     /**
      * Afficher la modale des étiquettes des articles
@@ -348,14 +361,52 @@ class ImpressionModals {
     }
 
     /**
-     * Créer la modale des codes-barres des commandes - SUPPRIMÉE
-     * Plus nécessaire car nous utilisons uniquement les QR codes
+     * Créer la modale des codes-barres des commandes
      */
-    /*
     createCodesBarresModal() {
-        // Fonction supprimée car plus nécessaire
+        const modal = document.createElement('div');
+        modal.id = 'codesBarresModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+        
+        modal.innerHTML = `
+            <div class="relative p-6 bg-white w-full max-w-6xl m-auto flex-col flex rounded-xl shadow-2xl animate-fade-in-down">
+                <!-- En-tête du modal -->
+                <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-6">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background-color: var(--preparation-light);">
+                            <i class="fas fa-barcode text-white text-xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold" style="color: var(--preparation-light);">Codes-barres des Commandes</h3>
+                    </div>
+                    <button onclick="impressionModals.hideCodesBarresModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Contenu du modal -->
+                <div id="codesBarresContent" class="flex-1 overflow-y-auto">
+                    <!-- Le contenu sera chargé ici -->
+                </div>
+                
+                <!-- Boutons d'action -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button onclick="window.print()" 
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200">
+                        Imprimer
+                    </button>
+                    <button onclick="impressionModals.hideCodesBarresModal()" 
+                            class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        return modal;
     }
-    */
 
     /**
      * Créer la modale des étiquettes des articles
