@@ -459,11 +459,11 @@ class VariantesManager {
 
     // Méthode pour valider le formulaire avant soumission
     validateForm() {
+        // Autoriser la création sans variantes
         if (this.variantes.length === 0) {
-            this.showAlert('Veuillez ajouter au moins une variante pour cet article.', 'warning');
-            return false;
+            return true;
         }
-        
+
         // Vérifier que chaque variante a au moins une couleur ou une pointure
         for (let variante of this.variantes) {
             if (!variante.couleur && !variante.pointure) {
@@ -471,11 +471,11 @@ class VariantesManager {
                 return false;
             }
         }
-        
+
         // Afficher un résumé des variantes
         const summary = this.showVariantesSummary();
         console.log('Résumé des variantes:', summary);
-        
+
         return true;
     }
 
