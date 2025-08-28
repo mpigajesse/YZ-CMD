@@ -294,7 +294,7 @@ class VariantesManager {
             // 1. Créer d'abord l'article
             const formData = new FormData(form);
             
-            const articleResponse = await fetch(form.action, {
+            const articleResponse = await fetch(window.CREER_ARTICLE_URL || form.action, {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -303,7 +303,14 @@ class VariantesManager {
                 }
             });
             
-            const articleResult = await articleResponse.json();
+            const articleText = await articleResponse.text();
+            let articleResult;
+            try {
+                articleResult = JSON.parse(articleText);
+            } catch(e) {
+                // Si on reçoit du HTML (ex: page login ou erreur), lever une erreur claire
+                throw new Error('Réponse non JSON lors de la création de l\'article.');
+            }
             
             if (!articleResult.success) {
                 throw new Error(articleResult.error || 'Erreur lors de la création de l\'article');
@@ -320,7 +327,7 @@ class VariantesManager {
                     reference: this.genererReferenceVariante(variante)
                 }));
                 
-                const variantesResponse = await fetch('/Superpreparation/stock/variantes/creer-ajax/', {
+                const variantesResponse = await fetch(window.VARIANTES_CREATE_URL || '/article/variantes/creer-ajax/', {
                     method: 'POST',
                     body: JSON.stringify({
                         article_id: articleResult.article_id,
@@ -333,7 +340,13 @@ class VariantesManager {
                     }
                 });
                 
-                const variantesResult = await variantesResponse.json();
+                const variantesText = await variantesResponse.text();
+                let variantesResult;
+                try {
+                    variantesResult = JSON.parse(variantesText);
+                } catch(e) {
+                    throw new Error('Réponse non JSON lors de la création des variantes.');
+                }
                 
                 if (variantesResult.success) {
                     this.showAlert(`${variantesResult.nombre_crees} variante(s) créée(s) avec succès !`, 'success');
@@ -351,11 +364,16 @@ class VariantesManager {
             
             // 3. Rediriger vers la liste des articles après un délai
             setTimeout(() => {
-                window.location.href = '/article/';
-            }, 2000);
+                window.location.href = window.ARTICLE_LIST_URL || '/article/';
+            }, 1200);
             
         } catch (error) {
             console.error('Erreur:', error);
+            // Si non authentifié et retour HTML (login), rediriger
+            if (!window.IS_AUTHENTICATED && window.LOGIN_URL) {
+                window.location.href = window.LOGIN_URL;
+                return;
+            }
             this.showAlert(`Erreur: ${error.message}`, 'error');
         } finally {
             this.showLoadingIndicator(false);
@@ -376,7 +394,7 @@ class VariantesManager {
                 reference: this.genererReferenceVariante(variante)
             }));
             
-            const response = await fetch('/Superpreparation/stock/variantes/creer-ajax/', {
+            const response = await fetch(window.VARIANTES_CREATE_URL || '/article/variantes/creer-ajax/', {
                 method: 'POST',
                 body: JSON.stringify({
                     article_id: articleId,
@@ -389,7 +407,13 @@ class VariantesManager {
                 }
             });
             
-            const result = await response.json();
+            const respText = await response.text();
+            let result;
+            try {
+                result = JSON.parse(respText);
+            } catch(e) {
+                throw new Error('Réponse non JSON lors de la création des variantes.');
+            }
             
             if (result.success) {
                 this.showAlert(`${result.nombre_crees} variante(s) créée(s) avec succès !`, 'success');
