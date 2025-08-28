@@ -58,11 +58,16 @@
                 </div>
                 <div>
                     <label for="id_categorie" class="block text-sm font-semibold mb-2" style="color: #023535;">Catégorie:</label>
-                   <select name="categorie" id="id_categorie" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
-                    {% for categorie in categories %}
-                        <option value="{{ categorie.id }}" {% if article.categorie_id == categorie.id %}selected{% endif %}>{{ categorie.nom }}</option>
-                    {% endfor %}
-                   </select>
+                    <div class="flex gap-2">
+                        <select name="categorie" id="id_categorie" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
+                            {% for categorie in categories %}
+                                <option value="{{ categorie.id }}" {% if article.categorie_id == categorie.id %}selected{% endif %}>{{ categorie.nom }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" onclick="openCategorieModal()" class="bg-[#66cccc] hover:bg-[#5bb8b8] text-white px-3 rounded-lg" title="Ajouter une catégorie">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
                 </div>
                 <div>
                     <label for="id_modele" class="block text-sm font-semibold mb-2" style="color: #023535;">Numero du Modele : </label>
@@ -71,12 +76,16 @@
                 </div>
                 <div>
                     <label for="id_genre" class="block text-sm font-semibold mb-2" style="color: #023535;">Genre:</label>
-
-                    <select name="genre" id="id_genre" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
-                        {% for genre in genres %}
-                            <option value="{{ genre.id }}" {% if article.genre_id == genre.id %}selected{% endif %}>{{ genre.nom }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="flex gap-2">
+                        <select name="genre" id="id_genre" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent transition duration-200">
+                            {% for genre in genres %}
+                                <option value="{{ genre.id }}" {% if article.genre_id == genre.id %}selected{% endif %}>{{ genre.nom }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" onclick="openGenreModal()" class="bg-[#66cccc] hover:bg-[#5bb8b8] text-white px-3 rounded-lg" title="Ajouter un genre">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
                 </div>
                 <div>
                     <label for="id_image" class="block text-sm font-semibold mb-2" style="color: #023535;">Image:</label>
@@ -226,7 +235,121 @@
     </div>
 </div>
 
-<!-- Inclure le fichier JavaScript pour la gestion des variantes -->
+<!-- Modale: Ajouter Catégorie -->
+<div id="categorieModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="modal-header">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold" style="color: #023535;">
+                        <i class="fas fa-plus-circle mr-2 text-[#66cccc]"></i>
+                        Ajouter une catégorie
+                    </h3>
+                    <button onclick="closeCategorieModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <form id="categorieForm" class="space-y-4">
+                <div>
+                    <label for="categorie_nom" class="modal-label">Nom de la catégorie:</label>
+                    <input type="text" id="categorie_nom" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent" placeholder="Ex: Chaussures, Sport...">
+                </div>
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeCategorieModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-medium transition-colors">Annuler</button>
+                    <button type="button" onclick="submitCategorie()" class="bg-[#66cccc] hover:bg-[#5bb8b8] text-white px-4 py-2 rounded-lg font-medium transition-colors">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    </div>
+
+<!-- Modale: Ajouter Genre -->
+<div id="genreModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="modal-header">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold" style="color: #023535;">
+                        <i class="fas fa-plus-circle mr-2 text-[#66cccc]"></i>
+                        Ajouter un genre
+                    </h3>
+                    <button onclick="closeGenreModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <form id="genreForm" class="space-y-4">
+                <div>
+                    <label for="genre_nom" class="modal-label">Nom du genre:</label>
+                    <input type="text" id="genre_nom" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#66cccc] focus:border-transparent" placeholder="Ex: Homme, Femme, Mixte...">
+                </div>
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeGenreModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-medium transition-colors">Annuler</button>
+                    <button type="button" onclick="submitGenre()" class="bg-[#66cccc] hover:bg-[#5bb8b8] text-white px-4 py-2 rounded-lg font-medium transition-colors">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    </div>
+
+<!-- Endpoints dynamiques pour AJAX -->
+<script>
+  window.VARIANTES_CREATE_URL = "{% url 'article:creer_variantes_ajax' %}";
+  window.ARTICLE_LIST_URL = "{% url 'article:liste' %}";
+  window.CREER_ARTICLE_URL = "{% url 'article:creer' %}";
+  window.IS_AUTHENTICATED = {{ request.user.is_authenticated|yesno:'true,false' }};
+  window.LOGIN_URL = "{% url 'login' %}";
+</script>
+
+<!-- Inclure le fichier JavaScript pour la gestion des variantes et des modales Catégorie/Genre -->
 <script src="{% static 'js/variantes-modal.js' %}"></script>
+<script>
+function openCategorieModal(){document.getElementById('categorieModal').classList.remove('hidden')}
+function closeCategorieModal(){document.getElementById('categorieModal').classList.add('hidden')}
+function openGenreModal(){document.getElementById('genreModal').classList.remove('hidden')}
+function closeGenreModal(){document.getElementById('genreModal').classList.add('hidden')}
+
+async function submitCategorie(){
+  const nom = document.getElementById('categorie_nom').value.trim();
+  if(!nom){alert('Veuillez saisir un nom de catégorie.');return}
+  const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+  try{
+    const resp = await fetch('{% url "article:creer_categorie_ajax" %}',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken,'X-Requested-With':'XMLHttpRequest'},
+      body:JSON.stringify({nom})
+    });
+    const data = await resp.json();
+    if(!data.success){alert(data.error||'Erreur lors de la création.');return}
+    // Ajouter/selecionner dans la liste
+    const select = document.getElementById('id_categorie');
+    const opt = document.createElement('option');
+    opt.value = data.categorie.id; opt.textContent = data.categorie.nom; opt.selected = true;
+    select.appendChild(opt);
+    closeCategorieModal();
+  }catch(e){alert('Erreur réseau: '+e)}
+}
+
+async function submitGenre(){
+  const nom = document.getElementById('genre_nom').value.trim();
+  if(!nom){alert('Veuillez saisir un nom de genre.');return}
+  const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+  try{
+    const resp = await fetch('{% url "article:creer_genre_ajax" %}',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken,'X-Requested-With':'XMLHttpRequest'},
+      body:JSON.stringify({nom})
+    });
+    const data = await resp.json();
+    if(!data.success){alert(data.error||'Erreur lors de la création.');return}
+    const select = document.getElementById('id_genre');
+    const opt = document.createElement('option');
+    opt.value = data.genre.id; opt.textContent = data.genre.nom; opt.selected = true;
+    select.appendChild(opt);
+    closeGenreModal();
+  }catch(e){alert('Erreur réseau: '+e)}
+}
+</script>
 
 {% endblock %} 

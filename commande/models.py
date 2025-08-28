@@ -84,14 +84,16 @@ class Commande(models.Model):
             models.CheckConstraint(check=models.Q(total_cmd__gte=0), name='total_cmd_positif'),
         ]
     
+    # Point de départ souhaité pour id_yz
+    START_ID_YZ = 211971
+
     def save(self, *args, **kwargs):
         # Générer l'ID YZ automatiquement si ce n'est pas encore fait
-        if not self.id_yz:
-            # Obtenir le dernier ID YZ et ajouter 1
-            last_id_yz = Commande.objects.aggregate(
-                max_id=models.Max('id_yz')
-            )['max_id']
-            self.id_yz = (last_id_yz or 0) + 1
+        if self.id_yz is None:
+            last_id_yz = Commande.objects.aggregate(max_id=models.Max('id_yz'))['max_id']
+            base = self.START_ID_YZ - 1
+            # Si aucune commande, commencer à 211971; sinon continuer après le max existant
+            self.id_yz = max(last_id_yz or base, base) + 1
         
         # Générer le numéro de commande selon l'origine si ce n'est pas déjà fait
         if not self.num_cmd:

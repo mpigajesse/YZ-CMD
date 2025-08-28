@@ -17,6 +17,9 @@ urlpatterns = [
     path('variantes/', views.liste_variantes, name='liste_variantes'),
     path('variantes/creer-ajax/', views.creer_variantes_ajax, name='creer_variantes_ajax'),
     path('variantes/supprimer/<int:id>/', views.supprimer_variante, name='supprimer_variante'),
+    # Création rapide Catégorie / Genre (AJAX)
+    path('categories/creer-ajax/', views.creer_categorie_ajax, name='creer_categorie_ajax'),
+    path('genres/creer-ajax/', views.creer_genre_ajax, name='creer_genre_ajax'),
     #path('variantes/creer/', views.creer_variante, name='creer_variante'),
     #path('variantes/<int:id>/', views.detail_variante, name='detail_variante'),
     #path('variantes/modifier/<int:id>/', views.modifier_variante, name='modifier_variante'),
